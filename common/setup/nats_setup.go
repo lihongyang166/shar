@@ -3,10 +3,11 @@ package setup
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"time"
 )
 
 var consumerConfig []*nats.ConsumerConfig

@@ -1,6 +1,5 @@
 package intTest
 
-/*
 import (
 	"bytes"
 	"context"
@@ -12,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/cli/flag"
 	"gitlab.com/shar-workflow/shar/cli/output"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/common/element"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"strings"
@@ -80,6 +80,7 @@ func TestCLI(t *testing.T) {
 	sharExecf(t, wfi, "workflow start SimpleWorkflow --server %s --json", tst.NatsURL)
 	assert.NotEmpty(t, wfi.WorkflowInstanceID)
 
+	time.Sleep(3 * time.Second)
 	// Get Workflow Instances
 	instances := &struct {
 		WorkflowInstance []model.ListWorkflowInstanceResult
@@ -88,24 +89,38 @@ func TestCLI(t *testing.T) {
 	assert.Equal(t, 1, len(instances.WorkflowInstance))
 	assert.Equal(t, wfi.WorkflowInstanceID, instances.WorkflowInstance[0].Id)
 
-	//TODO:RE-implement
-	/*
-		//Get Workflow Instance Status
-		status := &struct {
-			TrackingId string
-			ID         string
-			Type       string
-			State      string
-			Executing  string
-			Since      int64
-		}{}
-		sharExecf(t, &status, "instance status %s --server %s --json", wfi.WorkflowInstanceID, tst.NatsURL)
-		assert.NotEmpty(t, status.TrackingId)
-		assert.Equal(t, "Step1", status.ID)
-		assert.Equal(t, element.ServiceTask, status.Type)
-		assert.Equal(t, "executing", status.State)
-		assert.Equal(t, "SimpleProcess", status.Executing)
-		assert.NotZero(t, status.Since)
+	fmt.Println()
+
+	//Get Workflow Instance Status
+	type retState struct {
+		TrackingId string
+		ID         string
+		Type       string
+		State      string
+		Executing  string
+		Since      int64
+	}
+	// Get Workflow Instances
+	status := struct {
+		InstanceId string
+		Processes  map[string][]retState
+	}{}
+
+	var firstProcess retState
+
+	sharExecf(t, &status, "instance status %s --server %s --json", wfi.WorkflowInstanceID, tst.NatsURL)
+
+	for _, i := range status.Processes {
+		firstProcess = i[len(i)-1]
+		break
+	}
+
+	assert.NotEmpty(t, firstProcess.ID)
+	assert.Equal(t, "Step1", firstProcess.ID)
+	assert.Equal(t, element.ServiceTask, firstProcess.Type)
+	assert.Equal(t, "executing", firstProcess.State)
+	assert.Equal(t, "SimpleProcess", firstProcess.ID)
+	assert.NotZero(t, firstProcess.Since)
 
 	// Allow workflow to continue
 	close(d.allowContinue)
@@ -140,4 +155,3 @@ func (d *testLaunchWorkflow) integrationSimple(_ context.Context, _ client.JobCl
 func (d *testLaunchWorkflow) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	close(d.finished)
 }
-*/

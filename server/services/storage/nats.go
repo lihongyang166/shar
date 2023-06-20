@@ -587,6 +587,7 @@ func (s *Nats) ListWorkflowInstanceProcesses(ctx context.Context, id string) ([]
 
 // GetProcessInstanceStatus returns a list of workflow statuses for the specified process instance ID.
 func (s *Nats) GetProcessInstanceStatus(ctx context.Context, id string) ([]*model.WorkflowState, error) {
+
 	v := &model.WorkflowState{}
 	err := common.LoadObj(ctx, s.wfProcessInstance, id, v)
 	if err != nil {

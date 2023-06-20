@@ -268,7 +268,7 @@ func (c *Client) listen(ctx context.Context) error {
 				}
 			}
 
-			// Start a loop keeping this connection alive.
+			// Start a loop keeping this message alive.
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			var fnMx sync.Mutex

@@ -15,6 +15,7 @@ type Method interface {
 	OutputUserTaskIDs(ut []*model.GetUserTaskResponse)
 	OutputWorkflow(res []*model.ListWorkflowResult)
 	OutputStartWorkflowResult(wfiID string, wfID string)
+	OutputListProcesssInstance(piID []string)
 }
 
 // Current is the currently selected output method.

@@ -8,7 +8,7 @@ services:
       - '--server_name'
       - compose_nats
   shar:
-    image: registry.gitlab.com/shar-workflow/shar/server:1.0.532
+    image: registry.gitlab.com/shar-workflow/shar/server:1.0.548
     environment:
       - SHAR_PORT=50000
       - NATS_URL=nats://nats:4222

@@ -15,7 +15,7 @@ import (
 // Cmd is the cobra command object
 var Cmd = &cobra.Command{
 	Use:   "status",
-	Short: "Gets the status of a running workflow instance",
+	Short: "Gets the status of a running process instance",
 	Long:  ``,
 	RunE:  run,
 	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),

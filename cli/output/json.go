@@ -100,6 +100,14 @@ func (c *Json) OutputCancelledWorkflow(id string) {
 	})
 }
 
+func (c *Json) OutputListProcesssInstance(piID []string) {
+	outJson(struct {
+		ProcessInstanceID []string
+	}{
+		ProcessInstanceID: piID,
+	})
+}
+
 func outJson(js interface{}) {
 	op, err := json.Marshal(&js)
 	if err != nil {

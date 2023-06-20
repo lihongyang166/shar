@@ -78,6 +78,18 @@ func (c *Text) OutputLoadResult(workflowInstanceID string) {
 	fmt.Println("Instance: " + workflowInstanceID)
 }
 
+func (c *Text) OutputListProcesssInstance(piID []string) {
+	ll := make(pterm.LeveledList, 0, len(piID))
+	for _, i := range piID {
+		ll = append(ll, pterm.LeveledListItem{Level: 0, Text: i})
+	}
+	outJson(struct {
+		ProcessInstanceID []string
+	}{
+		ProcessInstanceID: piID,
+	})
+}
+
 func readStringPtr(ptr *string) string {
 	if ptr == nil {
 		return ""

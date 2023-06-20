@@ -419,6 +419,104 @@ func (LogSource) EnumDescriptor() ([]byte, []int) {
 	return file_shar_workflow_models_proto_rawDescGZIP(), []int{7}
 }
 
+type RetryStrategy int32
+
+const (
+	RetryStrategy_Linear      RetryStrategy = 0 // Retry at regular intervals.
+	RetryStrategy_Incremental RetryStrategy = 1 // Retry at increasingly large intervals.
+)
+
+// Enum value maps for RetryStrategy.
+var (
+	RetryStrategy_name = map[int32]string{
+		0: "Linear",
+		1: "Incremental",
+	}
+	RetryStrategy_value = map[string]int32{
+		"Linear":      0,
+		"Incremental": 1,
+	}
+)
+
+func (x RetryStrategy) Enum() *RetryStrategy {
+	p := new(RetryStrategy)
+	*p = x
+	return p
+}
+
+func (x RetryStrategy) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RetryStrategy) Descriptor() protoreflect.EnumDescriptor {
+	return file_shar_workflow_models_proto_enumTypes[8].Descriptor()
+}
+
+func (RetryStrategy) Type() protoreflect.EnumType {
+	return &file_shar_workflow_models_proto_enumTypes[8]
+}
+
+func (x RetryStrategy) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RetryStrategy.Descriptor instead.
+func (RetryStrategy) EnumDescriptor() ([]byte, []int) {
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{8}
+}
+
+type RetryErrorAction int32
+
+const (
+	RetryErrorAction_PauseWorkflow      RetryErrorAction = 0 // PauseWorkflow - exhausting retries will pause the workflow and send a shar operational message.
+	RetryErrorAction_ThrowWorkflowError RetryErrorAction = 1 // ThrowWorkflowError - throw a workflow error.
+	RetryErrorAction_SetVariableValue   RetryErrorAction = 2 // SetVariableValue - set a workflow variable value.
+	RetryErrorAction_FailWorkflow       RetryErrorAction = 3 // FailWorkflow - exhausting retries will fail the workflow.
+)
+
+// Enum value maps for RetryErrorAction.
+var (
+	RetryErrorAction_name = map[int32]string{
+		0: "PauseWorkflow",
+		1: "ThrowWorkflowError",
+		2: "SetVariableValue",
+		3: "FailWorkflow",
+	}
+	RetryErrorAction_value = map[string]int32{
+		"PauseWorkflow":      0,
+		"ThrowWorkflowError": 1,
+		"SetVariableValue":   2,
+		"FailWorkflow":       3,
+	}
+)
+
+func (x RetryErrorAction) Enum() *RetryErrorAction {
+	p := new(RetryErrorAction)
+	*p = x
+	return p
+}
+
+func (x RetryErrorAction) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RetryErrorAction) Descriptor() protoreflect.EnumDescriptor {
+	return file_shar_workflow_models_proto_enumTypes[9].Descriptor()
+}
+
+func (RetryErrorAction) Type() protoreflect.EnumType {
+	return &file_shar_workflow_models_proto_enumTypes[9]
+}
+
+func (x RetryErrorAction) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RetryErrorAction.Descriptor instead.
+func (RetryErrorAction) EnumDescriptor() ([]byte, []int) {
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{9}
+}
+
 // Workflow describes a number of processes that interact together.  It also contains all messages and errors used by the processes.
 type Workflow struct {
 	state         protoimpl.MessageState
@@ -5015,12 +5113,12 @@ type TaskSpec struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Version    string          `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
-	Kind       string          `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
-	Metadata   *TaskMetadata   `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	Behaviour  *TaskBehaviour  `protobuf:"bytes,4,opt,name=behaviour,proto3" json:"behaviour,omitempty"`
-	Parameters *TaskParameters `protobuf:"bytes,5,opt,name=parameters,proto3" json:"parameters,omitempty"`
-	Events     *TaskEvents     `protobuf:"bytes,6,opt,name=events,proto3" json:"events,omitempty"`
+	Version    string          `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`       // Version of task specification.
+	Kind       string          `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`             // Kind of task specification, may be "ServiceTask" or "UserTask".
+	Metadata   *TaskMetadata   `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`     // Metadata document any non functional information regarding the TaskSpec.
+	Behaviour  *TaskBehaviour  `protobuf:"bytes,4,opt,name=behaviour,proto3" json:"behaviour,omitempty"`   // Behaviour documents instance behaviour.
+	Parameters *TaskParameters `protobuf:"bytes,5,opt,name=parameters,proto3" json:"parameters,omitempty"` // Parameters document input and output parameters for the task.
+	Events     *TaskEvents     `protobuf:"bytes,6,opt,name=events,proto3" json:"events,omitempty"`         // Events document errors and messages that can be emitted from the task.
 }
 
 func (x *TaskSpec) Reset() {
@@ -5102,13 +5200,13 @@ type TaskMetadata struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Uid                  string   `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
-	Type                 string   `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Version              string   `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
-	Short                string   `protobuf:"bytes,4,opt,name=short,proto3" json:"short,omitempty"`
-	Description          string   `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	Labels               []string `protobuf:"bytes,6,rep,name=labels,proto3" json:"labels,omitempty"`
-	EstimatedMaxDuration uint64   `protobuf:"varint,7,opt,name=estimatedMaxDuration,proto3" json:"estimatedMaxDuration,omitempty"`
+	Uid                  string   `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`                                    // Uid of the task as a KSUID.
+	Type                 string   `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`                                  // Type - the name for the task when referred to by process.
+	Version              string   `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`                            // Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters.
+	Short                string   `protobuf:"bytes,4,opt,name=short,proto3" json:"short,omitempty"`                                // Short description of the task.
+	Description          string   `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`                    // Description - a long description of the task.
+	Labels               []string `protobuf:"bytes,6,rep,name=labels,proto3" json:"labels,omitempty"`                              // Labels - a comma seperated list of searchable tags for the task.
+	EstimatedMaxDuration uint64   `protobuf:"varint,7,opt,name=estimatedMaxDuration,proto3" json:"estimatedMaxDuration,omitempty"` // EstimatedMaxDuration documents how long the task is expected to run for.
 }
 
 func (x *TaskMetadata) Reset() {
@@ -5197,9 +5295,9 @@ type TaskParameters struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ParameterGroup []*ParameterGroup `protobuf:"bytes,1,rep,name=parameterGroup,proto3" json:"parameterGroup,omitempty"`
-	Input          []*Parameter      `protobuf:"bytes,2,rep,name=input,proto3" json:"input,omitempty"`
-	Output         []*Parameter      `protobuf:"bytes,3,rep,name=output,proto3" json:"output,omitempty"`
+	ParameterGroup []*ParameterGroup `protobuf:"bytes,1,rep,name=parameterGroup,proto3" json:"parameterGroup,omitempty"` // ParameterGroup is a list of parameters with their categorization.  This is useful for display.
+	Input          []*Parameter      `protobuf:"bytes,2,rep,name=input,proto3" json:"input,omitempty"`                   // Input documents input parameters to the task.
+	Output         []*Parameter      `protobuf:"bytes,3,rep,name=output,proto3" json:"output,omitempty"`                 // Output documents output parameters for the task.
 }
 
 func (x *TaskParameters) Reset() {
@@ -5260,8 +5358,8 @@ type TaskEvents struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Error   []*Error   `protobuf:"bytes,1,rep,name=error,proto3" json:"error,omitempty"`
-	Message []*Message `protobuf:"bytes,2,rep,name=Message,proto3" json:"Message,omitempty"`
+	Error   []*Error   `protobuf:"bytes,1,rep,name=error,proto3" json:"error,omitempty"`     // Error workflow events that can be returned from the task.
+	Message []*Message `protobuf:"bytes,2,rep,name=Message,proto3" json:"Message,omitempty"` // Message workflow events that can be returned from the task.
 }
 
 func (x *TaskEvents) Reset() {
@@ -5315,8 +5413,9 @@ type TaskBehaviour struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Retry  uint32 `protobuf:"varint,1,opt,name=retry,proto3" json:"retry,omitempty"`
-	Unsafe bool   `protobuf:"varint,2,opt,name=unsafe,proto3" json:"unsafe,omitempty"`
+	DefaultRetry *DefaultTaskRetry `protobuf:"bytes,1,opt,name=defaultRetry,proto3" json:"defaultRetry,omitempty"` // Retry - the recommended retry behavior for the task, this could be overriden by a workflow.
+	Unsafe       bool              `protobuf:"varint,2,opt,name=unsafe,proto3" json:"unsafe,omitempty"`            // Unsafe labels the task as non-idempotent.  Non-idempotent tasks are highly unrecommended.
+	Mock         bool              `protobuf:"varint,3,opt,name=mock,proto3" json:"mock,omitempty"`                // Mock this task as it has no concrete implementation.
 }
 
 func (x *TaskBehaviour) Reset() {
@@ -5351,11 +5450,11 @@ func (*TaskBehaviour) Descriptor() ([]byte, []int) {
 	return file_shar_workflow_models_proto_rawDescGZIP(), []int{76}
 }
 
-func (x *TaskBehaviour) GetRetry() uint32 {
+func (x *TaskBehaviour) GetDefaultRetry() *DefaultTaskRetry {
 	if x != nil {
-		return x.Retry
+		return x.DefaultRetry
 	}
-	return 0
+	return nil
 }
 
 func (x *TaskBehaviour) GetUnsafe() bool {
@@ -5365,20 +5464,161 @@ func (x *TaskBehaviour) GetUnsafe() bool {
 	return false
 }
 
+func (x *TaskBehaviour) GetMock() bool {
+	if x != nil {
+		return x.Mock
+	}
+	return false
+}
+
+type DefaultTaskRetry struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Number          uint32                         `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`                        // Retry - the recommended number of retries for the task.
+	Strategy        RetryStrategy                  `protobuf:"varint,2,opt,name=strategy,proto3,enum=RetryStrategy" json:"strategy,omitempty"` // Strategy for retrying the task.
+	InitMilli       int64                          `protobuf:"varint,3,opt,name=initMilli,proto3" json:"initMilli,omitempty"`                  // InitMilli - initial backoff delay in milliseconds (Static, Linear, Incremental)
+	IntervalMilli   int64                          `protobuf:"varint,4,opt,name=intervalMilli,proto3" json:"intervalMilli,omitempty"`          // IntervalMilli - delay interval (Linear) amount to add each attempt (Incremental)
+	MaxMilli        int64                          `protobuf:"varint,5,opt,name=maxMilli,proto3" json:"maxMilli,omitempty"`                    // MaxMilli - delay ceiling (Static, Linear, Incremental)
+	DefaultExceeded *DefaultRetryExceededBehaviour `protobuf:"bytes,6,opt,name=defaultExceeded,proto3" json:"defaultExceeded,omitempty"`       // DefaultExceeded - specifies what to do by default when the attempts have been exhausted.  This only specifies the strategy, and doesn't contain runtime parameters.
+}
+
+func (x *DefaultTaskRetry) Reset() {
+	*x = DefaultTaskRetry{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_shar_workflow_models_proto_msgTypes[77]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DefaultTaskRetry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DefaultTaskRetry) ProtoMessage() {}
+
+func (x *DefaultTaskRetry) ProtoReflect() protoreflect.Message {
+	mi := &file_shar_workflow_models_proto_msgTypes[77]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DefaultTaskRetry.ProtoReflect.Descriptor instead.
+func (*DefaultTaskRetry) Descriptor() ([]byte, []int) {
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *DefaultTaskRetry) GetNumber() uint32 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *DefaultTaskRetry) GetStrategy() RetryStrategy {
+	if x != nil {
+		return x.Strategy
+	}
+	return RetryStrategy_Linear
+}
+
+func (x *DefaultTaskRetry) GetInitMilli() int64 {
+	if x != nil {
+		return x.InitMilli
+	}
+	return 0
+}
+
+func (x *DefaultTaskRetry) GetIntervalMilli() int64 {
+	if x != nil {
+		return x.IntervalMilli
+	}
+	return 0
+}
+
+func (x *DefaultTaskRetry) GetMaxMilli() int64 {
+	if x != nil {
+		return x.MaxMilli
+	}
+	return 0
+}
+
+func (x *DefaultTaskRetry) GetDefaultExceeded() *DefaultRetryExceededBehaviour {
+	if x != nil {
+		return x.DefaultExceeded
+	}
+	return nil
+}
+
+type DefaultRetryExceededBehaviour struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Action RetryErrorAction `protobuf:"varint,1,opt,name=action,proto3,enum=RetryErrorAction" json:"action,omitempty"` // Action to take when retries are exceeded.
+}
+
+func (x *DefaultRetryExceededBehaviour) Reset() {
+	*x = DefaultRetryExceededBehaviour{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_shar_workflow_models_proto_msgTypes[78]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DefaultRetryExceededBehaviour) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DefaultRetryExceededBehaviour) ProtoMessage() {}
+
+func (x *DefaultRetryExceededBehaviour) ProtoReflect() protoreflect.Message {
+	mi := &file_shar_workflow_models_proto_msgTypes[78]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DefaultRetryExceededBehaviour.ProtoReflect.Descriptor instead.
+func (*DefaultRetryExceededBehaviour) Descriptor() ([]byte, []int) {
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *DefaultRetryExceededBehaviour) GetAction() RetryErrorAction {
+	if x != nil {
+		return x.Action
+	}
+	return RetryErrorAction_PauseWorkflow
+}
+
 type ParameterGroup struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Short       string `protobuf:"bytes,2,opt,name=short,proto3" json:"short,omitempty"`
-	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`               // Name of the parameter group.
+	Short       string `protobuf:"bytes,2,opt,name=short,proto3" json:"short,omitempty"`             // Short description of the parameter groupp.
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"` // Description - a long description of the parameter group.
 }
 
 func (x *ParameterGroup) Reset() {
 	*x = ParameterGroup{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_shar_workflow_models_proto_msgTypes[77]
+		mi := &file_shar_workflow_models_proto_msgTypes[79]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5391,7 +5631,7 @@ func (x *ParameterGroup) String() string {
 func (*ParameterGroup) ProtoMessage() {}
 
 func (x *ParameterGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_shar_workflow_models_proto_msgTypes[77]
+	mi := &file_shar_workflow_models_proto_msgTypes[79]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5404,7 +5644,7 @@ func (x *ParameterGroup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ParameterGroup.ProtoReflect.Descriptor instead.
 func (*ParameterGroup) Descriptor() ([]byte, []int) {
-	return file_shar_workflow_models_proto_rawDescGZIP(), []int{77}
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *ParameterGroup) GetName() string {
@@ -5433,20 +5673,23 @@ type Parameter struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name          string            `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Short         string            `protobuf:"bytes,2,opt,name=short,proto3" json:"short,omitempty"`
-	Description   string            `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Type          string            `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
-	Group         *string           `protobuf:"bytes,5,opt,name=group,proto3,oneof" json:"group,omitempty"`
-	ExtensionData map[string]string `protobuf:"bytes,6,rep,name=extensionData,proto3" json:"extensionData,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Mandatory     bool              `protobuf:"varint,7,opt,name=Mandatory,proto3" json:"Mandatory,omitempty"`
-	ValidateRegEx string            `protobuf:"bytes,8,opt,name=ValidateRegEx,proto3" json:"ValidateRegEx,omitempty"`
+	Name                string            `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                                                                                           // Name of the parameter.
+	Short               string            `protobuf:"bytes,2,opt,name=short,proto3" json:"short,omitempty"`                                                                                                         // Short description of the parameter.
+	Description         string            `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`                                                                                             // Description - a long description of the parameter.
+	Type                string            `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`                                                                                                           // Type of the parameter "string", "int", "float", "bool"
+	CustomTypeExtension *string           `protobuf:"bytes,5,opt,name=customTypeExtension,proto3,oneof" json:"customTypeExtension,omitempty"`                                                                       // Subtype describing the use of the type "IPAddress" etc.
+	Collection          bool              `protobuf:"varint,6,opt,name=collection,proto3" json:"collection,omitempty"`                                                                                              // Collection specifies the parameter is an array.
+	Group               *string           `protobuf:"bytes,7,opt,name=group,proto3,oneof" json:"group,omitempty"`                                                                                                   // Group declares this parameter as part of a named parameter group.
+	ExtensionData       map[string]string `protobuf:"bytes,8,rep,name=extensionData,proto3" json:"extensionData,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // ExtensionData - a map of values that can be used by third party tools.
+	Mandatory           bool              `protobuf:"varint,9,opt,name=mandatory,proto3" json:"mandatory,omitempty"`                                                                                                // Mandatory specifies that this parameter is required.
+	ValidateExpr        string            `protobuf:"bytes,10,opt,name=validateExpr,proto3" json:"validateExpr,omitempty"`                                                                                          // ValidateExpr - an EXPR that is used to validate the field value.
+	Example             string            `protobuf:"bytes,11,opt,name=example,proto3" json:"example,omitempty"`                                                                                                    // Example - an example EXPR that is used to provide a hint to a user on the nature of a task.  It is also used when the task is being used as a mock before implementation.
 }
 
 func (x *Parameter) Reset() {
 	*x = Parameter{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_shar_workflow_models_proto_msgTypes[78]
+		mi := &file_shar_workflow_models_proto_msgTypes[80]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5459,7 +5702,7 @@ func (x *Parameter) String() string {
 func (*Parameter) ProtoMessage() {}
 
 func (x *Parameter) ProtoReflect() protoreflect.Message {
-	mi := &file_shar_workflow_models_proto_msgTypes[78]
+	mi := &file_shar_workflow_models_proto_msgTypes[80]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5472,7 +5715,7 @@ func (x *Parameter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Parameter.ProtoReflect.Descriptor instead.
 func (*Parameter) Descriptor() ([]byte, []int) {
-	return file_shar_workflow_models_proto_rawDescGZIP(), []int{78}
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *Parameter) GetName() string {
@@ -5503,6 +5746,20 @@ func (x *Parameter) GetType() string {
 	return ""
 }
 
+func (x *Parameter) GetCustomTypeExtension() string {
+	if x != nil && x.CustomTypeExtension != nil {
+		return *x.CustomTypeExtension
+	}
+	return ""
+}
+
+func (x *Parameter) GetCollection() bool {
+	if x != nil {
+		return x.Collection
+	}
+	return false
+}
+
 func (x *Parameter) GetGroup() string {
 	if x != nil && x.Group != nil {
 		return *x.Group
@@ -5524,9 +5781,16 @@ func (x *Parameter) GetMandatory() bool {
 	return false
 }
 
-func (x *Parameter) GetValidateRegEx() string {
+func (x *Parameter) GetValidateExpr() string {
 	if x != nil {
-		return x.ValidateRegEx
+		return x.ValidateExpr
+	}
+	return ""
+}
+
+func (x *Parameter) GetExample() string {
+	if x != nil {
+		return x.Example
 	}
 	return ""
 }
@@ -5536,14 +5800,16 @@ type Message struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name           string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	CorrelationKey string `protobuf:"bytes,2,opt,name=correlationKey,proto3" json:"correlationKey,omitempty"`
+	Name           string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                     // Message name for a workflow message.
+	CorrelationKey string `protobuf:"bytes,2,opt,name=correlationKey,proto3" json:"correlationKey,omitempty"` // CorrelationKey - the workflow message correlation key.
+	Short          string `protobuf:"bytes,3,opt,name=short,proto3" json:"short,omitempty"`                   // Short description of the parameter.
+	Description    string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`       // Description - a long description of the parameter.
 }
 
 func (x *Message) Reset() {
 	*x = Message{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_shar_workflow_models_proto_msgTypes[79]
+		mi := &file_shar_workflow_models_proto_msgTypes[81]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5556,7 +5822,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_shar_workflow_models_proto_msgTypes[79]
+	mi := &file_shar_workflow_models_proto_msgTypes[81]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5569,7 +5835,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_shar_workflow_models_proto_rawDescGZIP(), []int{79}
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *Message) GetName() string {
@@ -5586,20 +5852,36 @@ func (x *Message) GetCorrelationKey() string {
 	return ""
 }
 
+func (x *Message) GetShort() string {
+	if x != nil {
+		return x.Short
+	}
+	return ""
+}
+
+func (x *Message) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
 // Error represents a known error name and code which may be thrown by the state machine.
 type TaskError struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"` // Name - the error unique name.
-	Code string `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"` // Code - the unique code for the error.
+	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`               // Name of the error.
+	Code        string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`               // Code a unique code for the error.
+	Short       string `protobuf:"bytes,3,opt,name=short,proto3" json:"short,omitempty"`             // Short description of the parameter.
+	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"` // Description - a long description of the parameter.
 }
 
 func (x *TaskError) Reset() {
 	*x = TaskError{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_shar_workflow_models_proto_msgTypes[80]
+		mi := &file_shar_workflow_models_proto_msgTypes[82]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5612,7 +5894,7 @@ func (x *TaskError) String() string {
 func (*TaskError) ProtoMessage() {}
 
 func (x *TaskError) ProtoReflect() protoreflect.Message {
-	mi := &file_shar_workflow_models_proto_msgTypes[80]
+	mi := &file_shar_workflow_models_proto_msgTypes[82]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5625,7 +5907,7 @@ func (x *TaskError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskError.ProtoReflect.Descriptor instead.
 func (*TaskError) Descriptor() ([]byte, []int) {
-	return file_shar_workflow_models_proto_rawDescGZIP(), []int{80}
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *TaskError) GetName() string {
@@ -5638,6 +5920,20 @@ func (x *TaskError) GetName() string {
 func (x *TaskError) GetCode() string {
 	if x != nil {
 		return x.Code
+	}
+	return ""
+}
+
+func (x *TaskError) GetShort() string {
+	if x != nil {
+		return x.Short
+	}
+	return ""
+}
+
+func (x *TaskError) GetDescription() string {
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
@@ -6354,83 +6650,132 @@ var file_shar_workflow_models_proto_rawDesc = []byte{
 	0x20, 0x03, 0x28, 0x0b, 0x32, 0x06, 0x2e, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x52, 0x05, 0x65, 0x72,
 	0x72, 0x6f, 0x72, 0x12, 0x22, 0x0a, 0x07, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x18, 0x02,
 	0x20, 0x03, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x52, 0x07,
-	0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x3d, 0x0a, 0x0d, 0x54, 0x61, 0x73, 0x6b, 0x42,
-	0x65, 0x68, 0x61, 0x76, 0x69, 0x6f, 0x75, 0x72, 0x12, 0x14, 0x0a, 0x05, 0x72, 0x65, 0x74, 0x72,
-	0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x05, 0x72, 0x65, 0x74, 0x72, 0x79, 0x12, 0x16,
-	0x0a, 0x06, 0x75, 0x6e, 0x73, 0x61, 0x66, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06,
-	0x75, 0x6e, 0x73, 0x61, 0x66, 0x65, 0x22, 0x5c, 0x0a, 0x0e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x65,
-	0x74, 0x65, 0x72, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05,
-	0x73, 0x68, 0x6f, 0x72, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x73, 0x68, 0x6f,
-	0x72, 0x74, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f,
-	0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70,
-	0x74, 0x69, 0x6f, 0x6e, 0x22, 0xdb, 0x02, 0x0a, 0x09, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x65, 0x74,
-	0x65, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x12, 0x20, 0x0a, 0x0b,
-	0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x12,
-	0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x79,
-	0x70, 0x65, 0x12, 0x19, 0x0a, 0x05, 0x67, 0x72, 0x6f, 0x75, 0x70, 0x18, 0x05, 0x20, 0x01, 0x28,
-	0x09, 0x48, 0x00, 0x52, 0x05, 0x67, 0x72, 0x6f, 0x75, 0x70, 0x88, 0x01, 0x01, 0x12, 0x43, 0x0a,
-	0x0d, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x44, 0x61, 0x74, 0x61, 0x18, 0x06,
-	0x20, 0x03, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x65, 0x74, 0x65, 0x72,
-	0x2e, 0x45, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x44, 0x61, 0x74, 0x61, 0x45, 0x6e,
-	0x74, 0x72, 0x79, 0x52, 0x0d, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x44, 0x61,
-	0x74, 0x61, 0x12, 0x1c, 0x0a, 0x09, 0x4d, 0x61, 0x6e, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x79, 0x18,
-	0x07, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x4d, 0x61, 0x6e, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x79,
-	0x12, 0x24, 0x0a, 0x0d, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x52, 0x65, 0x67, 0x45,
-	0x78, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
-	0x65, 0x52, 0x65, 0x67, 0x45, 0x78, 0x1a, 0x40, 0x0a, 0x12, 0x45, 0x78, 0x74, 0x65, 0x6e, 0x73,
-	0x69, 0x6f, 0x6e, 0x44, 0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03,
-	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14,
-	0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76,
-	0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x08, 0x0a, 0x06, 0x5f, 0x67, 0x72, 0x6f,
-	0x75, 0x70, 0x22, 0x45, 0x0a, 0x07, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x12, 0x0a,
-	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d,
-	0x65, 0x12, 0x26, 0x0a, 0x0e, 0x63, 0x6f, 0x72, 0x72, 0x65, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e,
-	0x4b, 0x65, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0e, 0x63, 0x6f, 0x72, 0x72, 0x65,
-	0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4b, 0x65, 0x79, 0x22, 0x33, 0x0a, 0x09, 0x54, 0x61, 0x73,
-	0x6b, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x63, 0x6f,
-	0x64, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x63, 0x6f, 0x64, 0x65, 0x2a, 0x2d,
-	0x0a, 0x0d, 0x54, 0x68, 0x72, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x79, 0x70, 0x65, 0x12,
-	0x0e, 0x0a, 0x0a, 0x53, 0x65, 0x71, 0x75, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x10, 0x00, 0x12,
-	0x0c, 0x0a, 0x08, 0x50, 0x61, 0x72, 0x61, 0x6c, 0x6c, 0x65, 0x6c, 0x10, 0x02, 0x2a, 0x39, 0x0a,
-	0x0b, 0x47, 0x61, 0x74, 0x65, 0x77, 0x61, 0x79, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0d, 0x0a, 0x09,
-	0x65, 0x78, 0x63, 0x6c, 0x75, 0x73, 0x69, 0x76, 0x65, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x69,
-	0x6e, 0x63, 0x6c, 0x75, 0x73, 0x69, 0x76, 0x65, 0x10, 0x01, 0x12, 0x0c, 0x0a, 0x08, 0x70, 0x61,
-	0x72, 0x61, 0x6c, 0x6c, 0x65, 0x6c, 0x10, 0x02, 0x2a, 0x31, 0x0a, 0x10, 0x47, 0x61, 0x74, 0x65,
-	0x77, 0x61, 0x79, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0d, 0x0a, 0x09,
-	0x64, 0x69, 0x76, 0x65, 0x72, 0x67, 0x65, 0x6e, 0x74, 0x10, 0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x63,
-	0x6f, 0x6e, 0x76, 0x65, 0x72, 0x67, 0x65, 0x6e, 0x74, 0x10, 0x01, 0x2a, 0xa3, 0x01, 0x0a, 0x12,
-	0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x54, 0x79,
-	0x70, 0x65, 0x12, 0x12, 0x0a, 0x0e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x45, 0x78, 0x65,
-	0x63, 0x75, 0x74, 0x65, 0x10, 0x00, 0x12, 0x13, 0x0a, 0x0f, 0x61, 0x63, 0x74, 0x69, 0x76, 0x69,
-	0x74, 0x79, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x10, 0x01, 0x12, 0x14, 0x0a, 0x10, 0x61,
-	0x63, 0x74, 0x69, 0x76, 0x69, 0x74, 0x79, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x10,
-	0x02, 0x12, 0x14, 0x0a, 0x10, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x53, 0x70, 0x61, 0x77,
-	0x6e, 0x53, 0x79, 0x6e, 0x63, 0x10, 0x03, 0x12, 0x13, 0x0a, 0x0f, 0x70, 0x72, 0x6f, 0x63, 0x65,
-	0x73, 0x73, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x10, 0x04, 0x12, 0x10, 0x0a, 0x0c,
-	0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x41, 0x62, 0x6f, 0x72, 0x74, 0x10, 0x05, 0x12, 0x11,
-	0x0a, 0x0d, 0x61, 0x63, 0x74, 0x69, 0x76, 0x69, 0x74, 0x79, 0x41, 0x62, 0x6f, 0x72, 0x74, 0x10,
-	0x06, 0x2a, 0x2c, 0x0a, 0x11, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x54, 0x69, 0x6d,
-	0x65, 0x72, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0c, 0x0a, 0x08, 0x64, 0x75, 0x72, 0x61, 0x74, 0x69,
-	0x6f, 0x6e, 0x10, 0x00, 0x12, 0x09, 0x0a, 0x05, 0x66, 0x69, 0x78, 0x65, 0x64, 0x10, 0x01, 0x2a,
-	0x18, 0x0a, 0x0d, 0x52, 0x65, 0x63, 0x69, 0x70, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x79, 0x70, 0x65,
-	0x12, 0x07, 0x0a, 0x03, 0x6a, 0x6f, 0x62, 0x10, 0x00, 0x2a, 0x5c, 0x0a, 0x11, 0x43, 0x61, 0x6e,
-	0x63, 0x65, 0x6c, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x0d,
-	0x0a, 0x09, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6e, 0x67, 0x10, 0x00, 0x12, 0x0d, 0x0a,
-	0x09, 0x63, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a,
-	0x74, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x61, 0x74, 0x65, 0x64, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07,
-	0x65, 0x72, 0x72, 0x6f, 0x72, 0x65, 0x64, 0x10, 0x03, 0x12, 0x0c, 0x0a, 0x08, 0x6f, 0x62, 0x73,
-	0x6f, 0x6c, 0x65, 0x74, 0x65, 0x10, 0x04, 0x2a, 0x5e, 0x0a, 0x09, 0x4c, 0x6f, 0x67, 0x53, 0x6f,
-	0x75, 0x72, 0x63, 0x65, 0x12, 0x13, 0x0a, 0x0f, 0x6c, 0x6f, 0x67, 0x53, 0x6f, 0x75, 0x72, 0x63,
-	0x65, 0x45, 0x6e, 0x67, 0x69, 0x6e, 0x65, 0x10, 0x00, 0x12, 0x15, 0x0a, 0x11, 0x6c, 0x6f, 0x67,
-	0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x10, 0x02,
-	0x12, 0x13, 0x0a, 0x0f, 0x6c, 0x6f, 0x67, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x43, 0x6c, 0x69,
-	0x65, 0x6e, 0x74, 0x10, 0x03, 0x12, 0x10, 0x0a, 0x0c, 0x6c, 0x6f, 0x67, 0x53, 0x6f, 0x75, 0x72,
-	0x63, 0x65, 0x4a, 0x6f, 0x62, 0x10, 0x04, 0x42, 0x25, 0x5a, 0x23, 0x67, 0x69, 0x74, 0x6c, 0x61,
+	0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x72, 0x0a, 0x0d, 0x54, 0x61, 0x73, 0x6b, 0x42,
+	0x65, 0x68, 0x61, 0x76, 0x69, 0x6f, 0x75, 0x72, 0x12, 0x35, 0x0a, 0x0c, 0x64, 0x65, 0x66, 0x61,
+	0x75, 0x6c, 0x74, 0x52, 0x65, 0x74, 0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11,
+	0x2e, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x54, 0x61, 0x73, 0x6b, 0x52, 0x65, 0x74, 0x72,
+	0x79, 0x52, 0x0c, 0x64, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x52, 0x65, 0x74, 0x72, 0x79, 0x12,
+	0x16, 0x0a, 0x06, 0x75, 0x6e, 0x73, 0x61, 0x66, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52,
+	0x06, 0x75, 0x6e, 0x73, 0x61, 0x66, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6d, 0x6f, 0x63, 0x6b, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x04, 0x6d, 0x6f, 0x63, 0x6b, 0x22, 0x80, 0x02, 0x0a, 0x10,
+	0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x54, 0x61, 0x73, 0x6b, 0x52, 0x65, 0x74, 0x72, 0x79,
+	0x12, 0x16, 0x0a, 0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d,
+	0x52, 0x06, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x12, 0x2a, 0x0a, 0x08, 0x73, 0x74, 0x72, 0x61,
+	0x74, 0x65, 0x67, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0e, 0x2e, 0x52, 0x65, 0x74,
+	0x72, 0x79, 0x53, 0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x79, 0x52, 0x08, 0x73, 0x74, 0x72, 0x61,
+	0x74, 0x65, 0x67, 0x79, 0x12, 0x1c, 0x0a, 0x09, 0x69, 0x6e, 0x69, 0x74, 0x4d, 0x69, 0x6c, 0x6c,
+	0x69, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03, 0x52, 0x09, 0x69, 0x6e, 0x69, 0x74, 0x4d, 0x69, 0x6c,
+	0x6c, 0x69, 0x12, 0x24, 0x0a, 0x0d, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x4d, 0x69,
+	0x6c, 0x6c, 0x69, 0x18, 0x04, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0d, 0x69, 0x6e, 0x74, 0x65, 0x72,
+	0x76, 0x61, 0x6c, 0x4d, 0x69, 0x6c, 0x6c, 0x69, 0x12, 0x1a, 0x0a, 0x08, 0x6d, 0x61, 0x78, 0x4d,
+	0x69, 0x6c, 0x6c, 0x69, 0x18, 0x05, 0x20, 0x01, 0x28, 0x03, 0x52, 0x08, 0x6d, 0x61, 0x78, 0x4d,
+	0x69, 0x6c, 0x6c, 0x69, 0x12, 0x48, 0x0a, 0x0f, 0x64, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x45,
+	0x78, 0x63, 0x65, 0x65, 0x64, 0x65, 0x64, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e,
+	0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x52, 0x65, 0x74, 0x72, 0x79, 0x45, 0x78, 0x63, 0x65,
+	0x65, 0x64, 0x65, 0x64, 0x42, 0x65, 0x68, 0x61, 0x76, 0x69, 0x6f, 0x75, 0x72, 0x52, 0x0f, 0x64,
+	0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x45, 0x78, 0x63, 0x65, 0x65, 0x64, 0x65, 0x64, 0x22, 0x4a,
+	0x0a, 0x1d, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x52, 0x65, 0x74, 0x72, 0x79, 0x45, 0x78,
+	0x63, 0x65, 0x65, 0x64, 0x65, 0x64, 0x42, 0x65, 0x68, 0x61, 0x76, 0x69, 0x6f, 0x75, 0x72, 0x12,
+	0x29, 0x0a, 0x06, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32,
+	0x11, 0x2e, 0x52, 0x65, 0x74, 0x72, 0x79, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x41, 0x63, 0x74, 0x69,
+	0x6f, 0x6e, 0x52, 0x06, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x5c, 0x0a, 0x0e, 0x50, 0x61,
+	0x72, 0x61, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x12, 0x12, 0x0a, 0x04,
+	0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65,
+	0x12, 0x14, 0x0a, 0x05, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x05, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69,
+	0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73,
+	0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0xe2, 0x03, 0x0a, 0x09, 0x50, 0x61, 0x72,
+	0x61, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x68,
+	0x6f, 0x72, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x73, 0x68, 0x6f, 0x72, 0x74,
+	0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69,
+	0x6f, 0x6e, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x35, 0x0a, 0x13, 0x63, 0x75, 0x73, 0x74, 0x6f, 0x6d,
+	0x54, 0x79, 0x70, 0x65, 0x45, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x05, 0x20,
+	0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x13, 0x63, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x54, 0x79, 0x70,
+	0x65, 0x45, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x88, 0x01, 0x01, 0x12, 0x1e, 0x0a,
+	0x0a, 0x63, 0x6f, 0x6c, 0x6c, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x06, 0x20, 0x01, 0x28,
+	0x08, 0x52, 0x0a, 0x63, 0x6f, 0x6c, 0x6c, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x19, 0x0a,
+	0x05, 0x67, 0x72, 0x6f, 0x75, 0x70, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x48, 0x01, 0x52, 0x05,
+	0x67, 0x72, 0x6f, 0x75, 0x70, 0x88, 0x01, 0x01, 0x12, 0x43, 0x0a, 0x0d, 0x65, 0x78, 0x74, 0x65,
+	0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x44, 0x61, 0x74, 0x61, 0x18, 0x08, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x1d, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x2e, 0x45, 0x78, 0x74, 0x65,
+	0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x44, 0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0d,
+	0x65, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x44, 0x61, 0x74, 0x61, 0x12, 0x1c, 0x0a,
+	0x09, 0x6d, 0x61, 0x6e, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x79, 0x18, 0x09, 0x20, 0x01, 0x28, 0x08,
+	0x52, 0x09, 0x6d, 0x61, 0x6e, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x22, 0x0a, 0x0c, 0x76,
+	0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x45, 0x78, 0x70, 0x72, 0x18, 0x0a, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x0c, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x45, 0x78, 0x70, 0x72, 0x12,
+	0x18, 0x0a, 0x07, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x18, 0x0b, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x07, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x1a, 0x40, 0x0a, 0x12, 0x45, 0x78, 0x74,
+	0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x44, 0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12,
+	0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65,
+	0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x16, 0x0a, 0x14, 0x5f,
+	0x63, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x54, 0x79, 0x70, 0x65, 0x45, 0x78, 0x74, 0x65, 0x6e, 0x73,
+	0x69, 0x6f, 0x6e, 0x42, 0x08, 0x0a, 0x06, 0x5f, 0x67, 0x72, 0x6f, 0x75, 0x70, 0x22, 0x7d, 0x0a,
+	0x07, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x26, 0x0a, 0x0e,
+	0x63, 0x6f, 0x72, 0x72, 0x65, 0x6c, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4b, 0x65, 0x79, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x0e, 0x63, 0x6f, 0x72, 0x72, 0x65, 0x6c, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x4b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x05, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65,
+	0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x6b, 0x0a, 0x09,
+	0x54, 0x61, 0x73, 0x6b, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d,
+	0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12, 0x0a,
+	0x04, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x63, 0x6f, 0x64,
+	0x65, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x05, 0x73, 0x68, 0x6f, 0x72, 0x74, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72,
+	0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65,
+	0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x2a, 0x2d, 0x0a, 0x0d, 0x54, 0x68, 0x72,
+	0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x65,
+	0x71, 0x75, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x10, 0x00, 0x12, 0x0c, 0x0a, 0x08, 0x50, 0x61,
+	0x72, 0x61, 0x6c, 0x6c, 0x65, 0x6c, 0x10, 0x02, 0x2a, 0x39, 0x0a, 0x0b, 0x47, 0x61, 0x74, 0x65,
+	0x77, 0x61, 0x79, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0d, 0x0a, 0x09, 0x65, 0x78, 0x63, 0x6c, 0x75,
+	0x73, 0x69, 0x76, 0x65, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x69, 0x6e, 0x63, 0x6c, 0x75, 0x73,
+	0x69, 0x76, 0x65, 0x10, 0x01, 0x12, 0x0c, 0x0a, 0x08, 0x70, 0x61, 0x72, 0x61, 0x6c, 0x6c, 0x65,
+	0x6c, 0x10, 0x02, 0x2a, 0x31, 0x0a, 0x10, 0x47, 0x61, 0x74, 0x65, 0x77, 0x61, 0x79, 0x44, 0x69,
+	0x72, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0d, 0x0a, 0x09, 0x64, 0x69, 0x76, 0x65, 0x72,
+	0x67, 0x65, 0x6e, 0x74, 0x10, 0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x63, 0x6f, 0x6e, 0x76, 0x65, 0x72,
+	0x67, 0x65, 0x6e, 0x74, 0x10, 0x01, 0x2a, 0xa3, 0x01, 0x0a, 0x12, 0x50, 0x72, 0x6f, 0x63, 0x65,
+	0x73, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x54, 0x79, 0x70, 0x65, 0x12, 0x12, 0x0a,
+	0x0e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x10,
+	0x00, 0x12, 0x13, 0x0a, 0x0f, 0x61, 0x63, 0x74, 0x69, 0x76, 0x69, 0x74, 0x79, 0x45, 0x78, 0x65,
+	0x63, 0x75, 0x74, 0x65, 0x10, 0x01, 0x12, 0x14, 0x0a, 0x10, 0x61, 0x63, 0x74, 0x69, 0x76, 0x69,
+	0x74, 0x79, 0x43, 0x6f, 0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x10, 0x02, 0x12, 0x14, 0x0a, 0x10,
+	0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x53, 0x70, 0x61, 0x77, 0x6e, 0x53, 0x79, 0x6e, 0x63,
+	0x10, 0x03, 0x12, 0x13, 0x0a, 0x0f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x43, 0x6f, 0x6d,
+	0x70, 0x6c, 0x65, 0x74, 0x65, 0x10, 0x04, 0x12, 0x10, 0x0a, 0x0c, 0x70, 0x72, 0x6f, 0x63, 0x65,
+	0x73, 0x73, 0x41, 0x62, 0x6f, 0x72, 0x74, 0x10, 0x05, 0x12, 0x11, 0x0a, 0x0d, 0x61, 0x63, 0x74,
+	0x69, 0x76, 0x69, 0x74, 0x79, 0x41, 0x62, 0x6f, 0x72, 0x74, 0x10, 0x06, 0x2a, 0x2c, 0x0a, 0x11,
+	0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x54, 0x69, 0x6d, 0x65, 0x72, 0x54, 0x79, 0x70,
+	0x65, 0x12, 0x0c, 0x0a, 0x08, 0x64, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x00, 0x12,
+	0x09, 0x0a, 0x05, 0x66, 0x69, 0x78, 0x65, 0x64, 0x10, 0x01, 0x2a, 0x18, 0x0a, 0x0d, 0x52, 0x65,
+	0x63, 0x69, 0x70, 0x69, 0x65, 0x6e, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x07, 0x0a, 0x03, 0x6a,
+	0x6f, 0x62, 0x10, 0x00, 0x2a, 0x5c, 0x0a, 0x11, 0x43, 0x61, 0x6e, 0x63, 0x65, 0x6c, 0x6c, 0x61,
+	0x74, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x0d, 0x0a, 0x09, 0x65, 0x78, 0x65,
+	0x63, 0x75, 0x74, 0x69, 0x6e, 0x67, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x70,
+	0x6c, 0x65, 0x74, 0x65, 0x64, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x74, 0x65, 0x72, 0x6d, 0x69,
+	0x6e, 0x61, 0x74, 0x65, 0x64, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x65, 0x72, 0x72, 0x6f, 0x72,
+	0x65, 0x64, 0x10, 0x03, 0x12, 0x0c, 0x0a, 0x08, 0x6f, 0x62, 0x73, 0x6f, 0x6c, 0x65, 0x74, 0x65,
+	0x10, 0x04, 0x2a, 0x5e, 0x0a, 0x09, 0x4c, 0x6f, 0x67, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x12,
+	0x13, 0x0a, 0x0f, 0x6c, 0x6f, 0x67, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x45, 0x6e, 0x67, 0x69,
+	0x6e, 0x65, 0x10, 0x00, 0x12, 0x15, 0x0a, 0x11, 0x6c, 0x6f, 0x67, 0x53, 0x6f, 0x75, 0x72, 0x63,
+	0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x10, 0x02, 0x12, 0x13, 0x0a, 0x0f, 0x6c,
+	0x6f, 0x67, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x10, 0x03,
+	0x12, 0x10, 0x0a, 0x0c, 0x6c, 0x6f, 0x67, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x4a, 0x6f, 0x62,
+	0x10, 0x04, 0x2a, 0x2c, 0x0a, 0x0d, 0x52, 0x65, 0x74, 0x72, 0x79, 0x53, 0x74, 0x72, 0x61, 0x74,
+	0x65, 0x67, 0x79, 0x12, 0x0a, 0x0a, 0x06, 0x4c, 0x69, 0x6e, 0x65, 0x61, 0x72, 0x10, 0x00, 0x12,
+	0x0f, 0x0a, 0x0b, 0x49, 0x6e, 0x63, 0x72, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x6c, 0x10, 0x01,
+	0x2a, 0x65, 0x0a, 0x10, 0x52, 0x65, 0x74, 0x72, 0x79, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x41, 0x63,
+	0x74, 0x69, 0x6f, 0x6e, 0x12, 0x11, 0x0a, 0x0d, 0x50, 0x61, 0x75, 0x73, 0x65, 0x57, 0x6f, 0x72,
+	0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x10, 0x00, 0x12, 0x16, 0x0a, 0x12, 0x54, 0x68, 0x72, 0x6f, 0x77,
+	0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10, 0x01, 0x12,
+	0x14, 0x0a, 0x10, 0x53, 0x65, 0x74, 0x56, 0x61, 0x72, 0x69, 0x61, 0x62, 0x6c, 0x65, 0x56, 0x61,
+	0x6c, 0x75, 0x65, 0x10, 0x02, 0x12, 0x10, 0x0a, 0x0c, 0x46, 0x61, 0x69, 0x6c, 0x57, 0x6f, 0x72,
+	0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x10, 0x03, 0x42, 0x25, 0x5a, 0x23, 0x67, 0x69, 0x74, 0x6c, 0x61,
 	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x2d, 0x77, 0x6f, 0x72, 0x6b, 0x66,
 	0x6c, 0x6f, 0x77, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x2f, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x62, 0x06,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
@@ -6448,8 +6793,8 @@ func file_shar_workflow_models_proto_rawDescGZIP() []byte {
 	return file_shar_workflow_models_proto_rawDescData
 }
 
-var file_shar_workflow_models_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_shar_workflow_models_proto_msgTypes = make([]protoimpl.MessageInfo, 96)
+var file_shar_workflow_models_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_shar_workflow_models_proto_msgTypes = make([]protoimpl.MessageInfo, 98)
 var file_shar_workflow_models_proto_goTypes = []interface{}{
 	(ThreadingType)(0),                           // 0: ThreadingType
 	(GatewayType)(0),                             // 1: GatewayType
@@ -6459,181 +6804,189 @@ var file_shar_workflow_models_proto_goTypes = []interface{}{
 	(RecipientType)(0),                           // 5: RecipientType
 	(CancellationState)(0),                       // 6: CancellationState
 	(LogSource)(0),                               // 7: LogSource
-	(*Workflow)(nil),                             // 8: Workflow
-	(*Metadata)(nil),                             // 9: Metadata
-	(*Process)(nil),                              // 10: Process
-	(*WorkflowVersions)(nil),                     // 11: WorkflowVersions
-	(*WorkflowVersion)(nil),                      // 12: WorkflowVersion
-	(*Element)(nil),                              // 13: Element
-	(*Iteration)(nil),                            // 14: Iteration
-	(*Iterator)(nil),                             // 15: Iterator
-	(*GatewaySpec)(nil),                          // 16: GatewaySpec
-	(*Timer)(nil),                                // 17: Timer
-	(*Target)(nil),                               // 18: Target
-	(*Error)(nil),                                // 19: Error
-	(*CatchError)(nil),                           // 20: CatchError
-	(*Targets)(nil),                              // 21: Targets
-	(*WorkflowState)(nil),                        // 22: WorkflowState
-	(*WorkflowStateSummary)(nil),                 // 23: WorkflowStateSummary
-	(*ProcessHistoryEntry)(nil),                  // 24: ProcessHistoryEntry
-	(*ProcessHistory)(nil),                       // 25: ProcessHistory
-	(*SatisfiesGateway)(nil),                     // 26: SatisfiesGateway
-	(*GatewayExpectations)(nil),                  // 27: GatewayExpectations
-	(*Gateway)(nil),                              // 28: Gateway
-	(*WorkflowTimerDefinition)(nil),              // 29: WorkflowTimerDefinition
-	(*WorkflowTimer)(nil),                        // 30: WorkflowTimer
-	(*WorkflowInstance)(nil),                     // 31: WorkflowInstance
-	(*ProcessInstance)(nil),                      // 32: ProcessInstance
-	(*MessageInstance)(nil),                      // 33: MessageInstance
-	(*MessageRecipient)(nil),                     // 34: MessageRecipient
-	(*UserTasks)(nil),                            // 35: UserTasks
-	(*ApiAuthorizationRequest)(nil),              // 36: ApiAuthorizationRequest
-	(*ApiAuthorizationResponse)(nil),             // 37: ApiAuthorizationResponse
-	(*ApiAuthenticationRequest)(nil),             // 38: ApiAuthenticationRequest
-	(*ApiAuthenticationResponse)(nil),            // 39: ApiAuthenticationResponse
-	(*LaunchWorkflowRequest)(nil),                // 40: LaunchWorkflowRequest
-	(*LaunchWorkflowResponse)(nil),               // 41: LaunchWorkflowResponse
-	(*CancelWorkflowInstanceRequest)(nil),        // 42: CancelWorkflowInstanceRequest
-	(*ListWorkflowInstanceProcessesRequest)(nil), // 43: ListWorkflowInstanceProcessesRequest
-	(*ListWorkflowInstanceProcessesResult)(nil),  // 44: ListWorkflowInstanceProcessesResult
-	(*GetProcessInstanceStatusRequest)(nil),      // 45: GetProcessInstanceStatusRequest
-	(*GetProcessInstanceStatusResult)(nil),       // 46: GetProcessInstanceStatusResult
-	(*ListWorkflowInstanceRequest)(nil),          // 47: ListWorkflowInstanceRequest
-	(*ListWorkflowInstanceResponse)(nil),         // 48: ListWorkflowInstanceResponse
-	(*ListWorkflowInstanceResult)(nil),           // 49: ListWorkflowInstanceResult
-	(*WorkflowInstanceInfo)(nil),                 // 50: WorkflowInstanceInfo
-	(*WorkflowInstanceStatus)(nil),               // 51: WorkflowInstanceStatus
-	(*ListWorkflowsResponse)(nil),                // 52: ListWorkflowsResponse
-	(*ListWorkflowResult)(nil),                   // 53: ListWorkflowResult
-	(*SendMessageRequest)(nil),                   // 54: SendMessageRequest
-	(*WorkflowInstanceComplete)(nil),             // 55: WorkflowInstanceComplete
-	(*CompleteManualTaskRequest)(nil),            // 56: CompleteManualTaskRequest
-	(*CompleteServiceTaskRequest)(nil),           // 57: CompleteServiceTaskRequest
-	(*CompleteSendMessageRequest)(nil),           // 58: CompleteSendMessageRequest
-	(*CompleteUserTaskRequest)(nil),              // 59: CompleteUserTaskRequest
-	(*ListUserTasksRequest)(nil),                 // 60: ListUserTasksRequest
-	(*GetUserTaskRequest)(nil),                   // 61: GetUserTaskRequest
-	(*GetUserTaskResponse)(nil),                  // 62: GetUserTaskResponse
-	(*HandleWorkflowErrorRequest)(nil),           // 63: HandleWorkflowErrorRequest
-	(*HandleWorkflowErrorResponse)(nil),          // 64: HandleWorkflowErrorResponse
-	(*GetWorkflowVersionsRequest)(nil),           // 65: GetWorkflowVersionsRequest
-	(*GetWorkflowVersionsResponse)(nil),          // 66: GetWorkflowVersionsResponse
-	(*GetWorkflowRequest)(nil),                   // 67: GetWorkflowRequest
-	(*GetWorkflowResponse)(nil),                  // 68: GetWorkflowResponse
-	(*GetProcessHistoryRequest)(nil),             // 69: GetProcessHistoryRequest
-	(*GetProcessHistoryResponse)(nil),            // 70: GetProcessHistoryResponse
-	(*GetServiceTaskRoutingIDRequest)(nil),       // 71: GetServiceTaskRoutingIDRequest
-	(*GetServiceTaskRoutingIDResponse)(nil),      // 72: GetServiceTaskRoutingIDResponse
-	(*SpoolWorkflowEventsRequest)(nil),           // 73: SpoolWorkflowEventsRequest
-	(*SpoolWorkflowEventsResponse)(nil),          // 74: SpoolWorkflowEventsResponse
-	(*GetVersionInfoRequest)(nil),                // 75: GetVersionInfoRequest
-	(*GetVersionInfoResponse)(nil),               // 76: GetVersionInfoResponse
-	(*WorkflowStats)(nil),                        // 77: WorkflowStats
-	(*TelemetryState)(nil),                       // 78: TelemetryState
-	(*TelemetryLogEntry)(nil),                    // 79: TelemetryLogEntry
-	(*TaskSpec)(nil),                             // 80: TaskSpec
-	(*TaskMetadata)(nil),                         // 81: TaskMetadata
-	(*TaskParameters)(nil),                       // 82: TaskParameters
-	(*TaskEvents)(nil),                           // 83: TaskEvents
-	(*TaskBehaviour)(nil),                        // 84: TaskBehaviour
-	(*ParameterGroup)(nil),                       // 85: ParameterGroup
-	(*Parameter)(nil),                            // 86: Parameter
-	(*Message)(nil),                              // 87: Message
-	(*TaskError)(nil),                            // 88: TaskError
-	nil,                                          // 89: Workflow.ProcessEntry
-	nil,                                          // 90: Element.InputTransformEntry
-	nil,                                          // 91: Element.OutputTransformEntry
-	nil,                                          // 92: Timer.OutputTransformEntry
-	nil,                                          // 93: CatchError.OutputTransformEntry
-	nil,                                          // 94: WorkflowState.SatisfiesGatewayExpectationEntry
-	nil,                                          // 95: WorkflowState.GatewayExpectationsEntry
-	nil,                                          // 96: Gateway.MetExpectationsEntry
-	nil,                                          // 97: WorkflowInstance.SatisfiedProcessesEntry
-	nil,                                          // 98: ProcessInstance.GatewayCompleteEntry
-	nil,                                          // 99: ApiAuthorizationRequest.HeadersEntry
-	nil,                                          // 100: ApiAuthenticationRequest.HeadersEntry
-	nil,                                          // 101: TelemetryState.LogEntry
-	nil,                                          // 102: TelemetryLogEntry.AttributesEntry
-	nil,                                          // 103: Parameter.ExtensionDataEntry
+	(RetryStrategy)(0),                           // 8: RetryStrategy
+	(RetryErrorAction)(0),                        // 9: RetryErrorAction
+	(*Workflow)(nil),                             // 10: Workflow
+	(*Metadata)(nil),                             // 11: Metadata
+	(*Process)(nil),                              // 12: Process
+	(*WorkflowVersions)(nil),                     // 13: WorkflowVersions
+	(*WorkflowVersion)(nil),                      // 14: WorkflowVersion
+	(*Element)(nil),                              // 15: Element
+	(*Iteration)(nil),                            // 16: Iteration
+	(*Iterator)(nil),                             // 17: Iterator
+	(*GatewaySpec)(nil),                          // 18: GatewaySpec
+	(*Timer)(nil),                                // 19: Timer
+	(*Target)(nil),                               // 20: Target
+	(*Error)(nil),                                // 21: Error
+	(*CatchError)(nil),                           // 22: CatchError
+	(*Targets)(nil),                              // 23: Targets
+	(*WorkflowState)(nil),                        // 24: WorkflowState
+	(*WorkflowStateSummary)(nil),                 // 25: WorkflowStateSummary
+	(*ProcessHistoryEntry)(nil),                  // 26: ProcessHistoryEntry
+	(*ProcessHistory)(nil),                       // 27: ProcessHistory
+	(*SatisfiesGateway)(nil),                     // 28: SatisfiesGateway
+	(*GatewayExpectations)(nil),                  // 29: GatewayExpectations
+	(*Gateway)(nil),                              // 30: Gateway
+	(*WorkflowTimerDefinition)(nil),              // 31: WorkflowTimerDefinition
+	(*WorkflowTimer)(nil),                        // 32: WorkflowTimer
+	(*WorkflowInstance)(nil),                     // 33: WorkflowInstance
+	(*ProcessInstance)(nil),                      // 34: ProcessInstance
+	(*MessageInstance)(nil),                      // 35: MessageInstance
+	(*MessageRecipient)(nil),                     // 36: MessageRecipient
+	(*UserTasks)(nil),                            // 37: UserTasks
+	(*ApiAuthorizationRequest)(nil),              // 38: ApiAuthorizationRequest
+	(*ApiAuthorizationResponse)(nil),             // 39: ApiAuthorizationResponse
+	(*ApiAuthenticationRequest)(nil),             // 40: ApiAuthenticationRequest
+	(*ApiAuthenticationResponse)(nil),            // 41: ApiAuthenticationResponse
+	(*LaunchWorkflowRequest)(nil),                // 42: LaunchWorkflowRequest
+	(*LaunchWorkflowResponse)(nil),               // 43: LaunchWorkflowResponse
+	(*CancelWorkflowInstanceRequest)(nil),        // 44: CancelWorkflowInstanceRequest
+	(*ListWorkflowInstanceProcessesRequest)(nil), // 45: ListWorkflowInstanceProcessesRequest
+	(*ListWorkflowInstanceProcessesResult)(nil),  // 46: ListWorkflowInstanceProcessesResult
+	(*GetProcessInstanceStatusRequest)(nil),      // 47: GetProcessInstanceStatusRequest
+	(*GetProcessInstanceStatusResult)(nil),       // 48: GetProcessInstanceStatusResult
+	(*ListWorkflowInstanceRequest)(nil),          // 49: ListWorkflowInstanceRequest
+	(*ListWorkflowInstanceResponse)(nil),         // 50: ListWorkflowInstanceResponse
+	(*ListWorkflowInstanceResult)(nil),           // 51: ListWorkflowInstanceResult
+	(*WorkflowInstanceInfo)(nil),                 // 52: WorkflowInstanceInfo
+	(*WorkflowInstanceStatus)(nil),               // 53: WorkflowInstanceStatus
+	(*ListWorkflowsResponse)(nil),                // 54: ListWorkflowsResponse
+	(*ListWorkflowResult)(nil),                   // 55: ListWorkflowResult
+	(*SendMessageRequest)(nil),                   // 56: SendMessageRequest
+	(*WorkflowInstanceComplete)(nil),             // 57: WorkflowInstanceComplete
+	(*CompleteManualTaskRequest)(nil),            // 58: CompleteManualTaskRequest
+	(*CompleteServiceTaskRequest)(nil),           // 59: CompleteServiceTaskRequest
+	(*CompleteSendMessageRequest)(nil),           // 60: CompleteSendMessageRequest
+	(*CompleteUserTaskRequest)(nil),              // 61: CompleteUserTaskRequest
+	(*ListUserTasksRequest)(nil),                 // 62: ListUserTasksRequest
+	(*GetUserTaskRequest)(nil),                   // 63: GetUserTaskRequest
+	(*GetUserTaskResponse)(nil),                  // 64: GetUserTaskResponse
+	(*HandleWorkflowErrorRequest)(nil),           // 65: HandleWorkflowErrorRequest
+	(*HandleWorkflowErrorResponse)(nil),          // 66: HandleWorkflowErrorResponse
+	(*GetWorkflowVersionsRequest)(nil),           // 67: GetWorkflowVersionsRequest
+	(*GetWorkflowVersionsResponse)(nil),          // 68: GetWorkflowVersionsResponse
+	(*GetWorkflowRequest)(nil),                   // 69: GetWorkflowRequest
+	(*GetWorkflowResponse)(nil),                  // 70: GetWorkflowResponse
+	(*GetProcessHistoryRequest)(nil),             // 71: GetProcessHistoryRequest
+	(*GetProcessHistoryResponse)(nil),            // 72: GetProcessHistoryResponse
+	(*GetServiceTaskRoutingIDRequest)(nil),       // 73: GetServiceTaskRoutingIDRequest
+	(*GetServiceTaskRoutingIDResponse)(nil),      // 74: GetServiceTaskRoutingIDResponse
+	(*SpoolWorkflowEventsRequest)(nil),           // 75: SpoolWorkflowEventsRequest
+	(*SpoolWorkflowEventsResponse)(nil),          // 76: SpoolWorkflowEventsResponse
+	(*GetVersionInfoRequest)(nil),                // 77: GetVersionInfoRequest
+	(*GetVersionInfoResponse)(nil),               // 78: GetVersionInfoResponse
+	(*WorkflowStats)(nil),                        // 79: WorkflowStats
+	(*TelemetryState)(nil),                       // 80: TelemetryState
+	(*TelemetryLogEntry)(nil),                    // 81: TelemetryLogEntry
+	(*TaskSpec)(nil),                             // 82: TaskSpec
+	(*TaskMetadata)(nil),                         // 83: TaskMetadata
+	(*TaskParameters)(nil),                       // 84: TaskParameters
+	(*TaskEvents)(nil),                           // 85: TaskEvents
+	(*TaskBehaviour)(nil),                        // 86: TaskBehaviour
+	(*DefaultTaskRetry)(nil),                     // 87: DefaultTaskRetry
+	(*DefaultRetryExceededBehaviour)(nil),        // 88: DefaultRetryExceededBehaviour
+	(*ParameterGroup)(nil),                       // 89: ParameterGroup
+	(*Parameter)(nil),                            // 90: Parameter
+	(*Message)(nil),                              // 91: Message
+	(*TaskError)(nil),                            // 92: TaskError
+	nil,                                          // 93: Workflow.ProcessEntry
+	nil,                                          // 94: Element.InputTransformEntry
+	nil,                                          // 95: Element.OutputTransformEntry
+	nil,                                          // 96: Timer.OutputTransformEntry
+	nil,                                          // 97: CatchError.OutputTransformEntry
+	nil,                                          // 98: WorkflowState.SatisfiesGatewayExpectationEntry
+	nil,                                          // 99: WorkflowState.GatewayExpectationsEntry
+	nil,                                          // 100: Gateway.MetExpectationsEntry
+	nil,                                          // 101: WorkflowInstance.SatisfiedProcessesEntry
+	nil,                                          // 102: ProcessInstance.GatewayCompleteEntry
+	nil,                                          // 103: ApiAuthorizationRequest.HeadersEntry
+	nil,                                          // 104: ApiAuthenticationRequest.HeadersEntry
+	nil,                                          // 105: TelemetryState.LogEntry
+	nil,                                          // 106: TelemetryLogEntry.AttributesEntry
+	nil,                                          // 107: Parameter.ExtensionDataEntry
 }
 var file_shar_workflow_models_proto_depIdxs = []int32{
-	89,  // 0: Workflow.process:type_name -> Workflow.ProcessEntry
-	13,  // 1: Workflow.messages:type_name -> Element
-	19,  // 2: Workflow.errors:type_name -> Error
-	13,  // 3: Process.elements:type_name -> Element
-	9,   // 4: Process.metadata:type_name -> Metadata
-	12,  // 5: WorkflowVersions.version:type_name -> WorkflowVersion
-	21,  // 6: Element.outbound:type_name -> Targets
-	10,  // 7: Element.process:type_name -> Process
-	20,  // 8: Element.errors:type_name -> CatchError
-	19,  // 9: Element.error:type_name -> Error
-	90,  // 10: Element.inputTransform:type_name -> Element.InputTransformEntry
-	91,  // 11: Element.outputTransform:type_name -> Element.OutputTransformEntry
-	29,  // 12: Element.timer:type_name -> WorkflowTimerDefinition
-	17,  // 13: Element.boundaryTimer:type_name -> Timer
-	16,  // 14: Element.gateway:type_name -> GatewaySpec
-	14,  // 15: Element.iteration:type_name -> Iteration
+	93,  // 0: Workflow.process:type_name -> Workflow.ProcessEntry
+	15,  // 1: Workflow.messages:type_name -> Element
+	21,  // 2: Workflow.errors:type_name -> Error
+	15,  // 3: Process.elements:type_name -> Element
+	11,  // 4: Process.metadata:type_name -> Metadata
+	14,  // 5: WorkflowVersions.version:type_name -> WorkflowVersion
+	23,  // 6: Element.outbound:type_name -> Targets
+	12,  // 7: Element.process:type_name -> Process
+	22,  // 8: Element.errors:type_name -> CatchError
+	21,  // 9: Element.error:type_name -> Error
+	94,  // 10: Element.inputTransform:type_name -> Element.InputTransformEntry
+	95,  // 11: Element.outputTransform:type_name -> Element.OutputTransformEntry
+	31,  // 12: Element.timer:type_name -> WorkflowTimerDefinition
+	19,  // 13: Element.boundaryTimer:type_name -> Timer
+	18,  // 14: Element.gateway:type_name -> GatewaySpec
+	16,  // 15: Element.iteration:type_name -> Iteration
 	0,   // 16: Iteration.execute:type_name -> ThreadingType
 	1,   // 17: GatewaySpec.type:type_name -> GatewayType
 	2,   // 18: GatewaySpec.direction:type_name -> GatewayDirection
-	92,  // 19: Timer.outputTransform:type_name -> Timer.OutputTransformEntry
-	93,  // 20: CatchError.outputTransform:type_name -> CatchError.OutputTransformEntry
-	18,  // 21: Targets.target:type_name -> Target
+	96,  // 19: Timer.outputTransform:type_name -> Timer.OutputTransformEntry
+	97,  // 20: CatchError.outputTransform:type_name -> CatchError.OutputTransformEntry
+	20,  // 21: Targets.target:type_name -> Target
 	6,   // 22: WorkflowState.state:type_name -> CancellationState
-	19,  // 23: WorkflowState.error:type_name -> Error
-	30,  // 24: WorkflowState.timer:type_name -> WorkflowTimer
-	94,  // 25: WorkflowState.satisfiesGatewayExpectation:type_name -> WorkflowState.SatisfiesGatewayExpectationEntry
-	95,  // 26: WorkflowState.gatewayExpectations:type_name -> WorkflowState.GatewayExpectationsEntry
+	21,  // 23: WorkflowState.error:type_name -> Error
+	32,  // 24: WorkflowState.timer:type_name -> WorkflowTimer
+	98,  // 25: WorkflowState.satisfiesGatewayExpectation:type_name -> WorkflowState.SatisfiesGatewayExpectationEntry
+	99,  // 26: WorkflowState.gatewayExpectations:type_name -> WorkflowState.GatewayExpectationsEntry
 	6,   // 27: WorkflowStateSummary.state:type_name -> CancellationState
-	19,  // 28: WorkflowStateSummary.error:type_name -> Error
-	30,  // 29: WorkflowStateSummary.timer:type_name -> WorkflowTimer
+	21,  // 28: WorkflowStateSummary.error:type_name -> Error
+	32,  // 29: WorkflowStateSummary.timer:type_name -> WorkflowTimer
 	3,   // 30: ProcessHistoryEntry.itemType:type_name -> ProcessHistoryType
 	6,   // 31: ProcessHistoryEntry.cancellationState:type_name -> CancellationState
-	30,  // 32: ProcessHistoryEntry.timer:type_name -> WorkflowTimer
-	19,  // 33: ProcessHistoryEntry.error:type_name -> Error
-	24,  // 34: ProcessHistory.item:type_name -> ProcessHistoryEntry
-	96,  // 35: Gateway.metExpectations:type_name -> Gateway.MetExpectationsEntry
+	32,  // 32: ProcessHistoryEntry.timer:type_name -> WorkflowTimer
+	21,  // 33: ProcessHistoryEntry.error:type_name -> Error
+	26,  // 34: ProcessHistory.item:type_name -> ProcessHistoryEntry
+	100, // 35: Gateway.metExpectations:type_name -> Gateway.MetExpectationsEntry
 	4,   // 36: WorkflowTimerDefinition.type:type_name -> WorkflowTimerType
-	97,  // 37: WorkflowInstance.satisfiedProcesses:type_name -> WorkflowInstance.SatisfiedProcessesEntry
-	98,  // 38: ProcessInstance.gatewayComplete:type_name -> ProcessInstance.GatewayCompleteEntry
+	101, // 37: WorkflowInstance.satisfiedProcesses:type_name -> WorkflowInstance.SatisfiedProcessesEntry
+	102, // 38: ProcessInstance.gatewayComplete:type_name -> ProcessInstance.GatewayCompleteEntry
 	5,   // 39: MessageRecipient.type:type_name -> RecipientType
-	99,  // 40: ApiAuthorizationRequest.Headers:type_name -> ApiAuthorizationRequest.HeadersEntry
-	100, // 41: ApiAuthenticationRequest.headers:type_name -> ApiAuthenticationRequest.HeadersEntry
+	103, // 40: ApiAuthorizationRequest.Headers:type_name -> ApiAuthorizationRequest.HeadersEntry
+	104, // 41: ApiAuthenticationRequest.headers:type_name -> ApiAuthenticationRequest.HeadersEntry
 	6,   // 42: CancelWorkflowInstanceRequest.state:type_name -> CancellationState
-	19,  // 43: CancelWorkflowInstanceRequest.error:type_name -> Error
-	22,  // 44: GetProcessInstanceStatusResult.processState:type_name -> WorkflowState
-	49,  // 45: ListWorkflowInstanceResponse.result:type_name -> ListWorkflowInstanceResult
-	22,  // 46: WorkflowInstanceStatus.state:type_name -> WorkflowState
-	53,  // 47: ListWorkflowsResponse.result:type_name -> ListWorkflowResult
+	21,  // 43: CancelWorkflowInstanceRequest.error:type_name -> Error
+	24,  // 44: GetProcessInstanceStatusResult.processState:type_name -> WorkflowState
+	51,  // 45: ListWorkflowInstanceResponse.result:type_name -> ListWorkflowInstanceResult
+	24,  // 46: WorkflowInstanceStatus.state:type_name -> WorkflowState
+	55,  // 47: ListWorkflowsResponse.result:type_name -> ListWorkflowResult
 	6,   // 48: WorkflowInstanceComplete.workflowState:type_name -> CancellationState
-	19,  // 49: WorkflowInstanceComplete.error:type_name -> Error
-	11,  // 50: GetWorkflowVersionsResponse.versions:type_name -> WorkflowVersions
-	8,   // 51: GetWorkflowResponse.definition:type_name -> Workflow
-	24,  // 52: GetProcessHistoryResponse.entry:type_name -> ProcessHistoryEntry
-	23,  // 53: SpoolWorkflowEventsResponse.state:type_name -> WorkflowStateSummary
-	22,  // 54: TelemetryState.state:type_name -> WorkflowState
-	101, // 55: TelemetryState.log:type_name -> TelemetryState.LogEntry
+	21,  // 49: WorkflowInstanceComplete.error:type_name -> Error
+	13,  // 50: GetWorkflowVersionsResponse.versions:type_name -> WorkflowVersions
+	10,  // 51: GetWorkflowResponse.definition:type_name -> Workflow
+	26,  // 52: GetProcessHistoryResponse.entry:type_name -> ProcessHistoryEntry
+	25,  // 53: SpoolWorkflowEventsResponse.state:type_name -> WorkflowStateSummary
+	24,  // 54: TelemetryState.state:type_name -> WorkflowState
+	105, // 55: TelemetryState.log:type_name -> TelemetryState.LogEntry
 	7,   // 56: TelemetryLogEntry.source:type_name -> LogSource
-	102, // 57: TelemetryLogEntry.attributes:type_name -> TelemetryLogEntry.AttributesEntry
-	81,  // 58: TaskSpec.metadata:type_name -> TaskMetadata
-	84,  // 59: TaskSpec.behaviour:type_name -> TaskBehaviour
-	82,  // 60: TaskSpec.parameters:type_name -> TaskParameters
-	83,  // 61: TaskSpec.events:type_name -> TaskEvents
-	85,  // 62: TaskParameters.parameterGroup:type_name -> ParameterGroup
-	86,  // 63: TaskParameters.input:type_name -> Parameter
-	86,  // 64: TaskParameters.output:type_name -> Parameter
-	19,  // 65: TaskEvents.error:type_name -> Error
-	87,  // 66: TaskEvents.Message:type_name -> Message
-	103, // 67: Parameter.extensionData:type_name -> Parameter.ExtensionDataEntry
-	10,  // 68: Workflow.ProcessEntry.value:type_name -> Process
-	26,  // 69: WorkflowState.SatisfiesGatewayExpectationEntry.value:type_name -> SatisfiesGateway
-	27,  // 70: WorkflowState.GatewayExpectationsEntry.value:type_name -> GatewayExpectations
-	79,  // 71: TelemetryState.LogEntry.value:type_name -> TelemetryLogEntry
-	72,  // [72:72] is the sub-list for method output_type
-	72,  // [72:72] is the sub-list for method input_type
-	72,  // [72:72] is the sub-list for extension type_name
-	72,  // [72:72] is the sub-list for extension extendee
-	0,   // [0:72] is the sub-list for field type_name
+	106, // 57: TelemetryLogEntry.attributes:type_name -> TelemetryLogEntry.AttributesEntry
+	83,  // 58: TaskSpec.metadata:type_name -> TaskMetadata
+	86,  // 59: TaskSpec.behaviour:type_name -> TaskBehaviour
+	84,  // 60: TaskSpec.parameters:type_name -> TaskParameters
+	85,  // 61: TaskSpec.events:type_name -> TaskEvents
+	89,  // 62: TaskParameters.parameterGroup:type_name -> ParameterGroup
+	90,  // 63: TaskParameters.input:type_name -> Parameter
+	90,  // 64: TaskParameters.output:type_name -> Parameter
+	21,  // 65: TaskEvents.error:type_name -> Error
+	91,  // 66: TaskEvents.Message:type_name -> Message
+	87,  // 67: TaskBehaviour.defaultRetry:type_name -> DefaultTaskRetry
+	8,   // 68: DefaultTaskRetry.strategy:type_name -> RetryStrategy
+	88,  // 69: DefaultTaskRetry.defaultExceeded:type_name -> DefaultRetryExceededBehaviour
+	9,   // 70: DefaultRetryExceededBehaviour.action:type_name -> RetryErrorAction
+	107, // 71: Parameter.extensionData:type_name -> Parameter.ExtensionDataEntry
+	12,  // 72: Workflow.ProcessEntry.value:type_name -> Process
+	28,  // 73: WorkflowState.SatisfiesGatewayExpectationEntry.value:type_name -> SatisfiesGateway
+	29,  // 74: WorkflowState.GatewayExpectationsEntry.value:type_name -> GatewayExpectations
+	81,  // 75: TelemetryState.LogEntry.value:type_name -> TelemetryLogEntry
+	76,  // [76:76] is the sub-list for method output_type
+	76,  // [76:76] is the sub-list for method input_type
+	76,  // [76:76] is the sub-list for extension type_name
+	76,  // [76:76] is the sub-list for extension extendee
+	0,   // [0:76] is the sub-list for field type_name
 }
 
 func init() { file_shar_workflow_models_proto_init() }
@@ -7567,7 +7920,7 @@ func file_shar_workflow_models_proto_init() {
 			}
 		}
 		file_shar_workflow_models_proto_msgTypes[77].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ParameterGroup); i {
+			switch v := v.(*DefaultTaskRetry); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7579,7 +7932,7 @@ func file_shar_workflow_models_proto_init() {
 			}
 		}
 		file_shar_workflow_models_proto_msgTypes[78].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Parameter); i {
+			switch v := v.(*DefaultRetryExceededBehaviour); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7591,7 +7944,7 @@ func file_shar_workflow_models_proto_init() {
 			}
 		}
 		file_shar_workflow_models_proto_msgTypes[79].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Message); i {
+			switch v := v.(*ParameterGroup); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7603,6 +7956,30 @@ func file_shar_workflow_models_proto_init() {
 			}
 		}
 		file_shar_workflow_models_proto_msgTypes[80].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Parameter); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_shar_workflow_models_proto_msgTypes[81].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Message); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_shar_workflow_models_proto_msgTypes[82].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TaskError); i {
 			case 0:
 				return &v.state
@@ -7623,14 +8000,14 @@ func file_shar_workflow_models_proto_init() {
 	file_shar_workflow_models_proto_msgTypes[16].OneofWrappers = []interface{}{}
 	file_shar_workflow_models_proto_msgTypes[23].OneofWrappers = []interface{}{}
 	file_shar_workflow_models_proto_msgTypes[24].OneofWrappers = []interface{}{}
-	file_shar_workflow_models_proto_msgTypes[78].OneofWrappers = []interface{}{}
+	file_shar_workflow_models_proto_msgTypes[80].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_shar_workflow_models_proto_rawDesc,
-			NumEnums:      8,
-			NumMessages:   96,
+			NumEnums:      10,
+			NumMessages:   98,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

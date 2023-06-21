@@ -328,7 +328,7 @@ message ListWorkflowInstanceProcessesRequest {
 }
 
 message ListWorkflowInstanceProcessesResult {
-    repeated string processInstanceId = 1; // ProcessInstance - process instances berlonging to this workflow instance.
+  repeated string processInstanceId = 1; // ProcessInstance - process instances berlonging to this workflow instance.
 }
 
 message GetProcessInstanceStatusRequest {

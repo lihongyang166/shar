@@ -100,6 +100,7 @@ func (c *Json) OutputCancelledWorkflow(id string) {
 	})
 }
 
+// OutputListProcesssInstance returns a CLI response
 func (c *Json) OutputListProcesssInstance(piID []string) {
 	outJson(struct {
 		ProcessInstanceID []string

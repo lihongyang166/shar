@@ -78,16 +78,20 @@ func (c *Text) OutputLoadResult(workflowInstanceID string) {
 	fmt.Println("Instance: " + workflowInstanceID)
 }
 
+// OutputListProcesssInstance returns a CLI response
 func (c *Text) OutputListProcesssInstance(piID []string) {
 	ll := make(pterm.LeveledList, 0, len(piID))
 	for _, i := range piID {
 		ll = append(ll, pterm.LeveledListItem{Level: 0, Text: i})
 	}
-	outJson(struct {
-		ProcessInstanceID []string
-	}{
-		ProcessInstanceID: piID,
-	})
+	root := putils.TreeFromLeveledList(ll)
+	op, err := pterm.DefaultTree.WithRoot(root).Srender()
+	if err != nil {
+		panic(fmt.Errorf("render: %w", err))
+	}
+	if _, err := Stream.Write([]byte(op)); err != nil {
+		panic(err)
+	}
 }
 
 func readStringPtr(ptr *string) string {

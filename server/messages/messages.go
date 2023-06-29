@@ -132,6 +132,7 @@ const (
 	APIGetServerInstanceStats        = "WORKFLOW.Api.GetServerInstanceStats"        // APIGetServerInstanceStats is the get server instance status API subject.
 	APIGetServiceTaskRoutingID       = "WORKFLOW.Api.GetServiceTaskRoutingID"       // APIGetServiceTaskRoutingID is the get client routing ID for a service task API subject.
 	APIGetMessageSenderRoutingID     = "WORKFLOW.Api.GetMessageSenderRoutingID"     // APIGetMessageSenderRoutingID is the get message sender routing ID API subject.
+	APIRegisterTask                  = "Workflow.Api.RegisterTask"                  // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
 	APIGetProcessInstanceStatus      = "WORKFLOW.Api.GetProcessInstanceStatus"      // APIGetProcessInstanceStatus is the get process instance status API subject.
 	APIGetWorkflowVersions           = "WORKFLOW.Api.GetWorkflowVersions"           // APIGetWorkflowVersions is the get workflow versions API message subject.
 	APIGetWorkflow                   = "WORKFLOW.Api.GetWorkflow"                   // APIGetWorkflow is the get workflow API message subject.

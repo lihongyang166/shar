@@ -58,6 +58,7 @@ message Element {
   repeated Timer boundaryTimer = 17; // BoundaryTimer - a number of timed transitions between this and another state.
   optional GatewaySpec gateway = 18; // GatewaySpec - if this element is a gateway, this contains the type specification for it.
   optional Iteration iteration = 19; // Iteration - gives any instructions for multi instance execution.
+  optional string version = 20; // Version - provides version information about a resource such as a task.
 }
 
 enum ThreadingType {
@@ -534,6 +535,7 @@ message TaskMetadata {
   string description = 5; // Description - a long description of the task.
   repeated string labels = 6; // Labels - a comma seperated list of searchable tags for the task.
   uint64 estimatedMaxDuration = 7; // EstimatedMaxDuration documents how long the task is expected to run for.
+  map<string,string> extensionData = 8; // ExtensionData - a map of values that can be used by third party tools.
 }
 
 message TaskParameters {
@@ -581,7 +583,7 @@ enum RetryErrorAction {
 message ParameterGroup {
   string name = 1; // Name of the parameter group.
   string short = 2; // Short description of the parameter groupp.
-  string description= 3; // Description - a long description of the parameter group.
+  string description = 3; // Description - a long description of the parameter group.
 }
 
 message Parameter {
@@ -611,4 +613,12 @@ message TaskError {
   string code = 2; // Code a unique code for the error.
   string short = 3; // Short description of the parameter.
   string description = 4; // Description - a long description of the parameter.
+}
+
+// RegisterTaskRequest registers a task in SHAR.
+message RegisterTaskRequest {
+  TaskSpec spec = 1; // Spec - the task specification.
+}
+message RegisterTaskResponse{
+  string uid = 1; // Uid of the registered task.
 }

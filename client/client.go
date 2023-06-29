@@ -18,6 +18,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/validation"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	api2 "gitlab.com/shar-workflow/shar/internal/client/api"
@@ -201,14 +202,45 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 
 // RegisterServiceTask adds a new service task to listen for to the client.
 func (c *Client) RegisterServiceTask(ctx context.Context, taskName string, fn ServiceFn, opts ...RegOpt) error {
+	spec := &model.TaskSpec{
+		Version: "__PRE_ALPHA__",
+		Kind:    "serviceTask",
+		Metadata: &model.TaskMetadata{
+			Type:        taskName,
+			Short:       taskName + " unversioned service task.",
+			Description: taskName + " unversioned service task.",
+		},
+	}
+	return c.RegisterVersionedSvcTask(ctx, spec, fn, opts...)
+}
+
+// RegisterVersionedSvcTask registers a service task with a task spec.
+func (c *Client) RegisterVersionedSvcTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn, opts ...RegOpt) error {
+	if spec.Version != "__PRE_ALPHA__" {
+		if err := validation.ValidateTaskSpec(spec); err != nil {
+			return err
+		}
+		id, err := c.getServiceTaskRoutingID(ctx, spec.Metadata.Type)
+		if err != nil {
+			return fmt.Errorf("get service task routing: %w", err)
+		}
+		spec.Metadata.Uid = id
+	} else {
+		if err := validation.ValidateTaskSpec(spec); err != nil {
+			return fmt.Errorf("task spec validation: %w", err)
+		}
+
+		id, err := c.registerServiceTask(ctx, spec)
+		if err != nil {
+			return fmt.Errorf("register service task: %w", err)
+		}
+		spec.Metadata.Uid = id
+	}
 	opt := &registerTaskOptions{}
 	for _, o := range opts {
 		o.apply(opt)
 	}
-	id, err := c.getServiceTaskRoutingID(ctx, taskName)
-	if err != nil {
-		return fmt.Errorf("get service task routing: %w", err)
-	}
+
 	if _, ok := c.SvcTasks[taskName]; ok {
 		return fmt.Errorf("service task '%s' already registered: %w", taskName, errors2.ErrServiceTaskAlreadyRegistered)
 	}
@@ -765,4 +797,16 @@ func (c *Client) GetServerVersion(ctx context.Context) (*version.Version, error)
 		return sv, fmt.Errorf("incompatible server version: " + sv.String() + " server must be " + cv2.String())
 	}
 	return sv, nil
+}
+
+func (c *Client) registerServiceTask(ctx context.Context, spec *model.TaskSpec) (string, error) {
+	req := &model.RegisterTaskRequest{
+		Spec: spec,
+	}
+	res := &model.RegisterTaskResponse{}
+
+	if err := api2.Call(ctx, c.txCon, messages.APIRegisterTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return "", c.clientErr(ctx, err)
+	}
+	return res.Uid, nil
 }

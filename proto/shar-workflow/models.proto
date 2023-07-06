@@ -142,6 +142,7 @@ message WorkflowState {
   string elementId = 3; // ElementId - the currently executing element withing the workflow state machine.
   string elementType = 4; // ElementType - the currently executing element type, cached here to reduce lookups.
   repeated string id = 5; // Id - a stack of IDs that descibe the state and its parents up to the original workflow instance ID.
+  string executeVersion = 22; // ExecuteVersion specifies a particular version to execute.
   optional string execute = 7; // Execute - additional information required to execute depending on the element type.
   CancellationState state = 8; // State - the current execution state of the state machine.
   optional string condition = 9; // Condition - a message condition that needs to be fulfilled before proceeding.
@@ -515,6 +516,10 @@ enum LogSource {
   logSourceWorkflow = 2;
   logSourceClient = 3;
   logSourceJob = 4;
+}
+
+message TaskSpecVersions {
+  repeated string id = 1;
 }
 
 // Task specification

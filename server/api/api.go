@@ -152,6 +152,10 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("APIGetProcessHistory failed: %w", err)
 	}
 
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIRegisterTask, &model.RegisterTaskRequest{}, s.registerTask); err != nil {
+		return fmt.Errorf("APIRegisterTask failed: %w", err)
+	}
+
 	slog.Info("shar api listener started")
 	return nil
 }

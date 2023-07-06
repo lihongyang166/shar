@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/antonmedv/expr"
 	"gitlab.com/shar-workflow/shar/model"
+	"strings"
 )
 
 func ValidateTaskSpec(td *model.TaskSpec) error {
@@ -39,7 +40,8 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 	}
 	for _, v := range td.Parameters.Input {
 		if v.ValidateExpr != "" {
-			if _, err := expr.Compile(v.ValidateExpr); err != nil {
+			ex := strings.TrimPrefix(v.ValidateExpr, "=")
+			if _, err := expr.Compile(ex); err != nil {
 				return fmt.Errorf("%s has a bad validation expression: %w", v.Name, err)
 			}
 		}
@@ -51,7 +53,8 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 				return fmt.Errorf("task is placeholder, but no example was given", ErrServiceMockValue)
 			}
 		} else {
-			if _, err := expr.Compile(v.Example); err != nil {
+			ex := strings.TrimPrefix(v.Example, "=")
+			if _, err := expr.Compile(ex); err != nil {
 				return fmt.Errorf("example value for '%s'is not valid: %w", v.Name, err)
 			}
 		}
@@ -60,7 +63,7 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 	return nil
 }
 
-func validVersion(version string) interface{} {
+func validVersion(version string) error {
 	return nil
 }
 

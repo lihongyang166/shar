@@ -18,6 +18,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/common/validation"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
@@ -32,6 +33,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"gopkg.in/yaml.v3"
 	"io"
 	"strconv"
 	"strings"
@@ -201,50 +203,53 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 }
 
 // RegisterServiceTask adds a new service task to listen for to the client.
-func (c *Client) RegisterServiceTask(ctx context.Context, taskName string, fn ServiceFn, opts ...RegOpt) error {
-	spec := &model.TaskSpec{
-		Version: "__PRE_ALPHA__",
-		Kind:    "serviceTask",
-		Metadata: &model.TaskMetadata{
-			Type:        taskName,
-			Short:       taskName + " unversioned service task.",
-			Description: taskName + " unversioned service task.",
-		},
+func (c *Client) RegisterServiceTask(ctx context.Context, taskName string, fn ServiceFn) error {
+	id, err := c.getServiceTaskRoutingID(ctx, taskName)
+	if err != nil {
+		return fmt.Errorf("get service task routing: %w", err)
 	}
-	return c.RegisterVersionedSvcTask(ctx, spec, fn, opts...)
+	if id == "_nil" {
+		spec := &model.TaskSpec{
+			Version: task.LegacyTask,
+			Kind:    "serviceTask",
+			Metadata: &model.TaskMetadata{
+				Type:        taskName,
+				Short:       taskName + " unversioned service task.",
+				Description: taskName + " unversioned service task.",
+			},
+		}
+		return c.registerTask(ctx, spec, fn)
+	}
+	c.SvcTasks[taskName] = fn
+	c.listenTasks[id] = struct{}{}
+	return nil
 }
 
-// RegisterVersionedSvcTask registers a service task with a task spec.
-func (c *Client) RegisterVersionedSvcTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn, opts ...RegOpt) error {
-	if spec.Version != "__PRE_ALPHA__" {
-		if err := validation.ValidateTaskSpec(spec); err != nil {
-			return err
-		}
-		id, err := c.getServiceTaskRoutingID(ctx, spec.Metadata.Type)
-		if err != nil {
-			return fmt.Errorf("get service task routing: %w", err)
-		}
-		spec.Metadata.Uid = id
-	} else {
+// RegisterTask registers a service task with a task spec.
+func (c *Client) RegisterTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
+	if spec.Version == task.LegacyTask {
+		return fmt.Errorf("system reserved task version: %w", errors.New("attempt to register system reserved word"))
+	}
+	return c.registerTask(ctx, spec, fn)
+}
+
+func (c *Client) registerTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
+	if spec.Version != task.LegacyTask {
 		if err := validation.ValidateTaskSpec(spec); err != nil {
 			return fmt.Errorf("task spec validation: %w", err)
 		}
-
-		id, err := c.registerServiceTask(ctx, spec)
-		if err != nil {
-			return fmt.Errorf("register service task: %w", err)
-		}
-		spec.Metadata.Uid = id
-	}
-	opt := &registerTaskOptions{}
-	for _, o := range opts {
-		o.apply(opt)
 	}
 
-	if _, ok := c.SvcTasks[taskName]; ok {
-		return fmt.Errorf("service task '%s' already registered: %w", taskName, errors2.ErrServiceTaskAlreadyRegistered)
+	id, err := c.registerServiceTask(ctx, spec)
+	if err != nil {
+		return fmt.Errorf("register service task: %w", err)
 	}
-	c.SvcTasks[taskName] = fn
+	spec.Metadata.Uid = id
+
+	if _, ok := c.SvcTasks[id]; ok {
+		return fmt.Errorf("service task '%s' already registered: %w", spec.Metadata.Type, errors2.ErrServiceTaskAlreadyRegistered)
+	}
+	c.SvcTasks[id] = fn
 	c.listenTasks[id] = struct{}{}
 	return nil
 }
@@ -350,10 +355,21 @@ func (c *Client) listen(ctx context.Context) error {
 					log.Error("get job", err, slog.String("JobId", trackingID))
 					return false, fmt.Errorf("get service task job kv: %w", err)
 				}
-				svcFn, ok := c.SvcTasks[*job.Execute]
+				// ** START LEGACY** //
+				if job.ExecuteVersion == "" {
+					// any tasks which are in flight during upgrade to this version must be injected with an ID.
+					v, err := c.getServiceTaskRoutingID(ctx, *job.Execute)
+					if err != nil {
+						return false, fmt.Errorf("failed to get routing ID")
+					}
+					job.ExecuteVersion = v
+				}
+				// ** END LEGACY ** //
+				svcFn, ok := c.SvcTasks[job.ExecuteVersion]
+
 				if !ok {
 					log.Error("find service function", err, slog.String("fn", *job.Execute))
-					return false, fmt.Errorf("find service task function: %w", err)
+					return false, fmt.Errorf("find service task function: %w", errors2.ErrWorkflowFatal{Err: err})
 				}
 				dv, err := vars.Decode(ctx, job.Vars)
 				if err != nil {
@@ -809,4 +825,13 @@ func (c *Client) registerServiceTask(ctx context.Context, spec *model.TaskSpec) 
 		return "", c.clientErr(ctx, err)
 	}
 	return res.Uid, nil
+}
+
+func (c *Client) LoadSpecFromBytes(buf []byte) (*model.TaskSpec, error) {
+	spec := &model.TaskSpec{}
+	err := yaml.Unmarshal(buf, spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse task spec: %w", err)
+	}
+	return spec, nil
 }

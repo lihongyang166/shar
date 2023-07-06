@@ -44,6 +44,8 @@ type Nats struct {
 	wfMessageInterest              nats.KeyValue
 	wfUserTasks                    nats.KeyValue
 	wfVarState                     nats.KeyValue
+	wfTaskSpec                     nats.KeyValue
+	wfTaskSpecVer                  nats.KeyValue
 	wf                             nats.KeyValue
 	wfVersion                      nats.KeyValue
 	wfTracking                     nats.KeyValue
@@ -156,6 +158,9 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	kvs[messages.KvHistory] = &ms.wfHistory
 	kvs[messages.KvLock] = &ms.wfLock
 	kvs[messages.KvMessageTypes] = &ms.wfMsgTypes
+	kvs[messages.KvTaskSpec] = &ms.wfTaskSpec
+	kvs[messages.KvTaskSpecVersions] = &ms.wfTaskSpecVer
+
 	ks := make([]string, 0, len(kvs))
 	for k := range kvs {
 		ks = append(ks, k)
@@ -270,6 +275,29 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 		return "", fmt.Errorf("store workflow failed to get the workflow hash: %w", err2)
 	}
 
+	for _, i := range wf.Process {
+		for _, j := range i.Elements {
+			if j.Type == element.ServiceTask {
+				id, err := s.GetTaskSpecUID(ctx, j.Execute)
+				if err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
+					return "", fmt.Errorf("task %s is not registered: %w", j.Execute, err)
+				}
+				j.Version = &id
+				jxCfg := &nats.ConsumerConfig{
+					Durable:       "ServiceTask_" + id,
+					Description:   "",
+					FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, "default") + "." + id,
+					AckPolicy:     nats.AckExplicitPolicy,
+					MemoryStorage: s.storageType == nats.MemoryStorage,
+				}
+
+				if err = ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
+					return "", fmt.Errorf("add service task consumer: %w", err)
+				}
+			}
+		}
+	}
+
 	var newWf bool
 	if err := common.UpdateObj(ctx, s.wfVersion, wf.Name, &model.WorkflowVersions{}, func(v *model.WorkflowVersions) (*model.WorkflowVersions, error) {
 		n := len(v.Version)
@@ -298,32 +326,6 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 
 	if err := s.ensureMessageBuckets(ctx, wf); err != nil {
 		return "", fmt.Errorf("create workflow message buckets: %w", err)
-	}
-
-	for _, i := range wf.Process {
-		for _, j := range i.Elements {
-			if j.Type == element.ServiceTask {
-				id := ksuid.New().String()
-				_, err := s.wfClientTask.Get(j.Execute)
-				if err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
-					_, err := s.wfClientTask.Put(j.Execute, []byte(id))
-					if err != nil {
-						return "", fmt.Errorf("add task to registry: %w", err)
-					}
-
-					jxCfg := &nats.ConsumerConfig{
-						Durable:       "ServiceTask_" + id,
-						Description:   "",
-						FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, "default") + "." + id,
-						AckPolicy:     nats.AckExplicitPolicy,
-					}
-
-					if err = ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
-						return "", fmt.Errorf("add service task consumer: %w", err)
-					}
-				}
-			}
-		}
 	}
 
 	go s.incrementWorkflowCount()
@@ -406,15 +408,8 @@ func (s *Nats) GetServiceTaskRoutingKey(ctx context.Context, taskName string) (s
 	var b []byte
 	var err error
 	if b, err = common.Load(ctx, s.wfClientTask, taskName); err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
-		if !s.allowOrphanServiceTasks {
-			return "", fmt.Errorf("get service task key. key not present: %w", err)
-		}
-		var id = ksuid.New().String()
-		_, err := s.wfClientTask.Put(taskName, []byte(id))
-		if err != nil {
-			return "", fmt.Errorf("register service task key: %w", err)
-		}
-		return id, nil
+		// return this if the legacy service task routing is not present
+		return "_nil", nil
 	} else if err != nil {
 		return "", fmt.Errorf("get service task key: %w", err)
 	}

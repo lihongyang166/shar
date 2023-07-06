@@ -530,11 +530,17 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			}
 		}
 	case element.ServiceTask:
-		stID, err := c.ns.GetServiceTaskRoutingKey(ctx, el.Execute)
+		if el.Version == nil {
+			v, err := c.ns.GetTaskSpecUID(ctx, el.Execute)
+			if errors2.Is(err, nats.ErrKeyNotFound) {
+				return fmt.Errorf("engine failed to get task spec id: %w", &errors.ErrWorkflowFatal{Err: err})
+			}
+			el.Version = &v
+		}
 		if err != nil {
 			return fmt.Errorf("get service task routing key during activity start processor: %w", err)
 		}
-		if err := c.startJob(ctx, messages.WorkflowJobServiceTaskExecute+"."+stID, newState, el, traversal.Vars); err != nil {
+		if err := c.startJob(ctx, messages.WorkflowJobServiceTaskExecute+"."+*el.Version, newState, el, traversal.Vars); err != nil {
 			return c.engineErr(ctx, "start srvice task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
 	case element.UserTask:
@@ -744,28 +750,28 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 // startJob launches a user/service task
 func (c *Engine) startJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...storage.PublishOpt) error {
 	job.Execute = &el.Execute
-
+	job.ExecuteVersion = *el.Version
 	// skip if this job type requires no input transformation
 	if el.Type != element.MessageIntermediateCatchEvent {
 		job.Vars = nil
 		if err := vars.InputVars(ctx, v, &job.Vars, el); err != nil {
-			return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to get input variables: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to get input variables: %w", err)}
 		}
 	}
 	// if this is a user task, find out who can perfoem it
 	if el.Type == element.UserTask {
 		vx, err := vars.Decode(ctx, v)
 		if err != nil {
-			return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
 		}
 
 		owners, err := c.evaluateOwners(ctx, el.Candidates, vx)
 		if err != nil {
-			return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate owners: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate owners: %w", err)}
 		}
 		groups, err := c.evaluateOwners(ctx, el.CandidateGroups, vx)
 		if err != nil {
-			return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate groups: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate groups: %w", err)}
 		}
 
 		job.Owners = owners
@@ -794,11 +800,11 @@ func (c *Engine) startJob(ctx context.Context, subject string, job *model.Workfl
 				// Launch as usual, just with iteration parameters
 				seqVars, err := vars.Decode(ctx, job.Vars)
 				if err != nil {
-					return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
 				}
 				collection, ok := seqVars[el.Iteration.Collection]
 				if !ok {
-					return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
 				}
 				seqVars[el.Iteration.Iterator] = getCollectionIndex[collection]
 			} else if model.ThreadingType_Parallel {

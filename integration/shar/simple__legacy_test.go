@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func TestSimple(t *testing.T) {
+func TestSimpleLegacy(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
@@ -28,13 +28,9 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register a service task
-	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{})}
+	d := &testSimpleLegacyHandlerDef{t: t, finished: make(chan struct{})}
 
-	sb, err := os.ReadFile("simple_test.yaml")
-	require.NoError(t, err)
-	yml, err := cl.LoadSpecFromBytes(sb)
-	require.NoError(t, err)
-	err = cl.RegisterTask(ctx, yml, d.integrationSimple)
+	err = cl.RegisterServiceTask(ctx, "SimpleProcess", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
@@ -58,12 +54,12 @@ func TestSimple(t *testing.T) {
 	tst.AssertCleanKV()
 }
 
-type testSimpleHandlerDef struct {
+type testSimpleLegacyHandlerDef struct {
 	t        *testing.T
 	finished chan struct{}
 }
 
-func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleLegacyHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))
@@ -71,6 +67,6 @@ func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.Job
 	return vars, nil
 }
 
-func (d *testSimpleHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (d *testSimpleLegacyHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	close(d.finished)
 }

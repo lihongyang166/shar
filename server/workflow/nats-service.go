@@ -12,6 +12,8 @@ import (
 
 // NatsService is the shar type responsible for interacting with NATS.
 type NatsService interface {
+	PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error)
+	GetTaskSpecUID(ctx context.Context, name string) (string, error)
 	SetTraversalProvider(provider services.TraversalFunc)
 	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResult, chan error)
 	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)

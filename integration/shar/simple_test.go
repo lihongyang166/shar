@@ -27,19 +27,23 @@ func TestSimple(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	// Register a service task
+	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{})}
+
+	sb, err := os.ReadFile("simple_test.yaml")
+	require.NoError(t, err)
+	yml, err := cl.LoadSpecFromBytes(sb)
+	require.NoError(t, err)
+	err = cl.RegisterTask(ctx, yml, d.integrationSimple)
+	require.NoError(t, err)
+	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
-	require.NoError(t, err)
-
-	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{})}
-
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "SimpleProcess", d.integrationSimple)
-	require.NoError(t, err)
-	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
 
 	// Launch the workflow

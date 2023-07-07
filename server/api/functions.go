@@ -413,3 +413,17 @@ func (s *SharServer) versionInfo(ctx context.Context, req *model.GetVersionInfoR
 	}
 	return ret, nil
 }
+
+func (s *SharServer) registerTask(ctx context.Context, req *model.RegisterTaskRequest) (*model.RegisterTaskResponse, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	uid, err := s.ns.PutTaskSpec(ctx, req.Spec)
+	if err != nil {
+		return nil, fmt.Errorf("register task spec: %w", err)
+	}
+
+	return &model.RegisterTaskResponse{Uid: uid}, nil
+}

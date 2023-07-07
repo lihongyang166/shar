@@ -107,7 +107,7 @@ func CheckVars(ctx context.Context, state *model.WorkflowState, el *model.Elemen
 			}
 			for i := range list {
 				if _, ok := vrs[i]; !ok {
-					return errors.ErrWorkflowFatal{Err: fmt.Errorf("expected output variable [%s] missing", i)}
+					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("expected output variable [%s] missing", i)}
 				}
 			}
 		}

@@ -3,11 +3,7 @@ kind: ServiceTask
 metadata:
   type: couldThrowError
   version: "0.1"
-  short: Look up address
-  description: Looks up a postal address from a PAF API
-  labels:
-    - address
-    - postcode
+  short: A test task.
   estimatedmaxduration: 2343255
 behaviour:
   defaultretry:
@@ -20,66 +16,4 @@ behaviour:
       action: 3
   unsafe: false
   mock: false
-parameters:
-  parametergroup:
-    - name: address1
-      short: Address parameters
-      description: Address parameters
-  input:
-    - name: number
-      short: House
-      description: House number
-      type: int
-      customtypeextension: null
-      collection: false
-      group: address1
-      extensiondata:
-        name1: value1
-      mandatory: true
-      validateexpr: param["number"] matches "[0-9]*"
-      example: ""
-    - name: postcode
-      short: Postal code
-      description: UK postal code
-      type: string
-      customtypeextension: null
-      collection: false
-      group: address1
-      extensiondata: {}
-      mandatory: false
-      validateexpr: ""
-      example: ""
-  output:
-    - name: streetName
-      short: Street Name
-      description: Street or road name
-      type: string
-      customtypeextension: null
-      collection: false
-      group: null
-      extensiondata: {}
-      mandatory: false
-      validateexpr: ""
-      example: ""
-    - name: county
-      short: County
-      description: Administrative county
-      type: string
-      customtypeextension: null
-      collection: false
-      group: null
-      extensiondata: {}
-      mandatory: false
-      validateexpr: ""
-      example: ""
-events:
-  error:
-    - id: ""
-      name: ServiceDown
-      code: "500"
-  message:
-    - name: BlacklistedPostcode
-      correlationkey: =postcode
-      short: "Message fired if a blacklisted postcode is enetered"
-      description: "Attempting to use a postcode which is blacklisted will send a management alert"
 

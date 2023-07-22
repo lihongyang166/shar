@@ -750,7 +750,11 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 // startJob launches a user/service task
 func (c *Engine) startJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...storage.PublishOpt) error {
 	job.Execute = &el.Execute
-	job.ExecuteVersion = *el.Version
+
+	// el.Version is only used for versioned tasks such as service tasks
+	if el.Version != nil {
+		job.ExecuteVersion = *el.Version
+	}
 	// skip if this job type requires no input transformation
 	if el.Type != element.MessageIntermediateCatchEvent {
 		job.Vars = nil

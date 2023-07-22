@@ -26,22 +26,22 @@ func TestExclusiveGatewayDecision(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	d := &testExclusiveGatewayDecisionDef{t: t, gameResult: "Win", finished: make(chan struct{})}
+
+	// Register service tasks
+	err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_PlayGame.yaml", d.playGame)
+	require.NoError(t, err)
+	err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveTrophy.yaml", d.win)
+	require.NoError(t, err)
+	err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveCommiserations.yaml", d.lose)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/exclusive-gateway.bpmn")
 	require.NoError(t, err)
-
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ExclusiveGatewayTest", b)
 	require.NoError(t, err)
 
-	d := &testExclusiveGatewayDecisionDef{t: t, gameResult: "Win", finished: make(chan struct{})}
-
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "PlayGame", d.playGame)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "ReceiveTrophy", d.win)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "ReceiveCommiserations", d.lose)
-	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("Process_1k2x28n", d.processEnd)
 	require.NoError(t, err)
 

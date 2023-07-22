@@ -1,7 +1,7 @@
 version: "1.0"
 kind: ServiceTask
 metadata:
-  type: WipeitUp
+  type: wipeItUp
   version: "0.1"
   short: A test task.
   estimatedmaxduration: 2343255

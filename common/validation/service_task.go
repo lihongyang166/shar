@@ -38,24 +38,26 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 	if td.Behaviour == nil {
 		return fmt.Errorf("task parameters section not found: %w", ErrServiceTaskNoParameters)
 	}
-	for _, v := range td.Parameters.Input {
-		if v.ValidateExpr != "" {
-			ex := strings.TrimPrefix(v.ValidateExpr, "=")
-			if _, err := expr.Compile(ex); err != nil {
-				return fmt.Errorf("%s has a bad validation expression: %w", v.Name, err)
+	if td.Parameters != nil && td.Parameters.Input != nil {
+		for _, v := range td.Parameters.Input {
+			if v.ValidateExpr != "" {
+				ex := strings.TrimPrefix(v.ValidateExpr, "=")
+				if _, err := expr.Compile(ex); err != nil {
+					return fmt.Errorf("%s has a bad validation expression: %w", v.Name, err)
+				}
 			}
-		}
-		if err := validExpName(v.Name); err != nil {
-			return fmt.Errorf("input name '%s'is not valid: %w", v.Name, err)
-		}
-		if v.Example == "" {
-			if td.Behaviour.Mock {
-				return fmt.Errorf("task is placeholder, but no example was given", ErrServiceMockValue)
+			if err := validExpName(v.Name); err != nil {
+				return fmt.Errorf("input name '%s'is not valid: %w", v.Name, err)
 			}
-		} else {
-			ex := strings.TrimPrefix(v.Example, "=")
-			if _, err := expr.Compile(ex); err != nil {
-				return fmt.Errorf("example value for '%s'is not valid: %w", v.Name, err)
+			if v.Example == "" {
+				if td.Behaviour.Mock {
+					return fmt.Errorf("task is placeholder, but no example was given", ErrServiceMockValue)
+				}
+			} else {
+				ex := strings.TrimPrefix(v.Example, "=")
+				if _, err := expr.Compile(ex); err != nil {
+					return fmt.Errorf("example value for '%s'is not valid: %w", v.Name, err)
+				}
 			}
 		}
 	}

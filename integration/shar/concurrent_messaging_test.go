@@ -35,6 +35,16 @@ func TestConcurrentMessaging(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	// Register service tasks
+	err = support.RegisterTaskYamlFile(ctx, cl, "concurrent_messaging_2_test_step1.yaml", handlers.step1)
+	require.NoError(t, err)
+	err = support.RegisterTaskYamlFile(ctx, cl, "concurrent_messaging_2_test_step2.yaml", handlers.step2)
+	require.NoError(t, err)
+	err = cl.RegisterMessageSender(ctx, "TestConcurrentMessaging", "continueMessage", handlers.sendMessage)
+	require.NoError(t, err)
+	err = cl.RegisterProcessComplete("Process_03llwnm", handlers.processEnd)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
@@ -42,15 +52,6 @@ func TestConcurrentMessaging(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestConcurrentMessaging", b)
 	require.NoError(t, err)
 
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "step1", handlers.step1)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "step2", handlers.step2)
-	require.NoError(t, err)
-	err = cl.RegisterMessageSender(ctx, "TestConcurrentMessaging", "continueMessage", handlers.sendMessage)
-	require.NoError(t, err)
-	err = cl.RegisterProcessComplete("Process_03llwnm", handlers.processEnd)
-	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)

@@ -233,6 +233,15 @@ func (c *Client) RegisterTask(ctx context.Context, spec *model.TaskSpec, fn Serv
 	return c.registerTask(ctx, spec, fn)
 }
 
+// RegisterTaskYaml registers a service task with a task spec.
+func (c *Client) RegisterTaskYaml(ctx context.Context, taskYaml []byte, fn ServiceFn) error {
+	yml, err := c.LoadSpecFromBytes(taskYaml)
+	if err != nil {
+		return fmt.Errorf("RegisterTaskFromYaml: %w", err)
+	}
+	return c.RegisterTask(ctx, yml, fn)
+}
+
 func (c *Client) registerTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
 	if spec.Version != task.LegacyTask {
 		if err := validation.ValidateTaskSpec(spec); err != nil {

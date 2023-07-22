@@ -85,6 +85,16 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
 	err := cl.Dial(ctx, d.tst.NatsURL)
 	require.NoError(t, err)
 
+	// Register service tasks
+	err = support.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_CanTimeout.yaml", d.canTimeout)
+	require.NoError(t, err)
+	err = support.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_TimedOut.yaml", d.timedOut)
+	require.NoError(t, err)
+	err = support.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_CheckResult.yaml", d.checkResult)
+	require.NoError(t, err)
+	err = support.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_NoTimeout.yaml", d.noTimeout)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/possible-timeout-workflow.bpmn")
 	require.NoError(t, err)
@@ -92,16 +102,6 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "PossibleTimeout", b)
 	require.NoError(t, err)
 
-	// Register a service task
-
-	err = cl.RegisterServiceTask(ctx, "CanTimeout", d.canTimeout)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "TimedOut", d.timedOut)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "CheckResult", d.checkResult)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "NoTimeout", d.noTimeout)
-	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("Process_16piog5", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow

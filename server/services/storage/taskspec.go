@@ -9,8 +9,10 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/model"
+	"google.golang.org/protobuf/proto"
 )
 
+// GetTaskSpecUID fetches
 func (s *Nats) GetTaskSpecUID(ctx context.Context, name string) (string, error) {
 	tskVer := &model.TaskSpecVersions{}
 	if err := common.LoadObj(ctx, s.wfTaskSpecVer, name, tskVer); errors.Is(err, nats.ErrKeyNotFound) {
@@ -29,6 +31,7 @@ func (s *Nats) GetTaskSpecUID(ctx context.Context, name string) (string, error) 
 	return tskVer.Id[len(tskVer.Id)-1], nil
 }
 
+// PutTaskSpec writes a task spec to the database.
 func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error) {
 	// Legacy task registration
 	if spec.Version == task.LegacyTask {
@@ -46,6 +49,17 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 	vers := &model.TaskSpecVersions{}
 	if err := common.UpdateObj(ctx, s.wfTaskSpecVer, spec.Metadata.Type, vers, func(v *model.TaskSpecVersions) (*model.TaskSpecVersions, error) {
 		v.Id = append(v.Id, uid)
+		subj := "WORKFLOW.System.Task.Create"
+		if len(v.Id) == 0 {
+			subj = "WORKFLOW.System.Task.Update"
+		}
+		b, err := proto.Marshal(spec)
+		if err != nil {
+			return nil, fmt.Errorf("marshal %s system message: %w", subj, err)
+		}
+		if err := s.conn.Publish(subj, b); err != nil {
+			return nil, fmt.Errorf("send %s system message: %w", subj, err)
+		}
 		return v, nil
 	}); err != nil {
 		return "", fmt.Errorf("saving task spec version: %w", err)

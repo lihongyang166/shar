@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// ValidateTaskSpec validates a task spec.
 func ValidateTaskSpec(td *model.TaskSpec) error {
 	if td.Version != "1.0" {
 		return fmt.Errorf("spec version %s not found: %w", td.Version, ErrTaskSpecVersion)
@@ -51,7 +52,7 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 			}
 			if v.Example == "" {
 				if td.Behaviour.Mock {
-					return fmt.Errorf("task is placeholder, but no example was given", ErrServiceMockValue)
+					return fmt.Errorf("task is placeholder, but no example was given: %w", ErrServiceMockValue)
 				}
 			} else {
 				ex := strings.TrimPrefix(v.Example, "=")

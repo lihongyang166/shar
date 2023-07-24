@@ -10,7 +10,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/common/authn"
 	"gitlab.com/shar-workflow/shar/common/authz"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -22,7 +21,6 @@ import (
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
 	"math/big"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -292,13 +290,4 @@ func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
 		assert.Fail(t, "timed out waiting for completion")
 		return
 	}
-}
-
-// RegisterTaskYamlFile registers a service task with a task spec.
-func RegisterTaskYamlFile(ctx context.Context, c *client.Client, yamlFile string, fn client.ServiceFn) error {
-	sb, err := os.ReadFile(yamlFile)
-	if err != nil {
-		return fmt.Errorf("register task yaml file: %w", err)
-	}
-	return c.RegisterTaskYaml(ctx, sb, fn)
 }

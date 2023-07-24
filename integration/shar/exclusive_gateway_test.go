@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -29,11 +30,11 @@ func TestExclusiveGatewayDecision(t *testing.T) {
 	d := &testExclusiveGatewayDecisionDef{t: t, gameResult: "Win", finished: make(chan struct{})}
 
 	// Register service tasks
-	err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_PlayGame.yaml", d.playGame)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_PlayGame.yaml", d.playGame)
 	require.NoError(t, err)
-	err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveTrophy.yaml", d.win)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveTrophy.yaml", d.win)
 	require.NoError(t, err)
-	err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveCommiserations.yaml", d.lose)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveCommiserations.yaml", d.lose)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

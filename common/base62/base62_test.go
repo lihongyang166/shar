@@ -18,7 +18,6 @@ type Sample struct {
 	target      string
 	sourceBytes []byte
 	targetBytes []byte
-	alphabet    string
 }
 
 func NewSample(source, target string) *Sample {

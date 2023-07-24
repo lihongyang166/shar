@@ -33,7 +33,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	"gopkg.in/yaml.v3"
 	"io"
 	"strconv"
 	"strings"
@@ -203,6 +202,7 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 }
 
 // RegisterServiceTask adds a new service task to listen for to the client.
+// Deprecated: RegisterServiceTask exists for historical compatibility.  Use RegisterTask passing in a model.TaskSpec pointer.
 func (c *Client) RegisterServiceTask(ctx context.Context, taskName string, fn ServiceFn) error {
 	id, err := c.getServiceTaskRoutingID(ctx, taskName)
 	if err != nil {
@@ -231,15 +231,6 @@ func (c *Client) RegisterTask(ctx context.Context, spec *model.TaskSpec, fn Serv
 		return fmt.Errorf("system reserved task version: %w", errors.New("attempt to register system reserved word"))
 	}
 	return c.registerTask(ctx, spec, fn)
-}
-
-// RegisterTaskYaml registers a service task with a task spec.
-func (c *Client) RegisterTaskYaml(ctx context.Context, taskYaml []byte, fn ServiceFn) error {
-	yml, err := c.LoadSpecFromBytes(taskYaml)
-	if err != nil {
-		return fmt.Errorf("RegisterTaskFromYaml: %w", err)
-	}
-	return c.RegisterTask(ctx, yml, fn)
 }
 
 func (c *Client) registerTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
@@ -834,13 +825,4 @@ func (c *Client) registerServiceTask(ctx context.Context, spec *model.TaskSpec) 
 		return "", c.clientErr(ctx, err)
 	}
 	return res.Uid, nil
-}
-
-func (c *Client) LoadSpecFromBytes(buf []byte) (*model.TaskSpec, error) {
-	spec := &model.TaskSpec{}
-	err := yaml.Unmarshal(buf, spec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse task spec: %w", err)
-	}
-	return spec, nil
 }

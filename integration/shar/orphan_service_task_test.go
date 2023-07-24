@@ -24,15 +24,15 @@ func TestRegisterOrphanServiceTask(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	err = cl.RegisterServiceTask(ctx, "UndefinedTask", orphanTask)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
-
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "task SimpleProcess is not registered")
 
-	err = cl.RegisterServiceTask(ctx, "UndefinedProcess", orphanTask)
-	require.NoError(t, err)
 	tst.AssertCleanKV()
 }
 

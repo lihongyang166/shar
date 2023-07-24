@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -37,20 +38,21 @@ func TestSimpleTelemetry(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
-	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
-	require.NoError(t, err)
-
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
-	require.NoError(t, err)
-
 	d := &testTelSimpleHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "SimpleProcess", d.integrationSimple)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "telemetry_simple_test_SimpleProcess.yaml", d.integrationSimple)
 	require.NoError(t, err)
+
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	require.NoError(t, err)
+
 	// Launch the workflow
 	_, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowTest", model.Vars{})
 	require.NoError(t, err)

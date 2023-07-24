@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -30,13 +31,13 @@ func TestLink(t *testing.T) {
 	d := &testLinkHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register service tasks
-	err = support.RegisterTaskYamlFile(ctx, cl, "link_test_spillage.yaml", d.spillage)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "link_test_spillage.yaml", d.spillage)
 	require.NoError(t, err)
-	err = support.RegisterTaskYamlFile(ctx, cl, "link_test_dontCry.yaml", d.dontCry)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "link_test_dontCry.yaml", d.dontCry)
 	require.NoError(t, err)
-	err = support.RegisterTaskYamlFile(ctx, cl, "link_test_cry.yaml", d.cry)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "link_test_cry.yaml", d.cry)
 	require.NoError(t, err)
-	err = support.RegisterTaskYamlFile(ctx, cl, "link_test_wipeItUp.yaml", d.wipeItUp)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "link_test_wipeItUp.yaml", d.wipeItUp)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

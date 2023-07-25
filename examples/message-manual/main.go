@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
-	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	zensvr "gitlab.com/shar-workflow/shar/zen-shar/server"
 	"os"
 	"time"
@@ -20,13 +20,21 @@ func main() {
 	ss, ns, err := zensvr.GetServers("127.0.0.1", 4222, 8, nil, nil)
 	defer ss.Shutdown()
 	defer ns.Shutdown()
+
 	// Create a starting context
 	ctx := context.Background()
-	sub := tracer.Trace("127.0.0.1:4222")
-	defer sub.Close()
+
 	// Dial shar
 	cl = client.New()
 	if err := cl.Dial(ctx, nats.DefaultURL); err != nil {
+		panic(err)
+	}
+
+	// Register a service task
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.step1.yaml", step1); err != nil {
+		panic(err)
+	}
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.step2.yaml", step2); err != nil {
 		panic(err)
 	}
 
@@ -39,30 +47,19 @@ func main() {
 		panic(err)
 	}
 
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "step1", step1)
-	if err != nil {
-		panic(err)
-	}
-	err = cl.RegisterServiceTask(ctx, "step2", step2)
-	if err != nil {
-		panic(err)
-	}
-	err = cl.RegisterProcessComplete("Process_03llwnm", processEnd)
-	if err != nil {
+	// Register a completion hook
+	if err := cl.RegisterProcessComplete("Process_03llwnm", processEnd); err != nil {
 		panic(err)
 	}
 
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "MessageManualDemo", model.Vars{"orderId": 57, "carried": 128})
-	if err != nil {
+	if _, _, err = cl.LaunchWorkflow(ctx, "MessageManualDemo", model.Vars{"orderId": 57, "carried": 128}); err != nil {
 		panic(err)
 	}
 
 	// Listen for service tasks
 	go func() {
-		err := cl.Listen(ctx)
-		if err != nil {
+		if err := cl.Listen(ctx); err != nil {
 			panic(err)
 		}
 	}()

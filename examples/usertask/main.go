@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
 	"time"
@@ -22,6 +23,14 @@ func main() {
 		panic(err)
 	}
 
+	// Register service tasks
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.Prepare.yaml", prepare); err != nil {
+		panic(err)
+	}
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.Complete.yaml", complete); err != nil {
+		panic(err)
+	}
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("testdata/usertask.bpmn")
 	if err != nil {
@@ -31,32 +40,19 @@ func main() {
 		panic(err)
 	}
 
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "Prepare", prepare)
-	if err != nil {
+	// Add a hook to watch for completion
+	if err := cl.RegisterProcessComplete("Process_03llwnm", processEnd); err != nil {
 		panic(err)
 	}
-	err = cl.RegisterServiceTask(ctx, "Complete", complete)
-	if err != nil {
-		panic(err)
-	}
-	err = cl.RegisterProcessComplete("Process_03llwnm", processEnd)
-	if err != nil {
-		panic(err)
-	}
-
-	// A hook to watch for completion
 
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "UserTaskWorkflowDemo", model.Vars{"OrderId": 68})
-	if err != nil {
+	if _, _, err := cl.LaunchWorkflow(ctx, "UserTaskWorkflowDemo", model.Vars{"OrderId": 68}); err != nil {
 		panic(err)
 	}
 
 	// Listen for service tasks
 	go func() {
-		err := cl.Listen(ctx)
-		if err != nil {
+		if err := cl.Listen(ctx); err != nil {
 			panic(err)
 		}
 	}()
@@ -65,8 +61,7 @@ func main() {
 		for {
 			tsk, err := cl.ListUserTaskIDs(ctx, "andrei")
 			if err == nil && tsk.Id != nil {
-				err2 := cl.CompleteUserTask(ctx, "andrei", tsk.Id[0], model.Vars{"Forename": "Brangelina", "Surname": "Miggins"})
-				if err2 != nil {
+				if err2 := cl.CompleteUserTask(ctx, "andrei", tsk.Id[0], model.Vars{"Forename": "Brangelina", "Surname": "Miggins"}); err2 != nil {
 					panic(err)
 				}
 				return

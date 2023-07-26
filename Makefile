@@ -82,4 +82,7 @@ examples: .FORCE
 	cd examples/sub-workflow && go build  -o ../../build/examples/sub-workflow main.go
 	cd examples/simple && go build  -o ../../build/examples/simple main.go
 	cd examples/usertask && go build  -o ../../build/examples/usertask main.go
+update:
+	go get -u ./...
+	go mod tidy
 .FORCE:

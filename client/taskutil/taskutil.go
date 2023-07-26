@@ -36,5 +36,8 @@ func RegisterTaskYaml(ctx context.Context, c *client.Client, taskYaml []byte, fn
 	if err != nil {
 		return fmt.Errorf("RegisterTaskFromYaml: %w", err)
 	}
-	return c.RegisterTask(ctx, yml, fn)
+	if err := c.RegisterTask(ctx, yml, fn); err != nil {
+		return fmt.Errorf("RegisterTaskYaml: %w", err)
+	}
+	return nil
 }

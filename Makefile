@@ -7,7 +7,7 @@ configure:
 	go get -d google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go get -d github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go get -d github.com/vektra/mockery/v2@v2.20.2
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/vektra/mockery/v2@v2.20.2

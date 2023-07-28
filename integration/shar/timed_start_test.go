@@ -17,7 +17,6 @@ import (
 
 func TestTimedStart(t *testing.T) {
 	tst := &support.Integration{}
-	tst.Cooldown = 30 * time.Second
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()

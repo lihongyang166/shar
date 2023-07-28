@@ -55,7 +55,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	s.NatsPort = 4459 + int(v.Int64())
 	s.NatsURL = fmt.Sprintf("nats://%s:%v", s.NatsHost, s.NatsPort)
 	logx.SetDefault(slog.LevelDebug, true, "shar-Integration-tests")
-	s.Cooldown = 4 * time.Second
+	s.Cooldown = 10 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
 	ss, ns, err := zensvr.GetServers(s.NatsHost, s.NatsPort, 10, authZFn, authNFn)

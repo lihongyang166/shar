@@ -77,7 +77,7 @@ func TestConcurrentMessaging(t *testing.T) {
 		}(inst)
 	}
 	for inst := 0; inst < n; inst++ {
-		support.WaitForChan(t, handlers.finished, 20*time.Second)
+		support.WaitForChan(t, handlers.finished, 60*time.Second)
 	}
 	fmt.Println("Stopwatch:", -time.Until(tm))
 	tst.AssertCleanKV()

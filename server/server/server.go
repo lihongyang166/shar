@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/authn"
@@ -16,10 +21,6 @@ import (
 	"golang.org/x/exp/slog"
 	gogrpc "google.golang.org/grpc"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
-	"net"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 // Server is the shar server type responsible for hosting the SHAR API.

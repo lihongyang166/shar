@@ -1,19 +1,24 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/nats-io/nats-server/v2/server"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"gitlab.com/shar-workflow/shar/common/authn"
 	"gitlab.com/shar-workflow/shar/common/authz"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	sharsvr "gitlab.com/shar-workflow/shar/server/server"
 	"golang.org/x/exp/slog"
-	"strconv"
-	"time"
 )
 
 type zenOpts struct {
-	sharVersion string
+	sharVersion        string
+	sharServerImageUrl string
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -26,8 +31,14 @@ func WithSharVersion(ver string) ZenSharOptionApplyFn {
 	}
 }
 
+func WithSharServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
+	return func(cfg *zenOpts) {
+		cfg.sharServerImageUrl = imageUrl
+	}
+}
+
 // GetServers returns a test NATS and SHAR server.
-func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (*sharsvr.Server, *server.Server, error) {
+func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (Server, *server.Server, error) {
 
 	defaults := &zenOpts{sharVersion: version2.Version}
 	for _, i := range option {
@@ -145,6 +156,34 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 	}
 	slog.Info("NATS started")
 
+	var ssvr Server
+	if defaults.sharServerImageUrl != "" {
+		ssvr = inContainerSharServer(ssvr, defaults, natsPort)
+	} else {
+		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, natsHost, natsPort)
+	}
+
+	slog.Info("Setup completed")
+	return ssvr, nsvr, nil
+}
+
+func inContainerSharServer(ssvr Server, defaults *zenOpts, natsPort int) Server {
+	ssvr = &ContainerisedServer{
+		req: testcontainers.ContainerRequest{
+			Image:        defaults.sharServerImageUrl,
+			ExposedPorts: []string{"50000/TCP"},
+			WaitingFor:   wait.ForExposedPort(),
+			Env: map[string]string{
+				"NATS_URL": fmt.Sprintf("nats://host.docker.internal:%d", natsPort),
+			},
+		},
+	}
+	ssvr.Listen("", 0)
+
+	return ssvr
+}
+
+func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int) *sharsvr.Server {
 	options := []sharsvr.Option{
 		sharsvr.EphemeralStorage(),
 		sharsvr.PanicRecovery(false),
@@ -157,6 +196,7 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 	if authN != nil {
 		options = append(options, sharsvr.WithAuthentication(authN))
 	}
+
 	ssvr := sharsvr.New(options...)
 	go ssvr.Listen(natsHost+":"+strconv.Itoa(natsPort), 0)
 	for {
@@ -166,6 +206,38 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 		slog.Info("waiting for shar")
 		time.Sleep(500 * time.Millisecond)
 	}
-	slog.Info("Setup completed")
-	return ssvr, nsvr, nil
+	return ssvr
+}
+
+type Server interface {
+	Shutdown()
+	Listen(backend string, port int)
+}
+
+type ContainerisedServer struct {
+	req       testcontainers.ContainerRequest
+	container testcontainers.Container
+}
+
+func (cp *ContainerisedServer) Listen(_ string, _ int) {
+	ctx := context.Background()
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: cp.req,
+		Started:          true,
+	})
+
+	if err != nil {
+		panic(fmt.Sprintf("failed to start container for request: %+v", cp.req))
+	}
+
+	cp.container = container
+}
+
+func (cp *ContainerisedServer) Shutdown() {
+	if cp.container != nil {
+		ctx := context.Background()
+		if err := cp.container.Terminate(ctx); err != nil {
+			panic("failed to shutdown the container ")
+		}
+	}
 }

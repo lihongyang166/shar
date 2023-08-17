@@ -5,6 +5,12 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
@@ -14,16 +20,11 @@ import (
 	"gitlab.com/shar-workflow/shar/common/authz"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/model"
-	sharsvr "gitlab.com/shar-workflow/shar/server/server"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	server2 "gitlab.com/shar-workflow/shar/telemetry/server"
 	zensvr "gitlab.com/shar-workflow/shar/zen-shar/server"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
-	"math/big"
-	"sync"
-	"testing"
-	"time"
 )
 
 var errDirtyKV = errors.New("KV contains values when expected empty")
@@ -31,7 +32,7 @@ var errDirtyKV = errors.New("KV contains values when expected empty")
 // Integration - the integration test support framework.
 type Integration struct {
 	testNatsServer *server.Server
-	testSharServer *sharsvr.Server
+	testSharServer zensvr.Server
 	FinalVars      map[string]interface{}
 	Test           *testing.T
 	Mx             sync.Mutex
@@ -58,7 +59,8 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	s.Cooldown = 10 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
-	ss, ns, err := zensvr.GetServers(s.NatsHost, s.NatsPort, 10, authZFn, authNFn)
+
+	ss, ns, err := zensvr.GetServers(s.NatsHost, s.NatsPort, 10, authZFn, authNFn, zensvr.WithSharServerImageUrl(os.Getenv("SHAR_SERVER_IMAGE_URL")))
 	if err != nil {
 		panic(err)
 	}
@@ -75,6 +77,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		err = s.testTelemetry.Listen()
 		require.NoError(t, err)
 	}
+
 	s.testSharServer = ss
 	s.testNatsServer = ns
 	s.Test.Logf("Starting test support for " + s.Test.Name())

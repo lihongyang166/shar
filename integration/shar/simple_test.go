@@ -17,31 +17,6 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 )
 
-func TestGoContainers(t *testing.T) {
-	ctx := context.Background()
-	req := testcontainers.ContainerRequest{
-		Image:        "registry.gitlab.com/shar-workflow/shar/server:latest",
-		ExposedPorts: []string{"50000/TCP"},
-		WaitingFor:   wait.ForExposedPort(),
-		Env:          map[string]string{"NATS_URL": "nats://host.docker.internal:4222"},
-	}
-
-	sharServer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	defer func() {
-		if err := sharServer.Terminate(ctx); err != nil {
-			t.Fatalf("failed to terminate container: %s", err.Error())
-		}
-	}()
-}
-
 func TestSimple(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true

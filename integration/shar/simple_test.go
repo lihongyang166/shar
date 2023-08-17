@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
@@ -23,6 +21,7 @@ func TestSimple(t *testing.T) {
 
 	// t.Setenv("SHAR_SERVER_IMAGE_URL", "registry.gitlab.com/shar-workflow/shar/server:latest")
 	t.Setenv("SHAR_SERVER_IMAGE_URL", "local/shar-server:0.0.1-SNAPSHOT")
+	//t.Setenv("SHAR_SERVER_IMAGE_URL", "local/shar-server:0.0.1-ephemeral")
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 

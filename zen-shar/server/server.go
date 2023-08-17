@@ -31,6 +31,7 @@ func WithSharVersion(ver string) ZenSharOptionApplyFn {
 	}
 }
 
+// WithSharServerImageUrl will make zen-shar start shar server in a container from the specificed image URL
 func WithSharServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
 		cfg.sharServerImageUrl = imageUrl
@@ -38,6 +39,8 @@ func WithSharServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 }
 
 // GetServers returns a test NATS and SHAR server.
+//
+//nolint:ireturn
 func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (Server, *server.Server, error) {
 
 	defaults := &zenOpts{sharVersion: version2.Version}
@@ -158,7 +161,7 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 
 	var ssvr Server
 	if defaults.sharServerImageUrl != "" {
-		ssvr = inContainerSharServer(ssvr, defaults, natsPort)
+		ssvr = inContainerSharServer(defaults, natsPort)
 	} else {
 		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, natsHost, natsPort)
 	}
@@ -167,12 +170,12 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 	return ssvr, nsvr, nil
 }
 
-func inContainerSharServer(ssvr Server, defaults *zenOpts, natsPort int) Server {
-	ssvr = &ContainerisedServer{
+func inContainerSharServer(defaults *zenOpts, natsPort int) *ContainerisedServer {
+	ssvr := &ContainerisedServer{
 		req: testcontainers.ContainerRequest{
 			Image:        defaults.sharServerImageUrl,
 			ExposedPorts: []string{"50000/TCP"},
-			WaitingFor:   wait.ForExposedPort(),
+			WaitingFor:   wait.ForLog("shar api listener started"),
 			Env: map[string]string{
 				"NATS_URL": fmt.Sprintf("nats://host.docker.internal:%d", natsPort),
 			},
@@ -209,16 +212,20 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	return ssvr
 }
 
+// Server is a general interface representing either an inprocess or in container Shar server
 type Server interface {
 	Shutdown()
 	Listen(backend string, port int)
 }
 
+// ContainerisedServer is a wrapper to the test containers test library allowing you to start or shut
+// any Server you wish to startup/shutdown in a container
 type ContainerisedServer struct {
 	req       testcontainers.ContainerRequest
 	container testcontainers.Container
 }
 
+// Listen will startup the shar server in a container
 func (cp *ContainerisedServer) Listen(_ string, _ int) {
 	ctx := context.Background()
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -233,6 +240,7 @@ func (cp *ContainerisedServer) Listen(_ string, _ int) {
 	cp.container = container
 }
 
+// Shutdown will hutdown the containerised shar server
 func (cp *ContainerisedServer) Shutdown() {
 	if cp.container != nil {
 		ctx := context.Background()

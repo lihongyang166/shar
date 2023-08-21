@@ -19,6 +19,7 @@ import (
 type zenOpts struct {
 	sharVersion        string
 	sharServerImageUrl string
+	natsServerImageUrl string
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -38,15 +39,96 @@ func WithSharServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 	}
 }
 
+// WithNatsServerImageUrl will make zen-shar start nats server in a container from the specificed image URL
+func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
+	return func(cfg *zenOpts) {
+		cfg.natsServerImageUrl = imageUrl
+	}
+}
+
 // GetServers returns a test NATS and SHAR server.
 //
 //nolint:ireturn
-func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (Server, *server.Server, error) {
+func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (Server, Server, error) {
 
 	defaults := &zenOpts{sharVersion: version2.Version}
 	for _, i := range option {
 		i(defaults)
 	}
+
+	var nsvr Server
+
+	n := &NatsServer{}
+	n.Listen(natsHost, natsPort)
+	nsvr = n
+
+	var ssvr Server
+	if defaults.sharServerImageUrl != "" {
+		ssvr = inContainerSharServer(defaults, natsPort)
+	} else {
+		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, natsHost, natsPort)
+	}
+
+	slog.Info("Setup completed")
+	return ssvr, nsvr, nil
+}
+
+func inContainerSharServer(defaults *zenOpts, natsPort int) *ContainerisedServer {
+	ssvr := &ContainerisedServer{
+		req: testcontainers.ContainerRequest{
+			Image:        defaults.sharServerImageUrl,
+			ExposedPorts: []string{"50000/TCP"},
+			WaitingFor:   wait.ForLog("shar api listener started"),
+			Env: map[string]string{
+				"NATS_URL": fmt.Sprintf("nats://host.docker.internal:%d", natsPort),
+			},
+		},
+	}
+	ssvr.Listen("", 0)
+
+	return ssvr
+}
+
+func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int) *sharsvr.Server {
+	options := []sharsvr.Option{
+		sharsvr.EphemeralStorage(),
+		sharsvr.PanicRecovery(false),
+		sharsvr.Concurrency(sharConcurrency),
+		sharsvr.WithNoHealthServer(),
+	}
+	if apiAuth != nil {
+		options = append(options, sharsvr.WithApiAuthorizer(apiAuth))
+	}
+	if authN != nil {
+		options = append(options, sharsvr.WithAuthentication(authN))
+	}
+
+	ssvr := sharsvr.New(options...)
+	go ssvr.Listen(natsHost+":"+strconv.Itoa(natsPort), 0)
+	for {
+		if ssvr.Ready() {
+			break
+		}
+		slog.Info("waiting for shar")
+		time.Sleep(500 * time.Millisecond)
+	}
+	return ssvr
+}
+
+// Server is a general interface representing either an inprocess or in container Shar server
+type Server interface {
+	Shutdown()
+	Listen(host string, port int)
+}
+
+// NatsServer is a wrapper around the nats lib server so that its lifecycle can be defined
+// in terms of the Server interface needed by integration tests
+type NatsServer struct {
+	nsvr *server.Server
+}
+
+// Listen starts an in process nats server
+func (natserver *NatsServer) Listen(natsHost string, natsPort int) {
 	//wd, err := os.Getwd()
 	//if err != nil {
 	//	return nil, nil, fmt.Errorf("failed to get working directory: %w", err)
@@ -148,7 +230,8 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 		OCSPConfig:                 nil,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("create a new server instance: %w", err)
+		// return nil, nil, fmt.Errorf("create a new server instance: %w", err)
+		panic(fmt.Errorf("create a new server instance: %w", err))
 	}
 	//nl := &NatsLogger{}
 	//nsvr.SetLogger(nl, true, true)
@@ -159,63 +242,13 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 	}
 	slog.Info("NATS started")
 
-	var ssvr Server
-	if defaults.sharServerImageUrl != "" {
-		ssvr = inContainerSharServer(defaults, natsPort)
-	} else {
-		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, natsHost, natsPort)
-	}
-
-	slog.Info("Setup completed")
-	return ssvr, nsvr, nil
+	natserver.nsvr = nsvr
 }
 
-func inContainerSharServer(defaults *zenOpts, natsPort int) *ContainerisedServer {
-	ssvr := &ContainerisedServer{
-		req: testcontainers.ContainerRequest{
-			Image:        defaults.sharServerImageUrl,
-			ExposedPorts: []string{"50000/TCP"},
-			WaitingFor:   wait.ForLog("shar api listener started"),
-			Env: map[string]string{
-				"NATS_URL": fmt.Sprintf("nats://host.docker.internal:%d", natsPort),
-			},
-		},
-	}
-	ssvr.Listen("", 0)
-
-	return ssvr
-}
-
-func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int) *sharsvr.Server {
-	options := []sharsvr.Option{
-		sharsvr.EphemeralStorage(),
-		sharsvr.PanicRecovery(false),
-		sharsvr.Concurrency(sharConcurrency),
-		sharsvr.WithNoHealthServer(),
-	}
-	if apiAuth != nil {
-		options = append(options, sharsvr.WithApiAuthorizer(apiAuth))
-	}
-	if authN != nil {
-		options = append(options, sharsvr.WithAuthentication(authN))
-	}
-
-	ssvr := sharsvr.New(options...)
-	go ssvr.Listen(natsHost+":"+strconv.Itoa(natsPort), 0)
-	for {
-		if ssvr.Ready() {
-			break
-		}
-		slog.Info("waiting for shar")
-		time.Sleep(500 * time.Millisecond)
-	}
-	return ssvr
-}
-
-// Server is a general interface representing either an inprocess or in container Shar server
-type Server interface {
-	Shutdown()
-	Listen(backend string, port int)
+// Shutdown shutsdown an in process nats server
+func (natserver *NatsServer) Shutdown() {
+	natserver.nsvr.Shutdown()
+	natserver.nsvr.WaitForShutdown()
 }
 
 // ContainerisedServer is a wrapper to the test containers test library allowing you to start or shut

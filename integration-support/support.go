@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +30,7 @@ var errDirtyKV = errors.New("KV contains values when expected empty")
 
 // Integration - the integration test support framework.
 type Integration struct {
-	testNatsServer *server.Server
+	testNatsServer zensvr.Server
 	testSharServer zensvr.Server
 	FinalVars      map[string]interface{}
 	Test           *testing.T
@@ -252,7 +251,6 @@ func (s *Integration) Teardown() {
 	s.Test.Log("TEARDOWN")
 	s.testSharServer.Shutdown()
 	s.testNatsServer.Shutdown()
-	s.testNatsServer.WaitForShutdown()
 	s.Test.Log("NATS shut down")
 	s.Test.Logf("\033[1;36m%s\033[0m", "> Teardown completed")
 	s.Test.Log("\n")

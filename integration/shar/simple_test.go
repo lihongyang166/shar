@@ -20,7 +20,7 @@ func TestSimple(t *testing.T) {
 	//tst.WithTrace = true
 
 	// t.Setenv("SHAR_SERVER_IMAGE_URL", "registry.gitlab.com/shar-workflow/shar/server:latest")
-	t.Setenv("SHAR_SERVER_IMAGE_URL", "local/shar-server:0.0.1-SNAPSHOT")
+	// t.Setenv("SHAR_SERVER_IMAGE_URL", "local/shar-server:0.0.1-SNAPSHOT")
 	//t.Setenv("SHAR_SERVER_IMAGE_URL", "local/shar-server:0.0.1-ephemeral")
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()

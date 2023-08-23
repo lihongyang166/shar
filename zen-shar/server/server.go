@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -56,7 +57,7 @@ func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 // GetServers returns a test NATS and SHAR server.
 //
 
-//go:embed test-nats-config.conf
+//go:embed nats-server.conf
 var natsConfig []byte
 
 //nolint:ireturn
@@ -71,18 +72,14 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 	var nHost string
 	var nPort int
 
-	natsConfigPath := fmt.Sprintf("%s/test-nats-config.conf", os.Getenv("TMPDIR"))
-	err := os.WriteFile(natsConfigPath, natsConfig, 0644)
-	if err != nil {
-		panic(fmt.Errorf("failed writing nats config %w", err))
-	}
+	natsConfigFileLocation, natsConfigFile := writeNatsConfig()
 	if defaults.natsServerImageUrl != "" {
 		defaultNatsContainerPort := "4222"
-		nsvr := inContainerNatsServer(defaults.natsServerImageUrl, defaultNatsContainerPort)
-		nHost = dockerHostName
+		nsvr := inContainerNatsServer(defaults.natsServerImageUrl, defaultNatsContainerPort, natsConfigFileLocation)
+		nHost = "localhost"
 		nPort = nsvr.exposedToHostPorts[defaultNatsContainerPort]
 	} else {
-		nsvr = inProcessNatsServer(natsConfigPath, natsHost, natsPort)
+		nsvr = inProcessNatsServer(natsConfigFile, natsHost, natsPort)
 		nHost = natsHost
 		nPort = natsPort
 	}
@@ -103,6 +100,19 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 
 	slog.Info("Setup completed")
 	return ssvr, nsvr, nil
+}
+
+func writeNatsConfig() (string, string) {
+	natsConfigFileLocation := fmt.Sprintf("%snats-conf/", os.Getenv("TMPDIR"))
+	if err := os.MkdirAll(filepath.Dir(natsConfigFileLocation), 0777); err != nil {
+		panic(fmt.Errorf("failed creating nats config dir: %w", err))
+	}
+	natsConfigFile := fmt.Sprintf("%s/nats-server.conf", natsConfigFileLocation)
+	err := os.WriteFile(natsConfigFile, natsConfig, 0644)
+	if err != nil {
+		panic(fmt.Errorf("failed writing nats config %w", err))
+	}
+	return natsConfigFileLocation, natsConfigFile
 }
 
 func inProcessNatsServer(natsConfig string, natsHost string, natsPort int) *NatsServer {
@@ -154,11 +164,19 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	return ssvr
 }
 
-func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string) *containerisedServer {
+func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, natsConfigFileLocation string) *containerisedServer {
 	ssvr := newContainerisedServer(testcontainers.ContainerRequest{
 		Image:        natsServerImageUrl,
 		ExposedPorts: []string{containerNatsPort},
 		WaitingFor:   wait.ForLog("Listening for client connections").WithStartupTimeout(10 * time.Second),
+		Entrypoint:   []string{"/nats-server"},
+		Cmd:          []string{"--config", "/etc/nats/nats-server.conf"},
+		Mounts: []testcontainers.ContainerMount{
+			{
+				Source: testcontainers.GenericBindMountSource{HostPath: natsConfigFileLocation},
+				Target: "/etc/nats",
+			},
+		},
 	})
 
 	ssvr.Listen("", 0)
@@ -257,9 +275,10 @@ func (cp *containerisedServer) Listen(_ string, _ int) {
 			cp.exposedToHostPorts[exposedPort] = natPort.Int()
 		}
 	}
+
 }
 
-// Shutdown will hutdown the containerised shar server
+// Shutdown will shutdown the containerised shar server
 func (cp *containerisedServer) Shutdown() {
 	if cp.container != nil {
 		ctx := context.Background()

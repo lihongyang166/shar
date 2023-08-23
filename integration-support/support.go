@@ -59,13 +59,15 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
 
-	ss, ns, err := zensvr.GetServers(s.NatsHost, s.NatsPort, 10, authZFn, authNFn, zensvr.WithSharServerImageUrl(os.Getenv("SHAR_SERVER_IMAGE_URL")))
+	ss, ns, err := zensvr.GetServers(s.NatsHost, s.NatsPort, 10, authZFn, authNFn, zensvr.WithSharServerImageUrl(os.Getenv("SHAR_SERVER_IMAGE_URL")), zensvr.WithNatsServerImageUrl(os.Getenv("NATS_SERVER_IMAGE_URL")))
 	if err != nil {
 		panic(err)
 	}
 	if s.WithTrace {
 		s.traceSub = tracer.Trace(s.NatsURL)
 	}
+
+	//TODO need to account for containerised NATS/telemetry...
 	if s.WithTelemetry != nil {
 		ctx := context.Background()
 		n, err := nats.Connect(s.NatsURL)

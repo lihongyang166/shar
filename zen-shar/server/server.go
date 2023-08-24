@@ -2,10 +2,11 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	_ "embed"
@@ -61,7 +62,7 @@ func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 var natsConfig []byte
 
 //nolint:ireturn
-func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (Server, Server, error) {
+func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (Server, Server, error) {
 
 	defaults := &zenOpts{sharVersion: version2.Version}
 	for _, i := range option {
@@ -69,19 +70,24 @@ func GetServers(natsHost string, natsPort int, sharConcurrency int, apiAuth auth
 	}
 
 	var nsvr Server
-	var nHost string
+	nHost := "127.0.0.1"
 	var nPort int
 
 	natsConfigFileLocation, natsConfigFile := writeNatsConfig()
 	if defaults.natsServerImageUrl != "" {
 		defaultNatsContainerPort := "4222"
-		nsvr := inContainerNatsServer(defaults.natsServerImageUrl, defaultNatsContainerPort, natsConfigFileLocation)
-		nHost = "localhost"
-		nPort = nsvr.exposedToHostPorts[defaultNatsContainerPort]
+		cNsvr := inContainerNatsServer(defaults.natsServerImageUrl, defaultNatsContainerPort, natsConfigFileLocation)
+		nPort = cNsvr.exposedToHostPorts[defaultNatsContainerPort]
+		nsvr = cNsvr
 	} else {
-		nsvr = inProcessNatsServer(natsConfigFile, natsHost, natsPort)
-		nHost = natsHost
-		nPort = natsPort
+		v, e := rand.Int(rand.Reader, big.NewInt(500))
+		if e != nil {
+			panic("no crypto:" + e.Error())
+		}
+		natzPort := 4459 + int(v.Int64())
+
+		nsvr = inProcessNatsServer(natsConfigFile, nHost, natzPort)
+		nPort = natzPort
 	}
 
 	var ssvr Server
@@ -116,11 +122,9 @@ func writeNatsConfig() (string, string) {
 }
 
 func inProcessNatsServer(natsConfig string, natsHost string, natsPort int) *NatsServer {
-	nHost := natsHost
-	nPort := natsPort
+	n := &NatsServer{natsConfig: natsConfig, host: natsHost, port: natsPort}
 
-	n := &NatsServer{natsConfig: natsConfig}
-	n.Listen(nHost, nPort)
+	n.Listen()
 	return n
 }
 
@@ -133,7 +137,7 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 			"NATS_URL": fmt.Sprintf("nats://%s:%d", natsHost, natsPort),
 		}})
 
-	ssvr.Listen("", 0)
+	ssvr.Listen()
 
 	return ssvr
 }
@@ -144,6 +148,8 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 		sharsvr.PanicRecovery(false),
 		sharsvr.Concurrency(sharConcurrency),
 		sharsvr.WithNoHealthServer(),
+		sharsvr.NatsUrl(fmt.Sprintf("%s:%d", natsHost, natsPort)),
+		sharsvr.GrpcPort(0),
 	}
 	if apiAuth != nil {
 		options = append(options, sharsvr.WithApiAuthorizer(apiAuth))
@@ -153,7 +159,7 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	}
 
 	ssvr := sharsvr.New(options...)
-	go ssvr.Listen(natsHost+":"+strconv.Itoa(natsPort), 0)
+	go ssvr.Listen()
 	for {
 		if ssvr.Ready() {
 			break
@@ -179,7 +185,7 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 		},
 	})
 
-	ssvr.Listen("", 0)
+	ssvr.Listen()
 
 	return ssvr
 }
@@ -187,7 +193,8 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 // Server is a general interface representing either an inprocess or in container Shar server
 type Server interface {
 	Shutdown()
-	Listen(host string, port int)
+	Listen()
+	GetEndPoint() string
 }
 
 // NatsServer is a wrapper around the nats lib server so that its lifecycle can be defined
@@ -195,10 +202,12 @@ type Server interface {
 type NatsServer struct {
 	nsvr       *server.Server
 	natsConfig string
+	host       string
+	port       int
 }
 
 // Listen starts an in process nats server
-func (natserver *NatsServer) Listen(natsHost string, natsPort int) {
+func (natserver *NatsServer) Listen() {
 	//wd, err := os.Getwd()
 	//if err != nil {
 	//	return nil, nil, fmt.Errorf("failed to get working directory: %w", err)
@@ -208,8 +217,8 @@ func (natserver *NatsServer) Listen(natsHost string, natsPort int) {
 	if err != nil {
 		panic(fmt.Errorf("failed to load conf with err %w", err))
 	}
-	natsOptions.Host = natsHost
-	natsOptions.Port = natsPort
+	natsOptions.Host = natserver.host
+	natsOptions.Port = natserver.port
 
 	nsvr, err := server.NewServer(natsOptions)
 
@@ -235,6 +244,9 @@ func (natserver *NatsServer) Shutdown() {
 	natserver.nsvr.WaitForShutdown()
 }
 
+func (natserver *NatsServer) GetEndPoint() string {
+	return fmt.Sprintf("%s:%d", natserver.host, natserver.port)
+}
 func newContainerisedServer(req testcontainers.ContainerRequest) *containerisedServer {
 	svr := &containerisedServer{
 		req:                req,
@@ -252,7 +264,7 @@ type containerisedServer struct {
 }
 
 // Listen will startup the server in a container
-func (cp *containerisedServer) Listen(_ string, _ int) {
+func (cp *containerisedServer) Listen() {
 	ctx := context.Background()
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: cp.req,
@@ -286,4 +298,13 @@ func (cp *containerisedServer) Shutdown() {
 			panic("failed to shutdown the container ")
 		}
 	}
+}
+
+func (cp *containerisedServer) GetEndPoint() string {
+	if len(cp.req.ExposedPorts) > 0 {
+		//clients only really care about a single port ... for now
+		//just use the first one defined in the Exposed ports to get the host port
+		return fmt.Sprintf("127.0.0.1:%d", cp.exposedToHostPorts[cp.req.ExposedPorts[0]])
+	}
+	return ""
 }

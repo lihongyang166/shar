@@ -104,3 +104,25 @@ type sharVersionOption struct {
 func (o sharVersionOption) configure(server *Server) {
 	server.setSharVersion(o.version)
 }
+
+// NatsUrl specifies the nats URL to connect to
+func NatsUrl(url string) natsUrlOption { //nolint
+	return natsUrlOption{value: url}
+}
+
+type natsUrlOption struct{ value string }
+
+func (o natsUrlOption) configure(server *Server) {
+	server.natsUrl = o.value
+}
+
+// GrpcPort specifies the port healthcheck is listening on
+func GrpcPort(port int) grpcPortOption { //nolint
+	return grpcPortOption{value: port}
+}
+
+type grpcPortOption struct{ value int }
+
+func (o grpcPortOption) configure(server *Server) {
+	server.grpcPort = o.value
+}

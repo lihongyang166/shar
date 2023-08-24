@@ -21,7 +21,7 @@ func TestHigherClientVersion(t *testing.T) {
 	ss, ns, err := zensvr.GetServers(natsHost, natsPort, 4, nil, nil, zensvr.WithSharVersion("1.0.503"))
 	require.NoError(t, err)
 	defer ns.Shutdown()
-	go ss.Listen(natsURL, 5050)
+	go ss.Listen()
 	forcedVersion, err := version2.NewVersion("v99.0.0")
 	require.NoError(t, err)
 	cl := New(forceVersion{ver: forcedVersion})

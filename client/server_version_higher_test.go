@@ -23,7 +23,7 @@ func TestHigherServerVersion(t *testing.T) {
 	require.NoError(t, err)
 	defer ns.Shutdown()
 
-	go ss.Listen(natsURL, 5050)
+	go ss.Listen()
 	forcedVersion, err := version2.NewVersion("v1.0.100")
 	require.NoError(t, err)
 	cl := New(forceVersion{ver: forcedVersion})

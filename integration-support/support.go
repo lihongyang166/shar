@@ -2,10 +2,8 @@ package integration_support
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/big"
 	"os"
 	"sync"
 	"testing"
@@ -41,25 +39,20 @@ type Integration struct {
 	WithTrace      bool
 	traceSub       *tracer.OpenTrace
 	NatsURL        string // NatsURL is the default testing URL for the NATS host.
-	NatsPort       int    // NatsPort is the default testing port for the NATS host.
-	NatsHost       string // NatsHost is the default NATS host.
+	natsPort       int    // natsPort is the default testing port for the NATS host.
+	natsHost       string // natsHost is the default NATS host.
 }
 
 // Setup - sets up the test NATS and SHAR servers.
 func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check) {
-	s.NatsHost = "127.0.0.1"
-	v, e := rand.Int(rand.Reader, big.NewInt(500))
-	if e != nil {
-		panic("no crypto:" + e.Error())
-	}
-	s.NatsPort = 4459 + int(v.Int64())
-	s.NatsURL = fmt.Sprintf("nats://%s:%v", s.NatsHost, s.NatsPort)
 	logx.SetDefault(slog.LevelDebug, true, "shar-Integration-tests")
 	s.Cooldown = 10 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
 
-	ss, ns, err := zensvr.GetServers(s.NatsHost, s.NatsPort, 10, authZFn, authNFn, zensvr.WithSharServerImageUrl(os.Getenv("SHAR_SERVER_IMAGE_URL")), zensvr.WithNatsServerImageUrl(os.Getenv("NATS_SERVER_IMAGE_URL")))
+	ss, ns, err := zensvr.GetServers(10, authZFn, authNFn, zensvr.WithSharServerImageUrl(os.Getenv("SHAR_SERVER_IMAGE_URL")), zensvr.WithNatsServerImageUrl(os.Getenv("NATS_SERVER_IMAGE_URL")))
+	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
+
 	if err != nil {
 		panic(err)
 	}

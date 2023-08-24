@@ -37,6 +37,8 @@ type Server struct {
 	apiAuthorizer           authz.APIFunc
 	apiAuthenticator        authn.Check
 	SharVersion             *version.Version
+	natsUrl                 string
+	grpcPort                int
 }
 
 // New creates a new SHAR server.
@@ -83,7 +85,7 @@ func noopAuthZ(ctx context.Context, request *model.ApiAuthorizationRequest) (*mo
 }
 
 // Listen starts the GRPC server for both serving requests, and the GRPC health endpoint.
-func (s *Server) Listen(natsURL string, grpcPort int) {
+func (s *Server) Listen() {
 	// Capture errors and cancel signals
 	errs := make(chan error)
 
@@ -92,15 +94,15 @@ func (s *Server) Listen(natsURL string, grpcPort int) {
 
 	if s.healthServiceEnabled {
 		// Create health server and expose on GRPC
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.grpcPort))
 		if err != nil {
-			slog.Error("listen", err, slog.Int64("grpcPort", int64(grpcPort)))
+			slog.Error("listen", err, slog.Int64("grpcPort", int64(s.grpcPort)))
 			panic(err)
 		}
 
 		s.grpcServer = gogrpc.NewServer()
 		if err := registerServer(s.grpcServer, s.healthService); err != nil {
-			slog.Error("register grpc health server", err, slog.Int64("grpcPort", int64(grpcPort)))
+			slog.Error("register grpc health server", err, slog.Int64("grpcPort", int64(s.grpcPort)))
 			panic(err)
 		}
 
@@ -117,7 +119,7 @@ func (s *Server) Listen(natsURL string, grpcPort int) {
 		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 	}
 
-	ns := s.createServices(natsURL, s.ephemeralStorage, s.allowOrphanServiceTasks)
+	ns := s.createServices(s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
 	api, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator)
 	if err != nil {
 		panic(err)
@@ -150,6 +152,10 @@ func (s *Server) Shutdown() {
 		s.grpcServer.GracefulStop()
 		slog.Info("shar grpc health stopped")
 	}
+}
+
+func (s *Server) GetEndPoint() string {
+	return "TODO" //can we discover the grpc endpoint listen address??
 }
 
 func (s *Server) createServices(natsURL string, ephemeral bool, allowOrphanServiceTasks bool) *storage.Nats {

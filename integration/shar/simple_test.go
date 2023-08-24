@@ -22,9 +22,6 @@ func TestSimple(t *testing.T) {
 	t.Setenv("NATS_SERVER_IMAGE_URL", "nats:2.9.20")
 	t.Setenv("SHAR_SERVER_IMAGE_URL", "local/shar-server:0.0.1-SNAPSHOT")
 
-	// t.Setenv("SHAR_SERVER_IMAGE_URL", "local/shar-server:0.0.1-ephemeral")
-	// t.Setenv("SHAR_SERVER_IMAGE_URL", "registry.gitlab.com/shar-workflow/shar/server:latest")
-
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 

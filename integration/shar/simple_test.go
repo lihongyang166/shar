@@ -19,9 +19,6 @@ func TestSimple(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true
 
-	t.Setenv("NATS_SERVER_IMAGE_URL", "nats:2.9.20")
-	t.Setenv("SHAR_SERVER_IMAGE_URL", "local/shar-server:0.0.1-SNAPSHOT")
-
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 

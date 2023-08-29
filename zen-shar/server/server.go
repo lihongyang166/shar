@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	_ "embed"
@@ -29,6 +30,7 @@ type zenOpts struct {
 	sharVersion        string
 	sharServerImageUrl string
 	natsServerImageUrl string
+	natsPersist        bool
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -52,6 +54,17 @@ func WithSharServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
 		cfg.natsServerImageUrl = imageUrl
+	}
+}
+
+// WithNatsPersist will make zen-shar persist nats messages between test runs if we are running against a containerised nats server
+func WithNatsPersist(natsPersist string) ZenSharOptionApplyFn {
+	return func(cfg *zenOpts) {
+		parseBool, err := strconv.ParseBool(natsPersist)
+		if err != nil {
+			panic(fmt.Sprintf("unable to parse boolean from string: %s", natsPersist))
+		}
+		cfg.natsPersist = parseBool
 	}
 }
 
@@ -92,13 +105,6 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 
 	var ssvr Server
 	if defaults.sharServerImageUrl != "" {
-		// TODO a combo of in container shar/in process nats will lead to problems as
-		//in container shar will persist nats data to disk - an issue if subsequent tests
-		//try to run against a nats instance that has previously written state to disk
-		//(as nats/nats client does not permit this)???
-
-		//should we restrict things to all in process OR all in container testing???
-		//this is probably the simplest thing...
 		ssvr = inContainerSharServer(defaults.sharServerImageUrl, dockerHostName, nPort)
 	} else {
 		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort)
@@ -171,6 +177,11 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 }
 
 func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, natsConfigFileLocation string) *containerisedServer {
+	//  TODO if containerised NATS and NATS_PERSIST
+	//    list dir <$TMPDIR>/<TEST_NAME>, sort desc to get last test run on host
+	//    if not exist, create <$TMPDIR>/<TEST_NAME>/tsMillis.<dateTime>
+	//	  set this in the container vol config mapping to /tmp/nats/jetstream in container
+
 	ssvr := newContainerisedServer(testcontainers.ContainerRequest{
 		Image:        natsServerImageUrl,
 		ExposedPorts: []string{containerNatsPort},
@@ -182,6 +193,16 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 				Source: testcontainers.GenericBindMountSource{HostPath: natsConfigFileLocation},
 				Target: "/etc/nats",
 			},
+			// TODO conditionally mount host volume to target dependant on NATS_PERSIST flag
+			// host volume will need to be isolated by test and time. If test
+			// test dir and latest time dir exists, use that, otherwise create test/time dir
+
+			// state dir in nats config will also need to be conditionally set dependant on NATS_PERSIST
+			// workflow will be
+			// 1) Run shar/nats in container with NATS_PERSIST
+			// 2) change in container version of either with NATS_PERSIST
+
+			// optional, should we clear down the nats-state dir when NATS_PERSIST is not set
 		},
 	})
 

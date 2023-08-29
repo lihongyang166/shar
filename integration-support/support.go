@@ -24,6 +24,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	NATS_SERVER_IMAGE_URL_ENV_VAR_NAME = "NATS_SERVER_IMAGE_URL"
+	SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME = "SHAR_SERVER_IMAGE_URL"
+)
+
 var errDirtyKV = errors.New("KV contains values when expected empty")
 
 // Integration - the integration test support framework.
@@ -41,16 +46,36 @@ type Integration struct {
 	NatsURL        string // NatsURL is the default testing URL for the NATS host.
 	natsPort       int    // natsPort is the default testing port for the NATS host.
 	natsHost       string // natsHost is the default NATS host.
+	TestRunnable   func() (bool, string)
 }
 
 // Setup - sets up the test NATS and SHAR servers.
 func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check) {
+
+	if s.TestRunnable != nil {
+		skip, skipReason := s.TestRunnable()
+		if skip {
+			t.Skip(fmt.Sprintf("test skipped reason: %s", skipReason))
+		}
+	}
+
+	if IsSharContainerised() && !IsNatsContainerised() {
+		t.Skip("invalid shar/nats server container/in process combination")
+		//the combo of in container shar/in process nats will lead to problems as
+		//in container shar will persist nats data to disk - an issue if subsequent tests
+		//try to run against a nats instance that has previously written state to disk
+		//This might cause issues as data from different tests might interfere with each other
+	}
+
 	logx.SetDefault(slog.LevelDebug, true, "shar-Integration-tests")
 	s.Cooldown = 10 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
 
-	ss, ns, err := zensvr.GetServers(10, authZFn, authNFn, zensvr.WithSharServerImageUrl(os.Getenv("SHAR_SERVER_IMAGE_URL")), zensvr.WithNatsServerImageUrl(os.Getenv("NATS_SERVER_IMAGE_URL")))
+	//t.Setenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME, "nats:2.9.20")
+	//t.Setenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME, "local/shar-server:0.0.1-SNAPSHOT")
+
+	ss, ns, err := zensvr.GetServers(10, authZFn, authNFn, zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNatsServerImageUrl(os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME)))
 	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
 
 	if err != nil {
@@ -60,7 +85,6 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		s.traceSub = tracer.Trace(s.NatsURL)
 	}
 
-	//TODO need to account for containerised NATS/telemetry...
 	if s.WithTelemetry != nil {
 		ctx := context.Background()
 		n, err := nats.Connect(s.NatsURL)
@@ -286,4 +310,18 @@ func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
 		assert.Fail(t, "timed out waiting for completion")
 		return
 	}
+}
+
+func IsSharContainerised() bool {
+	if os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME) != "" {
+		return true
+	}
+	return false
+}
+
+func IsNatsContainerised() bool {
+	if os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME) != "" {
+		return true
+	}
+	return false
 }

@@ -2,9 +2,6 @@ package client
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
-	"math/big"
 	"testing"
 
 	version2 "github.com/hashicorp/go-version"
@@ -13,12 +10,8 @@ import (
 )
 
 func TestHigherClientVersion(t *testing.T) {
-	natsHost := "127.0.0.1"
-	v, e := rand.Int(rand.Reader, big.NewInt(500))
-	require.NoError(t, e)
-	natsPort := 4459 + int(v.Int64())
-	natsURL := fmt.Sprintf("nats://%s:%v", natsHost, natsPort)
-	ss, ns, err := zensvr.GetServers(natsHost, natsPort, 4, nil, nil, zensvr.WithSharVersion("1.0.503"))
+	ss, ns, err := zensvr.GetServers(4, nil, nil, zensvr.WithSharVersion("1.0.503"))
+	natsURL := ns.GetEndPoint()
 	require.NoError(t, err)
 	defer ns.Shutdown()
 	go ss.Listen()

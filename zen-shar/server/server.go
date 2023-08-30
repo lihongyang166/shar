@@ -66,8 +66,8 @@ func WithNatsPersistHostPath(natsPersistHostPath string) ZenSharOptionApplyFn {
 //go:embed nats-server.conf
 var natsConfig []byte
 
-// nolint:ireturn
 // GetServers returns a test NATS and SHAR server.
+// nolint:ireturn
 func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (Server, Server, error) {
 
 	defaults := &zenOpts{sharVersion: version2.Version}

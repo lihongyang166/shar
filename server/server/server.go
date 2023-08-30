@@ -154,7 +154,7 @@ func (s *Server) Shutdown() {
 	}
 }
 
-// GetEndpoint will return the URL of the GRPC health endpoint for the shar server
+// GetEndPoint will return the URL of the GRPC health endpoint for the shar server
 func (s *Server) GetEndPoint() string {
 	return "TODO" //can we discover the grpc endpoint listen address??
 }

@@ -172,13 +172,19 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 }
 
 func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, natsConfigFileLocation string, natsPersistHostPath string) *containerisedServer {
-	//  TODO if containerised NATS and NATS_PERSIST
-	//    list dir <$TMPDIR>/<TEST_NAME>,
-	//    sort desc to get last test run on host
-	//    del anything older than 48hrs
-	//
-	//    if not exist, create <$TMPDIR>/<TEST_NAME>/tsMillis.<dateTime>
-	//	  set this in the container vol config mapping to /tmp/nats/jetstream in container
+	mounts := []testcontainers.ContainerMount{
+		{
+			Source: testcontainers.GenericBindMountSource{HostPath: natsConfigFileLocation},
+			Target: "/etc/nats",
+		},
+	}
+
+	if natsPersistHostPath != "" {
+		mounts = append(mounts, testcontainers.ContainerMount{
+			Source: testcontainers.GenericBindMountSource{HostPath: natsPersistHostPath},
+			Target: "/tmp/nats/jetstream", // the default nats store dir (and in .conf file)
+		})
+	}
 
 	ssvr := newContainerisedServer(testcontainers.ContainerRequest{
 		Image:        natsServerImageUrl,
@@ -186,22 +192,7 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 		WaitingFor:   wait.ForLog("Listening for client connections").WithStartupTimeout(10 * time.Second),
 		Entrypoint:   []string{"/nats-server"},
 		Cmd:          []string{"--config", "/etc/nats/nats-server.conf"},
-		Mounts: []testcontainers.ContainerMount{
-			{
-				Source: testcontainers.GenericBindMountSource{HostPath: natsConfigFileLocation},
-				Target: "/etc/nats",
-			},
-			// TODO conditionally mount host volume to target dependant on NATS_PERSIST flag
-			// host volume will need to be isolated by test and time. If test
-			// test dir and latest time dir exists, use that, otherwise create test/time dir
-
-			// state dir in nats config will also need to be conditionally set dependant on NATS_PERSIST
-			// workflow will be
-			// 1) Run shar/nats in container with NATS_PERSIST
-			// 2) change in container version of either with NATS_PERSIST
-
-			// optional, should we clear down the nats-state dir when NATS_PERSIST is not set
-		},
+		Mounts:       mounts,
 	})
 
 	ssvr.Listen()

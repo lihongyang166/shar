@@ -73,7 +73,7 @@ func TestSimpleAuthZ(t *testing.T) {
 func TestNoAuthN(t *testing.T) {
 	tst := &support.Integration{
 		TestRunnable: func() (bool, string) {
-			return support.IsSharContainerised(), "authN test not runnable with containerised Shar"
+			return !support.IsSharContainerised(), "authN test not runnable with containerised Shar"
 		},
 	}
 	tst.Setup(t, testAuthZFn, testAuthNFn)
@@ -99,7 +99,7 @@ func TestNoAuthN(t *testing.T) {
 func TestSimpleNoAuthZ(t *testing.T) {
 	tst := &support.Integration{
 		TestRunnable: func() (bool, string) {
-			return support.IsSharContainerised(), "authZ test not runnable with containerised Shar"
+			return !support.IsSharContainerised(), "authZ test not runnable with containerised Shar"
 		},
 	}
 

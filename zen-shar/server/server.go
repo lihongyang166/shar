@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	_ "embed"
@@ -27,10 +26,10 @@ const (
 )
 
 type zenOpts struct {
-	sharVersion        string
-	sharServerImageUrl string
-	natsServerImageUrl string
-	natsPersist        bool
+	sharVersion         string
+	sharServerImageUrl  string
+	natsServerImageUrl  string
+	natsPersistHostPath string
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -57,14 +56,10 @@ func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 	}
 }
 
-// WithNatsPersist will make zen-shar persist nats messages between test runs if we are running against a containerised nats server
-func WithNatsPersist(natsPersist string) ZenSharOptionApplyFn {
+// WithNatsPersistHostPath will make zen-shar persist nats messages between test runs if we are running against a containerised nats server
+func WithNatsPersistHostPath(natsPersistHostPath string) ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
-		parseBool, err := strconv.ParseBool(natsPersist)
-		if err != nil {
-			panic(fmt.Sprintf("unable to parse boolean from string: %s", natsPersist))
-		}
-		cfg.natsPersist = parseBool
+		cfg.natsPersistHostPath = natsPersistHostPath
 	}
 }
 
@@ -89,7 +84,7 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 	natsConfigFileLocation, natsConfigFile := writeNatsConfig()
 	if defaults.natsServerImageUrl != "" {
 		defaultNatsContainerPort := "4222"
-		cNsvr := inContainerNatsServer(defaults.natsServerImageUrl, defaultNatsContainerPort, natsConfigFileLocation)
+		cNsvr := inContainerNatsServer(defaults.natsServerImageUrl, defaultNatsContainerPort, natsConfigFileLocation, defaults.natsPersistHostPath)
 		nPort = cNsvr.exposedToHostPorts[defaultNatsContainerPort]
 		nsvr = cNsvr
 	} else {
@@ -176,9 +171,12 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	return ssvr
 }
 
-func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, natsConfigFileLocation string) *containerisedServer {
+func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, natsConfigFileLocation string, natsPersistHostPath string) *containerisedServer {
 	//  TODO if containerised NATS and NATS_PERSIST
-	//    list dir <$TMPDIR>/<TEST_NAME>, sort desc to get last test run on host
+	//    list dir <$TMPDIR>/<TEST_NAME>,
+	//    sort desc to get last test run on host
+	//    del anything older than 48hrs
+	//
 	//    if not exist, create <$TMPDIR>/<TEST_NAME>/tsMillis.<dateTime>
 	//	  set this in the container vol config mapping to /tmp/nats/jetstream in container
 

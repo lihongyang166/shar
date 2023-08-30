@@ -74,8 +74,29 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 
 	//t.Setenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME, "nats:2.9.20")
 	//t.Setenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME, "local/shar-server:0.0.1-SNAPSHOT")
+	t.Setenv("NATS_PERSIST", "true")
 
-	ss, ns, err := zensvr.GetServers(10, authZFn, authNFn, zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNatsServerImageUrl(os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME)))
+	zensvrOptions := []zensvr.ZenSharOptionApplyFn{zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNatsServerImageUrl(os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME))}
+
+	if os.Getenv("NATS_PERSIST") != "" {
+		natsPersistHostRootForTest := fmt.Sprintf("%snats-store/%s/", os.Getenv("TMPDIR"), t.Name())
+		slog.Info(fmt.Sprintf("### natsPersistHostRootForTest is %s ", natsPersistHostRootForTest))
+
+		dir, err := os.ReadDir(natsPersistHostRootForTest)
+		if err != nil {
+			panic(err)
+		}
+		for _, d := range dir {
+			slog.Info("### d.Name %s", d.Name())
+			info, _ := d.Info()
+			slog.Info("### d.Info %+v", info)
+			slog.Info("### d.IsDir %t", d.IsDir())
+		}
+
+		zensvrOptions = append(zensvrOptions, zensvr.WithNatsPersistHostPath(natsPersistHostRootForTest))
+	}
+
+	ss, ns, err := zensvr.GetServers(10, authZFn, authNFn, zensvrOptions...)
 	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
 
 	if err != nil {

@@ -27,9 +27,12 @@ import (
 )
 
 const (
+	// NATS_SERVER_IMAGE_URL_ENV_VAR_NAME is the name of the env var containing the nats image URL
 	NATS_SERVER_IMAGE_URL_ENV_VAR_NAME = "NATS_SERVER_IMAGE_URL"
+	// SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME is the name of the env var containing the shar server image URL
 	SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME = "SHAR_SERVER_IMAGE_URL"
-	NATS_PERSIST_ENV_VAR_NAME          = "NATS_PERSIST"
+	// NATS_PERSIST_ENV_VAR_NAME is the name of the env var containing the flag determining whether nats data is persisted between tests
+	NATS_PERSIST_ENV_VAR_NAME = "NATS_PERSIST"
 )
 
 var errDirtyKV = errors.New("KV contains values when expected empty")
@@ -47,8 +50,6 @@ type Integration struct {
 	WithTrace      bool
 	traceSub       *tracer.OpenTrace
 	NatsURL        string // NatsURL is the default testing URL for the NATS host.
-	natsPort       int    // natsPort is the default testing port for the NATS host.
-	natsHost       string // natsHost is the default NATS host.
 	TestRunnable   func() (bool, string)
 }
 
@@ -61,7 +62,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	if s.TestRunnable != nil {
 		runnable, skipReason := s.TestRunnable()
 		if !runnable {
-			t.Skip(fmt.Sprintf("test skipped reason: %s", skipReason))
+			t.Skipf("test skipped reason: %s", skipReason)
 		}
 	}
 
@@ -382,23 +383,17 @@ func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
 	}
 }
 
+// IsSharContainerised determines whether tests are running against containerised shar server
 func IsSharContainerised() bool {
-	if os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME) != "" {
-		return true
-	}
-	return false
+	return os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME) != ""
 }
 
+// IsNatsContainerised determines whether tests are running against containerised nats server
 func IsNatsContainerised() bool {
-	if os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME) != "" {
-		return true
-	}
-	return false
+	return os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME) != ""
 }
 
+// IsNatsPersist determines whether tests are persist nats data between executions
 func IsNatsPersist() bool {
-	if os.Getenv(NATS_PERSIST_ENV_VAR_NAME) == "true" {
-		return true
-	}
-	return false
+	return os.Getenv(NATS_PERSIST_ENV_VAR_NAME) == "true"
 }

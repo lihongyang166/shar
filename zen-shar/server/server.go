@@ -63,13 +63,11 @@ func WithNatsPersistHostPath(natsPersistHostPath string) ZenSharOptionApplyFn {
 	}
 }
 
-// GetServers returns a test NATS and SHAR server.
-//
-
 //go:embed nats-server.conf
 var natsConfig []byte
 
-//nolint:ireturn
+// nolint:ireturn
+// GetServers returns a test NATS and SHAR server.
 func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, option ...ZenSharOptionApplyFn) (Server, Server, error) {
 
 	defaults := &zenOpts{sharVersion: version2.Version}
@@ -115,7 +113,7 @@ func writeNatsConfig() (string, string) {
 		panic(fmt.Errorf("failed creating nats config dir: %w", err))
 	}
 	natsConfigFile := fmt.Sprintf("%s/nats-server.conf", natsConfigFileLocation)
-	err := os.WriteFile(natsConfigFile, natsConfig, 0644)
+	err := os.WriteFile(natsConfigFile, natsConfig, 0600)
 	if err != nil {
 		panic(fmt.Errorf("failed writing nats config %w", err))
 	}
@@ -254,6 +252,7 @@ func (natserver *NatsServer) Shutdown() {
 	natserver.nsvr.WaitForShutdown()
 }
 
+// GetEndPoint returns the url of the nats endpoint
 func (natserver *NatsServer) GetEndPoint() string {
 	return fmt.Sprintf("%s:%d", natserver.host, natserver.port)
 }

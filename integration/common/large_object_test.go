@@ -9,16 +9,14 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/model"
 	zensvr "gitlab.com/shar-workflow/shar/zen-shar/server"
-	rand2 "golang.org/x/exp/rand"
 	"testing"
 	"time"
 )
 
 func TestLargeSaveLoad(t *testing.T) {
-	NatsHost := "127.0.0.1"
-	NatsPort := 4459 + rand2.Intn(500)
-	NatsURL := fmt.Sprintf("nats://%s:%v", NatsHost, NatsPort)
-	ss, ns, err := zensvr.GetServers(NatsHost, NatsPort, 10, nil, nil)
+	ss, ns, err := zensvr.GetServers(10, nil, nil)
+	NatsURL := ns.GetEndPoint()
+
 	defer ss.Shutdown()
 	defer ns.Shutdown()
 	require.NoError(t, err)
@@ -50,10 +48,8 @@ func TestLargeSaveLoad(t *testing.T) {
 }
 
 func TestLargeObjSaveLoad(t *testing.T) {
-	NatsHost := "127.0.0.1"
-	NatsPort := 4459 + rand2.Intn(500)
-	NatsURL := fmt.Sprintf("nats://%s:%v", NatsHost, NatsPort)
-	ss, ns, err := zensvr.GetServers(NatsHost, NatsPort, 10, nil, nil)
+	ss, ns, err := zensvr.GetServers(10, nil, nil)
+	NatsURL := ns.GetEndPoint()
 	defer ss.Shutdown()
 	defer ns.Shutdown()
 	require.NoError(t, err)
@@ -94,10 +90,9 @@ func TestLargeObjSaveLoad(t *testing.T) {
 }
 
 func TestLargeObjUpdate(t *testing.T) {
-	NatsHost := "127.0.0.1"
-	NatsPort := 4459 + rand2.Intn(500)
-	NatsURL := fmt.Sprintf("nats://%s:%v", NatsHost, NatsPort)
-	ss, ns, err := zensvr.GetServers(NatsHost, NatsPort, 10, nil, nil)
+	ss, ns, err := zensvr.GetServers(10, nil, nil)
+	NatsURL := ns.GetEndPoint()
+
 	defer ss.Shutdown()
 	defer ns.Shutdown()
 	require.NoError(t, err)
@@ -146,10 +141,8 @@ func TestLargeObjUpdate(t *testing.T) {
 }
 
 func TestLargeObjDelete(t *testing.T) {
-	NatsHost := "127.0.0.1"
-	NatsPort := 4459 + rand2.Intn(500)
-	NatsURL := fmt.Sprintf("nats://%s:%v", NatsHost, NatsPort)
-	ss, ns, err := zensvr.GetServers(NatsHost, NatsPort, 10, nil, nil)
+	ss, ns, err := zensvr.GetServers(10, nil, nil)
+	NatsURL := ns.GetEndPoint()
 	defer ss.Shutdown()
 	defer ns.Shutdown()
 	require.NoError(t, err)

@@ -14,7 +14,7 @@ import (
 var finished = make(chan struct{})
 
 func main() {
-	ss, ns, err := zensvr.GetServers("127.0.0.1", 4222, 8, nil, nil)
+	ss, ns, err := zensvr.GetServers(8, nil, nil)
 	defer ss.Shutdown()
 	defer ns.Shutdown()
 

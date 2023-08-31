@@ -3,20 +3,22 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestSimple(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true
+
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 

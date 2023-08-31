@@ -24,7 +24,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
-	tst.Cooldown = 5 * time.Second
+	tst.Cooldown = 10 * time.Second
 
 	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{})}
 	handlers.tst = tst

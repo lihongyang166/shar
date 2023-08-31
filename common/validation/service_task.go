@@ -31,14 +31,24 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 	if td.Behaviour == nil {
 		return fmt.Errorf("task behaviour section not found: %w", ErrServiceTaskNoMetadata)
 	}
+
 	if td.Behaviour.DefaultRetry == nil {
 		return fmt.Errorf("no default retry given: %w", ErrNoDefaultRetry)
 	}
 
-	// Parameters
-	if td.Behaviour == nil {
-		return fmt.Errorf("task parameters section not found: %w", ErrServiceTaskNoParameters)
+	if retry := td.Behaviour.DefaultRetry; retry != nil {
+		if retry.DefaultExceeded == nil {
+			return fmt.Errorf("no default exceeded behaviour given for retry: %w", ErrNoDefaultRetry)
+		}
+		if retry.IntervalMilli == 0 {
+			return fmt.Errorf("the retry interval must be non-zero: %w", ErrNoDefaultRetry)
+		}
+		if retry.MaxMilli == 0 || retry.MaxMilli <= retry.IntervalMilli {
+			return fmt.Errorf("the retry interval must be non-zero and larger than ther interval: %w", ErrInvalidRetry)
+		}
 	}
+
+	// Parameters
 	if td.Parameters != nil && td.Parameters.Input != nil {
 		for _, v := range td.Parameters.Input {
 			if v.ValidateExpr != "" {
@@ -71,9 +81,25 @@ func validVersion(version string) error {
 }
 
 func validName(name string) error {
+	if !validNATSName(name) {
+		return fmt.Errorf("bad name: %w", ErrServiceTaskNatsName)
+	}
 	return nil
 }
 
 func validExpName(name string) error {
+	valid := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+	for i := 0; i < len(name); i++ {
+		if !strings.ContainsAny(string(name[i]), valid) {
+			return fmt.Errorf("name may not contain '%s'", string(name[i]))
+		}
+	}
+	if strings.ContainsAny(string(name[0]), "0123456789") {
+		return fmt.Errorf("name may not start with a digit")
+	}
 	return nil
+}
+
+func validNATSName(name string) bool {
+	return !strings.ContainsAny(name, ". ")
 }

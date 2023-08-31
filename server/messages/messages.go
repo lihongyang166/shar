@@ -108,6 +108,7 @@ var AllMessages = []string{
 	subj.NS(WorkflowJobGatewayTaskActivate, "*"),
 	subj.NS(WorkflowJobGatewayTaskReEnter, "*"),
 	WorkflowMessageKick,
+	"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>", // Dead letter functionality
 }
 
 // WorkflowMessageFormat provides the template for sending workflow messages.
@@ -134,6 +135,7 @@ const (
 	APIGetMessageSenderRoutingID     = "WORKFLOW.Api.GetMessageSenderRoutingID"     // APIGetMessageSenderRoutingID is the get message sender routing ID API subject.
 	APIRegisterTask                  = "Workflow.Api.RegisterTask"                  // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
 	APIGetProcessInstanceStatus      = "WORKFLOW.Api.GetProcessInstanceStatus"      // APIGetProcessInstanceStatus is the get process instance status API subject.
+	ApiGetTaskSpec                   = "WORKFLOW.Api.GetTaskSpec"                   // ApiGetTaskSpec is the get task spec API message subject.
 	APIGetWorkflowVersions           = "WORKFLOW.Api.GetWorkflowVersions"           // APIGetWorkflowVersions is the get workflow versions API message subject.
 	APIGetWorkflow                   = "WORKFLOW.Api.GetWorkflow"                   // APIGetWorkflow is the get workflow API message subject.
 	APIGetProcessHistory             = "WORKFLOW.Api.GetProcessHistory"             // APIGetProcessHistory is the get process history API message subject.

@@ -472,8 +472,9 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	//Start any timers
 	if el.BoundaryTimer != nil || len(el.BoundaryTimer) > 0 {
 		for _, i := range el.BoundaryTimer {
+			ai := i
 			timerState := common.CopyWorkflowState(newState)
-			timerState.Execute = &i.Target
+			timerState.Execute = &ai.Target
 			timerState.UnixTimeNano = time.Now().UnixNano()
 			timerState.Timer = &model.WorkflowTimer{LastFired: 0, Count: 0}
 			v, err := vars.Decode(ctx, traversal.Vars)
@@ -536,12 +537,22 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 				return fmt.Errorf("engine failed to get task spec id: %w", &errors.ErrWorkflowFatal{Err: err})
 			}
 			el.Version = &v
+		} else {
+			def, err := c.ns.GetTaskSpecByUID(ctx, *el.Version)
+			fmt.Println(def, err)
+			if def.Behaviour != nil && def.Behaviour.Mock {
+				err := c.mockCompleteServiceTask(ctx, def, el, traversal)
+				if err != nil {
+					return fmt.Errorf("mocked service task '%s' failed: %w", el.Execute, err)
+				}
+				return nil
+			}
 		}
 		if err != nil {
 			return fmt.Errorf("get service task routing key during activity start processor: %w", err)
 		}
 		if err := c.startJob(ctx, messages.WorkflowJobServiceTaskExecute+"."+*el.Version, newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start srvice task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start service task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
 	case element.UserTask:
 		if err := c.startJob(ctx, messages.WorkflowJobUserTaskExecute, newState, el, traversal.Vars); err != nil {
@@ -649,6 +660,67 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, newState); err != nil {
 			return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
+	}
+	return nil
+}
+
+func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpec, el *model.Element, traversal *model.WorkflowState) error {
+	state := common.CopyWorkflowState(traversal)
+
+	// Extract workflow inputs
+	localVars := make(map[string]interface{})
+	processVars := make(map[string]interface{})
+	if el.InputTransform != nil {
+		var err error
+		processVars, err = vars.Decode(ctx, state.Vars)
+		if err != nil {
+			return fmt.Errorf("decode old input variables: %w", err)
+		}
+		for k, v := range el.InputTransform {
+			res, err := expression.EvalAny(ctx, v, processVars)
+			if err != nil {
+				return fmt.Errorf("expression evalutaion failed: %w", err)
+			}
+			localVars[k] = res
+		}
+	}
+
+	// Inject missing inputs
+	if def.Parameters != nil && def.Parameters.Input != nil {
+		for _, v := range def.Parameters.Input {
+			if _, ok := localVars[v.Name]; !ok {
+				res, err := expression.EvalAny(ctx, v.Example, localVars)
+				if err != nil {
+					// TODO: workflow service task error handling call here
+					panic("Ouch")
+				}
+				localVars[v.Name] = res
+			}
+		}
+	}
+
+	// Set process vars
+	for k, v := range el.OutputTransform {
+		res, err := expression.EvalAny(ctx, v, localVars)
+		if err != nil {
+			return fmt.Errorf("evaluate output transform expression: %w", err)
+		}
+		processVars[k] = res
+	}
+	b, err := vars.Encode(ctx, processVars)
+	if err != nil {
+		return fmt.Errorf("encode new output process variables: %w", err)
+	}
+	state.Vars = b
+
+	common.DropStateParams(state)
+
+	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
+		return c.engineErr(ctx, "publish workflow cancellationState", err)
+		//TODO: report this without process: apErrFields(wfi.WorkflowInstanceId, wfi.WorkflowId, el.Id, el.Name, el.Type, process.Name)
+	}
+	if err := c.ns.RecordHistoryActivityComplete(ctx, state); err != nil {
+		return c.engineErr(ctx, "record history activity complete", &errors.ErrWorkflowFatal{Err: err})
 	}
 	return nil
 }

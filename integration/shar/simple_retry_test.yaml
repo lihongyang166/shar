@@ -11,7 +11,7 @@ metadata:
   estimatedmaxduration: 2343255
 behaviour:
   defaultretry:
-    number: 30
+    number: 3
     strategy: 30000
     initmilli: 30000
     intervalmilli: 10000

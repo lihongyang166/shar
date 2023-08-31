@@ -19,7 +19,7 @@ behaviour:
     defaultexceeded:
       action: 3
   unsafe: false
-  mock: false
+  mock: true
 parameters:
   input:
     - name: carried

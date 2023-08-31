@@ -43,7 +43,7 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 		return "", fmt.Errorf("put task spec: hask task: %w", err)
 	}
 	spec.Metadata.Uid = uid
-	if err := common.SaveObj(ctx, s.wfTaskSpec, spec.Metadata.Type, spec); err != nil {
+	if err := common.SaveObj(ctx, s.wfTaskSpec, spec.Metadata.Uid, spec); err != nil {
 		return "", fmt.Errorf("saving task spec: %w", err)
 	}
 	vers := &model.TaskSpecVersions{}
@@ -65,6 +65,15 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 		return "", fmt.Errorf("saving task spec version: %w", err)
 	}
 	return uid, nil
+}
+
+// GetTaskSpecByUID fetches a task spec from the database.
+func (s *Nats) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error) {
+	spec := &model.TaskSpec{}
+	if err := common.LoadObj(ctx, s.wfTaskSpec, uid, spec); err != nil {
+		return nil, fmt.Errorf("loading task spec: %w", err)
+	}
+	return spec, nil
 }
 
 func (s *Nats) putLegacyTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error) {

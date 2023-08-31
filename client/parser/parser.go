@@ -66,7 +66,9 @@ func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
 
 func parseProcess(doc *xmlquery.Node, wf *model.Workflow, prXML *xmlquery.Node, pr *model.Process, msgXML []*xmlquery.Node, errXML []*xmlquery.Node, msgs map[string]string, errs map[string]string) error {
 	if msgXML != nil {
-		parseMessages(doc, wf, msgXML, msgs)
+		if err := parseMessages(doc, wf, msgXML, msgs); err != nil {
+			return fmt.Errorf("parse messages: %w", err)
+		}
 	}
 	for _, i := range prXML.SelectElements("*") {
 		if err := parseElements(doc, wf, pr, i, msgs, errs); err != nil {
@@ -77,13 +79,15 @@ func parseProcess(doc *xmlquery.Node, wf *model.Workflow, prXML *xmlquery.Node, 
 		parseErrors(doc, wf, errXML, errs)
 	}
 	for _, i := range prXML.SelectElements("//bpmn:boundaryEvent") {
-		parseBoundaryEvent(doc, i, pr)
+		if err := parseBoundaryEvent(doc, i, pr); err != nil {
+			return fmt.Errorf("parsing boundary events: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func parseMessages(doc *xmlquery.Node, wf *model.Workflow, msgNodes []*xmlquery.Node, msgs map[string]string) {
+func parseMessages(doc *xmlquery.Node, wf *model.Workflow, msgNodes []*xmlquery.Node, msgs map[string]string) error {
 	m := make([]*model.Element, len(msgNodes))
 	for i, x := range msgNodes {
 		m[i] = &model.Element{
@@ -91,9 +95,12 @@ func parseMessages(doc *xmlquery.Node, wf *model.Workflow, msgNodes []*xmlquery.
 			Name: x.SelectElement("@name").InnerText(),
 		}
 		msgs[m[i].Id] = m[i].Name
-		parseZeebeExtensions(doc, m[i], x)
+		if err := parseZeebeExtensions(doc, m[i], x); err != nil {
+			return fmt.Errorf("parsing zebee extensions: %w", err)
+		}
 	}
 	wf.Messages = m
+	return nil
 }
 
 func parseErrors(_ *xmlquery.Node, wf *model.Workflow, errNodes []*xmlquery.Node, errs map[string]string) {
@@ -139,7 +146,9 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 		parseFlowInOut(doc, i, el)
 		parseDocumentation(i, el)
 		parseElementErrors(doc, i, el)
-		parseZeebeExtensions(doc, el, i)
+		if err := parseZeebeExtensions(doc, el, i); err != nil {
+			return fmt.Errorf("parse zebee extensions: %w", err)
+		}
 		if err := parseSubprocess(doc, wf, el, i, msgs, errs); err != nil {
 			return fmt.Errorf("parse sub-processes: %w", err)
 		}
@@ -218,7 +227,7 @@ func parseElementErrors(doc *xmlquery.Node, i *xmlquery.Node, el *model.Element)
 	}
 }
 
-func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process) {
+func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process) error {
 	attach := i.SelectAttr("attachedToRef")
 	var el *model.Element
 	for _, i := range pr.Elements {
@@ -227,7 +236,7 @@ func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process)
 			break
 		}
 	}
-	parseBoundaryEventData(
+	if err := parseBoundaryEventData(
 		doc, i, el, "//bpmn:errorEventDefinition/@errorRef",
 		func(ref *xmlquery.Node, attach *model.Element, target string) any {
 			newCatchErr := &model.CatchError{
@@ -238,8 +247,10 @@ func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process)
 			attach.Errors = append(el.Errors, newCatchErr)
 			return newCatchErr
 		},
-	)
-	parseBoundaryEventData(
+	); err != nil {
+		return fmt.Errorf("processing error event definition: %w", err)
+	}
+	if err := parseBoundaryEventData(
 		doc, i, el, "//bpmn:timerEventDefinition",
 		func(ref *xmlquery.Node, attach *model.Element, target string) any {
 			durationExpr := i.SelectElement("//bpmn:timeDuration").InnerText()
@@ -251,10 +262,13 @@ func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process)
 			el.BoundaryTimer = append(el.BoundaryTimer, newTimer)
 			return newTimer
 		},
-	)
+	); err != nil {
+		return fmt.Errorf("processing error event definition: %w", err)
+	}
+	return nil
 }
 
-func parseBoundaryEventData(doc *xmlquery.Node, node *xmlquery.Node, attachRef *model.Element, selector string, fn func(*xmlquery.Node, *model.Element, string) any) {
+func parseBoundaryEventData(doc *xmlquery.Node, node *xmlquery.Node, attachRef *model.Element, selector string, fn func(*xmlquery.Node, *model.Element, string) any) error {
 	if ref := node.SelectElement(selector); ref != nil {
 		allFlow := node.SelectElements("..//bpmn:sequenceFlow")
 		flowID := node.SelectElement("//bpmn:outgoing").InnerText()
@@ -265,8 +279,11 @@ func parseBoundaryEventData(doc *xmlquery.Node, node *xmlquery.Node, attachRef *
 			}
 		}
 		newNode := fn(ref, attachRef, target)
-		parseZeebeExtensions(doc, newNode, node)
+		if err := parseZeebeExtensions(doc, newNode, node); err != nil {
+			return fmt.Errorf("parsing zebee extensions: %w", err)
+		}
 	}
+	return nil
 }
 
 func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, msgs map[string]string, _ map[string]string) error {

@@ -291,9 +291,28 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 					MemoryStorage: s.storageType == nats.MemoryStorage,
 				}
 
+				def, err := s.GetTaskSpecByUID(ctx, id)
+				if err != nil {
+					return "", fmt.Errorf("failed to look up task spec for '%s': %w", j.Execute, err)
+				}
+
+				// Merge default retry policy.
+				if r := j.RetryBehaviour; r == nil { // No behaviour given in the BPMN
+					if def.Behaviour.DefaultRetry != nil { // Behaviour defined by
+						j.RetryBehaviour = def.Behaviour.DefaultRetry
+					}
+				} else {
+					retry := j.RetryBehaviour.Number
+					j.RetryBehaviour = def.Behaviour.DefaultRetry
+					if retry != 0 {
+						j.RetryBehaviour.Number = retry
+					}
+				}
+
 				if err = ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
 					return "", fmt.Errorf("add service task consumer: %w", err)
 				}
+
 			}
 		}
 	}

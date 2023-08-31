@@ -826,3 +826,16 @@ func (c *Client) registerServiceTask(ctx context.Context, spec *model.TaskSpec) 
 	}
 	return res.Uid, nil
 }
+
+// GetTaskSpecByUID gets a versioned task spec by its UID
+func (c *Client) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error) {
+	req := &model.GetTaskSpecRequest{
+		Uid: uid,
+	}
+	res := &model.GetTaskSpecResponse{}
+
+	if err := api2.Call(ctx, c.txCon, messages.ApiGetTaskSpec, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return res.Spec, nil
+}

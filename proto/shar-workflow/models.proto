@@ -47,7 +47,7 @@ message Element {
   Targets outbound = 6; // Outbound - a number of possible transitions to other state machine state elements.s
   Process process = 7; // Process - defines any subprocesses contained within this state machine.
   string msg = 8; // TODO: Document
-  string retries = 9; // Retries - how many times this state machine element should retry in the case of a non-workflow error.
+  string retries = 9 [deprecated = true]; // Retries - how many times this state machine element should retry in the case of a non-workflow error.
   string candidates = 10; // Candidates - used for user related state machgine types to define users that may complete the task.
   string candidateGroups = 11; // CandidateGroups - used for user related state machine types to define groups that may complete a task.
   repeated CatchError errors = 12; // Errors - a number of catchable errors for this state machine element.
@@ -59,6 +59,7 @@ message Element {
   optional GatewaySpec gateway = 18; // GatewaySpec - if this element is a gateway, this contains the type specification for it.
   optional Iteration iteration = 19; // Iteration - gives any instructions for multi instance execution.
   optional string version = 20; // Version - provides version information about a resource such as a task.
+  optional DefaultTaskRetry retryBehaviour = 21; // RetryBehaviour - the style and type of retry associated with a service task.
 }
 
 enum ThreadingType {
@@ -624,6 +625,17 @@ message TaskError {
 message RegisterTaskRequest {
   TaskSpec spec = 1; // Spec - the task specification.
 }
+
+// RegisterTaskResponse contains the UID of a registered task.
 message RegisterTaskResponse{
   string uid = 1; // Uid of the registered task.
+}
+// GetTaskSpecRequest contains the UID of a registered task.
+message GetTaskSpecRequest{
+  string uid = 1; // Uid of the registered task.
+}
+
+// GetTaskSpecResponse returns a task spec.
+message GetTaskSpecResponse{
+  TaskSpec spec = 1; // Spec - the task specification.
 }

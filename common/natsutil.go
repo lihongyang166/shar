@@ -11,8 +11,8 @@ import (
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -256,7 +256,7 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 				m := msg[0]
 				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Header)
 				if err != nil {
-					log.Error("get header values from incoming process message", &errors2.ErrWorkflowFatal{Err: err})
+					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
 					if err := msg[0].Ack(); err != nil {
 						log.Error("processing failed to ack", err)
 					}

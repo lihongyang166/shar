@@ -11,7 +11,7 @@ import (
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"go.opentelemetry.io/otel/sdk/trace"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"os"
 	"testing"
 	"time"

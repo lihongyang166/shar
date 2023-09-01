@@ -18,7 +18,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/authz"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	sharsvr "gitlab.com/shar-workflow/shar/server/server"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 const (

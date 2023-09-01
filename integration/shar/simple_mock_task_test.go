@@ -2,6 +2,7 @@ package intTest
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
@@ -14,7 +15,7 @@ import (
 
 func TestSimpleMockTask(t *testing.T) {
 	tst := &support.Integration{}
-	//tst.WithTrace = true
+	tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
@@ -35,7 +36,7 @@ func TestSimpleMockTask(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../testdata/simple-workflow-mock-task.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
@@ -60,4 +61,6 @@ type testSimpleMockTaskHandlerDef struct {
 
 func (d *testSimpleMockTaskHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	close(d.finished)
+	assert.Equal(d.t, vars["carried"], 32768)
+	assert.Equal(d.t, vars["processVar"], 142)
 }

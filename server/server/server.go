@@ -18,9 +18,9 @@ import (
 	"gitlab.com/shar-workflow/shar/server/api"
 	"gitlab.com/shar-workflow/shar/server/health"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
-	"golang.org/x/exp/slog"
 	gogrpc "google.golang.org/grpc"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
+	"log/slog"
 )
 
 // Server is the shar server type responsible for hosting the SHAR API.

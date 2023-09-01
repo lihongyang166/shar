@@ -19,8 +19,8 @@ import (
 	"gitlab.com/shar-workflow/shar/server/services"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"gitlab.com/shar-workflow/shar/server/vars"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"strconv"
 	"time"
 )
@@ -541,7 +541,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			def, err := c.ns.GetTaskSpecByUID(ctx, *el.Version)
 			fmt.Println(def, err)
 			if def.Behaviour != nil && def.Behaviour.Mock {
-				err := c.mockCompleteServiceTask(ctx, def, el, traversal)
+				err := c.mockCompleteServiceTask(ctx, def, el, newState)
 				if err != nil {
 					return fmt.Errorf("mocked service task '%s' failed: %w", el.Execute, err)
 				}
@@ -666,7 +666,6 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 
 func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpec, el *model.Element, traversal *model.WorkflowState) error {
 	state := common.CopyWorkflowState(traversal)
-
 	// Extract workflow inputs
 	localVars := make(map[string]interface{})
 	processVars := make(map[string]interface{})
@@ -674,27 +673,41 @@ func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpe
 		var err error
 		processVars, err = vars.Decode(ctx, state.Vars)
 		if err != nil {
-			return fmt.Errorf("decode old input variables: %w", err)
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("decode old input variables: %w", err)}
 		}
 		for k, v := range el.InputTransform {
 			res, err := expression.EvalAny(ctx, v, processVars)
 			if err != nil {
-				return fmt.Errorf("expression evalutaion failed: %w", err)
+				return &errors.ErrWorkflowFatal{Err: fmt.Errorf("input transform expression evalutaion failed: %w", err)}
 			}
 			localVars[k] = res
 		}
 	}
 
-	// Inject missing inputs
-	if def.Parameters != nil && def.Parameters.Input != nil {
-		for _, v := range def.Parameters.Input {
-			if _, ok := localVars[v.Name]; !ok {
-				res, err := expression.EvalAny(ctx, v.Example, localVars)
-				if err != nil {
-					// TODO: workflow service task error handling call here
-					panic("Ouch")
+	if def.Parameters != nil {
+		// Inject missing inputs
+		if def.Parameters.Input != nil {
+			for _, v := range def.Parameters.Input {
+				if _, ok := localVars[v.Name]; !ok && v.Example != "" {
+					res, err := expression.EvalAny(ctx, v.Example, localVars)
+					if err != nil {
+						return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example input value expression: %w", err)}
+					}
+					localVars[v.Name] = res
 				}
-				localVars[v.Name] = res
+			}
+		}
+
+		// Transform for example outputs
+		if def.Parameters.Output != nil {
+			for _, v := range def.Parameters.Output {
+				if v.Example != "" {
+					res, err := expression.EvalAny(ctx, v.Example, localVars)
+					if err != nil {
+						return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example value expression: %w", err)}
+					}
+					localVars[v.Name] = res
+				}
 			}
 		}
 	}
@@ -709,7 +722,7 @@ func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpe
 	}
 	b, err := vars.Encode(ctx, processVars)
 	if err != nil {
-		return fmt.Errorf("encode new output process variables: %w", err)
+		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("encode output process variables: %w", err)}
 	}
 	state.Vars = b
 
@@ -1199,7 +1212,6 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				return false, int(fireNext), nil
 			}
 		} else if el.Timer.Type == model.WorkflowTimerType_duration {
-			fmt.Println("nak with delay")
 			return false, int(fireNext - now), nil
 		}
 	}

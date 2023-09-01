@@ -5,7 +5,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/zen-shar/flag"
 	"gitlab.com/shar-workflow/shar/zen-shar/server"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"

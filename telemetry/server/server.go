@@ -20,8 +20,8 @@ import (
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"strings"
 	"time"
 )

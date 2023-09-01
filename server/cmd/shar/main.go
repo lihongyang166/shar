@@ -4,8 +4,8 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/server/config"
 	"gitlab.com/shar-workflow/shar/server/server"
-	"golang.org/x/exp/slog"
 	"log"
+	"log/slog"
 )
 
 func main() {

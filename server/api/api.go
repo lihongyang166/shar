@@ -11,7 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"sync"
 
 	"github.com/nats-io/nats.go"

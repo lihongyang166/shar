@@ -15,8 +15,8 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"time"
 )
 
@@ -81,7 +81,6 @@ func (s *Nats) messageKick(ctx context.Context) error {
 				}
 				for _, k := range msgTypes {
 					_, err := s.iterateRxMessages(ctx, k, "", func(k string, recipient *model.MessageRecipient) (bool, error) {
-						fmt.Println("dodeliver")
 						if delivered, err := s.deliverMessageToJobRecipient(ctx, recipient, k); err != nil {
 							return false, err
 						} else if !delivered {

@@ -22,8 +22,8 @@ import (
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	server2 "gitlab.com/shar-workflow/shar/telemetry/server"
 	zensvr "gitlab.com/shar-workflow/shar/zen-shar/server"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 )
 
 const (

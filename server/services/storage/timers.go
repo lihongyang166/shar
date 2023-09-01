@@ -11,8 +11,8 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -101,7 +101,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 				ctx, log := logx.NatsMessageLoggingEntrypoint(sCtx, "shar-server", msg[0].Header)
 				ctx, err = header.FromMsgHeaderToCtx(ctx, m.Header)
 				if err != nil {
-					log.Error("get header values from incoming process message", &errors.ErrWorkflowFatal{Err: err})
+					log.Error("get header values from incoming process message", slog.Any("error", &errors.ErrWorkflowFatal{Err: err}))
 					if err := msg[0].Ack(); err != nil {
 						log.Error("processing failed to ack", err)
 					}

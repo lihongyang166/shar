@@ -36,9 +36,15 @@ parameters:
       mandatory: true
       example: "= 0"
   output:
-    - name: Success
+    - name: success
       short: Success flag
       description: A boolean flag indicating success
       type: bool
       mandatory: false
-      example: "= false"
+      example: "= true"
+    - name: localVar
+      short: the changed variable from the service task
+      description: A boolean flag indicating success
+      type: bool
+      mandatory: true
+      example: "= localVar + 100"

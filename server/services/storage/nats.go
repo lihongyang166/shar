@@ -9,6 +9,7 @@ import (
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
+	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/setup"
@@ -21,6 +22,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/services"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
+	"maps"
 	"strconv"
 	"strings"
 	"sync"
@@ -294,6 +296,40 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 				def, err := s.GetTaskSpecByUID(ctx, id)
 				if err != nil {
 					return "", fmt.Errorf("failed to look up task spec for '%s': %w", j.Execute, err)
+				}
+
+				// Validate the input parameters
+				if def.Parameters != nil && def.Parameters.Input != nil {
+					for _, val := range def.Parameters.Input {
+						if !val.Mandatory {
+							continue
+						}
+						if _, ok := j.InputTransform[val.Name]; !ok {
+							return "", fmt.Errorf("mandatory input parameter %s was expected for service task %s", val.Name, j.Id)
+						}
+					}
+				}
+
+				// Validate the output parameters
+				// Collate all the variables from the output transforms
+				outVars := make(map[string]struct{})
+				for varN, exp := range j.OutputTransform {
+					vars, err := expression.GetVariables(exp)
+					if err != nil {
+						return "", fmt.Errorf("an error occurred getting the variables from the output expression for %s in service task %s", varN, j.Id)
+					}
+					// Take the variables and add them to the list
+					maps.Copy(outVars, vars)
+				}
+				if def.Parameters != nil && def.Parameters.Output != nil {
+					for _, val := range def.Parameters.Output {
+						if !val.Mandatory {
+							continue
+						}
+						if _, ok := outVars[val.Name]; !ok {
+							return "", fmt.Errorf("mandatory output parameter %s was expected for service task %s", val.Name, j.Id)
+						}
+					}
 				}
 
 				// Merge default retry policy.

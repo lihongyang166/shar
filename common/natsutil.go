@@ -215,7 +215,11 @@ func EnsureBucket(js nats.JetStreamContext, storageType nats.StorageType, name s
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(ctx context.Context, js nats.JetStreamContext, traceName string, closer chan struct{}, subject string, durable string, concurrency int, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error)) error {
+func Process(ctx context.Context, js nats.JetStreamContext, traceName string, closer chan struct{}, subject string, durable string, concurrency int, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error), opts ...ProcessOption) error {
+	set := &ProcessOpts{}
+	for _, i := range opts {
+		i.Set(set)
+	}
 	log := logx.FromContext(ctx)
 	if !strings.HasPrefix(durable, "ServiceTask_") {
 		conInfo, err := js.ConsumerInfo("WORKFLOW", durable)
@@ -289,7 +293,17 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 					} else {
 						wfe := &workflow.Error{}
 						if !errors.As(err, wfe) {
-							executeLog.Error("processing error", err, "name", traceName)
+							if set.BackoffCalc != nil {
+								executeLog.Error("processing error", err, "name", traceName)
+								targetTime, err := set.BackoffCalc(msg[0])
+								if err != nil || targetTime == time.UnixMilli(0) {
+									continue
+								}
+								if err := msg[0].NakWithDelay(time.Now().Sub(targetTime)); err == nil {
+									continue
+								}
+							}
+
 						}
 					}
 				}

@@ -33,7 +33,7 @@ parameters:
       short: A workflow local variable
       description: A test value to ensure that local variables are carried across.
       type: int
-      mandatory: true
+      mandatory: false
       example: "= 0"
   output:
     - name: Success

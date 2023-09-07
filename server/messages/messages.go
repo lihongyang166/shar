@@ -52,6 +52,11 @@ const (
 	WorkflowTimedExecute              = "WORKFLOW.%s.Timers.WorkflowExecute"          // WorkflowTimedExecute is the state message subject for timed workflow execute operation.
 	WorkflowTraversalComplete         = "WORKFLOW.%s.State.Traversal.Complete"        // WorkflowTraversalComplete is the state message subject for completing a traversal.
 	WorkflowTraversalExecute          = "WORKFLOW.%s.State.Traversal.Execute"         // WorkflowTraversalExecute is the state message subject for executing a new traversal.
+
+	WorkflowSystemTaskCreate   = "WORKFLOW.System.Task.Create"   // WorkflowSystemTaskCreate is the task created broadcast message.
+	WorkflowSystemTaskUpdate   = "WORKFLOW.System.Task.Update"   // WorkflowSystemTaskUpdate is the task updated broadcast message.
+	WorkflowSystemProcessPause = "WORKFLOW.System.Process.Pause" // WorkflowSystemProcessPause is the process paused broadcast message.
+	WorkflowSystemProcessError = "WORKFLOW.System.Process.Error" // WorkflowSystemProcessError is the process error broadcast message.
 )
 
 const (
@@ -81,6 +86,11 @@ var LogLevels = []WorkflowLogLevel{
 // AllMessages provides the list of subscriptions for the WORKFLOW stream.
 var AllMessages = []string{
 	//subj.NS(WorkflowAbortAll, "*"),
+	subj.NS(WorkflowSystemTaskCreate, "*"),
+	subj.NS(WorkflowSystemTaskUpdate, "*"),
+	subj.NS(WorkflowSystemProcessPause, "*"),
+	subj.NS(WorkflowSystemProcessError, "*"),
+
 	subj.NS(WorkFlowJobAbortAll, "*"),
 	subj.NS(WorkFlowJobCompleteAll, "*"),
 	subj.NS(WorkflowActivityAbort, "*"),

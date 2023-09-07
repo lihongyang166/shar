@@ -12,12 +12,13 @@ metadata:
 behaviour:
   defaultretry:
     number: 3
-    strategy: 30000
-    initmilli: 30000
-    intervalmilli: 10000
-    maxmilli: 120000
+    strategy: 0
+    initmilli: 100
+    intervalmilli: 100
+    maxmilli: 300
     defaultexceeded:
-      action: 3
+      action: 1
+      errorcode: 123
   unsafe: false
   mock: false
 parameters:

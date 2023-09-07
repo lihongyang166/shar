@@ -9,6 +9,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/model"
+	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -49,9 +50,9 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 	vers := &model.TaskSpecVersions{}
 	if err := common.UpdateObj(ctx, s.wfTaskSpecVer, spec.Metadata.Type, vers, func(v *model.TaskSpecVersions) (*model.TaskSpecVersions, error) {
 		v.Id = append(v.Id, uid)
-		subj := "WORKFLOW.System.Task.Create"
+		subj := messages.WorkflowSystemTaskCreate
 		if len(v.Id) == 0 {
-			subj = "WORKFLOW.System.Task.Update"
+			subj = messages.WorkflowSystemTaskUpdate
 		}
 		b, err := proto.Marshal(spec)
 		if err != nil {

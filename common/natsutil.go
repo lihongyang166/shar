@@ -273,6 +273,7 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 					e, err := strconv.Atoi(embargo)
 					if err != nil {
 						log.Error("bad embargo value", err)
+						cancel()
 						continue
 					}
 					offset := time.Duration(int64(e) - time.Now().UnixNano())
@@ -280,6 +281,7 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 						if err != m.NakWithDelay(offset) {
 							log.Warn("nak with delay")
 						}
+						cancel()
 						continue
 					}
 				}
@@ -295,15 +297,13 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 						if !errors.As(err, wfe) {
 							if set.BackoffCalc != nil {
 								executeLog.Error("processing error", err, "name", traceName)
-								targetTime, err := set.BackoffCalc(msg[0])
-								if err != nil || targetTime == time.UnixMilli(0) {
-									continue
+								err := set.BackoffCalc(executeCtx, msg[0])
+								if err != nil {
+									slog.Error("backoff error", "error", err)
 								}
-								if err := msg[0].NakWithDelay(time.Now().Sub(targetTime)); err == nil {
-									continue
-								}
+								cancel()
+								continue
 							}
-
 						}
 					}
 				}

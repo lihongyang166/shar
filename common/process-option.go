@@ -1,28 +1,34 @@
 package common
 
 import (
+	"context"
 	"github.com/nats-io/nats.go"
-	"time"
 )
 
+// ProcessOpts holds the settings for message processing.
 type ProcessOpts struct {
 	BackoffCalc BackoffFn
 }
 
+// ProcessOption represents an option function that can be passed to message processing.
 type ProcessOption interface {
 	Set(opts *ProcessOpts)
 }
 
-type BackoffFn func(msg *nats.Msg) (time.Time, error)
+// BackoffFn represents a function that completely handles the backoff for a message including ACK/NAK
+type BackoffFn func(ctx context.Context, msg *nats.Msg) error
 
-type backoffProcessOption struct {
+// BackoffProcessOption holds the backoff function.  Don't use this directly.  Use the convenience function WithBackoffFn
+type BackoffProcessOption struct {
 	fn BackoffFn
 }
 
-func (b backoffProcessOption) Set(opts *ProcessOpts) {
+// Set the backoff function in the process settings
+func (b BackoffProcessOption) Set(opts *ProcessOpts) {
 	opts.BackoffCalc = b.fn
 }
 
-func WithBackoffFn(fn BackoffFn) ProcessOption {
-	return backoffProcessOption{fn: fn}
+// WithBackoffFn adds a back-off function to message processing
+func WithBackoffFn(fn BackoffFn) BackoffProcessOption {
+	return BackoffProcessOption{fn: fn}
 }

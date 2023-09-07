@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
+	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"log/slog"
 	"sync"
@@ -238,5 +239,6 @@ func errorResponse(m *nats.Msg, code codes.Code, msg any) {
 }
 
 func apiError(code codes.Code, msg any) []byte {
-	return []byte(fmt.Sprintf("ERR_%d|%+v", code, msg))
+	err := fmt.Sprintf("%s%d%s%+v", internal.ErrorPrefix, code, internal.ErrorSeparator, msg)
+	return []byte(err)
 }

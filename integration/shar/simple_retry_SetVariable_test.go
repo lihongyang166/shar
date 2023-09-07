@@ -3,20 +3,22 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
-func TestSimpleRetry(t *testing.T) {
+func TestSimpleRetry_SetVariable(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true
+
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
@@ -29,15 +31,15 @@ func TestSimpleRetry(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register a service task
-	d := &testSimpleRetryHandlerDef{t: t, finished: make(chan struct{})}
+	d := &testSimpleRetrySetVariableHandlerDef{t: t, finished: make(chan struct{})}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_retry_SetVariable.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../testdata/simple-workflow-output.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
@@ -55,20 +57,17 @@ func TestSimpleRetry(t *testing.T) {
 	tst.AssertCleanKV()
 }
 
-type testSimpleRetryHandlerDef struct {
+type testSimpleRetrySetVariableHandlerDef struct {
 	t        *testing.T
 	finished chan struct{}
-	retryMx  sync.Mutex
-	retry    int
 }
 
-func (d *testSimpleRetryHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
-	d.retryMx.Lock()
-	defer d.retryMx.Unlock()
-	d.retry++
-	return model.Vars{}, fmt.Errorf("forcing retry #%+v", d.retry)
+func (d *testSimpleRetrySetVariableHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	return nil, fmt.Errorf("deliberate test fail")
 }
 
-func (d *testSimpleRetryHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (d *testSimpleRetrySetVariableHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+	assert.Equal(d.t, int64(999), vars["carried"])
+	assert.Equal(d.t, model.CancellationState_completed, state)
 	close(d.finished)
 }

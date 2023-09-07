@@ -468,7 +468,7 @@ func (c *Client) listen(ctx context.Context) error {
 				return true, nil
 			}
 			return true, nil
-		})
+		}, common.WithBackoffFn(c.backoff))
 		if err != nil {
 			return fmt.Errorf("connect to service task consumer: %w", err)
 		}

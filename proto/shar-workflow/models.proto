@@ -577,6 +577,10 @@ message DefaultTaskRetry {
 
 message DefaultRetryExceededBehaviour {
   RetryErrorAction action = 1; // Action to take when retries are exceeded.
+  string variable = 2; // Variable - name of variable to set for the SetVariableValue action.
+  string variableType = 3; // VariableType - type of the variable "string", "int", "float", "bool" for the SetVariableValue action.
+  string variableValue = 4; // Variable value to set for the SetVariableValue action.
+  string errorCode = 5; // ErrorCode for the ThrowWorkflowError action
 }
 
 enum RetryErrorAction {

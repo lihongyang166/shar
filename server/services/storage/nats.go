@@ -20,6 +20,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"maps"
@@ -342,6 +343,27 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 					j.RetryBehaviour = def.Behaviour.DefaultRetry
 					if retry != 0 {
 						j.RetryBehaviour.Number = retry
+					}
+				}
+
+				// Check to make sure errors can't set variable values that are not handled.
+				if j.RetryBehaviour.DefaultExceeded.Action == model.RetryErrorAction_SetVariableValue {
+					if _, ok := outVars[j.RetryBehaviour.DefaultExceeded.Variable]; !ok {
+						return "", fmt.Errorf("retry exceeded output parameter %s was expected for service task %s, but is not handled", j.RetryBehaviour.DefaultExceeded.VariableValue, j.Id)
+					}
+				}
+
+				// Check to make sure workflow errors exist and are handled in the service task.
+				if j.RetryBehaviour.DefaultExceeded.Action == model.RetryErrorAction_ThrowWorkflowError {
+					errCode := j.RetryBehaviour.DefaultExceeded.ErrorCode
+					errIndex := slices.IndexFunc(wf.Errors, func(e *model.Error) bool { return e.Code == errCode })
+					if errIndex == -1 {
+						return "", fmt.Errorf("%s retry exceeded error code %s is not declared", j.Id, errCode)
+					}
+					wfErr := wf.Errors[errIndex]
+					handleIndex := slices.IndexFunc(j.Errors, func(e *model.CatchError) bool { return e.ErrorId == wfErr.Id })
+					if handleIndex == -1 {
+						return "", fmt.Errorf("%s retry exceeded error code %s can be thrown but is not handled", j.Id, errCode)
 					}
 				}
 

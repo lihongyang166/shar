@@ -19,6 +19,15 @@ variables:
   CI_JOB_TOKEN: "${CI_JOB_TOKEN}"
   CI_API_V4_URL: "${CI_API_V4_URL}"
   CI_PROJECT_ID: "${CI_PROJECT_ID}"
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_DRIVER: overlay2
+
+services:
+  - docker:dind
+
+before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
 stages:
 - test
 - build
@@ -96,19 +105,11 @@ package_stage:
   - if: "$CI_COMMIT_TAG"
     when: never
   - if: "$CI_PIPELINE_IID"
-  image:
-    name: gcr.io/kaniko-project/executor:debug
-    entrypoint:
-    - ''
+  image: jdrouet/docker-with-buildx:stable
   script:
-  - mkdir -p /kaniko/.docker
-  - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD}
-    | base64)\"}}}" > /kaniko/.docker/config.json
-  - "/kaniko/executor --context build/server --dockerfile build/server/Dockerfile
-    --destination $CI_REGISTRY_IMAGE/server:${VER}.$CI_VERSION"
-  - "/kaniko/executor --context build/telemetry --dockerfile build/telemetry/Dockerfile
-    --destination $CI_REGISTRY_IMAGE/telemetry:${VER}.$CI_VERSION"
-package2_stage:
+    - docker buildx create --use
+    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/server:latest --push --target server .
+    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/telemetry:latest --push --target telemetry .package2_stage:
   stage: package
   rules:
   - if: "$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH"

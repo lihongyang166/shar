@@ -31,7 +31,6 @@ func (c *Client) backoff(ctx context.Context, msg *nats.Msg) error {
 	if err != nil {
 		return fmt.Errorf("fetching message metadata")
 	}
-	fmt.Println(meta.NumDelivered)
 	// Get the workflow this task belongs to
 	wf, err := c.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {

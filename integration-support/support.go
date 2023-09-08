@@ -79,7 +79,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	}
 
 	logx.SetDefault(slog.LevelDebug, true, "shar-Integration-tests")
-	s.Cooldown = 10 * time.Second
+	s.Cooldown = 30 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
 
@@ -90,7 +90,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		zensvrOptions = append(zensvrOptions, zensvr.WithNatsPersistHostPath(natsStateDirForTest))
 	}
 
-	ss, ns, err := zensvr.GetServers(10, authZFn, authNFn, zensvrOptions...)
+	ss, ns, err := zensvr.GetServers(20, authZFn, authNFn, zensvrOptions...)
 	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
 
 	if err != nil {

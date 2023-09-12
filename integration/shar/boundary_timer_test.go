@@ -18,6 +18,7 @@ var testBoundaryTimerTimeout = 60 * time.Second
 
 func TestBoundaryTimer(t *testing.T) {
 	tst := &support.Integration{}
+	tst.Cooldown = 60 * time.Second
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
@@ -38,6 +39,7 @@ func TestBoundaryTimer(t *testing.T) {
 
 func TestBoundaryTimerTimeout(t *testing.T) {
 	tst := &support.Integration{}
+	tst.Cooldown = 60 * time.Second
 	tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
@@ -60,6 +62,7 @@ func TestBoundaryTimerTimeout(t *testing.T) {
 
 func TestExclusiveGateway(t *testing.T) {
 	tst := &support.Integration{}
+	tst.Cooldown = 60 * time.Second
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 

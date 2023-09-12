@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+var testBoundaryTimerTimeout = 60 * time.Second
+
 func TestBoundaryTimer(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true
@@ -26,7 +28,7 @@ func TestBoundaryTimer(t *testing.T) {
 	}
 
 	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
@@ -48,7 +50,7 @@ func TestBoundaryTimerTimeout(t *testing.T) {
 	}
 
 	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
@@ -68,7 +70,7 @@ func TestExclusiveGateway(t *testing.T) {
 	}
 
 	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)

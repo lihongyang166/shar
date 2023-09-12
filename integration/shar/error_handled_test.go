@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
@@ -29,6 +30,14 @@ func TestHandledError(t *testing.T) {
 		panic(err)
 	}
 
+	d := errorHandledHandlerDef{tst: tst, finished: make(chan struct{})}
+
+	// Register service tasks
+	err := taskutil.RegisterTaskYamlFile(ctx, cl, "error_handled_test_couldThrowError.yaml", d.mayFail)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "error_handled_test_fixSituation.yaml", d.fixSituation)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/errors.bpmn")
 	if err != nil {
@@ -37,14 +46,6 @@ func TestHandledError(t *testing.T) {
 	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestHandleError", b); err != nil {
 		panic(err)
 	}
-
-	d := errorHandledHandlerDef{tst: tst, finished: make(chan struct{})}
-
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "couldThrowError", d.mayFail)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "fixSituation", d.fixSituation)
-	require.NoError(t, err)
 
 	// A hook to watch for completion
 	err = cl.RegisterProcessComplete("Process_07lm3kx", d.processEnd)

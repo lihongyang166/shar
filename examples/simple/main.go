@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
 
 	"os"
@@ -22,6 +23,11 @@ func main() {
 		panic(err)
 	}
 
+	// Register a service task
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.SimpleProcess.yaml", simpleProcess); err != nil {
+		panic(err)
+	}
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("testdata/simple-workflow.bpmn")
 	if err != nil {
@@ -31,28 +37,20 @@ func main() {
 		panic(err)
 	}
 
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "SimpleProcess", simpleProcess)
-	if err != nil {
-		panic(err)
-	}
-	err = cl.RegisterProcessComplete("Process_03llwnm", processEnd)
-	if err != nil {
+	if err := cl.RegisterProcessComplete("Process_03llwnm", processEnd); err != nil {
 		panic(err)
 	}
 
 	// A hook to watch for completion
 
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowDemo", model.Vars{})
-	if err != nil {
+	if _, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowDemo", model.Vars{}); err != nil {
 		panic(err)
 	}
 
 	// Listen for service tasks
 	go func() {
-		err := cl.Listen(ctx)
-		if err != nil {
+		if err := cl.Listen(ctx); err != nil {
 			panic(err)
 		}
 	}()

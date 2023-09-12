@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/parser"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
@@ -63,20 +64,21 @@ func TestExclusiveRun(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 
 	require.NoError(t, err)
-	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/gateway-exclusive-out-and-in-test.bpmn")
-	require.NoError(t, err)
-
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ExclusiveGatewayTest", b)
-	require.NoError(t, err)
 
 	g := &gatewayTest{finished: make(chan struct{})}
 
-	err = cl.RegisterServiceTask(ctx, "stage1", g.stage1)
+	// Register service tasks
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
 	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "stage2", g.stage2)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.stage2)
 	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "stage3", g.stage3)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
+	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../testdata/gateway-exclusive-out-and-in-test.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ExclusiveGatewayTest", b)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
@@ -110,21 +112,23 @@ func TestInclusiveRun(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 
 	require.NoError(t, err)
-	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/gateway-inclusive-out-and-in-test.bpmn")
-	require.NoError(t, err)
-
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "InclusiveGatewayTest", b)
-	require.NoError(t, err)
 
 	g := &gatewayTest{finished: make(chan struct{})}
 
-	err = cl.RegisterServiceTask(ctx, "stage1", g.stage1)
+	// Register service tasks
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
 	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "stage2", g.stage2)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.stage2)
 	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "stage3", g.stage3)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
 	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../testdata/gateway-inclusive-out-and-in-test.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "InclusiveGatewayTest", b)
+	require.NoError(t, err)
+
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow

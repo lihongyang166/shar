@@ -1,0 +1,18 @@
+version: "1.0"
+kind: ServiceTask
+metadata:
+  type: Prepare
+  version: "0.1"
+  short: A test task.
+  estimatedmaxduration: 2343255
+behaviour:
+  defaultretry:
+    number: 30
+    strategy: 30000
+    initmilli: 30000
+    intervalmilli: 10000
+    maxmilli: 120000
+    defaultexceeded:
+      action: 3
+  unsafe: false
+  mock: false

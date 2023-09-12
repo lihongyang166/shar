@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common/header"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
@@ -41,6 +42,12 @@ func TestSimpleAuthZ(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	d := &testSimpleAuthHandlerDef{t: t, finished: make(chan struct{})}
+
+	// Register a service task
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple__legacy_test_SimpleProcess.yaml", d.integrationSimple)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
@@ -48,11 +55,6 @@ func TestSimpleAuthZ(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
 
-	d := &testSimpleAuthHandlerDef{t: t, finished: make(chan struct{})}
-
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "SimpleProcess", d.integrationSimple)
-	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
@@ -69,8 +71,11 @@ func TestSimpleAuthZ(t *testing.T) {
 }
 
 func TestNoAuthN(t *testing.T) {
-
-	tst := &support.Integration{}
+	tst := &support.Integration{
+		TestRunnable: func() (bool, string) {
+			return !support.IsSharContainerised(), "authN test not runnable with containerised Shar"
+		},
+	}
 	tst.Setup(t, testAuthZFn, testAuthNFn)
 	defer tst.Teardown()
 
@@ -92,8 +97,12 @@ func TestNoAuthN(t *testing.T) {
 }
 
 func TestSimpleNoAuthZ(t *testing.T) {
+	tst := &support.Integration{
+		TestRunnable: func() (bool, string) {
+			return !support.IsSharContainerised(), "authZ test not runnable with containerised Shar"
+		},
+	}
 
-	tst := &support.Integration{}
 	tst.WithTrace = true
 	tst.Setup(t, testAuthZFn, testAuthNFn)
 	defer tst.Teardown()
@@ -171,6 +180,9 @@ func APIauth(api string, permissions map[string]struct{}) bool {
 	case "WORKFLOW.Api.StoreWorkflow":
 		_, ok := permissions["W"]
 		return ok
+	case "Workflow.Api.RegisterTask":
+		// IRL This should be checked versus a permission
+		return true
 	case "WORKFLOW.Api.GetServiceTaskRoutingID":
 		return true
 	case "WORKFLOW.Api.LaunchWorkflow":

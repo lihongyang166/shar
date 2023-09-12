@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -27,24 +28,24 @@ func TestLink(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	d := &testLinkHandlerDef{t: t, finished: make(chan struct{})}
+
+	// Register service tasks
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "link_test_spillage.yaml", d.spillage)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "link_test_dontCry.yaml", d.dontCry)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "link_test_cry.yaml", d.cry)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "link_test_wipeItUp.yaml", d.wipeItUp)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/link.bpmn")
 	require.NoError(t, err)
-
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "LinkTest", b)
 	require.NoError(t, err)
 
-	d := &testLinkHandlerDef{t: t, finished: make(chan struct{})}
-
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "spillage", d.spillage)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "dontCry", d.dontCry)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "cry", d.cry)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "wipeItUp", d.wipeItUp)
-	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("Process_0e9etnb", d.processEnd)
 	require.NoError(t, err)
 

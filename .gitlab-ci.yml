@@ -1,20 +1,116 @@
-# Ref: https://www.docker.com/blog/multi-arch-build-what-about-gitlab-ci/
-#  can update from this image to get later buildx version if test works;
-image: jdrouet/docker-with-buildx:stable
+# You can override the included template(s) by including variable overrides
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
+# Note that environment variables can be set in several places
+# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 
+# container_scanning:
+#   variables:
+#     DOCKER_IMAGE: ...
+#     DOCKER_USER: ...
+#     DOCKER_PASSWORD: ...
 variables:
+  VER: '1.0'
+  PROJECT_NAME: shar
+  CI_VERSION: "${CI_PIPELINE_IID}"
+  TAG_KEY: "${TAG_KEY}"
+  CI_JOB_TOKEN: "${CI_JOB_TOKEN}"
+  CI_API_V4_URL: "${CI_API_V4_URL}"
+  CI_PROJECT_ID: "${CI_PROJECT_ID}"
   DOCKER_HOST: tcp://docker:2375/
   DOCKER_DRIVER: overlay2
 
-services:
-  - docker:dind
-
-before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-
-build:
+stages:
+- test
+- build
+- tag
+- package
+sast:
+  stage: test
+include:
+- template: Security/SAST.gitlab-ci.yml
+- template: Security/Dependency-Scanning.gitlab-ci.yml
+- template: Security/License-Scanning.gitlab-ci.yml
+- template: Jobs/Container-Scanning.gitlab-ci.yml
+build_stage:
+  image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.14
   stage: build
+  rules:
+  - if: "$CI_COMMIT_TAG"
+    when: never
+  - if: "$CI_PIPELINE_IID"
   script:
-    - docker buildx create --use
-    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/server:latest --push --target server .
-    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/telemetry:latest --push --target telemetry .
+  - tag=v${VER}.${CI_VERSION}
+  - echo $tag > client/version
+  - echo "package version" > common/version/version.go
+  - echo "" >> common/version/version.go
+  - echo "const Version = \"$tag\"" >> common/version/version.go
+  - make
+  artifacts:
+    paths:
+    - build
+test_stage:
+  image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.14
+  stage: test
+  rules:
+  - if: "$CI_COMMIT_TAG"
+    when: never
+  - if: "$CI_PIPELINE_IID"
+  script:
+  - make test
+tag_stage:
+  stage: tag
+  rules:
+  - if: "$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH"
+    when: never
+  - if: "$CI_COMMIT_TAG"
+    when: never
+  - if: "$CI_PIPELINE_IID"
+  script:
+  - git config --global url."https://gitlab-ci-token:${TAG_KEY}@gitlab.com/shar-workflow".insteadOf
+    "git@gitlab:com:shar-workflow"
+  - echo -e "machine gitlab.com\nlogin gitlab-ci-token\npassword ${TAG_KEY}" > ~/.netrc
+  - project_url=$(echo $CI_PROJECT_URL | sed 's/https:\/\///')
+  - git remote set-url origin https://oauth2:${TAG_KEY}@${project_url}
+  - git checkout main
+  - tag=v${VER}.${CI_VERSION}
+  - authName="$(git log -1 --pretty=format:"%an")"
+  - authEmail="$(git log -1 --pretty=format:"%ae")"
+  - git config --global user.email "${authEmail}"
+  - git config --global user.name "${authName}"
+  - echo Build number is v${VER}.${CI_VERSION}
+  - tag=v${VER}.${CI_VERSION}
+  - echo $tag > client/version
+  - echo "package version" > common/version/version.go
+  - echo "" >> common/version/version.go
+  - echo "const Version = \"$tag\"" >> common/version/version.go
+  - git add common/version/version.go
+  - git push -f -o ci.skip
+  - git commit --amend --no-edit
+  - git tag $tag
+  - git push -f origin $tag
+package_stage:
+  # Ref: https://www.docker.com/blog/multi-arch-build-what-about-gitlab-ci/
+  #  can update from this image to get later buildx version if test works;
+  image: jdrouet/docker-with-buildx:stable
+  stage: package
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  rules:
+  - if: "$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH"
+    when: never
+  - if: "$CI_COMMIT_TAG"
+    when: never
+  - if: "$CI_PIPELINE_IID"
+  script:
+  - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file build/cli/shar "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/shar/${VER}.$CI_VERSION/shar-cli-linux-amd64"'
+  - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file build/zen-shar/zen-shar "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/shar/${VER}.$CI_VERSION/zen-shar-linux-amd64"'
+  - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file build/server/shar "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/shar/${VER}.$CI_VERSION/shar-server-linux-amd64"'
+  - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file build/telemetry/shar-telemetry "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/shar/${VER}.$CI_VERSION/shar-telemetry-linux-amd64"'
+  - docker buildx create --use
+  - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/server:latest --push --target server .
+  - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/telemetry:latest --push --target telemetry .

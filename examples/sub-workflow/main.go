@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
+	"os"
 )
 
 var finished = make(chan struct{})
@@ -22,6 +22,18 @@ func main() {
 		panic(err)
 	}
 
+	// Register the service tasks
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.BeforeCallingSubProcess.yaml", beforeCallingSubProcess); err != nil {
+		panic(err)
+	}
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.DuringSubProcess.yaml", duringSubProcess); err != nil {
+		panic(err)
+	}
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.AfterCallingSubProcess.yaml", afterCallingSubProcess); err != nil {
+		panic(err)
+	}
+
+	// Load the workflows
 	w1, _ := os.ReadFile("testdata/sub-workflow-parent.bpmn")
 	w2, _ := os.ReadFile("testdata/sub-workflow-child.bpmn")
 	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "MasterWorkflowDemo", w1); err != nil {
@@ -30,32 +42,18 @@ func main() {
 	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "SubWorkflowDemo", w2); err != nil {
 		panic(err)
 	}
-	err := cl.RegisterServiceTask(ctx, "BeforeCallingSubProcess", beforeCallingSubProcess)
-	if err != nil {
-		panic(err)
-	}
-	err = cl.RegisterServiceTask(ctx, "DuringSubProcess", duringSubProcess)
-	if err != nil {
-		panic(err)
-	}
-	err = cl.RegisterServiceTask(ctx, "AfterCallingSubProcess", afterCallingSubProcess)
-	if err != nil {
+
+	// Add a hook to watch for completion
+	if err := cl.RegisterProcessComplete("Process_03llwnm", processEnd); err != nil {
 		panic(err)
 	}
 
-	// A hook to watch for completion
-	err = cl.RegisterProcessComplete("Process_03llwnm", processEnd)
-	if err != nil {
-		panic(err)
-	}
-
-	_, _, err = cl.LaunchWorkflow(ctx, "MasterWorkflowDemo", model.Vars{})
-	if err != nil {
+	// Launch the workflow
+	if _, _, err := cl.LaunchWorkflow(ctx, "MasterWorkflowDemo", model.Vars{}); err != nil {
 		panic(err)
 	}
 	go func() {
-		err := cl.Listen(ctx)
-		if err != nil {
+		if err := cl.Listen(ctx); err != nil {
 			panic(err)
 		}
 	}()

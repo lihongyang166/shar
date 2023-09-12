@@ -19,8 +19,8 @@ import (
 	"gitlab.com/shar-workflow/shar/server/services"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"gitlab.com/shar-workflow/shar/server/vars"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"strconv"
 	"time"
 )
@@ -472,8 +472,9 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	//Start any timers
 	if el.BoundaryTimer != nil || len(el.BoundaryTimer) > 0 {
 		for _, i := range el.BoundaryTimer {
+			ai := i
 			timerState := common.CopyWorkflowState(newState)
-			timerState.Execute = &i.Target
+			timerState.Execute = &ai.Target
 			timerState.UnixTimeNano = time.Now().UnixNano()
 			timerState.Timer = &model.WorkflowTimer{LastFired: 0, Count: 0}
 			v, err := vars.Decode(ctx, traversal.Vars)
@@ -530,12 +531,28 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			}
 		}
 	case element.ServiceTask:
-		stID, err := c.ns.GetServiceTaskRoutingKey(ctx, el.Execute)
+		if el.Version == nil {
+			v, err := c.ns.GetTaskSpecUID(ctx, el.Execute)
+			if errors2.Is(err, nats.ErrKeyNotFound) {
+				return fmt.Errorf("engine failed to get task spec id: %w", &errors.ErrWorkflowFatal{Err: err})
+			}
+			el.Version = &v
+		} else {
+			def, err := c.ns.GetTaskSpecByUID(ctx, *el.Version)
+			fmt.Println(def, err)
+			if def.Behaviour != nil && def.Behaviour.Mock {
+				err := c.mockCompleteServiceTask(ctx, def, el, newState)
+				if err != nil {
+					return fmt.Errorf("mocked service task '%s' failed: %w", el.Execute, err)
+				}
+				return nil
+			}
+		}
 		if err != nil {
 			return fmt.Errorf("get service task routing key during activity start processor: %w", err)
 		}
-		if err := c.startJob(ctx, messages.WorkflowJobServiceTaskExecute+"."+stID, newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start srvice task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		if err := c.startJob(ctx, messages.WorkflowJobServiceTaskExecute+"."+*el.Version, newState, el, traversal.Vars); err != nil {
+			return c.engineErr(ctx, "start service task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
 	case element.UserTask:
 		if err := c.startJob(ctx, messages.WorkflowJobUserTaskExecute, newState, el, traversal.Vars); err != nil {
@@ -647,6 +664,80 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	return nil
 }
 
+func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpec, el *model.Element, traversal *model.WorkflowState) error {
+	state := common.CopyWorkflowState(traversal)
+	// Extract workflow inputs
+	localVars := make(map[string]interface{})
+	processVars := make(map[string]interface{})
+	if el.InputTransform != nil {
+		var err error
+		processVars, err = vars.Decode(ctx, state.Vars)
+		if err != nil {
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("decode old input variables: %w", err)}
+		}
+		for k, v := range el.InputTransform {
+			res, err := expression.EvalAny(ctx, v, processVars)
+			if err != nil {
+				return &errors.ErrWorkflowFatal{Err: fmt.Errorf("input transform expression evalutaion failed: %w", err)}
+			}
+			localVars[k] = res
+		}
+	}
+
+	if def.Parameters != nil {
+		// Inject missing inputs
+		if def.Parameters.Input != nil {
+			for _, v := range def.Parameters.Input {
+				if _, ok := localVars[v.Name]; !ok && v.Example != "" {
+					res, err := expression.EvalAny(ctx, v.Example, localVars)
+					if err != nil {
+						return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example input value expression: %w", err)}
+					}
+					localVars[v.Name] = res
+				}
+			}
+		}
+
+		// Transform for example outputs
+		if def.Parameters.Output != nil {
+			for _, v := range def.Parameters.Output {
+				if v.Example != "" {
+					res, err := expression.EvalAny(ctx, v.Example, localVars)
+					if err != nil {
+						return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example value expression: %w", err)}
+					}
+					localVars[v.Name] = res
+				}
+			}
+		}
+	}
+
+	// Set process vars
+	for k, v := range el.OutputTransform {
+		res, err := expression.EvalAny(ctx, v, localVars)
+		if err != nil {
+			return fmt.Errorf("evaluate output transform expression: %w", err)
+		}
+		processVars[k] = res
+	}
+	b, err := vars.Encode(ctx, processVars)
+	if err != nil {
+		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("encode output process variables: %w", err)}
+	}
+	state.Vars = b
+
+	common.DropStateParams(state)
+
+	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
+		return c.engineErr(ctx, "publish workflow cancellationState", err)
+		//TODO: report this without process: apErrFields(wfi.WorkflowInstanceId, wfi.WorkflowId, el.Id, el.Name, el.Type, process.Name)
+	}
+	if err := c.ns.RecordHistoryActivityComplete(ctx, state); err != nil {
+		return c.engineErr(ctx, "record history activity complete", &errors.ErrWorkflowFatal{Err: err})
+	}
+	return nil
+}
+
 func (c *Engine) completeActivity(ctx context.Context, state *model.WorkflowState) error {
 	// tell the world that we processed the activity
 	common.DropStateParams(state)
@@ -745,27 +836,31 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 func (c *Engine) startJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...storage.PublishOpt) error {
 	job.Execute = &el.Execute
 
+	// el.Version is only used for versioned tasks such as service tasks
+	if el.Version != nil {
+		job.ExecuteVersion = *el.Version
+	}
 	// skip if this job type requires no input transformation
 	if el.Type != element.MessageIntermediateCatchEvent {
 		job.Vars = nil
 		if err := vars.InputVars(ctx, v, &job.Vars, el); err != nil {
-			return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to get input variables: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to get input variables: %w", err)}
 		}
 	}
 	// if this is a user task, find out who can perfoem it
 	if el.Type == element.UserTask {
 		vx, err := vars.Decode(ctx, v)
 		if err != nil {
-			return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
 		}
 
 		owners, err := c.evaluateOwners(ctx, el.Candidates, vx)
 		if err != nil {
-			return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate owners: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate owners: %w", err)}
 		}
 		groups, err := c.evaluateOwners(ctx, el.CandidateGroups, vx)
 		if err != nil {
-			return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate groups: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate groups: %w", err)}
 		}
 
 		job.Owners = owners
@@ -794,11 +889,11 @@ func (c *Engine) startJob(ctx context.Context, subject string, job *model.Workfl
 				// Launch as usual, just with iteration parameters
 				seqVars, err := vars.Decode(ctx, job.Vars)
 				if err != nil {
-					return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
 				}
 				collection, ok := seqVars[el.Iteration.Collection]
 				if !ok {
-					return errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
 				}
 				seqVars[el.Iteration.Iterator] = getCollectionIndex[collection]
 			} else if model.ThreadingType_Parallel {
@@ -1117,7 +1212,6 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				return false, int(fireNext), nil
 			}
 		} else if el.Timer.Type == model.WorkflowTimerType_duration {
-			fmt.Println("nak with delay")
 			return false, int(fireNext - now), nil
 		}
 	}

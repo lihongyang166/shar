@@ -11,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/version"
+	"gitlab.com/shar-workflow/shar/internal"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
@@ -45,14 +46,15 @@ func Call[T proto.Message, U proto.Message](ctx context.Context, con *nats.Conn,
 		}
 		return fmt.Errorf("API call: %w", err)
 	}
-	if len(res.Data) > 4 && string(res.Data[0:4]) == "ERR_" {
-		em := strings.Split(string(res.Data), "_")
-		e := strings.Split(em[1], "|")
-		i, err := strconv.Atoi(e[0])
+	if len(res.Data) > 4 && string(res.Data[0:4]) == internal.ErrorPrefix {
+
+		em := strings.Split(string(res.Data), internal.ErrorSeparator)
+		e := strings.Split(em[0], "\x01")
+		i, err := strconv.Atoi(e[1])
 		if err != nil {
 			i = 0
 		}
-		ae := &api.Error{Code: i, Message: e[1]}
+		ae := &api.Error{Code: i, Message: em[1]}
 		if codes.Code(i) == codes.Internal {
 			return &errors2.ErrWorkflowFatal{Err: ae}
 		}

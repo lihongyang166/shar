@@ -166,16 +166,38 @@ func init() {
 
 // EnsureWorkflowStream ensures that the workflow stream exists
 func EnsureWorkflowStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, storageType nats.StorageType, update bool) error {
-	scfg := &nats.StreamConfig{
+	mirrorAge := 36 * time.Hour
+	if err := EnsureStream(ctx, nc, js, nats.StreamConfig{
 		Name:      "WORKFLOW",
 		Subjects:  messages.AllMessages,
 		Storage:   storageType,
 		Retention: nats.InterestPolicy,
-	}
-
-	if err := EnsureStream(ctx, nc, js, *scfg); err != nil {
+	}); err != nil {
 		return fmt.Errorf("ensure workflow stream: %w", err)
 	}
+
+	if err := EnsureStream(ctx, nc, js, nats.StreamConfig{
+		Name:      "WORKFLOW-MIRROR",
+		Storage:   storageType,
+		Retention: nats.LimitsPolicy,
+		MaxAge:    mirrorAge,
+		Sources: []*nats.StreamSource{{
+			Name:          "WORKFLOW",
+			FilterSubject: "WORKFLOW.*.State.>",
+		}},
+	}); err != nil {
+		return fmt.Errorf("ensure workflow stream: %w", err)
+	}
+
+	if err := EnsureConsumer(js, "WORKFLOW", nats.ConsumerConfig{
+		Durable:       "UndeliveredMsgConsumer",
+		Description:   "Undeliverable workflow message queue.  Messages should be looked up in the WORKFLOW-MIRROR stream to avoid disappointment.",
+		FilterSubject: "$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>",
+		MemoryStorage: storageType == nats.MemoryStorage,
+	}, update); err != nil {
+		return fmt.Errorf("ensure consumer during ensure workflow stream: %w", err)
+	}
+
 	for _, ccfg := range consumerConfig {
 		if err := EnsureConsumer(js, "WORKFLOW", *ccfg, update); err != nil {
 			return fmt.Errorf("ensure consumer during ensure workflow stream: %w", err)

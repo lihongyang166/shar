@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	dclient "gitlab.com/shar-workflow/shar/client/data"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -42,6 +43,12 @@ func TestSimplePollData(t *testing.T) {
 		}
 	}()
 
+	d := &testSimplePollDataHandlerDef{t: t, finished: make(chan struct{})}
+
+	// Register a service task
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_poll_data_test_SimpleProcess.yaml", d.integrationSimple)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
@@ -49,17 +56,13 @@ func TestSimplePollData(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
 
-	d := &testSimplePollDataHandlerDef{t: t, finished: make(chan struct{})}
-
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "SimpleProcess", d.integrationSimple)
-	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
 
 	// Launch the workflow
 	_, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowTest", model.Vars{})
 	require.NoError(t, err)
+
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)

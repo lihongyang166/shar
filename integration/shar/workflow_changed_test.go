@@ -2,16 +2,21 @@ package intTest
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
+	"gitlab.com/shar-workflow/shar/model"
 	"os"
 	"testing"
 )
 
 func TestWorkflowChanged(t *testing.T) {
-	tst := &support.Integration{}
+	tst := &support.Integration{TestRunnable: func() (bool, string) {
+		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
+	}}
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
@@ -21,6 +26,12 @@ func TestWorkflowChanged(t *testing.T) {
 	// Dial shar
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
 	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
+
+	d := &workflowChangedHandlerDef{t: t, finished: make(chan struct{})}
+
+	// Register a service task
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "workflow_changed_SimpleProcess.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -44,4 +55,16 @@ func TestWorkflowChanged(t *testing.T) {
 	changed, err = cl.HasWorkflowDefinitionChanged(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
 	assert.True(t, changed)
+}
+
+type workflowChangedHandlerDef struct {
+	t        *testing.T
+	finished chan struct{}
+}
+
+func (d *workflowChangedHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	fmt.Println("Hi")
+	assert.Equal(d.t, 32768, vars["carried"].(int))
+	vars["Success"] = true
+	return vars, nil
 }

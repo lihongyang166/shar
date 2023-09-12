@@ -52,6 +52,11 @@ const (
 	WorkflowTimedExecute              = "WORKFLOW.%s.Timers.WorkflowExecute"          // WorkflowTimedExecute is the state message subject for timed workflow execute operation.
 	WorkflowTraversalComplete         = "WORKFLOW.%s.State.Traversal.Complete"        // WorkflowTraversalComplete is the state message subject for completing a traversal.
 	WorkflowTraversalExecute          = "WORKFLOW.%s.State.Traversal.Execute"         // WorkflowTraversalExecute is the state message subject for executing a new traversal.
+
+	WorkflowSystemTaskCreate   = "WORKFLOW.System.Task.Create"   // WorkflowSystemTaskCreate is the task created broadcast message.
+	WorkflowSystemTaskUpdate   = "WORKFLOW.System.Task.Update"   // WorkflowSystemTaskUpdate is the task updated broadcast message.
+	WorkflowSystemProcessPause = "WORKFLOW.System.Process.Pause" // WorkflowSystemProcessPause is the process paused broadcast message.
+	WorkflowSystemProcessError = "WORKFLOW.System.Process.Error" // WorkflowSystemProcessError is the process error broadcast message.
 )
 
 const (
@@ -81,6 +86,11 @@ var LogLevels = []WorkflowLogLevel{
 // AllMessages provides the list of subscriptions for the WORKFLOW stream.
 var AllMessages = []string{
 	//subj.NS(WorkflowAbortAll, "*"),
+	subj.NS(WorkflowSystemTaskCreate, "*"),
+	subj.NS(WorkflowSystemTaskUpdate, "*"),
+	subj.NS(WorkflowSystemProcessPause, "*"),
+	subj.NS(WorkflowSystemProcessError, "*"),
+
 	subj.NS(WorkFlowJobAbortAll, "*"),
 	subj.NS(WorkFlowJobCompleteAll, "*"),
 	subj.NS(WorkflowActivityAbort, "*"),
@@ -108,6 +118,7 @@ var AllMessages = []string{
 	subj.NS(WorkflowJobGatewayTaskActivate, "*"),
 	subj.NS(WorkflowJobGatewayTaskReEnter, "*"),
 	WorkflowMessageKick,
+	"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>", // Dead letter functionality
 }
 
 // WorkflowMessageFormat provides the template for sending workflow messages.
@@ -132,7 +143,9 @@ const (
 	APIGetServerInstanceStats        = "WORKFLOW.Api.GetServerInstanceStats"        // APIGetServerInstanceStats is the get server instance status API subject.
 	APIGetServiceTaskRoutingID       = "WORKFLOW.Api.GetServiceTaskRoutingID"       // APIGetServiceTaskRoutingID is the get client routing ID for a service task API subject.
 	APIGetMessageSenderRoutingID     = "WORKFLOW.Api.GetMessageSenderRoutingID"     // APIGetMessageSenderRoutingID is the get message sender routing ID API subject.
+	APIRegisterTask                  = "Workflow.Api.RegisterTask"                  // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
 	APIGetProcessInstanceStatus      = "WORKFLOW.Api.GetProcessInstanceStatus"      // APIGetProcessInstanceStatus is the get process instance status API subject.
+	ApiGetTaskSpec                   = "WORKFLOW.Api.GetTaskSpec"                   // ApiGetTaskSpec is the get task spec API message subject.
 	APIGetWorkflowVersions           = "WORKFLOW.Api.GetWorkflowVersions"           // APIGetWorkflowVersions is the get workflow versions API message subject.
 	APIGetWorkflow                   = "WORKFLOW.Api.GetWorkflow"                   // APIGetWorkflow is the get workflow API message subject.
 	APIGetProcessHistory             = "WORKFLOW.Api.GetProcessHistory"             // APIGetProcessHistory is the get process history API message subject.
@@ -142,21 +155,23 @@ const (
 const APISpoolWorkflowEvents = "WORKFLOW.Api.SpoolWorkflowEvents" // APISpoolWorkflowEvents returns the latest workflow events from SHAR for export.  Event spooling must be enabled on the server.
 
 var (
-	KvJob             = "WORKFLOW_JOB"        // KvJob is the name of the key value store that holds workflow jobs.
-	KvVersion         = "WORKFLOW_VERSION"    // KvVersion is the name of the key value store that holds an ordered list of workflow version IDs for a given workflow
-	KvDefinition      = "WORKFLOW_DEF"        // KvDefinition is the name of the key value store that holds the state machine definition for workflows
-	KvTracking        = "WORKFLOW_TRACKING"   // KvTracking is the name of the key value store that holds the state of a workflow task.
-	KvInstance        = "WORKFLOW_INSTANCE"   // KvInstance is the name of the key value store that holds workflow instance information.
-	KvMessageInterest = "WORKFLOW_MSGNAME"    // KvMessageInterest is the name of the key value store that holds recipients for messages.
-	KvUserTask        = "WORKFLOW_USERTASK"   // KvUserTask is the name of the key value store that holds active user tasks.
-	KvOwnerName       = "WORKFLOW_OWNERNAME"  // KvOwnerName is the name of the key value store that holds owner names for owner IDs
-	KvOwnerID         = "WORKFLOW_OWNERID"    // KvOwnerID is the name of the key value store that holds owner IDs for owner names.
-	KvClientTaskID    = "WORKFLOW_CLIENTTASK" // KvClientTaskID is the name of the key value store that holds the unique ID used by clients to subscribe to service task messages.
-	KvWfName          = "WORKFLOW_NAME"       // KvWfName is the name of the key value store that holds workflow IDs for workflow names.
-	KvVarState        = "WORKFLOW_VARSTATE"   // KvVarState is the name of the key value store that holds the state of variables upon entering a task.
-	KvProcessInstance = "WORKFLOW_PROCESS"    // KvProcessInstance is the name of the key value store holding process instances.
-	KvGateway         = "WORKFLOW_GATEWAY"    // KvGateway is the name of the key value store holding gateway instances.
-	KvHistory         = "WORKFLOW_HISTORY"    // KvHistory is the name of the key value store holding process histories.
-	KvLock            = "WORKFLOW_GENLCK"     // KvLock is the name of the key value store holding locks.
-	KvMessageTypes    = "WORKFLOW_MSGTYPES"   // KvMessageTypes is the name of the key value store containing known message types.
+	KvJob              = "WORKFLOW_JOB"        // KvJob is the name of the key value store that holds workflow jobs.
+	KvVersion          = "WORKFLOW_VERSION"    // KvVersion is the name of the key value store that holds an ordered list of workflow version IDs for a given workflow
+	KvDefinition       = "WORKFLOW_DEF"        // KvDefinition is the name of the key value store that holds the state machine definition for workflows
+	KvTracking         = "WORKFLOW_TRACKING"   // KvTracking is the name of the key value store that holds the state of a workflow task.
+	KvInstance         = "WORKFLOW_INSTANCE"   // KvInstance is the name of the key value store that holds workflow instance information.
+	KvMessageInterest  = "WORKFLOW_MSGNAME"    // KvMessageInterest is the name of the key value store that holds recipients for messages.
+	KvUserTask         = "WORKFLOW_USERTASK"   // KvUserTask is the name of the key value store that holds active user tasks.
+	KvOwnerName        = "WORKFLOW_OWNERNAME"  // KvOwnerName is the name of the key value store that holds owner names for owner IDs
+	KvOwnerID          = "WORKFLOW_OWNERID"    // KvOwnerID is the name of the key value store that holds owner IDs for owner names.
+	KvClientTaskID     = "WORKFLOW_CLIENTTASK" // KvClientTaskID is the name of the key value store that holds the unique ID used by clients to subscribe to service task messages.
+	KvWfName           = "WORKFLOW_NAME"       // KvWfName is the name of the key value store that holds workflow IDs for workflow names.
+	KvVarState         = "WORKFLOW_VARSTATE"   // KvVarState is the name of the key value store that holds the state of variables upon entering a task.
+	KvProcessInstance  = "WORKFLOW_PROCESS"    // KvProcessInstance is the name of the key value store holding process instances.
+	KvGateway          = "WORKFLOW_GATEWAY"    // KvGateway is the name of the key value store holding gateway instances.
+	KvHistory          = "WORKFLOW_HISTORY"    // KvHistory is the name of the key value store holding process histories.
+	KvLock             = "WORKFLOW_GENLCK"     // KvLock is the name of the key value store holding locks.
+	KvMessageTypes     = "WORKFLOW_MSGTYPES"   // KvMessageTypes is the name of the key value store containing known message types.
+	KvTaskSpecVersions = "WORKFLOW_TSPECVER"   // KvTaskSpecVersions is the name of the key value store holding task specification versions
+	KvTaskSpec         = "WORKFLOW_TSKSPEC"    // KvTaskSpec is the name of the key value store holding task specification
 )

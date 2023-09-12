@@ -1,7 +1,7 @@
 package output
 
 import (
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 // Logger is the global logger for the SHAR CLI.

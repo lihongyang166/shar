@@ -4,8 +4,8 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/server/config"
 	"gitlab.com/shar-workflow/shar/server/server"
-	"golang.org/x/exp/slog"
 	"log"
+	"log/slog"
 )
 
 func main() {
@@ -30,6 +30,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	svr := server.New(server.Concurrency(cfg.Concurrency))
-	svr.Listen(cfg.NatsURL, cfg.Port)
+	svr := server.New(server.Concurrency(cfg.Concurrency), server.NatsUrl(cfg.NatsURL), server.GrpcPort(cfg.Port))
+	svr.Listen()
 }

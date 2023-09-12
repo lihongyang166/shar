@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -23,7 +24,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
-	tst.Cooldown = 5 * time.Second
+	tst.Cooldown = 10 * time.Second
 
 	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{})}
 	handlers.tst = tst
@@ -35,6 +36,12 @@ func TestConcurrentMessaging2(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	// Register service tasks
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "concurrent_messaging_2_test_step1.yaml", handlers.step1)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "concurrent_messaging_2_test_step2.yaml", handlers.step2)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/message-workflow-2.bpmn")
 	require.NoError(t, err)
@@ -42,11 +49,6 @@ func TestConcurrentMessaging2(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestConcurrentMessaging", b)
 	require.NoError(t, err)
 
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "step1", handlers.step1)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "step2", handlers.step2)
-	require.NoError(t, err)
 	err = cl.RegisterMessageSender(ctx, "TestConcurrentMessaging", "continueMessage", handlers.sendMessage)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("Process_03llwnm", handlers.processEnd)

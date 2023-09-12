@@ -5,7 +5,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/zen-shar/flag"
 	"gitlab.com/shar-workflow/shar/zen-shar/server"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,7 +30,7 @@ func run(cmd *cobra.Command, args []string) error {
 	// Capture SIGTERM and SIGINT
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 
-	ns, ss, err := server.GetServers("127.0.0.1", 4222, flag.Value.Concurrency, nil, nil)
+	ns, ss, err := server.GetServers(flag.Value.Concurrency, nil, nil)
 	if err != nil {
 		panic(err)
 	}

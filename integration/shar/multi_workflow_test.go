@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -30,6 +31,14 @@ func TestMultiWorkflow(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	// Register service tasks
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_step1.yaml", handlers.step1)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_step2.yaml", handlers.step2)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_SimpleProcess.yaml", handlers.simpleProcess)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
@@ -42,14 +51,6 @@ func TestMultiWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMultiWorkflow2", b2)
-	require.NoError(t, err)
-
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "step1", handlers.step1)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "step2", handlers.step2)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "SimpleProcess", handlers.simpleProcess)
 	require.NoError(t, err)
 
 	err = cl.RegisterMessageSender(ctx, "TestMultiWorkflow1", "continueMessage", handlers.sendMessage)

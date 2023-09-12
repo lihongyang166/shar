@@ -2,11 +2,14 @@ package intTest
 
 import (
 	"context"
+	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
+	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 
 	"os"
@@ -14,7 +17,9 @@ import (
 )
 
 func TestWfVersioning(t *testing.T) {
-	tst := &support.Integration{}
+	tst := &support.Integration{TestRunnable: func() (bool, string) {
+		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
+	}}
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
@@ -26,12 +31,17 @@ func TestWfVersioning(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	// Load service task
+	d := &wfTeestandlerDef{t: t, finished: make(chan struct{})}
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "wf_versioning_SimpleProcess.yaml", d.integrationSimple)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
-
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
+
 	res, err := cl.ListWorkflows(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), res[0].Version)
@@ -69,4 +79,17 @@ func TestWfVersioning(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(keys))
 	tst.AssertCleanKV()
+}
+
+type wfTeestandlerDef struct {
+	t        *testing.T
+	finished chan struct{}
+}
+
+func (d *wfTeestandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	fmt.Println("Hi")
+	assert.Equal(d.t, 32768, vars["carried"].(int))
+	assert.Equal(d.t, 42, vars["localVar"].(int))
+	vars["Success"] = true
+	return vars, nil
 }

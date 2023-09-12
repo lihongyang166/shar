@@ -10,8 +10,9 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
+	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"sync"
 
 	"github.com/nats-io/nats.go"
@@ -152,6 +153,14 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("APIGetProcessHistory failed: %w", err)
 	}
 
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIRegisterTask, &model.RegisterTaskRequest{}, s.registerTask); err != nil {
+		return fmt.Errorf("APIRegisterTask failed: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.ApiGetTaskSpec, &model.GetTaskSpecRequest{}, s.getTaskSpec); err != nil {
+		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+	}
+
 	slog.Info("shar api listener started")
 	return nil
 }
@@ -230,5 +239,6 @@ func errorResponse(m *nats.Msg, code codes.Code, msg any) {
 }
 
 func apiError(code codes.Code, msg any) []byte {
-	return []byte(fmt.Sprintf("ERR_%d|%+v", code, msg))
+	err := fmt.Sprintf("%s%d%s%+v", internal.ErrorPrefix, code, internal.ErrorSeparator, msg)
+	return []byte(err)
 }

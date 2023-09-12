@@ -9,6 +9,7 @@ import (
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
+	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/setup"
@@ -19,8 +20,10 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
-	"golang.org/x/exp/slog"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
+	"maps"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,6 +47,8 @@ type Nats struct {
 	wfMessageInterest              nats.KeyValue
 	wfUserTasks                    nats.KeyValue
 	wfVarState                     nats.KeyValue
+	wfTaskSpec                     nats.KeyValue
+	wfTaskSpecVer                  nats.KeyValue
 	wf                             nats.KeyValue
 	wfVersion                      nats.KeyValue
 	wfTracking                     nats.KeyValue
@@ -156,6 +161,9 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	kvs[messages.KvHistory] = &ms.wfHistory
 	kvs[messages.KvLock] = &ms.wfLock
 	kvs[messages.KvMessageTypes] = &ms.wfMsgTypes
+	kvs[messages.KvTaskSpec] = &ms.wfTaskSpec
+	kvs[messages.KvTaskSpecVersions] = &ms.wfTaskSpecVer
+
 	ks := make([]string, 0, len(kvs))
 	for k := range kvs {
 		ks = append(ks, k)
@@ -270,6 +278,103 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 		return "", fmt.Errorf("store workflow failed to get the workflow hash: %w", err2)
 	}
 
+	for _, i := range wf.Process {
+		for _, j := range i.Elements {
+			if j.Type == element.ServiceTask {
+				id, err := s.GetTaskSpecUID(ctx, j.Execute)
+				if err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
+					return "", fmt.Errorf("task %s is not registered: %w", j.Execute, err)
+				}
+				j.Version = &id
+				jxCfg := &nats.ConsumerConfig{
+					Durable:       "ServiceTask_" + id,
+					Description:   "",
+					FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, "default") + "." + id,
+					AckPolicy:     nats.AckExplicitPolicy,
+					MemoryStorage: s.storageType == nats.MemoryStorage,
+				}
+
+				def, err := s.GetTaskSpecByUID(ctx, id)
+				if err != nil {
+					return "", fmt.Errorf("failed to look up task spec for '%s': %w", j.Execute, err)
+				}
+
+				// Validate the input parameters
+				if def.Parameters != nil && def.Parameters.Input != nil {
+					for _, val := range def.Parameters.Input {
+						if !val.Mandatory {
+							continue
+						}
+						if _, ok := j.InputTransform[val.Name]; !ok {
+							return "", fmt.Errorf("mandatory input parameter %s was expected for service task %s", val.Name, j.Id)
+						}
+					}
+				}
+
+				// Validate the output parameters
+				// Collate all the variables from the output transforms
+				outVars := make(map[string]struct{})
+				for varN, exp := range j.OutputTransform {
+					vars, err := expression.GetVariables(exp)
+					if err != nil {
+						return "", fmt.Errorf("an error occurred getting the variables from the output expression for %s in service task %s", varN, j.Id)
+					}
+					// Take the variables and add them to the list
+					maps.Copy(outVars, vars)
+				}
+				if def.Parameters != nil && def.Parameters.Output != nil {
+					for _, val := range def.Parameters.Output {
+						if !val.Mandatory {
+							continue
+						}
+						if _, ok := outVars[val.Name]; !ok {
+							return "", fmt.Errorf("mandatory output parameter %s was expected for service task %s", val.Name, j.Id)
+						}
+					}
+				}
+
+				// Merge default retry policy.
+				if r := j.RetryBehaviour; r == nil { // No behaviour given in the BPMN
+					if def.Behaviour.DefaultRetry != nil { // Behaviour defined by
+						j.RetryBehaviour = def.Behaviour.DefaultRetry
+					}
+				} else {
+					retry := j.RetryBehaviour.Number
+					j.RetryBehaviour = def.Behaviour.DefaultRetry
+					if retry != 0 {
+						j.RetryBehaviour.Number = retry
+					}
+				}
+
+				// Check to make sure errors can't set variable values that are not handled.
+				if j.RetryBehaviour.DefaultExceeded.Action == model.RetryErrorAction_SetVariableValue {
+					if _, ok := outVars[j.RetryBehaviour.DefaultExceeded.Variable]; !ok {
+						return "", fmt.Errorf("retry exceeded output parameter %s was expected for service task %s, but is not handled", j.RetryBehaviour.DefaultExceeded.VariableValue, j.Id)
+					}
+				}
+
+				// Check to make sure workflow errors exist and are handled in the service task.
+				if j.RetryBehaviour.DefaultExceeded.Action == model.RetryErrorAction_ThrowWorkflowError {
+					errCode := j.RetryBehaviour.DefaultExceeded.ErrorCode
+					errIndex := slices.IndexFunc(wf.Errors, func(e *model.Error) bool { return e.Code == errCode })
+					if errIndex == -1 {
+						return "", fmt.Errorf("%s retry exceeded error code %s is not declared", j.Id, errCode)
+					}
+					wfErr := wf.Errors[errIndex]
+					handleIndex := slices.IndexFunc(j.Errors, func(e *model.CatchError) bool { return e.ErrorId == wfErr.Id })
+					if handleIndex == -1 {
+						return "", fmt.Errorf("%s retry exceeded error code %s can be thrown but is not handled", j.Id, errCode)
+					}
+				}
+
+				if err = ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
+					return "", fmt.Errorf("add service task consumer: %w", err)
+				}
+
+			}
+		}
+	}
+
 	var newWf bool
 	if err := common.UpdateObj(ctx, s.wfVersion, wf.Name, &model.WorkflowVersions{}, func(v *model.WorkflowVersions) (*model.WorkflowVersions, error) {
 		n := len(v.Version)
@@ -298,32 +403,6 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 
 	if err := s.ensureMessageBuckets(ctx, wf); err != nil {
 		return "", fmt.Errorf("create workflow message buckets: %w", err)
-	}
-
-	for _, i := range wf.Process {
-		for _, j := range i.Elements {
-			if j.Type == element.ServiceTask {
-				id := ksuid.New().String()
-				_, err := s.wfClientTask.Get(j.Execute)
-				if err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
-					_, err := s.wfClientTask.Put(j.Execute, []byte(id))
-					if err != nil {
-						return "", fmt.Errorf("add task to registry: %w", err)
-					}
-
-					jxCfg := &nats.ConsumerConfig{
-						Durable:       "ServiceTask_" + id,
-						Description:   "",
-						FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, "default") + "." + id,
-						AckPolicy:     nats.AckExplicitPolicy,
-					}
-
-					if err = ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
-						return "", fmt.Errorf("add service task consumer: %w", err)
-					}
-				}
-			}
-		}
 	}
 
 	go s.incrementWorkflowCount()
@@ -406,15 +485,8 @@ func (s *Nats) GetServiceTaskRoutingKey(ctx context.Context, taskName string) (s
 	var b []byte
 	var err error
 	if b, err = common.Load(ctx, s.wfClientTask, taskName); err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
-		if !s.allowOrphanServiceTasks {
-			return "", fmt.Errorf("get service task key. key not present: %w", err)
-		}
-		var id = ksuid.New().String()
-		_, err := s.wfClientTask.Put(taskName, []byte(id))
-		if err != nil {
-			return "", fmt.Errorf("register service task key: %w", err)
-		}
-		return id, nil
+		// return this if the legacy service task routing is not present
+		return "_nil", nil
 	} else if err != nil {
 		return "", fmt.Errorf("get service task key: %w", err)
 	}

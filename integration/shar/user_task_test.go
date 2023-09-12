@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -31,6 +32,15 @@ func TestUserTasks(t *testing.T) {
 	//sub := tracer.Trace(NatsURL)
 	//defer sub.Drain()
 
+	d := &testUserTaskHandlerDef{finished: make(chan struct{})}
+	d.finalVars = make(model.Vars)
+
+	// Register service tasks
+	err := taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Complete.yaml", d.complete)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/usertask.bpmn")
 	if err != nil {
@@ -40,13 +50,6 @@ func TestUserTasks(t *testing.T) {
 		panic(err)
 	}
 
-	d := &testUserTaskHandlerDef{finished: make(chan struct{})}
-	d.finalVars = make(model.Vars)
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "Prepare", d.prepare)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "Complete", d.complete)
-	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("TestUserTasks", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow

@@ -9,7 +9,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 // Encode encodes the map of workflow variables into a go binary to be sent across the wire.
@@ -107,7 +107,7 @@ func CheckVars(ctx context.Context, state *model.WorkflowState, el *model.Elemen
 			}
 			for i := range list {
 				if _, ok := vrs[i]; !ok {
-					return errors.ErrWorkflowFatal{Err: fmt.Errorf("expected output variable [%s] missing", i)}
+					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("expected output variable [%s] missing", i)}
 				}
 			}
 		}

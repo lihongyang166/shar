@@ -12,8 +12,8 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"strings"
 )
 
@@ -73,8 +73,6 @@ func (s *Nats) processGatewayExecute(ctx context.Context) error {
 }
 
 func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
-	reEnter := strings.HasSuffix(msg.Subject, "ReEnter")
-	fmt.Println(reEnter)
 	var job model.WorkflowState
 	if err := proto.Unmarshal(msg.Data, &job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)

@@ -2,11 +2,16 @@ package integration_support
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/davecgh/go-spew/spew"
-	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,24 +19,28 @@ import (
 	"gitlab.com/shar-workflow/shar/common/authz"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/model"
-	sharsvr "gitlab.com/shar-workflow/shar/server/server"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	server2 "gitlab.com/shar-workflow/shar/telemetry/server"
 	zensvr "gitlab.com/shar-workflow/shar/zen-shar/server"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
-	"math/big"
-	"sync"
-	"testing"
-	"time"
+	"log/slog"
+)
+
+const (
+	// NATS_SERVER_IMAGE_URL_ENV_VAR_NAME is the name of the env var containing the nats image URL
+	NATS_SERVER_IMAGE_URL_ENV_VAR_NAME = "NATS_SERVER_IMAGE_URL"
+	// SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME is the name of the env var containing the shar server image URL
+	SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME = "SHAR_SERVER_IMAGE_URL"
+	// NATS_PERSIST_ENV_VAR_NAME is the name of the env var containing the flag determining whether nats data is persisted between tests
+	NATS_PERSIST_ENV_VAR_NAME = "NATS_PERSIST"
 )
 
 var errDirtyKV = errors.New("KV contains values when expected empty")
 
 // Integration - the integration test support framework.
 type Integration struct {
-	testNatsServer *server.Server
-	testSharServer *sharsvr.Server
+	testNatsServer zensvr.Server
+	testSharServer zensvr.Server
 	FinalVars      map[string]interface{}
 	Test           *testing.T
 	Mx             sync.Mutex
@@ -41,30 +50,56 @@ type Integration struct {
 	WithTrace      bool
 	traceSub       *tracer.OpenTrace
 	NatsURL        string // NatsURL is the default testing URL for the NATS host.
-	NatsPort       int    // NatsPort is the default testing port for the NATS host.
-	NatsHost       string // NatsHost is the default NATS host.
+	TestRunnable   func() (bool, string)
 }
 
 // Setup - sets up the test NATS and SHAR servers.
 func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check) {
-	s.NatsHost = "127.0.0.1"
-	v, e := rand.Int(rand.Reader, big.NewInt(500))
-	if e != nil {
-		panic("no crypto:" + e.Error())
+	//t.Setenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME, "nats:2.9.20")
+	//t.Setenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME, "local/shar-server:0.0.1-SNAPSHOT")
+	//t.Setenv(NATS_PERSIST_ENV_VAR_NAME, "true")
+
+	if s.TestRunnable != nil {
+		runnable, skipReason := s.TestRunnable()
+		if !runnable {
+			t.Skipf("test skipped reason: %s", skipReason)
+		}
 	}
-	s.NatsPort = 4459 + int(v.Int64())
-	s.NatsURL = fmt.Sprintf("nats://%s:%v", s.NatsHost, s.NatsPort)
+
+	if IsSharContainerised() && !IsNatsContainerised() {
+		t.Skip("invalid shar/nats server container/in process combination")
+		//the combo of in container shar/in process nats will lead to problems as
+		//in container shar will persist nats data to disk - an issue if subsequent tests
+		//try to run against a nats instance that has previously written state to disk
+		//This might cause issues as data from different tests might interfere with each other
+	}
+
+	if IsNatsPersist() && !IsNatsContainerised() {
+		t.Skip("NATS_PERSIST only usable with containerised nats")
+	}
+
 	logx.SetDefault(slog.LevelDebug, true, "shar-Integration-tests")
-	s.Cooldown = 4 * time.Second
+	s.Cooldown = 30 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
-	ss, ns, err := zensvr.GetServers(s.NatsHost, s.NatsPort, 10, authZFn, authNFn)
+
+	zensvrOptions := []zensvr.ZenSharOptionApplyFn{zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNatsServerImageUrl(os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME))}
+
+	if IsNatsPersist() {
+		natsStateDirForTest := s.natsStateDirForTest(t)
+		zensvrOptions = append(zensvrOptions, zensvr.WithNatsPersistHostPath(natsStateDirForTest))
+	}
+
+	ss, ns, err := zensvr.GetServers(20, authZFn, authNFn, zensvrOptions...)
+	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
+
 	if err != nil {
 		panic(err)
 	}
 	if s.WithTrace {
 		s.traceSub = tracer.Trace(s.NatsURL)
 	}
+
 	if s.WithTelemetry != nil {
 		ctx := context.Background()
 		n, err := nats.Connect(s.NatsURL)
@@ -75,10 +110,67 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		err = s.testTelemetry.Listen()
 		require.NoError(t, err)
 	}
+
 	s.testSharServer = ss
 	s.testNatsServer = ns
 	s.Test.Logf("Starting test support for " + s.Test.Name())
 	s.Test.Logf("\033[1;36m%s\033[0m", "> Setup completed\n")
+}
+
+func (s *Integration) natsStateDirForTest(t *testing.T) string {
+	natsPersistHostRootForTest := fmt.Sprintf("%snats-store/%s/", os.Getenv("TMPDIR"), t.Name())
+	slog.Info(fmt.Sprintf("### natsPersistHostRootForTest is %s ", natsPersistHostRootForTest))
+
+	//dir name is the dir creation time epoch millis, sorted asc, if it exists
+	dataDirectories, err := os.ReadDir(natsPersistHostRootForTest)
+	if err != nil {
+		if os.IsNotExist(err) {
+			dataDirectories = make([]os.DirEntry, 0)
+		} else {
+			panic(err)
+		}
+	}
+
+	now := time.Now()
+	oneHourAgo := now.Add(-(time.Second * 3600))
+	windowStartEpochMillis := oneHourAgo.UnixMilli()
+	var latestDir int64
+	var keepLatest bool
+
+	if len(dataDirectories) > 0 {
+		latestCreationTimeEpochMillis, err := strconv.ParseInt(dataDirectories[len(dataDirectories)-1].Name(), 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		if latestCreationTimeEpochMillis > windowStartEpochMillis {
+			latestDir = latestCreationTimeEpochMillis
+			keepLatest = true
+		}
+	}
+
+	if latestDir == 0 { //there are no prior data dirs, need to create one
+		latestDir = now.UnixMilli()
+	}
+
+	natsStateDirForTest := fmt.Sprintf("%s%d/", natsPersistHostRootForTest, latestDir)
+	if err := os.MkdirAll(filepath.Dir(natsStateDirForTest), 0777); err != nil {
+		panic(fmt.Errorf("failed creating nats state dir: %w", err))
+	}
+
+	purgeOld(natsPersistHostRootForTest, dataDirectories, keepLatest)
+	return natsStateDirForTest
+}
+
+func purgeOld(natsPersistHostRootForTest string, dataDirectories []os.DirEntry, keepLatest bool) {
+	for i, dataDir := range dataDirectories {
+		isLatest := i == (len(dataDirectories) - 1)
+		if !isLatest || isLatest && !keepLatest {
+			err := os.RemoveAll(fmt.Sprintf("%s%s", natsPersistHostRootForTest, dataDir.Name()))
+			if err != nil {
+				slog.Error(fmt.Sprintf("error while deleting data dir %s%s", natsPersistHostRootForTest, dataDir.Name()))
+			}
+		}
+	}
 }
 
 // AssertCleanKV - ensures SHAR has cleans up after itself, and there are no records left in the KV.
@@ -149,7 +241,9 @@ func (s *Integration) checkCleanKV() error {
 			"WORKFLOW_OWNERID",
 			"WORKFLOW_USERTASK",
 			"WORKFLOW_MSGTYPES",
-			"WORKFLOW_HISTORY":
+			"WORKFLOW_HISTORY",
+			"WORKFLOW_TSKSPEC",
+			"WORKFLOW_TSPECVER":
 			//noop
 		default:
 			if len(keys) > 0 {
@@ -247,7 +341,6 @@ func (s *Integration) Teardown() {
 	s.Test.Log("TEARDOWN")
 	s.testSharServer.Shutdown()
 	s.testNatsServer.Shutdown()
-	s.testNatsServer.WaitForShutdown()
 	s.Test.Log("NATS shut down")
 	s.Test.Logf("\033[1;36m%s\033[0m", "> Teardown completed")
 	s.Test.Log("\n")
@@ -288,4 +381,19 @@ func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
 		assert.Fail(t, "timed out waiting for completion")
 		return
 	}
+}
+
+// IsSharContainerised determines whether tests are running against containerised shar server
+func IsSharContainerised() bool {
+	return os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME) != ""
+}
+
+// IsNatsContainerised determines whether tests are running against containerised nats server
+func IsNatsContainerised() bool {
+	return os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME) != ""
+}
+
+// IsNatsPersist determines whether tests are persist nats data between executions
+func IsNatsPersist() bool {
+	return os.Getenv(NATS_PERSIST_ENV_VAR_NAME) == "true"
 }

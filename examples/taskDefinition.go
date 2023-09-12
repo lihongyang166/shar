@@ -21,7 +21,16 @@ func main() {
 			EstimatedMaxDuration: 2343255,
 		},
 		Behaviour: &model.TaskBehaviour{
-			Retry:  5,
+			DefaultRetry: &model.DefaultTaskRetry{
+				Number:        30,
+				Strategy:      30000,
+				InitMilli:     30000,
+				IntervalMilli: 10000,
+				MaxMilli:      120000,
+				DefaultExceeded: &model.DefaultRetryExceededBehaviour{
+					Action: model.RetryErrorAction_FailWorkflow,
+				},
+			},
 			Unsafe: false,
 		},
 		Parameters: &model.TaskParameters{
@@ -29,7 +38,7 @@ func main() {
 				{Name: grp1, Short: "Address parameters", Description: "Address parameters"},
 			},
 			Input: []*model.Parameter{
-				{Name: "number", Short: "House", Description: "House number", Type: "int", Group: &grp1, ExtensionData: map[string]string{"name1": "value1"}, Mandatory: true, ValidateRegEx: "[0-9]*"},
+				{Name: "number", Short: "House", Description: "House number", Type: "int", Group: &grp1, ExtensionData: map[string]string{"name1": "value1"}, Mandatory: true, ValidateExpr: "param[\"number\"] matches \"[0-9]*\""},
 				{Name: "postcode", Short: "Postal code", Description: "UK postal code", Type: "string", Group: &grp1},
 			},
 			Output: []*model.Parameter{

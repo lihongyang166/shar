@@ -1,12 +1,14 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/antchfx/xmlquery"
 	"gitlab.com/shar-workflow/shar/model"
+	"strconv"
 	"strings"
 )
 
-func parseZeebeExtensions(doc *xmlquery.Node, modelElement interface{}, i *xmlquery.Node) {
+func parseZeebeExtensions(doc *xmlquery.Node, modelElement interface{}, i *xmlquery.Node) error {
 	switch el := modelElement.(type) {
 	case *model.Element:
 		if x := i.SelectElement("bpmn:extensionElements"); x != nil {
@@ -15,7 +17,18 @@ func parseZeebeExtensions(doc *xmlquery.Node, modelElement interface{}, i *xmlqu
 				el.Execute = e.InnerText()
 			}
 			if e := x.SelectElement("zeebe:taskDefinition/@retries"); e != nil {
-				el.Retries = e.InnerText()
+				retries, err := strconv.ParseUint(e.InnerText(), 10, 32)
+				if err != nil {
+					return fmt.Errorf("'retries' parse uint32 conversion error: %w", err)
+				}
+				el.RetryBehaviour = &model.DefaultTaskRetry{
+					Number:          uint32(retries),
+					Strategy:        0,
+					InitMilli:       0,
+					IntervalMilli:   0,
+					MaxMilli:        0,
+					DefaultExceeded: nil,
+				}
 			}
 			if e := x.SelectElement("zeebe:calledElement/@processId"); e != nil {
 				el.Execute = e.InnerText()
@@ -108,4 +121,5 @@ func parseZeebeExtensions(doc *xmlquery.Node, modelElement interface{}, i *xmlqu
 			}
 		}
 	}
+	return nil
 }

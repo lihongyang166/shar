@@ -4,7 +4,7 @@
     <bpmn:startEvent id="StartEvent_1">
       <bpmn:extensionElements>
         <zeebe:ioMapping>
-          <zeebe:output source="= 32768" target="carried" />
+          <zeebe:output source="= 32768" target="carried"/>
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_0ibgrsa</bpmn:outgoing>
@@ -14,10 +14,10 @@
       <bpmn:outgoing>Flow_1ckphmq</bpmn:outgoing>
       <bpmn:outgoing>Flow_1k1z21k</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:sequenceFlow id="Flow_0ibgrsa" sourceRef="StartEvent_1" targetRef="Ready" />
-    <bpmn:sequenceFlow id="Flow_0ks9c4m" sourceRef="Ready" targetRef="Steady" />
-    <bpmn:sequenceFlow id="Flow_00bk63t" sourceRef="Steady" targetRef="Go" />
-    <bpmn:sequenceFlow id="Flow_0a85ox9" sourceRef="Go" targetRef="Gateway_0pjmiwr" />
+    <bpmn:sequenceFlow id="Flow_0ibgrsa" sourceRef="StartEvent_1" targetRef="Ready"/>
+    <bpmn:sequenceFlow id="Flow_0ks9c4m" sourceRef="Ready" targetRef="Steady"/>
+    <bpmn:sequenceFlow id="Flow_00bk63t" sourceRef="Steady" targetRef="Go"/>
+    <bpmn:sequenceFlow id="Flow_0a85ox9" sourceRef="Go" targetRef="Gateway_0pjmiwr"/>
     <bpmn:sequenceFlow id="Flow_1ckphmq" sourceRef="Gateway_0pjmiwr" targetRef="Lose">
       <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">!IsWinner</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
@@ -26,16 +26,16 @@
     </bpmn:sequenceFlow>
     <bpmn:serviceTask id="Ready" name="Ready">
       <bpmn:extensionElements>
-        <zeebe:taskDefinition type="ReadyTask" />
+        <zeebe:taskDefinition type="ReadyTask"/>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_0ibgrsa</bpmn:incoming>
       <bpmn:outgoing>Flow_0ks9c4m</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:serviceTask id="Win" name="Win">
       <bpmn:extensionElements>
-        <zeebe:taskDefinition type="WinTask" />
+        <zeebe:taskDefinition type="WinTask"/>
         <zeebe:ioMapping>
-          <zeebe:output source="= carried" target="carried" />
+          <zeebe:output source="= carried" target="carried"/>
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1k1z21k</bpmn:incoming>
@@ -43,9 +43,9 @@
     </bpmn:serviceTask>
     <bpmn:serviceTask id="Lose" name="Lose">
       <bpmn:extensionElements>
-        <zeebe:taskDefinition type="LoseTask" />
+        <zeebe:taskDefinition type="LoseTask"/>
         <zeebe:ioMapping>
-          <zeebe:output source="= carried" target="carried" />
+          <zeebe:output source="= carried" target="carried"/>
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1ckphmq</bpmn:incoming>
@@ -53,14 +53,14 @@
     </bpmn:serviceTask>
     <bpmn:serviceTask id="Go" name="Go">
       <bpmn:extensionElements>
-        <zeebe:taskDefinition type="GoTask" />
+        <zeebe:taskDefinition type="GoTask"/>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_00bk63t</bpmn:incoming>
       <bpmn:outgoing>Flow_0a85ox9</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:serviceTask id="Steady" name="Steady">
       <bpmn:extensionElements>
-        <zeebe:taskDefinition type="SteadyTask" />
+        <zeebe:taskDefinition type="SteadyTask"/>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_0ks9c4m</bpmn:incoming>
       <bpmn:outgoing>Flow_00bk63t</bpmn:outgoing>
@@ -68,74 +68,74 @@
     <bpmn:endEvent id="Event_0zgclvq">
       <bpmn:incoming>Flow_14pyyqj</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_14pyyqj" sourceRef="Win" targetRef="Event_0zgclvq" />
+    <bpmn:sequenceFlow id="Flow_14pyyqj" sourceRef="Win" targetRef="Event_0zgclvq"/>
     <bpmn:endEvent id="Event_0gb7gop">
       <bpmn:incoming>Flow_1xn2rle</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_1xn2rle" sourceRef="Lose" targetRef="Event_0gb7gop" />
+    <bpmn:sequenceFlow id="Flow_1xn2rle" sourceRef="Lose" targetRef="Event_0gb7gop"/>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1rql2zp">
       <bpmndi:BPMNEdge id="Flow_1xn2rle_di" bpmnElement="Flow_1xn2rle">
-        <di:waypoint x="1460" y="320" />
-        <di:waypoint x="1602" y="320" />
+        <di:waypoint x="1460" y="320"/>
+        <di:waypoint x="1602" y="320"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_14pyyqj_di" bpmnElement="Flow_14pyyqj">
-        <di:waypoint x="1460" y="120" />
-        <di:waypoint x="1602" y="120" />
+        <di:waypoint x="1455.0" y="119.99999"/>
+        <di:waypoint x="1602" y="120"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1k1z21k_di" bpmnElement="Flow_1k1z21k">
-        <di:waypoint x="1170" y="205" />
-        <di:waypoint x="1170" y="120" />
-        <di:waypoint x="1360" y="120" />
+        <di:waypoint x="1170" y="205"/>
+        <di:waypoint x="1170" y="120"/>
+        <di:waypoint x="1355.0" y="119.99999"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1ckphmq_di" bpmnElement="Flow_1ckphmq">
-        <di:waypoint x="1170" y="255" />
-        <di:waypoint x="1170" y="320" />
-        <di:waypoint x="1360" y="320" />
+        <di:waypoint x="1170" y="255"/>
+        <di:waypoint x="1170" y="320"/>
+        <di:waypoint x="1360" y="320"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0a85ox9_di" bpmnElement="Flow_0a85ox9">
-        <di:waypoint x="1010" y="230" />
-        <di:waypoint x="1145" y="230" />
+        <di:waypoint x="1010" y="230"/>
+        <di:waypoint x="1145" y="230"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_00bk63t_di" bpmnElement="Flow_00bk63t">
-        <di:waypoint x="750" y="230" />
-        <di:waypoint x="910" y="230" />
+        <di:waypoint x="750" y="230"/>
+        <di:waypoint x="910" y="230"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0ks9c4m_di" bpmnElement="Flow_0ks9c4m">
-        <di:waypoint x="470" y="230" />
-        <di:waypoint x="650" y="230" />
+        <di:waypoint x="470" y="230"/>
+        <di:waypoint x="650" y="230"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0ibgrsa_di" bpmnElement="Flow_0ibgrsa">
-        <di:waypoint x="188" y="230" />
-        <di:waypoint x="370" y="230" />
+        <di:waypoint x="188" y="230"/>
+        <di:waypoint x="370" y="230"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
-        <dc:Bounds x="152" y="212" width="36" height="36" />
+        <dc:Bounds x="152" y="212" width="36" height="36"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_0pjmiwr_di" bpmnElement="Gateway_0pjmiwr" isMarkerVisible="true">
-        <dc:Bounds x="1145" y="205" width="50" height="50" />
+        <dc:Bounds x="1145" y="205" width="50" height="50"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_03j5rtd_di" bpmnElement="Ready">
-        <dc:Bounds x="370" y="190" width="100" height="80" />
+        <dc:Bounds x="370" y="190" width="100" height="80"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_1k5vwqr_di" bpmnElement="Win">
-        <dc:Bounds x="1360" y="80" width="100" height="80" />
+        <dc:Bounds x="1355.0" y="79.99999" width="100" height="80"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0g14or6_di" bpmnElement="Lose">
-        <dc:Bounds x="1360" y="280" width="100" height="80" />
+        <dc:Bounds x="1360" y="280" width="100" height="80"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_1y0sgyr_di" bpmnElement="Go">
-        <dc:Bounds x="910" y="190" width="100" height="80" />
+        <dc:Bounds x="910" y="190" width="100" height="80"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0pu24gn_di" bpmnElement="Steady">
-        <dc:Bounds x="650" y="190" width="100" height="80" />
+        <dc:Bounds x="650" y="190" width="100" height="80"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0zgclvq_di" bpmnElement="Event_0zgclvq">
-        <dc:Bounds x="1602" y="102" width="36" height="36" />
+        <dc:Bounds x="1602" y="102" width="36" height="36"/>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0gb7gop_di" bpmnElement="Event_0gb7gop">
-        <dc:Bounds x="1602" y="302" width="36" height="36" />
+        <dc:Bounds x="1602" y="302" width="36" height="36"/>
       </bpmndi:BPMNShape>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

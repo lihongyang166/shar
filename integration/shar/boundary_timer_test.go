@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -13,8 +14,11 @@ import (
 	"time"
 )
 
+var testBoundaryTimerTimeout = 60 * time.Second
+
 func TestBoundaryTimer(t *testing.T) {
 	tst := &support.Integration{}
+	tst.Cooldown = 60 * time.Second
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
@@ -25,7 +29,7 @@ func TestBoundaryTimer(t *testing.T) {
 	}
 
 	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
@@ -35,6 +39,7 @@ func TestBoundaryTimer(t *testing.T) {
 
 func TestBoundaryTimerTimeout(t *testing.T) {
 	tst := &support.Integration{}
+	tst.Cooldown = 60 * time.Second
 	tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
@@ -47,7 +52,7 @@ func TestBoundaryTimerTimeout(t *testing.T) {
 	}
 
 	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
@@ -57,6 +62,7 @@ func TestBoundaryTimerTimeout(t *testing.T) {
 
 func TestExclusiveGateway(t *testing.T) {
 	tst := &support.Integration{}
+	tst.Cooldown = 60 * time.Second
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
@@ -67,7 +73,7 @@ func TestExclusiveGateway(t *testing.T) {
 	}
 
 	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
@@ -85,6 +91,16 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
 	err := cl.Dial(ctx, d.tst.NatsURL)
 	require.NoError(t, err)
 
+	// Register service tasks
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_CanTimeout.yaml", d.canTimeout)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_TimedOut.yaml", d.timedOut)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_CheckResult.yaml", d.checkResult)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_NoTimeout.yaml", d.noTimeout)
+	require.NoError(t, err)
+
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/possible-timeout-workflow.bpmn")
 	require.NoError(t, err)
@@ -92,16 +108,6 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "PossibleTimeout", b)
 	require.NoError(t, err)
 
-	// Register a service task
-
-	err = cl.RegisterServiceTask(ctx, "CanTimeout", d.canTimeout)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "TimedOut", d.timedOut)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "CheckResult", d.checkResult)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "NoTimeout", d.noTimeout)
-	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("Process_16piog5", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow

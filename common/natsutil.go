@@ -11,8 +11,8 @@ import (
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -24,6 +24,7 @@ import (
 type NatsConn interface {
 	JetStream(opts ...nats.JSOpt) (nats.JetStreamContext, error)
 	QueueSubscribe(subj string, queue string, cb nats.MsgHandler) (*nats.Subscription, error)
+	Publish(subj string, bytes []byte) error
 }
 
 func updateKV(wf nats.KeyValue, k string, msg proto.Message, updateFn func(v []byte, msg proto.Message) ([]byte, error)) error {
@@ -214,7 +215,11 @@ func EnsureBucket(js nats.JetStreamContext, storageType nats.StorageType, name s
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(ctx context.Context, js nats.JetStreamContext, traceName string, closer chan struct{}, subject string, durable string, concurrency int, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error)) error {
+func Process(ctx context.Context, js nats.JetStreamContext, traceName string, closer chan struct{}, subject string, durable string, concurrency int, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error), opts ...ProcessOption) error {
+	set := &ProcessOpts{}
+	for _, i := range opts {
+		i.Set(set)
+	}
 	log := logx.FromContext(ctx)
 	if !strings.HasPrefix(durable, "ServiceTask_") {
 		conInfo, err := js.ConsumerInfo("WORKFLOW", durable)
@@ -255,7 +260,7 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 				m := msg[0]
 				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Header)
 				if err != nil {
-					log.Error("get header values from incoming process message", &errors2.ErrWorkflowFatal{Err: err})
+					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
 					if err := msg[0].Ack(); err != nil {
 						log.Error("processing failed to ack", err)
 					}
@@ -268,6 +273,7 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 					e, err := strconv.Atoi(embargo)
 					if err != nil {
 						log.Error("bad embargo value", err)
+						cancel()
 						continue
 					}
 					offset := time.Duration(int64(e) - time.Now().UnixNano())
@@ -275,6 +281,7 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 						if err != m.NakWithDelay(offset) {
 							log.Warn("nak with delay")
 						}
+						cancel()
 						continue
 					}
 				}
@@ -288,7 +295,15 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 					} else {
 						wfe := &workflow.Error{}
 						if !errors.As(err, wfe) {
-							executeLog.Error("processing error", err, "name", traceName)
+							if set.BackoffCalc != nil {
+								executeLog.Error("processing error", err, "name", traceName)
+								err := set.BackoffCalc(executeCtx, msg[0])
+								if err != nil {
+									slog.Error("backoff error", "error", err)
+								}
+								cancel()
+								continue
+							}
 						}
 					}
 				}

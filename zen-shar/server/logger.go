@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 // NatsLogger provides a simple logger that logs to console

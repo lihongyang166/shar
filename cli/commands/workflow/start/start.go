@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
-	"golang.org/x/exp/slog"
+	"log/slog"
 
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"

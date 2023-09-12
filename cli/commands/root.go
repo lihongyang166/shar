@@ -10,7 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/cli/flag"
 	"gitlab.com/shar-workflow/shar/cli/output"
 	"gitlab.com/shar-workflow/shar/common/logx"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"

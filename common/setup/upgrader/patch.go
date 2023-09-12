@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"reflect"
 	"runtime"
 	"strings"

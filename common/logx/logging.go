@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/nats-io/nats.go"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"os"
 )
 

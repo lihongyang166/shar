@@ -155,7 +155,8 @@ func TestActivityProcessorServiceTask(t *testing.T) {
 	svc.On("RecordHistoryActivityExecute", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowState")).
 		Return(nil)
 
-	svc.On("GetServiceTaskRoutingKey", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("string")).Return(id, nil)
+	svc.On("GetTaskSpecUID", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("string")).
+		Return(id, nil)
 
 	svc.On("GetWorkflowInstance", mock.AnythingOfType("*context.valueCtx"), "test-workflow-instance-id").
 		Once().

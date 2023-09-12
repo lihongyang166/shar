@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -29,27 +30,27 @@ func TestSubWorkflow(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
+	d := &testSubWorkflowHandlerDef{finished: make(chan struct{})}
+
+	// Register service tasks
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_BeforeCallingSubProcess.yaml", d.beforeCallingSubProcess)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_DuringSubProcess.yaml", d.duringSubProcess)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_AfterCallingSubProcess.yaml", d.afterCallingSubProcess)
+	require.NoError(t, err)
+
+	err = cl.RegisterProcessComplete("WorkflowDemo", d.processEnd)
+	require.NoError(t, err)
+
 	// Load BPMN workflows
 	w1, err := os.ReadFile("../../testdata/sub-workflow-parent.bpmn")
 	require.NoError(t, err)
 	w2, err := os.ReadFile("../../testdata/sub-workflow-child.bpmn")
 	require.NoError(t, err)
-
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "MasterWorkflowDemo", w1)
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SubWorkflowDemo", w2)
-	require.NoError(t, err)
-
-	d := &testSubWorkflowHandlerDef{finished: make(chan struct{})}
-
-	// Register a service task
-	err = cl.RegisterServiceTask(ctx, "BeforeCallingSubProcess", d.beforeCallingSubProcess)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "DuringSubProcess", d.duringSubProcess)
-	require.NoError(t, err)
-	err = cl.RegisterServiceTask(ctx, "AfterCallingSubProcess", d.afterCallingSubProcess)
-	require.NoError(t, err)
-	err = cl.RegisterProcessComplete("WorkflowDemo", d.processEnd)
 	require.NoError(t, err)
 
 	// Launch the workflow

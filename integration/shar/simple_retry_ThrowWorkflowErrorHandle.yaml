@@ -1,0 +1,30 @@
+version: "1.0"
+kind: ServiceTask
+metadata:
+  type: ErrorProcess
+  version: "0.1"
+  short: Sample error process
+  description: An example error process for integration tests
+  labels:
+    - test
+    - simple
+  estimatedmaxduration: 2343255
+behaviour:
+  defaultretry:
+    number: 3
+    strategy: 0
+    initmilli: 100
+    intervalmilli: 100
+    maxmilli: 300
+    defaultexceeded:
+      action: 3
+  unsafe: false
+  mock: false
+parameters:
+  output:
+    - name: processVar
+      short: A variable to set in the process
+      description: A signal to the test harness that we processed the error
+      type: int
+      mandatory: false
+      example: "= false"

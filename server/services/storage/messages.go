@@ -15,8 +15,8 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"time"
 )
 
@@ -81,7 +81,6 @@ func (s *Nats) messageKick(ctx context.Context) error {
 				}
 				for _, k := range msgTypes {
 					_, err := s.iterateRxMessages(ctx, k, "", func(k string, recipient *model.MessageRecipient) (bool, error) {
-						fmt.Println("dodeliver")
 						if delivered, err := s.deliverMessageToJobRecipient(ctx, recipient, k); err != nil {
 							return false, err
 						} else if !delivered {
@@ -235,7 +234,7 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 
 	el, err := s.GetElement(ctx, job)
 	if errors2.Is(err, nats.ErrKeyNotFound) {
-		return true, errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err)}
+		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err)}
 	} else if err != nil {
 		return false, fmt.Errorf("get message element: %w", err)
 
@@ -243,11 +242,11 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 
 	vrs, err := vars.Decode(ctx, job.Vars)
 	if err != nil {
-		return false, errors.ErrWorkflowFatal{Err: fmt.Errorf("decoding vars for message correlation: %w", err)}
+		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("decoding vars for message correlation: %w", err)}
 	}
 	resAny, err := expression.EvalAny(ctx, "= "+el.Execute, vrs)
 	if err != nil {
-		return false, errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluating message correlation expression: %w", err)}
+		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluating message correlation expression: %w", err)}
 	}
 	res := fmt.Sprintf("%+v", resAny)
 	recipient := &model.MessageRecipient{

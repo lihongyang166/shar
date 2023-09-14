@@ -33,7 +33,7 @@ func (s *SharServer) listWorkflowInstanceProcesses(ctx context.Context, req *mod
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	res, err := s.ns.ListWorkflowInstanceProcesses(ctx, instance.StartCorrelationId)
+	res, err := s.ns.ListWorkflowInstanceProcesses(ctx, instance.BpmExecutionId)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow instance status: %w", err)
 	}
@@ -159,7 +159,7 @@ func (s *SharServer) cancelWorkflowInstance(ctx context.Context, req *model.Canc
 	}
 	// TODO: get working state here
 	state := &model.WorkflowState{
-		StartCorrelationId: instance.StartCorrelationId,
+		StartCorrelationId: instance.BpmExecutionId,
 		State:              req.State,
 		Error:              req.Error,
 	}

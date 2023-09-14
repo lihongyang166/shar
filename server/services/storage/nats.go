@@ -452,7 +452,7 @@ func (s *Nats) CreateWorkflowInstance(ctx context.Context, wfInstance *model.Wor
 	log := logx.FromContext(ctx)
 	log.Info("creating workflow instance", slog.String(keys.WorkflowInstanceID, wfiID))
 	wfInstance.WorkflowInstanceId = wfiID
-	wfInstance.StartCorrelationId = startCorrelationID
+	wfInstance.BpmExecutionId = startCorrelationID
 	wfInstance.ProcessInstanceId = []string{}
 	wfInstance.SatisfiedProcesses = map[string]bool{".": true}
 	if err := common.SaveObj(ctx, s.wfInstance, startCorrelationID, wfInstance); err != nil {
@@ -510,7 +510,7 @@ func (s *Nats) XDestroyWorkflowInstance(ctx context.Context, state *model.Workfl
 
 	// TODO wfiid do we perhaps need to get the process instances based on ProcessInstanceId rather than workflowInstance?
 	// the thing that keeps track of a process instance and any siblings (wfInstance) no longer exists what to do in this case now?
-	// we'd need to keep the StartCorrelationId somewhere in something similar to workflowInstance...
+	// we'd need to keep the BpmExecutionId somewhere in something similar to workflowInstance...
 	// should we just keep workflow instance???
 
 	// TODO: soft error
@@ -529,7 +529,7 @@ func (s *Nats) XDestroyWorkflowInstance(ctx context.Context, state *model.Workfl
 	if wfi.WorkflowId != "" {
 		if err := common.LoadObj(ctx, s.wf, wfi.WorkflowId, wf); err != nil {
 			log.Warn("fetch workflow definition",
-				slog.String(keys.StartCorrelationID, wfi.StartCorrelationId),
+				slog.String(keys.StartCorrelationID, wfi.BpmExecutionId),
 				slog.String(keys.WorkflowID, wfi.WorkflowId),
 				slog.String(keys.WorkflowName, wf.Name),
 			)
@@ -555,7 +555,7 @@ func (s *Nats) deleteWorkflowInstance(ctx context.Context, state *model.Workflow
 
 	//TODO: Loop through all messages checking for process subscription and remove
 
-	//TODO wfiid this now needs to operate based off the StartCorrelationId as WorkflowInstanceId is no longer populated...
+	//TODO wfiid this now needs to operate based off the BpmExecutionId as WorkflowInstanceId is no longer populated...
 	if err := s.wfTracking.Delete(state.StartCorrelationId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 		return fmt.Errorf("delete workflow tracking: %w", err)
 	}
@@ -1250,9 +1250,9 @@ func (s *Nats) CreateProcessInstance(ctx context.Context, startCorrelationId str
 		ProcessInstanceId: id,
 		ProcessName:       processName,
 		//WorkflowInstanceId: workflowInstanceID,
-		ParentProcessId:    &parentProcessID,
-		ParentElementId:    &parentElementID,
-		StartCorrelationId: startCorrelationId,
+		ParentProcessId: &parentProcessID,
+		ParentElementId: &parentElementID,
+		BpmExecutionId:  startCorrelationId,
 	}
 	wfi, err := s.GetWorkflowInstance(ctx, startCorrelationId)
 	//wf, err := s.GetWorkflow(ctx, workflowID)
@@ -1291,7 +1291,7 @@ func (s *Nats) GetProcessInstance(ctx context.Context, processInstanceID string)
 // DestroyProcessInstance deletes a process instance and removes the workflow instance dependent on all process instances being satisfied.
 func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.WorkflowInstance) error {
 	wfi := &model.WorkflowInstance{}
-	err := common.UpdateObj(ctx, s.wfInstance, wi.StartCorrelationId, wfi, func(v *model.WorkflowInstance) (*model.WorkflowInstance, error) {
+	err := common.UpdateObj(ctx, s.wfInstance, wi.BpmExecutionId, wfi, func(v *model.WorkflowInstance) (*model.WorkflowInstance, error) {
 		v.ProcessInstanceId = remove(v.ProcessInstanceId, pi.ProcessInstanceId)
 		return v, nil
 	})
@@ -1339,7 +1339,7 @@ func (s *Nats) populateMetadata(wf *model.Workflow) {
 
 // SatisfyProcess sets a process as "satisfied" i.e. it may no longer trigger.
 func (s *Nats) SatisfyProcess(ctx context.Context, workflowInstance *model.WorkflowInstance, processName string) error {
-	err := common.UpdateObj(ctx, s.wfInstance, workflowInstance.StartCorrelationId, workflowInstance, func(wi *model.WorkflowInstance) (*model.WorkflowInstance, error) {
+	err := common.UpdateObj(ctx, s.wfInstance, workflowInstance.BpmExecutionId, workflowInstance, func(wi *model.WorkflowInstance) (*model.WorkflowInstance, error) {
 		wi.SatisfiedProcesses[processName] = true
 		return wi, nil
 	})

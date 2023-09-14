@@ -141,7 +141,7 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 		}
 	}()
 
-	startCorrelationId := wfi.StartCorrelationId
+	startCorrelationId := wfi.BpmExecutionId
 
 	wiState := &model.WorkflowState{
 		//WorkflowInstanceId: wfi.WorkflowInstanceId, // => this is ksuid.New().String()
@@ -235,7 +235,7 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 		if hasStartEvents {
 
 			//TODO wfiid does the ProcessInstance need reference to the workflow instance id seeing as it no longer exists?
-			pi, err := c.ns.CreateProcessInstance(ctx, wfi.StartCorrelationId, parentpiID, parentElID, pr.Name)
+			pi, err := c.ns.CreateProcessInstance(ctx, wfi.BpmExecutionId, parentpiID, parentElID, pr.Name)
 			if err != nil {
 				reterr = fmt.Errorf("launch failed to create new process instance: %w", err)
 				return "", "", reterr
@@ -296,8 +296,8 @@ func (c *Engine) rollBackLaunch(ctx context.Context, wfi *model.WorkflowInstance
 	log.Info("rolling back workflow launch")
 	err := c.ns.PublishWorkflowState(ctx, messages.WorkflowInstanceAbort, &model.WorkflowState{
 		//Id:           []string{wfi.WorkflowInstanceId},
-		Id:                 []string{wfi.StartCorrelationId},
-		StartCorrelationId: wfi.StartCorrelationId,
+		Id:                 []string{wfi.BpmExecutionId},
+		StartCorrelationId: wfi.BpmExecutionId,
 		WorkflowName:       wfi.WorkflowName,
 		WorkflowId:         wfi.WorkflowId,
 		State:              model.CancellationState_terminated,

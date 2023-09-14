@@ -39,22 +39,22 @@ func TestLaunchWorkflow(t *testing.T) {
 	svc.On("CreateWorkflowInstance", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowInstance")).
 		Once().
 		Return(&model.WorkflowInstance{
-			StartCorrelationId: startCorrelationId,
-			ParentElementId:    nil,
-			WorkflowId:         "test-workflow-id",
-			WorkflowName:       "TestWorkflow",
+			BpmExecutionId:  startCorrelationId,
+			ParentElementId: nil,
+			WorkflowId:      "test-workflow-id",
+			WorkflowName:    "TestWorkflow",
 		}, nil)
 
 	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), startCorrelationId, "", "", "SimpleProcess").
 		Once().
 		Return(&model.ProcessInstance{
-			ProcessInstanceId:  "test-process-instance-id",
-			StartCorrelationId: startCorrelationId,
-			ParentProcessId:    nil,
-			ParentElementId:    nil,
-			WorkflowId:         "test-workflow-id",
-			WorkflowName:       "TestWorkflow",
-			ProcessName:        "TestProcess",
+			ProcessInstanceId: "test-process-instance-id",
+			BpmExecutionId:    startCorrelationId,
+			ParentProcessId:   nil,
+			ParentElementId:   nil,
+			WorkflowId:        "test-workflow-id",
+			WorkflowName:      "TestWorkflow",
+			ProcessName:       "TestProcess",
 		}, nil)
 
 	svc.On("PublishWorkflowState", mock.AnythingOfType("*context.valueCtx"), "WORKFLOW.%s.State.Traversal.Execute", mock.AnythingOfType("*model.WorkflowState")).

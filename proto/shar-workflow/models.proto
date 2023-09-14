@@ -248,7 +248,7 @@ message WorkflowInstance {
   string workflowName = 5; // WorkflowName - name of this workflow to avoid lookups.
   repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this workflow instance.
   map<string,bool> satisfiedProcesses = 7; // SatisfiedProcesses - a list of event driven processes that have been completed.
-  string startCorrelationId = 8; // StartCorrelationId - The id that is used to associate processes and any spawned sub processes with each other.
+  string bpmExecutionId = 8; // BPMExecutionId - The id of this particular BPMExecution
 }
 
 message ProcessInstance {
@@ -260,7 +260,7 @@ message ProcessInstance {
   string workflowName = 6; // WorkflowName - name of this workflow to avoid lookups.
   string processName = 7; // ProcessName - name of this process to avoid lookups.
   map<string,bool> gatewayComplete = 8; // GatewayComplete - completed gateway instances register
-  string startCorrelationId = 9; // StartCorrelationId - The id that is used to associate processes and any spawned sub processes with each other.
+  string bpmExecutionId = 9; // BPMExecutionId - The id of this particular BPMExecution
 }
 
 // MessageInstance represents a workflow message.

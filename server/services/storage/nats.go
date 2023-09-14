@@ -1339,7 +1339,7 @@ func (s *Nats) populateMetadata(wf *model.Workflow) {
 
 // SatisfyProcess sets a process as "satisfied" i.e. it may no longer trigger.
 func (s *Nats) SatisfyProcess(ctx context.Context, workflowInstance *model.WorkflowInstance, processName string) error {
-	err := common.UpdateObj(ctx, s.wfInstance, workflowInstance.WorkflowInstanceId, workflowInstance, func(wi *model.WorkflowInstance) (*model.WorkflowInstance, error) {
+	err := common.UpdateObj(ctx, s.wfInstance, workflowInstance.StartCorrelationId, workflowInstance, func(wi *model.WorkflowInstance) (*model.WorkflowInstance, error) {
 		wi.SatisfiedProcesses[processName] = true
 		return wi, nil
 	})

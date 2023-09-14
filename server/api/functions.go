@@ -159,7 +159,7 @@ func (s *SharServer) cancelWorkflowInstance(ctx context.Context, req *model.Canc
 	}
 	// TODO: get working state here
 	state := &model.WorkflowState{
-		WorkflowInstanceId: instance.WorkflowInstanceId,
+		WorkflowInstanceId: instance.StartCorrelationId,
 		State:              req.State,
 		Error:              req.Error,
 	}

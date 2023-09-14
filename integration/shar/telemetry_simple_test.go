@@ -26,7 +26,7 @@ func TestSimpleTelemetry(t *testing.T) {
 	tel.On("ExportSpans", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("[]trace.ReadOnlySpan")).
 		Run(func(args mock.Arguments) {
 			sp := args.Get(1).([]trace.ReadOnlySpan)
-			slog.Debug(fmt.Sprintf("%v", sp[0].Name()))
+			slog.Debug(fmt.Sprintf("###%v", sp[0].Name()))
 		}).
 		Return(nil).Times(5)
 

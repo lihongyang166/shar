@@ -20,8 +20,8 @@ func TestUnhandledError(t *testing.T) {
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
-	//sub := tracer.Trace(NatsURL)
-	//defer sub.Drain()
+	//sub := tracer.Trace(tst.NatsURL)
+	//defer sub.Close()
 
 	// Create a starting context
 	ctx := context.Background()

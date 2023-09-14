@@ -23,7 +23,7 @@ func (s *Nats) processGatewayActivation(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed gateway activation state: %w", err)
 		}
-		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.WorkflowInstanceId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.StartCorrelationId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processCompletedJobs aborted due to a missing process")
 			return true, nil
@@ -77,7 +77,7 @@ func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg *
 	if err := proto.Unmarshal(msg.Data, &job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
-	if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.WorkflowInstanceId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+	if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.StartCorrelationId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
 		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
 		return true, err

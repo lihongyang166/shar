@@ -448,12 +448,14 @@ func (s *Nats) GetWorkflowVersions(ctx context.Context, workflowName string) (*m
 // CreateWorkflowInstance given a workflow, starts a new workflow instance and returns its ID
 func (s *Nats) CreateWorkflowInstance(ctx context.Context, wfInstance *model.WorkflowInstance) (*model.WorkflowInstance, error) {
 	wfiID := ksuid.New().String()
+	startCorrelationID := ksuid.New().String()
 	log := logx.FromContext(ctx)
 	log.Info("creating workflow instance", slog.String(keys.WorkflowInstanceID, wfiID))
 	wfInstance.WorkflowInstanceId = wfiID
+	wfInstance.StartCorrelationId = startCorrelationID
 	wfInstance.ProcessInstanceId = []string{}
 	wfInstance.SatisfiedProcesses = map[string]bool{".": true}
-	if err := common.SaveObj(ctx, s.wfInstance, wfiID, wfInstance); err != nil {
+	if err := common.SaveObj(ctx, s.wfInstance, startCorrelationID, wfInstance); err != nil {
 		return nil, fmt.Errorf("save workflow instance object to KV: %w", err)
 	}
 	wf, err := s.GetWorkflow(ctx, wfInstance.WorkflowId)
@@ -470,9 +472,9 @@ func (s *Nats) CreateWorkflowInstance(ctx context.Context, wfInstance *model.Wor
 }
 
 // GetWorkflowInstance retrieves workflow instance given its ID.
-func (s *Nats) GetWorkflowInstance(ctx context.Context, workflowInstanceID string) (*model.WorkflowInstance, error) {
+func (s *Nats) GetWorkflowInstance(ctx context.Context, startCorrelationID string) (*model.WorkflowInstance, error) {
 	wfi := &model.WorkflowInstance{}
-	if err := common.LoadObj(ctx, s.wfInstance, workflowInstanceID, wfi); errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := common.LoadObj(ctx, s.wfInstance, startCorrelationID, wfi); errors2.Is(err, nats.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get workflow instance failed to load object: %w", errors.ErrWorkflowInstanceNotFound)
 	} else if err != nil {
 		return nil, fmt.Errorf("load workflow instance from KV: %w", err)
@@ -496,15 +498,21 @@ func (s *Nats) GetServiceTaskRoutingKey(ctx context.Context, taskName string) (s
 // XDestroyWorkflowInstance terminates a running workflow instance with a cancellation reason and error
 func (s *Nats) XDestroyWorkflowInstance(ctx context.Context, state *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
-	log.Info("destroying workflow instance", slog.String(keys.WorkflowInstanceID, state.WorkflowInstanceId))
+	log.Info("destroying workflow instance", slog.String(keys.StartCorrelationID, state.StartCorrelationId))
 	// Get the workflow instance
 	wfi := &model.WorkflowInstance{}
-	if err := common.LoadObj(ctx, s.wfInstance, state.WorkflowInstanceId, wfi); err != nil {
+	if err := common.LoadObj(ctx, s.wfInstance, state.StartCorrelationId, wfi); err != nil {
 		log.Warn("fetch workflow instance",
-			slog.String(keys.WorkflowInstanceID, state.WorkflowInstanceId),
+			slog.String(keys.StartCorrelationID, state.StartCorrelationId),
 		)
 		return s.expectPossibleMissingKey(ctx, "fetching workflow instance", err)
 	}
+
+	// TODO wfiid do we perhaps need to get the process instances based on ProcessInstanceId rather than workflowInstance?
+	// the thing that keeps track of a process instance and any siblings (wfInstance) no longer exists what to do in this case now?
+	// we'd need to keep the StartCorrelationId somewhere in something similar to workflowInstance...
+	// should we just keep workflow instance???
+
 	// TODO: soft error
 	for _, piID := range wfi.ProcessInstanceId {
 		pi, err := s.GetProcessInstance(ctx, piID)
@@ -521,7 +529,7 @@ func (s *Nats) XDestroyWorkflowInstance(ctx context.Context, state *model.Workfl
 	if wfi.WorkflowId != "" {
 		if err := common.LoadObj(ctx, s.wf, wfi.WorkflowId, wf); err != nil {
 			log.Warn("fetch workflow definition",
-				slog.String(keys.WorkflowInstanceID, wfi.WorkflowInstanceId),
+				slog.String(keys.StartCorrelationID, wfi.StartCorrelationId),
 				slog.String(keys.WorkflowID, wfi.WorkflowId),
 				slog.String(keys.WorkflowName, wf.Name),
 			)
@@ -541,13 +549,14 @@ func (s *Nats) XDestroyWorkflowInstance(ctx context.Context, state *model.Workfl
 }
 
 func (s *Nats) deleteWorkflowInstance(ctx context.Context, state *model.WorkflowState) error {
-	if err := s.wfInstance.Delete(state.WorkflowInstanceId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := s.wfInstance.Delete(state.StartCorrelationId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 		return fmt.Errorf("delete workflow instance: %w", err)
 	}
 
 	//TODO: Loop through all messages checking for process subscription and remove
 
-	if err := s.wfTracking.Delete(state.WorkflowInstanceId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	//TODO wfiid this now needs to operate based off the StartCorrelationId as WorkflowInstanceId is no longer populated...
+	if err := s.wfTracking.Delete(state.StartCorrelationId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 		return fmt.Errorf("delete workflow tracking: %w", err)
 	}
 	if err := s.PublishWorkflowState(ctx, messages.WorkflowInstanceTerminated, state); err != nil {
@@ -765,7 +774,7 @@ func (s *Nats) processTraversals(ctx context.Context) error {
 			return false, fmt.Errorf("unmarshal traversal proto: %w", err)
 		}
 
-		if _, _, err := s.HasValidProcess(ctx, traversal.ProcessInstanceId, traversal.WorkflowInstanceId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, traversal.ProcessInstanceId, traversal.StartCorrelationId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processTraversals aborted due to a missing process")
 			return true, nil
@@ -794,8 +803,8 @@ func (s *Nats) processTraversals(ctx context.Context) error {
 }
 
 // HasValidProcess - checks for a valid process and instance for a workflow process and instance ids
-func (s *Nats) HasValidProcess(ctx context.Context, processInstanceId, workflowInstanceId string) (*model.ProcessInstance, *model.WorkflowInstance, error) {
-	wfi, err := s.hasValidInstance(ctx, workflowInstanceId)
+func (s *Nats) HasValidProcess(ctx context.Context, processInstanceId, startCorrelationId string) (*model.ProcessInstance, *model.WorkflowInstance, error) {
+	wfi, err := s.hasValidInstance(ctx, startCorrelationId)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -809,8 +818,8 @@ func (s *Nats) HasValidProcess(ctx context.Context, processInstanceId, workflowI
 	return pi, wfi, err
 }
 
-func (s *Nats) hasValidInstance(ctx context.Context, workflowInstanceId string) (*model.WorkflowInstance, error) {
-	wfi, err := s.GetWorkflowInstance(ctx, workflowInstanceId)
+func (s *Nats) hasValidInstance(ctx context.Context, startCorrelationId string) (*model.WorkflowInstance, error) {
+	wfi, err := s.GetWorkflowInstance(ctx, startCorrelationId)
 	if errors2.Is(err, errors.ErrWorkflowInstanceNotFound) {
 		return nil, fmt.Errorf("orphaned activity: %w", err)
 	}
@@ -834,7 +843,7 @@ func (s *Nats) processCompletedJobs(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed job state: %w", err)
 		}
-		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.WorkflowInstanceId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.StartCorrelationId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processCompletedJobs aborted due to a missing process")
 			return true, nil
@@ -857,7 +866,8 @@ func (s *Nats) processCompletedJobs(ctx context.Context) error {
 func (s *Nats) track(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 	sj := msg.Subject
 	switch {
-	case strings.HasSuffix(sj, ".State.Workflow.Execute"),
+	case
+		strings.HasSuffix(sj, ".State.Workflow.Execute"),
 		strings.HasSuffix(sj, ".State.Process.Execute"),
 		strings.HasSuffix(sj, ".State.Traversal.Execute"),
 		strings.HasSuffix(sj, ".State.Activity.Execute"),
@@ -866,10 +876,12 @@ func (s *Nats) track(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool
 		if err := proto.Unmarshal(msg.Data, st); err != nil {
 			return false, fmt.Errorf("unmarshal failed during tracking 'execute' event: %w", err)
 		}
-		if err := common.SaveObj(ctx, s.wfTracking, st.WorkflowInstanceId, st); err != nil {
+		//if err := common.SaveObj(ctx, s.wfTracking, st.WorkflowInstanceId, st); err != nil {
+		if err := common.SaveObj(ctx, s.wfTracking, st.StartCorrelationId, st); err != nil {
 			return false, fmt.Errorf("save tracking information: %w", err)
 		}
-	case strings.HasSuffix(sj, ".State.Workflow.Complete"),
+	case
+		strings.HasSuffix(sj, ".State.Workflow.Complete"),
 		strings.HasSuffix(sj, ".State.Process.Complete"),
 		strings.HasSuffix(sj, ".State.Traversal.Complete"),
 		strings.HasSuffix(sj, ".State.Activity.Complete"),
@@ -878,7 +890,7 @@ func (s *Nats) track(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool
 		if err := proto.Unmarshal(msg.Data, st); err != nil {
 			return false, fmt.Errorf("unmarshall failed during tracking 'complete' event: %w", err)
 		}
-		if err := s.wfTracking.Delete(st.WorkflowInstanceId); err != nil {
+		if err := s.wfTracking.Delete(st.StartCorrelationId); err != nil {
 			return false, fmt.Errorf("delete workflow instance upon completion: %w", err)
 		}
 	default:
@@ -914,7 +926,7 @@ func (s *Nats) processWorkflowEvents(ctx context.Context) error {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
 		}
 		if strings.HasSuffix(msg.Subject, ".State.Workflow.Complete") {
-			if _, err := s.hasValidInstance(ctx, job.WorkflowInstanceId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+			if _, err := s.hasValidInstance(ctx, job.StartCorrelationId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processWorkflowEvents aborted due to a missing process")
 				return true, nil
@@ -944,7 +956,7 @@ func (s *Nats) processActivities(ctx context.Context) error {
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
 
-			if _, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.WorkflowInstanceId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+			if _, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.StartCorrelationId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processActivities aborted due to a missing process")
 				return true, nil
@@ -1092,7 +1104,7 @@ func (s *Nats) processLaunch(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("unmarshal during process launch: %w", err)
 		}
-		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.WorkflowInstanceId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.StartCorrelationId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
 			return true, err
@@ -1116,7 +1128,7 @@ func (s *Nats) processJobAbort(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data, &state); err != nil {
 			return false, fmt.Errorf("job abort consumer failed to unmarshal state: %w", err)
 		}
-		if _, _, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.WorkflowInstanceId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.StartCorrelationId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processJobAbort aborted due to a missing process")
 			return true, err
@@ -1146,7 +1158,7 @@ func (s *Nats) processProcessComplete(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data, &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
 		}
-		pi, wi, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.WorkflowInstanceId)
+		pi, wi, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.StartCorrelationId)
 		if errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processProcessComplete aborted due to a missing process")
@@ -1232,18 +1244,20 @@ func (s *Nats) SaveState(ctx context.Context, id string, state *model.WorkflowSt
 }
 
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
-func (s *Nats) CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string) (*model.ProcessInstance, error) {
+func (s *Nats) CreateProcessInstance(ctx context.Context, startCorrelationId string, parentProcessID string, parentElementID string, processName string) (*model.ProcessInstance, error) {
 	id := ksuid.New().String()
 	pi := &model.ProcessInstance{
-		ProcessInstanceId:  id,
-		ProcessName:        processName,
-		WorkflowInstanceId: workflowInstanceID,
+		ProcessInstanceId: id,
+		ProcessName:       processName,
+		//WorkflowInstanceId: workflowInstanceID,
 		ParentProcessId:    &parentProcessID,
 		ParentElementId:    &parentElementID,
+		StartCorrelationId: startCorrelationId,
 	}
-	wfi, err := s.GetWorkflowInstance(ctx, workflowInstanceID)
+	wfi, err := s.GetWorkflowInstance(ctx, startCorrelationId)
+	//wf, err := s.GetWorkflow(ctx, workflowID)
 	if err != nil {
-		return nil, fmt.Errorf("create process instance failed to get workflow instance: %w", err)
+		return nil, fmt.Errorf("create process instance failed to get workflow: %w", err)
 	}
 	pi.WorkflowName = wfi.WorkflowName
 	pi.WorkflowId = wfi.WorkflowId
@@ -1251,7 +1265,7 @@ func (s *Nats) CreateProcessInstance(ctx context.Context, workflowInstanceID str
 	if err != nil {
 		return nil, fmt.Errorf("create process instance failed to save process instance: %w", err)
 	}
-	err = common.UpdateObj(ctx, s.wfInstance, workflowInstanceID, wfi, func(v *model.WorkflowInstance) (*model.WorkflowInstance, error) {
+	err = common.UpdateObj(ctx, s.wfInstance, startCorrelationId, wfi, func(v *model.WorkflowInstance) (*model.WorkflowInstance, error) {
 		v.ProcessInstanceId = append(v.ProcessInstanceId, pi.ProcessInstanceId)
 		return v, nil
 	})
@@ -1277,7 +1291,7 @@ func (s *Nats) GetProcessInstance(ctx context.Context, processInstanceID string)
 // DestroyProcessInstance deletes a process instance and removes the workflow instance dependent on all process instances being satisfied.
 func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.WorkflowInstance) error {
 	wfi := &model.WorkflowInstance{}
-	err := common.UpdateObj(ctx, s.wfInstance, wi.WorkflowInstanceId, wfi, func(v *model.WorkflowInstance) (*model.WorkflowInstance, error) {
+	err := common.UpdateObj(ctx, s.wfInstance, wi.StartCorrelationId, wfi, func(v *model.WorkflowInstance) (*model.WorkflowInstance, error) {
 		v.ProcessInstanceId = remove(v.ProcessInstanceId, pi.ProcessInstanceId)
 		return v, nil
 	})

@@ -158,6 +158,7 @@ message WorkflowState {
   string processInstanceId = 19; // ProcessInstanceId - the unique ID for the process instance.
   map<string,SatisfiesGateway> satisfiesGatewayExpectation = 20; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
   map<string,GatewayExpectations> gatewayExpectations = 21; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
+  string startCorrelationId = 23; // StartCorrelationId - The id that is used to associate processes and any spawned sub processes with each other.
 }
 
 message WorkflowStateSummary {
@@ -247,6 +248,7 @@ message WorkflowInstance {
   string workflowName = 5; // WorkflowName - name of this workflow to avoid lookups.
   repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this workflow instance.
   map<string,bool> satisfiedProcesses = 7; // SatisfiedProcesses - a list of event driven processes that have been completed.
+  string startCorrelationId = 8; // StartCorrelationId - The id that is used to associate processes and any spawned sub processes with each other.
 }
 
 message ProcessInstance {
@@ -258,6 +260,7 @@ message ProcessInstance {
   string workflowName = 6; // WorkflowName - name of this workflow to avoid lookups.
   string processName = 7; // ProcessName - name of this process to avoid lookups.
   map<string,bool> gatewayComplete = 8; // GatewayComplete - completed gateway instances register
+  string startCorrelationId = 9; // StartCorrelationId - The id that is used to associate processes and any spawned sub processes with each other.
 }
 
 // MessageInstance represents a workflow message.

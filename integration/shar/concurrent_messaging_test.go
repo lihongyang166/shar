@@ -18,6 +18,7 @@ import (
 
 //goland:noinspection GoNilness
 func TestConcurrentMessaging(t *testing.T) {
+
 	tst := &support.Integration{
 		Cooldown: time.Second * 20,
 	}

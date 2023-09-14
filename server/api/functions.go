@@ -33,7 +33,7 @@ func (s *SharServer) listWorkflowInstanceProcesses(ctx context.Context, req *mod
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	res, err := s.ns.ListWorkflowInstanceProcesses(ctx, instance.WorkflowInstanceId)
+	res, err := s.ns.ListWorkflowInstanceProcesses(ctx, instance.StartCorrelationId)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow instance status: %w", err)
 	}
@@ -271,10 +271,11 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		return nil, &errors2.ErrWorkflowFatal{Err: err}
 	}
 	if err := s.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
-		ElementType:        target.Type,
-		ElementId:          target.Id,
-		WorkflowId:         job.WorkflowId,
-		WorkflowInstanceId: job.WorkflowInstanceId,
+		ElementType: target.Type,
+		ElementId:   target.Id,
+		WorkflowId:  job.WorkflowId,
+		//WorkflowInstanceId: job.WorkflowInstanceId,
+		StartCorrelationId: job.StartCorrelationId,
 		Id:                 common.TrackingID(job.Id).Pop().Pop(),
 		Vars:               oldState.Vars,
 		WorkflowName:       wf.Name,
@@ -287,10 +288,11 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 	}
 	// TODO: This always assumes service task.  Wrong!
 	if err := s.ns.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, &model.WorkflowState{
-		ElementType:        target.Type,
-		ElementId:          target.Id,
-		WorkflowId:         job.WorkflowId,
-		WorkflowInstanceId: job.WorkflowInstanceId,
+		ElementType: target.Type,
+		ElementId:   target.Id,
+		WorkflowId:  job.WorkflowId,
+		//WorkflowInstanceId: job.WorkflowInstanceId,
+		StartCorrelationId: job.StartCorrelationId,
 		Id:                 job.Id,
 		Vars:               job.Vars,
 		WorkflowName:       wf.Name,

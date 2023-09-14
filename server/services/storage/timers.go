@@ -84,7 +84,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 					}
 					continue
 				}
-				wi, err := s.hasValidInstance(sCtx, state.WorkflowInstanceId)
+				wi, err := s.hasValidInstance(sCtx, state.StartCorrelationId)
 				if errors2.Is(err, errors.ErrWorkflowInstanceNotFound) {
 					log := logx.FromContext(sCtx)
 					log.Log(reqCtx, slog.LevelInfo, "listenForTimer aborted due to a missing instance")

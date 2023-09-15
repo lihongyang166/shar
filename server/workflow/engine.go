@@ -113,7 +113,9 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 
 	wfi, err := c.ns.CreateWorkflowInstance(ctx, &model.WorkflowInstance{
 		WorkflowId:              wfID,
-		ParentProcessInstanceId: &parentpiID, //this is actually the startCorrelationId of the parent
+		ParentProcessInstanceId: &parentpiID, //this is actually the executionId of the parent
+		//^ only do this if parentProcessInstanceId is empty
+
 		//TODO do we want to maintain some kind of bi-directional link between parent and child and child and parent?
 		//this would facilitate easy lookup of entire instance/process hierarchy from anywhere in the instance/process hierarchy from
 		//a single API call
@@ -141,16 +143,16 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 		}
 	}()
 
-	startCorrelationId := wfi.BpmExecutionId
+	executionId := wfi.ExecutionId
 
 	wiState := &model.WorkflowState{
 		//WorkflowInstanceId: wfi.WorkflowInstanceId, // => this is ksuid.New().String()
-		StartCorrelationId: startCorrelationId,
-		WorkflowId:         wfID,
-		WorkflowName:       workflowName,
-		Vars:               vrs,
+		ExecutionId:  executionId,
+		WorkflowId:   wfID,
+		WorkflowName: workflowName,
+		Vars:         vrs,
 		//Id:                 []string{wfi.WorkflowInstanceId},
-		Id: []string{startCorrelationId},
+		Id: []string{executionId},
 	}
 
 	// fire off the new workflow state
@@ -208,9 +210,9 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 					Id:         ID.Push(ksuid.New().String()),
 					WorkflowId: wfID,
 					//WorkflowInstanceId: wfi.WorkflowInstanceId,
-					StartCorrelationId: startCorrelationId,
-					ElementId:          el.Id,
-					UnixTimeNano:       time.Now().UnixNano(),
+					ExecutionId:  executionId,
+					ElementId:    el.Id,
+					UnixTimeNano: time.Now().UnixNano(),
 					Timer: &model.WorkflowTimer{
 						LastFired: 0,
 						Count:     0,
@@ -235,7 +237,8 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 		if hasStartEvents {
 
 			//TODO wfiid does the ProcessInstance need reference to the workflow instance id seeing as it no longer exists?
-			pi, err := c.ns.CreateProcessInstance(ctx, wfi.BpmExecutionId, parentpiID, parentElID, pr.Name)
+			pi, err := c.ns.CreateProcessInstance(ctx, wfi.ExecutionId, parentpiID, parentElID, pr.Name)
+			//^We'd need to update the created processinstance Id in the parent Execution
 			if err != nil {
 				reterr = fmt.Errorf("launch failed to create new process instance: %w", err)
 				return "", "", reterr
@@ -251,12 +254,12 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 					ElementId:   el.Id,
 					WorkflowId:  wfID,
 					//WorkflowInstanceId: wfi.WorkflowInstanceId,
-					StartCorrelationId: startCorrelationId,
-					Id:                 trackingID,
-					Vars:               vrs,
-					WorkflowName:       wf.Name,
-					ProcessName:        prName,
-					ProcessInstanceId:  pi.ProcessInstanceId,
+					ExecutionId:       executionId,
+					Id:                trackingID,
+					Vars:              vrs,
+					WorkflowName:      wf.Name,
+					ProcessName:       prName,
+					ProcessInstanceId: pi.ProcessInstanceId,
 				}
 				if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, "default"), exec); err != nil {
 					return fmt.Errorf("publish workflow timed process execute: %w", err)
@@ -288,7 +291,7 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 			}
 		}
 	}
-	return startCorrelationId, wfID, nil
+	return executionId, wfID, nil
 }
 
 func (c *Engine) rollBackLaunch(ctx context.Context, wfi *model.WorkflowInstance) {
@@ -296,11 +299,11 @@ func (c *Engine) rollBackLaunch(ctx context.Context, wfi *model.WorkflowInstance
 	log.Info("rolling back workflow launch")
 	err := c.ns.PublishWorkflowState(ctx, messages.WorkflowInstanceAbort, &model.WorkflowState{
 		//Id:           []string{wfi.WorkflowInstanceId},
-		Id:                 []string{wfi.BpmExecutionId},
-		StartCorrelationId: wfi.BpmExecutionId,
-		WorkflowName:       wfi.WorkflowName,
-		WorkflowId:         wfi.WorkflowId,
-		State:              model.CancellationState_terminated,
+		Id:           []string{wfi.ExecutionId},
+		ExecutionId:  wfi.ExecutionId,
+		WorkflowName: wfi.WorkflowName,
+		WorkflowId:   wfi.WorkflowId,
+		State:        model.CancellationState_terminated,
 	})
 	if err != nil {
 		log.Error("workflow fatally terminated, however the termination signal could not be sent", err)
@@ -1126,7 +1129,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 			if err := c.ns.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 				return fmt.Errorf("activity complete processor failed to delete job %s: %w", jobID, err)
 			}
-			wi, wierr := c.ns.GetWorkflowInstance(ctx, state.StartCorrelationId)
+			wi, wierr := c.ns.GetWorkflowInstance(ctx, state.ExecutionId)
 			if wierr != nil && !errors2.Is(wierr, nats.ErrKeyNotFound) {
 				return fmt.Errorf("activity complete processor failed to get workflow instance: %w", err)
 			}
@@ -1146,7 +1149,7 @@ func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState
 		return &errors.ErrWorkflowFatal{Err: errors.ErrWorkflowNotFound}
 	}
 	els := common.ElementTable(wf)
-	if _, _, err := c.launch(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.StartCorrelationId, state.ElementId); err != nil {
+	if _, _, err := c.launch(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.ExecutionId, state.ElementId); err != nil {
 		return c.engineErr(ctx, "launch child workflow", &errors.ErrWorkflowFatal{Err: err})
 	}
 	return nil
@@ -1201,7 +1204,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 
 	if isTimer {
 		if shouldFire {
-			pi, err := c.ns.CreateProcessInstance(ctx, state.StartCorrelationId, "", "", state.ProcessName)
+			pi, err := c.ns.CreateProcessInstance(ctx, state.ExecutionId, "", "", state.ProcessName)
 			if err != nil {
 				log.Error("creating timed process instance", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)

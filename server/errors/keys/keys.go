@@ -38,6 +38,6 @@ const (
 	TrackingID = "wf.trid"
 	// ParentTrackingID is a key for the parent of the current executing state.
 	ParentTrackingID = "wf.tpid"
-	// StartCorrelationID is a key to correlate a process and any spawned sub process with each other
-	StartCorrelationID = "sc.iid"
+	// ExecutionID is a key to correlate a process and any spawned sub process with each other
+	ExecutionID = "e.iid"
 )

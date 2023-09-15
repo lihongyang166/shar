@@ -34,22 +34,22 @@ func TestLaunchWorkflow(t *testing.T) {
 		Once().
 		Return(wf, nil)
 
-	startCorrelationId := "test-correlation-id"
+	executionId := "test-execution-id"
 
 	svc.On("CreateWorkflowInstance", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowInstance")).
 		Once().
 		Return(&model.WorkflowInstance{
-			BpmExecutionId:  startCorrelationId,
+			ExecutionId:     executionId,
 			ParentElementId: nil,
 			WorkflowId:      "test-workflow-id",
 			WorkflowName:    "TestWorkflow",
 		}, nil)
 
-	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), startCorrelationId, "", "", "SimpleProcess").
+	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), executionId, "", "", "SimpleProcess").
 		Once().
 		Return(&model.ProcessInstance{
 			ProcessInstanceId: "test-process-instance-id",
-			BpmExecutionId:    startCorrelationId,
+			ExecutionId:       executionId,
 			ParentProcessId:   nil,
 			ParentElementId:   nil,
 			WorkflowId:        "test-workflow-id",
@@ -61,7 +61,7 @@ func TestLaunchWorkflow(t *testing.T) {
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).StartCorrelationId, startCorrelationId)
+			assert.Equal(t, args[2].(*model.WorkflowState).ExecutionId, executionId)
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementId, "StartEvent")
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementType, "startEvent")
 		}).
@@ -71,7 +71,7 @@ func TestLaunchWorkflow(t *testing.T) {
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).StartCorrelationId, startCorrelationId)
+			assert.Equal(t, args[2].(*model.WorkflowState).ExecutionId, executionId)
 		}).
 		Return(nil)
 
@@ -79,13 +79,13 @@ func TestLaunchWorkflow(t *testing.T) {
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).StartCorrelationId, startCorrelationId)
+			assert.Equal(t, args[2].(*model.WorkflowState).ExecutionId, executionId)
 		}).
 		Return(nil)
 
 	wfiid, _, err := eng.Launch(ctx, "TestWorkflow", []byte{})
 	assert.NoError(t, err)
-	assert.Equal(t, startCorrelationId, wfiid)
+	assert.Equal(t, executionId, wfiid)
 	svc.AssertExpectations(t)
 
 }

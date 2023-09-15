@@ -33,7 +33,7 @@ func (s *SharServer) listWorkflowInstanceProcesses(ctx context.Context, req *mod
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	res, err := s.ns.ListWorkflowInstanceProcesses(ctx, instance.BpmExecutionId)
+	res, err := s.ns.ListWorkflowInstanceProcesses(ctx, instance.ExecutionId)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow instance status: %w", err)
 	}
@@ -159,9 +159,9 @@ func (s *SharServer) cancelWorkflowInstance(ctx context.Context, req *model.Canc
 	}
 	// TODO: get working state here
 	state := &model.WorkflowState{
-		StartCorrelationId: instance.BpmExecutionId,
-		State:              req.State,
-		Error:              req.Error,
+		ExecutionId: instance.ExecutionId,
+		State:       req.State,
+		Error:       req.Error,
 	}
 	err := s.engine.CancelWorkflowInstance(ctx, state)
 	if err != nil {
@@ -275,12 +275,12 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		ElementId:   target.Id,
 		WorkflowId:  job.WorkflowId,
 		//WorkflowInstanceId: job.WorkflowInstanceId,
-		StartCorrelationId: job.StartCorrelationId,
-		Id:                 common.TrackingID(job.Id).Pop().Pop(),
-		Vars:               oldState.Vars,
-		WorkflowName:       wf.Name,
-		ProcessInstanceId:  job.ProcessInstanceId,
-		ProcessName:        job.ProcessName,
+		ExecutionId:       job.ExecutionId,
+		Id:                common.TrackingID(job.Id).Pop().Pop(),
+		Vars:              oldState.Vars,
+		WorkflowName:      wf.Name,
+		ProcessInstanceId: job.ProcessInstanceId,
+		ProcessName:       job.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", err)
@@ -292,12 +292,12 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		ElementId:   target.Id,
 		WorkflowId:  job.WorkflowId,
 		//WorkflowInstanceId: job.WorkflowInstanceId,
-		StartCorrelationId: job.StartCorrelationId,
-		Id:                 job.Id,
-		Vars:               job.Vars,
-		WorkflowName:       wf.Name,
-		ProcessInstanceId:  job.ProcessInstanceId,
-		ProcessName:        job.ProcessName,
+		ExecutionId:       job.ExecutionId,
+		Id:                job.Id,
+		Vars:              job.Vars,
+		WorkflowName:      wf.Name,
+		ProcessInstanceId: job.ProcessInstanceId,
+		ProcessName:       job.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", err)

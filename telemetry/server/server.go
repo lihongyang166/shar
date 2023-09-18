@@ -196,6 +196,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 		return abandon(err)
 	}
 	state.WorkflowInstanceId = oldState.WorkflowInstanceId
+	state.ExecutionId = oldState.ExecutionId
 	state.Id = oldState.Id
 	state.WorkflowId = oldState.WorkflowId
 	state.ElementId = oldState.ElementId

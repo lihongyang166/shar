@@ -86,6 +86,8 @@ func (c *Engine) Launch(ctx context.Context, workflowName string, vars []byte) (
 
 // launch contains the underlying logic to start a workflow.  It is also called to spawn new instances of child workflows.
 func (c *Engine) launch(ctx context.Context, workflowName string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
+	//TODO there has to be a lookup into wfProcess to find the worflowName
+
 	var reterr error
 	ctx, log := logx.ContextWith(ctx, "engine.launch")
 	// get the last ID of the workflow
@@ -178,10 +180,12 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 	}
 
 	//TODO ### if the intention is to be able to launch an individual process rather than a "workflow" (and all
-	//processes under a workflow)
-	//maybe we should not be iterating over the Process but in the presence of an optional second param on
-	//workflow launch - the processName, look this process up and only traverse startElements of only
-	//that process
+	// processes under a workflow)
+	// maybe we should not be iterating over the Process but in the presence of an optional second param on
+	// workflow launch - the processName, look this process up and only traverse startElements of only
+	// that process
+
+	// this will not be iteration going forward, it will need to be a lookup based on process name
 
 	for prName, pr := range wf.Process {
 
@@ -456,8 +460,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	process, err := c.ns.GetWorkflow(ctx, pi.WorkflowId)
 	if err != nil {
 		return c.engineErr(ctx, "get workflow", err,
-			//TODO wfiid is process Workflow Instance id relevant? Can we get rid of it?
-			slog.String(keys.WorkflowInstanceID, pi.WorkflowInstanceId),
+			slog.String(keys.ExecutionID, pi.ExecutionId),
 			slog.String(keys.WorkflowID, pi.WorkflowId),
 		)
 	}
@@ -477,19 +480,16 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	newState.Id = activityID
 	// tell the world we are going to execute an activity
 	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowActivityExecute, newState); err != nil {
-		//TODO wfiid is process Workflow Instance id relevant? Can we get rid of it?
-		return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.WorkflowInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 	}
 	// log this with history
 	if err := c.ns.RecordHistoryActivityExecute(ctx, newState); err != nil {
-		//TODO wfiid is process Workflow Instance id relevant? Can we get rid of it?
-		return c.engineErr(ctx, "publish process history", err, apErrFields(pi.WorkflowInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish process history", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 	}
 
 	// tell the world we have safely completed the traversal
 	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalComplete, traversal); err != nil {
-		//TODO wfiid is process Workflow Instance id relevant? Can we get rid of it?
-		return c.engineErr(ctx, "publish traversal status", err, apErrFields(pi.WorkflowInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish traversal status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 	}
 
 	//Start any timers
@@ -775,9 +775,9 @@ func (c *Engine) completeActivity(ctx context.Context, state *model.WorkflowStat
 }
 
 // apErrFields writes out the common error fields for an application error
-func apErrFields(workflowInstanceID, workflowID, elementID, elementName, elementType, workflowName string, extraFields ...any) []any {
+func apErrFields(executionID, workflowID, elementID, elementName, elementType, workflowName string, extraFields ...any) []any {
 	fields := []any{
-		slog.String(keys.WorkflowInstanceID, workflowInstanceID),
+		slog.String(keys.WorkflowInstanceID, executionID),
 		slog.String(keys.WorkflowID, workflowID),
 		slog.String(keys.ElementID, elementID),
 		slog.String(keys.ElementName, elementName),
@@ -823,7 +823,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 		return c.engineErr(ctx, "fetch job workflow", err,
 			slog.String(keys.JobType, job.ElementType),
 			slog.String(keys.JobID, common.TrackingID(job.Id).ID()),
-			slog.String(keys.WorkflowInstanceID, pi.WorkflowInstanceId),
+			slog.String(keys.ExecutionID, pi.ExecutionId),
 			slog.String(keys.WorkflowID, pi.WorkflowId),
 		)
 	}

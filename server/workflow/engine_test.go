@@ -119,11 +119,11 @@ func TestTraversal(t *testing.T) {
 	}
 
 	pi := &model.ProcessInstance{
-		ProcessInstanceId:  "test-process-instance-id",
-		WorkflowInstanceId: "test-workflow-instance-id",
-		WorkflowId:         "test-workflow-id",
-		WorkflowName:       "TestWorkflow",
-		ProcessName:        "TestProcess",
+		ProcessInstanceId: "test-process-instance-id",
+		ExecutionId:       "test-execution-id",
+		WorkflowId:        "test-workflow-id",
+		WorkflowName:      "TestWorkflow",
+		ProcessName:       "TestProcess",
 	}
 
 	svc.On("PublishWorkflowState", mock.AnythingOfType("*context.valueCtx"), "WORKFLOW.%s.State.Traversal.Execute", mock.AnythingOfType("*model.WorkflowState")).
@@ -161,13 +161,13 @@ func TestActivityProcessorServiceTask(t *testing.T) {
 	svc.On("GetProcessInstance", mock.AnythingOfType("*context.valueCtx"), "test-process-instance-id").
 		Once().
 		Return(&model.ProcessInstance{
-			ProcessInstanceId:  "test-process-instance-id",
-			WorkflowInstanceId: "test-workflow-instance-id",
-			ParentProcessId:    nil,
-			ParentElementId:    nil,
-			WorkflowId:         "test-workflow-id",
-			WorkflowName:       "TestWorkflow",
-			ProcessName:        "TestProcess",
+			ProcessInstanceId: "test-process-instance-id",
+			ExecutionId:       "test-execution-id",
+			ParentProcessId:   nil,
+			ParentElementId:   nil,
+			WorkflowId:        "test-workflow-id",
+			WorkflowName:      "TestWorkflow",
+			ProcessName:       "TestProcess",
 		}, nil)
 
 	svc.On("GetWorkflow", mock.AnythingOfType("*context.valueCtx"), "test-workflow-id").

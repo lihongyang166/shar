@@ -75,25 +75,25 @@ func (_m *MockNatsService) CreateJob(ctx context.Context, job *model.WorkflowSta
 	return r0, r1
 }
 
-// CreateProcessInstance provides a mock function with given fields: ctx, workflowInstanceID, parentProcessID, parentElementID, processName
-func (_m *MockNatsService) CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string) (*model.ProcessInstance, error) {
-	ret := _m.Called(ctx, workflowInstanceID, parentProcessID, parentElementID, processName)
+// CreateProcessInstance provides a mock function with given fields: ctx, workflowInstanceID, parentProcessID, parentElementID, processName, workflowName, workflowId
+func (_m *MockNatsService) CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
+	ret := _m.Called(ctx, workflowInstanceID, parentProcessID, parentElementID, processName, workflowName, workflowId)
 
 	var r0 *model.ProcessInstance
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*model.ProcessInstance, error)); ok {
-		return rf(ctx, workflowInstanceID, parentProcessID, parentElementID, processName)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, string) (*model.ProcessInstance, error)); ok {
+		return rf(ctx, workflowInstanceID, parentProcessID, parentElementID, processName, workflowName, workflowId)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *model.ProcessInstance); ok {
-		r0 = rf(ctx, workflowInstanceID, parentProcessID, parentElementID, processName)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, string) *model.ProcessInstance); ok {
+		r0 = rf(ctx, workflowInstanceID, parentProcessID, parentElementID, processName, workflowName, workflowId)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.ProcessInstance)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
-		r1 = rf(ctx, workflowInstanceID, parentProcessID, parentElementID, processName)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, string, string) error); ok {
+		r1 = rf(ctx, workflowInstanceID, parentProcessID, parentElementID, processName, workflowName, workflowId)
 	} else {
 		r1 = ret.Error(1)
 	}

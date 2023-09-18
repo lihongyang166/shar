@@ -45,7 +45,7 @@ func TestLaunchWorkflow(t *testing.T) {
 			WorkflowName:    "TestWorkflow",
 		}, nil)
 
-	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), executionId, "", "", "SimpleProcess").
+	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), executionId, "", "", "SimpleProcess", "TestWorkflow", "test-workflow-id").
 		Once().
 		Return(&model.ProcessInstance{
 			ProcessInstanceId: "test-process-instance-id",

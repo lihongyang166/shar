@@ -48,7 +48,7 @@ type NatsService interface {
 	OwnerID(name string) (string, error)
 	OwnerName(id string) (string, error)
 	GetOldState(ctx context.Context, id string) (*model.WorkflowState, error)
-	CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string) (*model.ProcessInstance, error)
+	CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error)
 	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
 	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.WorkflowInstance) error
 	SatisfyProcess(ctx context.Context, workflowInstance *model.WorkflowInstance, processName string) error

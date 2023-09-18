@@ -1244,7 +1244,7 @@ func (s *Nats) SaveState(ctx context.Context, id string, state *model.WorkflowSt
 }
 
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
-func (s *Nats) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processName string) (*model.ProcessInstance, error) {
+func (s *Nats) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
 	id := ksuid.New().String()
 	pi := &model.ProcessInstance{
 		ProcessInstanceId: id,
@@ -1254,13 +1254,14 @@ func (s *Nats) CreateProcessInstance(ctx context.Context, executionId string, pa
 		ParentElementId: &parentElementID,
 		ExecutionId:     executionId,
 	}
+
 	wfi, err := s.GetWorkflowInstance(ctx, executionId)
 	//wf, err := s.GetWorkflow(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("create process instance failed to get workflow: %w", err)
 	}
-	pi.WorkflowName = wfi.WorkflowName
-	pi.WorkflowId = wfi.WorkflowId
+	pi.WorkflowName = workflowName
+	pi.WorkflowId = workflowId
 	err = common.SaveObj(ctx, s.wfProcessInstance, pi.ProcessInstanceId, pi)
 	if err != nil {
 		return nil, fmt.Errorf("create process instance failed to save process instance: %w", err)

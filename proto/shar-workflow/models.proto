@@ -175,6 +175,7 @@ message WorkflowStateSummary {
   Error error = 14; // Error - an error being carried by the state if it has faulted.
   WorkflowTimer timer = 16; // Timer - a time needed to transition to the next state.
   string processInstanceId = 19; // ProcessInstanceId - the unique ID for the process instance.
+  string executionId = 20; // ExecutionId - the execution that this state belongs to.
 }
 
 enum ProcessHistoryType {
@@ -199,6 +200,7 @@ message ProcessHistoryEntry {
   optional Error error = 9;
   int64 unixTimeNano = 10;
   optional string execute = 11;
+  optional string executionId = 12;
 }
 
 message ProcessHistory {

@@ -11,15 +11,15 @@ import (
 // RecordHistoryProcessStart records the process start into the history object.
 func (s *Nats) RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error {
 	e := &model.ProcessHistoryEntry{
-		ItemType:           model.ProcessHistoryType_processExecute,
-		WorkflowId:         &state.WorkflowId,
-		WorkflowInstanceId: &state.WorkflowInstanceId,
-		CancellationState:  &state.State,
-		Vars:               state.Vars,
-		Timer:              state.Timer,
-		Error:              state.Error,
-		UnixTimeNano:       state.UnixTimeNano,
-		Execute:            state.Execute,
+		ItemType:          model.ProcessHistoryType_processExecute,
+		WorkflowId:        &state.WorkflowId,
+		ExecutionId:       &state.ExecutionId,
+		CancellationState: &state.State,
+		Vars:              state.Vars,
+		Timer:             state.Timer,
+		Error:             state.Error,
+		UnixTimeNano:      state.UnixTimeNano,
+		Execute:           state.Execute,
 	}
 	ph := &model.ProcessHistory{Item: []*model.ProcessHistoryEntry{e}}
 	if err := common.SaveObj(ctx, s.wfHistory, state.ProcessInstanceId, ph); err != nil {

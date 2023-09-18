@@ -788,7 +788,7 @@ func (s *Nats) processTraversals(ctx context.Context) error {
 				return false, err
 			}
 			if err := s.eventProcessor(ctx, activityID, &traversal, false); errors.IsWorkflowFatal(err) {
-				logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", err, slog.String(keys.WorkflowInstanceID, traversal.WorkflowInstanceId), slog.String(keys.WorkflowID, traversal.WorkflowId), err, slog.String(keys.ElementID, traversal.ElementId))
+				logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", err, slog.String(keys.ExecutionID, traversal.ExecutionId), slog.String(keys.WorkflowID, traversal.WorkflowId), err, slog.String(keys.ElementID, traversal.ElementId))
 				return true, nil
 			} else if err != nil {
 				return false, fmt.Errorf("process event: %w", err)

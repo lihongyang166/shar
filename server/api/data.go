@@ -19,19 +19,19 @@ func (s *SharServer) spoolWorkflowEvents(ctx context.Context, req *model.SpoolWo
 
 	for _, s := range res {
 		ret = append(ret, &model.WorkflowStateSummary{
-			WorkflowId:         s.WorkflowId,
-			WorkflowInstanceId: s.WorkflowInstanceId,
-			ElementId:          s.ElementId,
-			ElementType:        s.ElementType,
-			Id:                 s.Id,
-			Execute:            s.Execute,
-			State:              s.State,
-			Condition:          s.Condition,
-			UnixTimeNano:       s.UnixTimeNano,
-			Vars:               s.Vars,
-			Error:              s.Error,
-			Timer:              s.Timer,
-			ProcessInstanceId:  s.ProcessInstanceId,
+			WorkflowId:        s.WorkflowId,
+			ExecutionId:       s.ExecutionId,
+			ElementId:         s.ElementId,
+			ElementType:       s.ElementType,
+			Id:                s.Id,
+			Execute:           s.Execute,
+			State:             s.State,
+			Condition:         s.Condition,
+			UnixTimeNano:      s.UnixTimeNano,
+			Vars:              s.Vars,
+			Error:             s.Error,
+			Timer:             s.Timer,
+			ProcessInstanceId: s.ProcessInstanceId,
 		})
 	}
 

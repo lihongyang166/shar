@@ -127,7 +127,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("saving Activity.Complete operation abandoned", err,
-					slog.String(keys.WorkflowInstanceID, state.WorkflowInstanceId),
+					slog.String(keys.ExecutionID, state.ExecutionId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
 				)
@@ -144,7 +144,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("saving Job.Complete operation abandoned", err,
-					slog.String(keys.WorkflowInstanceID, state.WorkflowInstanceId),
+					slog.String(keys.ExecutionID, state.ExecutionId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
 				)
@@ -213,7 +213,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 
 func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.WorkflowState, newState *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
-	traceID := common.KSuidTo128bit(oldState.WorkflowInstanceId)
+	traceID := common.KSuidTo128bit(oldState.ExecutionId)
 	spanID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ID())
 	parentID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ParentID())
 	parentSpan := trace.SpanContext{}
@@ -227,15 +227,16 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 	id := common.TrackingID(oldState.Id).ID()
 	st := oldState.State.String()
 	at := map[string]*string{
-		keys.ElementID:          &oldState.ElementId,
-		keys.ElementType:        &oldState.ElementType,
-		keys.WorkflowID:         &oldState.WorkflowId,
-		keys.WorkflowInstanceID: &oldState.WorkflowInstanceId,
-		keys.Condition:          oldState.Condition,
-		keys.Execute:            oldState.Execute,
-		keys.State:              &st,
-		"trackingId":            &id,
-		"parentTrId":            &pid,
+		keys.ElementID:   &oldState.ElementId,
+		keys.ElementType: &oldState.ElementType,
+		keys.WorkflowID:  &oldState.WorkflowId,
+		//keys.WorkflowInstanceID: &oldState.WorkflowInstanceId,
+		keys.ExecutionID: &oldState.ExecutionId,
+		keys.Condition:   oldState.Condition,
+		keys.Execute:     oldState.Execute,
+		keys.State:       &st,
+		"trackingId":     &id,
+		"parentTrId":     &pid,
 	}
 
 	kv, err := vars.Decode(ctx, newState.Vars)

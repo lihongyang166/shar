@@ -807,7 +807,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	pi, err := c.ns.GetProcessInstance(ctx, job.ProcessInstanceId)
 	if errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		// if the instance has been deleted quash this activity
-		log.Warn("process instance not found, cancelling job processing", err, slog.String(keys.WorkflowInstanceID, job.WorkflowInstanceId))
+		log.Warn("process instance not found, cancelling job processing", err, slog.String(keys.ExecutionID, job.ExecutionId))
 		return nil
 	} else if err != nil {
 		log.Warn("get process instance for job", err,
@@ -899,7 +899,7 @@ func (c *Engine) startJob(ctx context.Context, subject string, job *model.Workfl
 			slog.String(keys.ElementType, el.Type),
 			slog.String(keys.JobType, job.ElementType),
 			slog.String(keys.JobID, common.TrackingID(job.Id).ID()),
-			slog.String(keys.WorkflowInstanceID, job.WorkflowInstanceId),
+			slog.String(keys.ExecutionID, job.ExecutionId),
 		)
 	}
 	/*
@@ -1078,7 +1078,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 	pi, pierr := c.ns.GetProcessInstance(ctx, state.ProcessInstanceId)
 	if errors2.Is(pierr, errors.ErrProcessInstanceNotFound) {
 		errTxt := "process instance not found"
-		log.Warn(errTxt, slog.String(keys.ProcessInstanceID, state.WorkflowInstanceId))
+		log.Warn(errTxt, slog.String(keys.ProcessInstanceID, state.ProcessInstanceId))
 	} else if pierr != nil {
 		return fmt.Errorf("activity complete processor failed to get process instance: %w", pierr)
 	}
@@ -1116,7 +1116,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 	if state.ElementType == element.EndEvent && len(state.Id) > 2 {
 		jobID := common.TrackingID(state.Id).Ancestor(2)
 		// If we are a sub workflow then complete the parent job
-		if jobID != state.WorkflowInstanceId {
+		if jobID != state.ExecutionId {
 			j, joberr := c.ns.GetJob(ctx, jobID)
 			if errors2.Is(joberr, errors.ErrJobNotFound) {
 				log.Warn("job not found " + jobID + " : " + err.Error())

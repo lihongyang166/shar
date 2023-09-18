@@ -73,9 +73,9 @@ type MessageClient interface {
 }
 
 type messageClient struct {
-	cl         *Client
-	wfiID      string
-	trackingID string
+	cl          *Client
+	executionId string
+	trackingID  string
 }
 
 // SendMessage sends a Workflow Message into the SHAR engine
@@ -341,7 +341,7 @@ func (c *Client) listen(ctx context.Context) error {
 				log.Error("unmarshaling", err)
 				return false, fmt.Errorf("service task listener: %w", err)
 			}
-			ctx = context.WithValue(ctx, ctxkey.WorkflowInstanceID, ut.WorkflowInstanceId)
+			ctx = context.WithValue(ctx, ctxkey.ExecutionID, ut.ExecutionId)
 			ctx = context.WithValue(ctx, ctxkey.ProcessInstanceID, ut.ProcessInstanceId)
 			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Header)
 			if err != nil {
@@ -422,7 +422,7 @@ func (c *Client) listen(ctx context.Context) error {
 							Name: ae.Message,
 							Code: "client-" + strconv.Itoa(ae.Code),
 						}
-						if err := c.cancelWorkflowInstanceWithError(ctx, ut.WorkflowInstanceId, e); err != nil {
+						if err := c.cancelWorkflowInstanceWithError(ctx, ut.ExecutionId, e); err != nil {
 							log.Error("cancel workflow instance in response to fatal error", err)
 						}
 						return true, nil
@@ -455,7 +455,7 @@ func (c *Client) listen(ctx context.Context) error {
 				}
 				ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
 				pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
-				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, wfiID: job.WorkflowInstanceId}, dv); err != nil {
+				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv); err != nil {
 					log.Warn("nats listener", err)
 					return false, err
 				}

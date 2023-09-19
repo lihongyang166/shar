@@ -469,6 +469,10 @@ func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workf
 	return wf, nil
 }
 
+func (s *Nats) GetWorkflowNameFor(ctx context.Context, processName string) (string, error) {
+	return "", nil
+}
+
 // GetWorkflowVersions - returns a list of versions for a given workflow.
 func (s *Nats) GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error) {
 	ver := &model.WorkflowVersions{}

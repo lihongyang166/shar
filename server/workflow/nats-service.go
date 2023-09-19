@@ -20,6 +20,7 @@ type NatsService interface {
 	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResult, chan error)
 	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
+	GetWorkflowNameFor(ctx context.Context, processName string) (string, error)
 	GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error)
 	CreateWorkflowInstance(ctx context.Context, wfInstance *model.WorkflowInstance) (*model.WorkflowInstance, error)
 	GetWorkflowInstance(ctx context.Context, workflowInstanceID string) (*model.WorkflowInstance, error)

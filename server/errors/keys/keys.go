@@ -40,4 +40,5 @@ const (
 	ParentTrackingID = "wf.tpid"
 	// ExecutionID is a key to correlate a process and any spawned sub process with each other
 	ExecutionID = "e.iid"
+	ProcessName = "p.name"
 )

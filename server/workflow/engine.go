@@ -80,16 +80,25 @@ func (c *Engine) LoadWorkflow(ctx context.Context, model *model.Workflow) (strin
 }
 
 // Launch starts a new instance of a workflow and returns a workflow instance Id.
-func (c *Engine) Launch(ctx context.Context, workflowName string, vars []byte) (string, string, error) {
-	return c.launch(ctx, workflowName, []string{}, vars, "", "")
+func (c *Engine) Launch(ctx context.Context, processName string, vars []byte) (string, string, error) {
+	return c.launch(ctx, processName, []string{}, vars, "", "")
 }
 
 // launch contains the underlying logic to start a workflow.  It is also called to spawn new instances of child workflows.
 func (c *Engine) launch(ctx context.Context, workflowName string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
-	//TODO there has to be a lookup into wfProcess to find the worflowName
-
 	var reterr error
 	ctx, log := logx.ContextWith(ctx, "engine.launch")
+
+	//workflowName, err := c.ns.GetWorkflowNameFor(ctx, processName)
+	//if err != nil {
+	//	reterr = c.engineErr(ctx, "get the workflow name for this process name", err,
+	//		slog.String(keys.ParentInstanceElementID, parentElID),
+	//		slog.String(keys.ParentProcessInstanceID, parentpiID),
+	//		slog.String(keys.ProcessName, processName),
+	//	)
+	//	return "", "", reterr
+	//}
+
 	// get the last ID of the workflow
 	wfID, err := c.ns.GetLatestVersion(ctx, workflowName)
 	if err != nil {
@@ -182,7 +191,7 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 	//TODO ### if the intention is to be able to launch an individual process rather than a "workflow" (and all
 	// processes under a workflow)
 	// maybe we should not be iterating over the Process but in the presence of an optional second param on
-	// workflow launch - the processName, look this process up and only traverse startElements of only
+	// workflow launch - the workflowName, look this process up and only traverse startElements of only
 	// that process
 
 	// this will not be iteration going forward, it will need to be a lookup based on process name

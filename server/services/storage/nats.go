@@ -70,6 +70,7 @@ type Nats struct {
 	abortFunc                      services.AbortFunc
 	wfLock                         nats.KeyValue
 	wfMsgTypes                     nats.KeyValue
+	wfProcess                      nats.KeyValue
 }
 
 // WorkflowStats obtains the running counts for the engine
@@ -163,6 +164,7 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	kvs[messages.KvMessageTypes] = &ms.wfMsgTypes
 	kvs[messages.KvTaskSpec] = &ms.wfTaskSpec
 	kvs[messages.KvTaskSpecVersions] = &ms.wfTaskSpecVer
+	kvs[messages.KvProcess] = &ms.wfProcess
 
 	ks := make([]string, 0, len(kvs))
 	for k := range kvs {
@@ -254,14 +256,46 @@ func (s *Nats) StartProcessing(ctx context.Context) error {
 	return nil
 }
 
+func (s *Nats) validateUniqueProcessNameFor(wf *model.Workflow) error {
+	existingProcessWorkflowNames := make(map[string]string)
+
+	for processName, _ := range wf.Process {
+		workFlowName, err := s.wfProcess.Get(processName)
+		if errors2.Is(err, nats.ErrKeyNotFound) {
+			continue
+		}
+		wfName := string(workFlowName.Value())
+		if wfName != wf.Name {
+			existingProcessWorkflowNames[processName] = wfName
+		}
+	}
+
+	if len(existingProcessWorkflowNames) > 0 {
+		s := make([]string, len(existingProcessWorkflowNames))
+
+		for pName, wName := range existingProcessWorkflowNames {
+			s = append(s, fmt.Sprintf("[process: %s, workflow: %s]", pName, wName))
+		}
+
+		existingProcessWorkflows := strings.Join(s, ",")
+		return fmt.Errorf("These process names already exist under different workflows %s", existingProcessWorkflows)
+	}
+
+	return nil
+}
+
 // StoreWorkflow stores a workflow definition and returns a unique ID
 func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
+	err := s.validateUniqueProcessNameFor(wf)
+	if err != nil {
+		return "", err
+	}
 
 	// Populate Metadata
 	s.populateMetadata(wf)
 
 	// get this workflow name if it has already been registered
-	_, err := s.wfName.Get(wf.Name)
+	_, err = s.wfName.Get(wf.Name)
 	if errors2.Is(err, nats.ErrKeyNotFound) {
 		wfNameID := ksuid.New().String()
 		_, err = s.wfName.Put(wf.Name, []byte(wfNameID))
@@ -373,6 +407,8 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 
 			}
 		}
+
+		s.wfProcess.Put(i.Name, []byte(wf.Name))
 	}
 
 	var newWf bool

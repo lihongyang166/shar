@@ -174,4 +174,5 @@ var (
 	KvMessageTypes     = "WORKFLOW_MSGTYPES"   // KvMessageTypes is the name of the key value store containing known message types.
 	KvTaskSpecVersions = "WORKFLOW_TSPECVER"   // KvTaskSpecVersions is the name of the key value store holding task specification versions
 	KvTaskSpec         = "WORKFLOW_TSKSPEC"    // KvTaskSpec is the name of the key value store holding task specification
+	KvProcess          = "WORKFLOW_PROCESS"    // KvProcess is the name of the key value store mapping process names to workflow names
 )

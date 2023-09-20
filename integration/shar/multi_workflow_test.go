@@ -72,14 +72,14 @@ func TestMultiWorkflow(t *testing.T) {
 		wg.Add(1)
 		go func(inst int) {
 			// Launch the workflow
-			if wfiID, _, err := cl.LaunchWorkflow(ctx, "TestMultiWorkflow1", model.Vars{"orderId": inst}); err != nil {
+			if wfiID, _, err := cl.LaunchWorkflow(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {
 				panic(err)
 			} else {
 				mx.Lock()
 				instances[wfiID] = struct{}{}
 				mx.Unlock()
 			}
-			if wfiID2, _, err := cl.LaunchWorkflow(ctx, "TestMultiWorkflow2", model.Vars{}); err != nil {
+			if wfiID2, _, err := cl.LaunchWorkflow(ctx, "SimpleProcess", model.Vars{}); err != nil {
 				panic(err)
 			} else {
 				mx.Lock()

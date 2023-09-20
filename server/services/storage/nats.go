@@ -259,7 +259,7 @@ func (s *Nats) StartProcessing(ctx context.Context) error {
 func (s *Nats) validateUniqueProcessNameFor(wf *model.Workflow) error {
 	existingProcessWorkflowNames := make(map[string]string)
 
-	for processName, _ := range wf.Process {
+	for processName := range wf.Process {
 		workFlowName, err := s.wfProcess.Get(processName)
 		if errors2.Is(err, nats.ErrKeyNotFound) {
 			continue
@@ -408,7 +408,10 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 			}
 		}
 
-		s.wfProcess.Put(i.Name, []byte(wf.Name))
+		_, err = s.wfProcess.Put(i.Name, []byte(wf.Name))
+		if err != nil {
+			return "", fmt.Errorf("store the process to workflow mapping: %w", err)
+		}
 	}
 
 	var newWf bool
@@ -469,8 +472,15 @@ func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workf
 	return wf, nil
 }
 
+// GetWorkflowNameFor - get the worflow name a process is associated with
 func (s *Nats) GetWorkflowNameFor(ctx context.Context, processName string) (string, error) {
-	return "", nil
+	if entry, err := common.Load(ctx, s.wfProcess, processName); errors2.Is(err, nats.ErrKeyNotFound) {
+		return "", fmt.Errorf(fmt.Sprintf("get workflow name for process %s failed: %%w", processName), errors.ErrProcessNotFound)
+	} else if err != nil {
+		return "", fmt.Errorf("load workflow name for process: %w", err)
+	} else {
+		return string(entry), nil
+	}
 }
 
 // GetWorkflowVersions - returns a list of versions for a given workflow.

@@ -17,11 +17,16 @@ import (
 func TestLaunchWorkflow(t *testing.T) {
 	ctx := context.Background()
 
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn")
+	workflowName := "TestWorkflow"
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", workflowName)
 
-	process := wf.Process["SimpleProcess"]
+	processName := "SimpleProcess"
+	process := wf.Process[processName]
 	els := make(map[string]*model.Element)
 	common.IndexProcessElements(process.Elements, els)
+
+	svc.On("GetWorkflowNameFor", mock.AnythingOfType("*context.valueCtx"), processName).
+		Return(workflowName, nil)
 
 	svc.On("RecordHistoryProcessStart", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowState")).
 		Return(nil)
@@ -42,10 +47,10 @@ func TestLaunchWorkflow(t *testing.T) {
 			ExecutionId:     executionId,
 			ParentElementId: nil,
 			WorkflowId:      "test-workflow-id",
-			WorkflowName:    "TestWorkflow",
+			WorkflowName:    workflowName,
 		}, nil)
 
-	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), executionId, "", "", "SimpleProcess", "TestWorkflow", "test-workflow-id").
+	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), executionId, "", "", processName, workflowName, "test-workflow-id").
 		Once().
 		Return(&model.ProcessInstance{
 			ProcessInstanceId: "test-process-instance-id",
@@ -53,7 +58,7 @@ func TestLaunchWorkflow(t *testing.T) {
 			ParentProcessId:   nil,
 			ParentElementId:   nil,
 			WorkflowId:        "test-workflow-id",
-			WorkflowName:      "TestWorkflow",
+			WorkflowName:      workflowName,
 			ProcessName:       "TestProcess",
 		}, nil)
 
@@ -83,7 +88,7 @@ func TestLaunchWorkflow(t *testing.T) {
 		}).
 		Return(nil)
 
-	wfiid, _, err := eng.Launch(ctx, "TestWorkflow", []byte{})
+	wfiid, _, err := eng.Launch(ctx, processName, []byte{})
 	assert.NoError(t, err)
 	assert.Equal(t, executionId, wfiid)
 	svc.AssertExpectations(t)
@@ -93,7 +98,7 @@ func TestLaunchWorkflow(t *testing.T) {
 func TestTraversal(t *testing.T) {
 	ctx := context.Background()
 
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn")
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", "TestWorkflow")
 
 	process := wf.Process["SimpleProcess"]
 	els := make(map[string]*model.Element)
@@ -145,7 +150,7 @@ func TestTraversal(t *testing.T) {
 func TestActivityProcessorServiceTask(t *testing.T) {
 	ctx := context.Background()
 
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn")
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", "TestWorkflow")
 
 	process := wf.Process["SimpleProcess"]
 	els := make(map[string]*model.Element)

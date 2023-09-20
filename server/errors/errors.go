@@ -36,6 +36,7 @@ var (
 	ErrApiAuthNFail                   = errors.New("authenticate API call")                                                                      // ErrApiAuthNFail - an attempt was made to call an API that failed an authentication check.
 	ErrLint                           = errors.New("linter returned errors")                                                                     // ErrLint - linter returned errors.
 	ErrGatewayInstanceNotFound        = errors.New("find gateway instance")                                                                      // ErrGatewayInstanceNotFound - failed to find gateway instance.
+	ErrProcessNotFound                = errors.New("process not found")                                                                          // ErrProcessNotFound - failed to find a process
 )
 
 const TraceLevel = -41   // TraceLevel specifies a custom level for trace logging.

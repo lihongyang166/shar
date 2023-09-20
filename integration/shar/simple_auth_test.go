@@ -20,7 +20,7 @@ import (
 )
 
 // All HS256
-const testUserSimpleWorkflowJWT = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIiLCJncmFudCI6IlNpbXBsZVdvcmtmbG93VGVzdDpSWFdTIiwiZXhwIjoyNTU0NzMwMDcxLCJpYXQiOjE2NzExMTcyNzEsImF1ZCI6ImdvLXdvcmtmbG93LmNvbSJ9.8eZgpHultcWTgN_mByFn7IufC-LrNThINQ-FoG6bCsU"
+const testUserSimpleWorkflowJWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJnby13b3JrZmxvdy5jb20iLCJleHAiOjI1NTQ3MzAwNzEsImdyYW50IjoiU2ltcGxlUHJvY2VzczpSWFdTLFNpbXBsZVdvcmtmbG93VGVzdDpSWFdTIiwiaWF0IjoxNjcxMTE3MjcxLCJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIifQ.YHLtRgue2DEcW4UtGMwAKbbnQvdA8gPt55PeQgxRr-U"
 const testUserReadOnlyJWT = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIiLCJncmFudCI6IlNpbXBsZVdvcmtmbG93VGVzdDpSIiwiZXhwIjoyNTU0NzMwMDcxLCJpYXQiOjE2NzExMTcyNzEsImF1ZCI6ImdvLXdvcmtmbG93LmNvbSJ9.marPR5Cl3EZe9jDGCa3Y8r8q8svOHDKeYaer9SkFwLI"
 const randomUserJWT = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIiLCJncmFudCI6IlNpbXBsZVdvcmtmbG93VGVzdDpSWFdTIiwiZXhwIjoyNTU0NzMwMDcxLCJpYXQiOjE2NzExMTcyNzEsImF1ZCI6Imp3dC5pbyJ9.0tK1B68thRKXiW6tLvWgGQfZDZjjDv2pM81Hru0toNk"
 const testJWTKey = "SuperSecretKey"
@@ -58,7 +58,7 @@ func TestSimpleAuthZ(t *testing.T) {
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowTest", model.Vars{})
+	_, _, err = cl.LaunchWorkflow(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

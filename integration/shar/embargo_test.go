@@ -40,7 +40,7 @@ func TestEmbargo(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "TestEmbargo", model.Vars{})
+	_, _, err = cl.LaunchWorkflow(ctx, "Process_0cxoltv", model.Vars{})
 	require.NoError(t, err)
 
 	// Listen for service tasks

@@ -67,7 +67,9 @@ func TestConcurrentMessaging2(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
 			// Launch the workflow
-			if _, _, err := cl.LaunchWorkflow(ctx, "TestConcurrentMessaging", model.Vars{"orderId": inst}); err != nil {
+			//TODO - will we need to call this twice, one with each process name when we move away
+			//from iterating over process when launching???
+			if _, _, err := cl.LaunchWorkflow(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
 				panic(err)
 			} else {
 				handlers.mx.Lock()

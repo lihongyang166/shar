@@ -52,7 +52,7 @@ func TestMessaging(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "TestMessaging", model.Vars{"orderId": 57})
+	_, _, err = cl.LaunchWorkflow(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
 	if err != nil {
 		t.Fatal(err)
 		return

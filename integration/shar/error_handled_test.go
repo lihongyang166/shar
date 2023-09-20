@@ -51,7 +51,7 @@ func TestHandledError(t *testing.T) {
 	err = cl.RegisterProcessComplete("Process_07lm3kx", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "TestHandleError", model.Vars{})
+	_, _, err = cl.LaunchWorkflow(ctx, "Process_07lm3kx", model.Vars{})
 	if err != nil {
 		panic(err)
 	}

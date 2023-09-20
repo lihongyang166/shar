@@ -68,7 +68,7 @@ func TestConcurrentMessaging(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
 			// Launch the workflow
-			if _, _, err := cl.LaunchWorkflow(ctx, "TestConcurrentMessaging", model.Vars{"orderId": inst}); err != nil {
+			if _, _, err := cl.LaunchWorkflow(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
 				panic(err)
 			} else {
 				handlers.mx.Lock()

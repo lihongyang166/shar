@@ -41,7 +41,7 @@ func TestTimedStart(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TimedStartTest", b)
 	require.NoError(t, err)
 
-	_, _, err = cl.LaunchWorkflow(ctx, "TimedStartTest", model.Vars{})
+	_, _, err = cl.LaunchWorkflow(ctx, "Process_1hikszy", model.Vars{})
 	require.NoError(t, err)
 
 	// A hook to watch for completion

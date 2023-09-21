@@ -67,9 +67,9 @@ func TestMultiWorkflow(t *testing.T) {
 	n := 100
 	mx := sync.Mutex{}
 	instances := make(map[string]struct{})
-	wg := sync.WaitGroup{}
+	//wg := sync.WaitGroup{}
 	for inst := 0; inst < n; inst++ {
-		wg.Add(1)
+		//wg.Add(1)
 		go func(inst int) {
 			// Launch the workflow
 			if wfiID, _, err := cl.LaunchWorkflow(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {
@@ -88,13 +88,9 @@ func TestMultiWorkflow(t *testing.T) {
 			}
 		}(inst)
 	}
-	go func() {
-		for i := 0; i < n; i++ {
-			<-handlers.finished
-			wg.Done()
-		}
-	}()
-	wg.Wait()
+
+	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*60)
+
 	tst.AssertCleanKV()
 }
 

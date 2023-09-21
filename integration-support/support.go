@@ -384,6 +384,25 @@ func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
 	}
 }
 
+// WaitForExpectedCompletions will wait up to timeout for expectedCompletions on the completion channel
+func WaitForExpectedCompletions(t *testing.T, expectedCompletions int, completion chan struct{}, timeout time.Duration) {
+	var c int
+	for i := 0; i < expectedCompletions; i++ {
+		select {
+		case <-completion:
+			c = c + 1
+			if c == expectedCompletions-1 {
+				return
+			} else {
+				continue
+			}
+		case <-time.After(timeout):
+			assert.Fail(t, fmt.Sprintf("###timed out waiting for completion. Expected %d, got %d", expectedCompletions, c))
+			return
+		}
+	}
+}
+
 // IsSharContainerised determines whether tests are running against containerised shar server
 func IsSharContainerised() bool {
 	return os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME) != ""

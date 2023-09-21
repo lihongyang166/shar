@@ -79,30 +79,12 @@ func TestConcurrentMessaging(t *testing.T) {
 		}(inst)
 	}
 
-	waitForAllFinishedHandlers(t, n, handlers)
+	support.WaitForExpectedCompletions(t, n, handlers.finished, 60*time.Second)
 
 	fmt.Println("Stopwatch:", -time.Until(tm))
 	tst.AssertCleanKV()
 	assert.Equal(t, launch, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
-}
-
-func waitForAllFinishedHandlers(t *testing.T, n int, handlers *testConcurrentMessagingHandlerDef) {
-	var c int
-	for i := 0; i < n; i++ {
-		select {
-		case <-handlers.finished:
-			c = c + 1
-			if c == n-1 {
-				return
-			} else {
-				continue
-			}
-		case <-time.After(60 * time.Second):
-			assert.Fail(t, fmt.Sprintf("###timed out waiting for completion. Expected %d, got %d", n, c))
-			return
-		}
-	}
 }
 
 type testConcurrentMessagingHandlerDef struct {

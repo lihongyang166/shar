@@ -79,9 +79,9 @@ func TestConcurrentMessaging2(t *testing.T) {
 			}
 		}(inst)
 	}
-	for inst := 0; inst < n; inst++ {
-		support.WaitForChan(t, handlers.finished, 20*time.Second)
-	}
+
+	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*20)
+
 	fmt.Println("Stopwatch:", -time.Until(tm))
 	tst.AssertCleanKV()
 	assert.Equal(t, launch, handlers.received)
@@ -114,7 +114,6 @@ func (x *testConcurrentMessaging2HandlerDef) sendMessage(ctx context.Context, cm
 }
 
 func (x *testConcurrentMessaging2HandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	x.finished <- struct{}{}
 	x.mx.Lock()
 	if _, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]; !ok {
 		panic("too many calls")
@@ -122,4 +121,5 @@ func (x *testConcurrentMessaging2HandlerDef) processEnd(ctx context.Context, var
 	delete(x.instComplete, strconv.Itoa(vars["orderId"].(int)))
 	x.received++
 	x.mx.Unlock()
+	x.finished <- struct{}{}
 }

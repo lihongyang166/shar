@@ -78,13 +78,31 @@ func TestConcurrentMessaging(t *testing.T) {
 			}
 		}(inst)
 	}
-	for inst := 0; inst < n; inst++ {
-		support.WaitForChan(t, handlers.finished, 60*time.Second)
-	}
+
+	waitForAllFinishedHandlers(t, n, handlers)
+
 	fmt.Println("Stopwatch:", -time.Until(tm))
 	tst.AssertCleanKV()
 	assert.Equal(t, launch, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
+}
+
+func waitForAllFinishedHandlers(t *testing.T, n int, handlers *testConcurrentMessagingHandlerDef) {
+	var c int
+	for i := 0; i < n; i++ {
+		select {
+		case <-handlers.finished:
+			c = c + 1
+			if c == n-1 {
+				return
+			} else {
+				continue
+			}
+		case <-time.After(60 * time.Second):
+			assert.Fail(t, fmt.Sprintf("###timed out waiting for completion. Expected %d, got %d", n, c))
+			return
+		}
+	}
 }
 
 type testConcurrentMessagingHandlerDef struct {
@@ -113,7 +131,6 @@ func (x *testConcurrentMessagingHandlerDef) sendMessage(ctx context.Context, cmd
 }
 
 func (x *testConcurrentMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	x.finished <- struct{}{}
 	x.mx.Lock()
 	if _, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]; !ok {
 		panic("too many calls")
@@ -121,4 +138,5 @@ func (x *testConcurrentMessagingHandlerDef) processEnd(ctx context.Context, vars
 	delete(x.instComplete, strconv.Itoa(vars["orderId"].(int)))
 	x.received++
 	x.mx.Unlock()
+	x.finished <- struct{}{}
 }

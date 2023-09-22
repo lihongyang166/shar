@@ -15,7 +15,7 @@ import (
 // Cmd is the cobra command object
 var Cmd = &cobra.Command{
 	Use:   "status",
-	Short: "Gets the status of a running workflow instance",
+	Short: "Gets the status of a running execution",
 	Long:  ``,
 	RunE:  run,
 	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
@@ -26,14 +26,14 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid arguments: %w", err)
 	}
 	ctx := context.Background()
-	instanceID := args[0]
+	executionID := args[0]
 	shar := client.New()
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	status, err := shar.ListExecutionProcesses(ctx, instanceID)
+	status, err := shar.ListExecutionProcesses(ctx, executionID)
 	if err != nil {
-		return fmt.Errorf("getting workflow instance status: %w", err)
+		return fmt.Errorf("getting execution status: %w", err)
 	}
 	states := make(map[string][]*model.WorkflowState)
 	for _, i := range status.ProcessInstanceId {
@@ -43,6 +43,6 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 		states[i] = res.ProcessState
 	}
-	output.Current.OutputWorkflowInstanceStatus(instanceID, states)
+	output.Current.OutputExecutionStatus(executionID, states)
 	return nil
 }

@@ -11,13 +11,13 @@ type Json struct {
 }
 
 // OutputStartWorkflowResult returns a CLI response
-func (c *Json) OutputStartWorkflowResult(wfiID string, wfID string) {
+func (c *Json) OutputStartWorkflowResult(executionID string, wfID string) {
 	outJson(struct {
-		WorkflowInstanceID string
-		WorkflowID         string
+		ExecutionID string
+		WorkflowID  string
 	}{
-		WorkflowInstanceID: wfiID,
-		WorkflowID:         wfID,
+		ExecutionID: executionID,
+		WorkflowID:  wfID,
 	})
 }
 
@@ -30,8 +30,8 @@ func (c *Json) OutputWorkflow(res []*model.ListWorkflowResult) {
 	})
 }
 
-// OutputListWorkflowInstance returns a CLI response
-func (c *Json) OutputListWorkflowInstance(res []*model.ListWorkflowInstanceResult) {
+// OutputListExecution returns a CLI response
+func (c *Json) OutputListExecution(res []*model.ListWorkflowInstanceResult) {
 	outJson(struct {
 		WorkflowInstance []*model.ListWorkflowInstanceResult
 	}{
@@ -48,8 +48,8 @@ func (c *Json) OutputUserTaskIDs(ut []*model.GetUserTaskResponse) {
 	})
 }
 
-// OutputWorkflowInstanceStatus outputs a workflow instance status to console
-func (c *Json) OutputWorkflowInstanceStatus(workflowInstanceID string, states map[string][]*model.WorkflowState) {
+// OutputExecutionStatus outputs an execution status to console
+func (c *Json) OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState) {
 	type retState struct {
 		TrackingId string
 		ID         string
@@ -59,9 +59,9 @@ func (c *Json) OutputWorkflowInstanceStatus(workflowInstanceID string, states ma
 		Since      int64
 	}
 
-	type retInstance struct {
-		InstanceId string
-		Processes  map[string][]retState
+	type retExecution struct {
+		ExecutionId string
+		Processes   map[string][]retState
 	}
 
 	rs := make(map[string][]retState, len(states))
@@ -79,15 +79,15 @@ func (c *Json) OutputWorkflowInstanceStatus(workflowInstanceID string, states ma
 		}
 		rs[pi] = rsa
 	}
-	outJson(retInstance{InstanceId: workflowInstanceID, Processes: rs})
+	outJson(retExecution{ExecutionId: executionID, Processes: rs})
 }
 
 // OutputLoadResult returns a CLI response
-func (c *Json) OutputLoadResult(workflowInstanceID string) {
+func (c *Json) OutputLoadResult(workflowID string) {
 	outJson(struct {
 		WorkflowID string
 	}{
-		WorkflowID: workflowInstanceID,
+		WorkflowID: workflowID,
 	})
 }
 

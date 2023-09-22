@@ -14,8 +14,8 @@ type Text struct {
 }
 
 // OutputStartWorkflowResult returns a CLI response
-func (c *Text) OutputStartWorkflowResult(wfiID string, wfID string) {
-	fmt.Println("Workflow Instance:", wfiID)
+func (c *Text) OutputStartWorkflowResult(executionID string, wfID string) {
+	fmt.Println("Execution:", executionID)
 	fmt.Println("Workflow:", wfID)
 }
 
@@ -26,8 +26,8 @@ func (c *Text) OutputWorkflow(res []*model.ListWorkflowResult) {
 	}
 }
 
-// OutputListWorkflowInstance returns a CLI response
-func (c *Text) OutputListWorkflowInstance(res []*model.ListWorkflowInstanceResult) {
+// OutputListExecution returns a CLI response
+func (c *Text) OutputListExecution(res []*model.ListWorkflowInstanceResult) {
 	for i, v := range res {
 		fmt.Println(i, ":", v.Id, "version", v.Version)
 	}
@@ -45,9 +45,9 @@ func (c *Text) OutputCancelledWorkflow(id string) {
 	fmt.Println("workflow", id, "cancelled.")
 }
 
-// OutputWorkflowInstanceStatus outputs a workflow instance status
-func (c *Text) OutputWorkflowInstanceStatus(workflowInstanceID string, states map[string][]*model.WorkflowState) {
-	fmt.Println("Instance: " + workflowInstanceID)
+// OutputExecutionStatus outputs an execution status
+func (c *Text) OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState) {
+	fmt.Println("Execution: " + executionID)
 
 	ll := make(pterm.LeveledList, 0, len(states)*7+1)
 
@@ -74,8 +74,8 @@ func (c *Text) OutputWorkflowInstanceStatus(workflowInstanceID string, states ma
 }
 
 // OutputLoadResult returns a CLI response
-func (c *Text) OutputLoadResult(workflowInstanceID string) {
-	fmt.Println("Instance: " + workflowInstanceID)
+func (c *Text) OutputLoadResult(workflowID string) {
+	fmt.Println("Workflow id: " + workflowID)
 }
 
 func readStringPtr(ptr *string) string {

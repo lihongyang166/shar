@@ -230,7 +230,7 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 		keys.ElementID:   &oldState.ElementId,
 		keys.ElementType: &oldState.ElementType,
 		keys.WorkflowID:  &oldState.WorkflowId,
-		//keys.WorkflowInstanceID: &oldState.WorkflowInstanceId,
+		//keys.ExecutionID: &oldState.WorkflowInstanceId,
 		keys.ExecutionID: &oldState.ExecutionId,
 		keys.Condition:   oldState.Condition,
 		keys.Execute:     oldState.Execute,

@@ -12,7 +12,7 @@ import (
 // Cmd is the cobra command object
 var Cmd = &cobra.Command{
 	Use:   "list",
-	Short: "List running workflow instances",
+	Short: "List running execution",
 	Long:  ``,
 	RunE:  run,
 	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
@@ -30,8 +30,8 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 	res, err := shar.ListExecution(ctx, wfName)
 	if err != nil {
-		return fmt.Errorf("list workflows: %w", err)
+		return fmt.Errorf("list executions: %w", err)
 	}
-	output.Current.OutputListWorkflowInstance(res)
+	output.Current.OutputListExecution(res)
 	return nil
 }

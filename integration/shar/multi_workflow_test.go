@@ -71,7 +71,7 @@ func TestMultiWorkflow(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		//wg.Add(1)
 		go func(inst int) {
-			// Launch the workflow
+			// Launch the processes
 			if wfiID, _, err := cl.LaunchWorkflow(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {
 				panic(err)
 			} else {
@@ -79,6 +79,14 @@ func TestMultiWorkflow(t *testing.T) {
 				instances[wfiID] = struct{}{}
 				mx.Unlock()
 			}
+			if wfiIDa, _, err := cl.LaunchWorkflow(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
+				panic(err)
+			} else {
+				mx.Lock()
+				instances[wfiIDa] = struct{}{}
+				mx.Unlock()
+			}
+
 			if wfiID2, _, err := cl.LaunchWorkflow(ctx, "SimpleProcess", model.Vars{}); err != nil {
 				panic(err)
 			} else {

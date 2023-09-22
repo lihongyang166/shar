@@ -183,20 +183,16 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 		}
 	}
 
-	//TODO ### if the intention is to be able to launch an individual process rather than a "workflow" (and all
-	// processes under a workflow)
-	// maybe we should not be iterating over the Process but in the presence of an optional second param on
-	// workflow launch - the workflowName, look this process up and only traverse startElements of only
-	// that process
-
-	// this will not be iteration going forward, it will need to be a lookup based on process name
-
-	for prName, pr := range wf.Process {
-		err2 := c.launchProcess(ctx, ID, prName, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
-		if err2 != nil {
-			return "", "", err2
-		}
+	pr, ok := wf.Process[processName]
+	if !ok {
+		reterr = fmt.Errorf("unable to find process with name %s", processName)
+		return "", "", reterr
 	}
+	err2 := c.launchProcess(ctx, ID, processName, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
+	if err2 != nil {
+		return "", "", err2
+	}
+
 	return executionId, wfID, nil
 }
 
@@ -1171,7 +1167,6 @@ func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState
 		return &errors.ErrWorkflowFatal{Err: errors.ErrWorkflowNotFound}
 	}
 	els := common.ElementTable(wf)
-
 	if _, _, err := c.launch(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.ProcessInstanceId, state.ElementId); err != nil {
 		return c.engineErr(ctx, "launch child workflow", &errors.ErrWorkflowFatal{Err: err})
 	}

@@ -67,8 +67,16 @@ func TestConcurrentMessaging(t *testing.T) {
 	tm := time.Now()
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
-			// Launch the workflow
+			// Launch the processes
 			if _, _, err := cl.LaunchWorkflow(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
+				panic(err)
+			} else {
+				handlers.mx.Lock()
+				handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
+				handlers.mx.Unlock()
+			}
+
+			if _, _, err := cl.LaunchWorkflow(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {
 				panic(err)
 			} else {
 				handlers.mx.Lock()

@@ -125,7 +125,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 	var executionId string
 
 	if parentpiID == "" {
-		wfi, err := c.ns.CreateWorkflowInstance(ctx, &model.WorkflowInstance{
+		e, err := c.ns.CreateExecution(ctx, &model.WorkflowInstance{
 			WorkflowId:              wfID,
 			ParentProcessInstanceId: &parentpiID,
 			ParentElementId:         &parentElID,
@@ -133,7 +133,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 		})
 
 		if err != nil {
-			reterr = c.engineErr(ctx, "create workflow instance", err,
+			reterr = c.engineErr(ctx, "create execution", err,
 				slog.String(keys.ParentInstanceElementID, parentElID),
 				slog.String(keys.ParentProcessInstanceID, parentpiID),
 				slog.String(keys.WorkflowName, workflowName),
@@ -144,10 +144,10 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 
 		defer func() {
 			if reterr != nil {
-				c.rollBackLaunch(ctx, wfi)
+				c.rollBackLaunch(ctx, e)
 			}
 		}()
-		executionId = wfi.ExecutionId
+		executionId = e.ExecutionId
 	} else {
 		pi, err := c.ns.GetProcessInstance(ctx, parentpiID)
 		if err != nil {
@@ -155,7 +155,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 			return "", "", reterr
 		}
 
-		e, err := c.ns.GetWorkflowInstance(ctx, pi.ExecutionId)
+		e, err := c.ns.GetExecution(ctx, pi.ExecutionId)
 		if err != nil {
 			reterr = fmt.Errorf("launch failed to get execution for parent: %w", err)
 			return "", "", reterr
@@ -791,7 +791,7 @@ func (c *Engine) completeActivity(ctx context.Context, state *model.WorkflowStat
 // apErrFields writes out the common error fields for an application error
 func apErrFields(executionID, workflowID, elementID, elementName, elementType, workflowName string, extraFields ...any) []any {
 	fields := []any{
-		slog.String(keys.WorkflowInstanceID, executionID),
+		slog.String(keys.ExecutionID, executionID),
 		slog.String(keys.WorkflowID, workflowID),
 		slog.String(keys.ElementID, elementID),
 		slog.String(keys.ElementName, elementName),
@@ -993,12 +993,12 @@ func (c *Engine) Shutdown() {
 	}
 }
 
-// CancelWorkflowInstance cancels a workflow instance with a reason.
-func (c *Engine) CancelWorkflowInstance(ctx context.Context, state *model.WorkflowState) error {
+// CancelExecution cancels a workflow instance with a reason.
+func (c *Engine) CancelExecution(ctx context.Context, state *model.WorkflowState) error {
 	if state.State == model.CancellationState_executing {
 		return fmt.Errorf("executing is an invalid cancellation state: %w", errors.ErrInvalidState)
 	}
-	if err := c.ns.XDestroyWorkflowInstance(ctx, state); err != nil {
+	if err := c.ns.XDestroyExecution(ctx, state); err != nil {
 		return fmt.Errorf("cancel workflow instance failed: %w", errors.ErrCancelFailed)
 	}
 	return nil
@@ -1147,7 +1147,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 			if err := c.ns.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 				return fmt.Errorf("activity complete processor failed to delete job %s: %w", jobID, err)
 			}
-			wi, wierr := c.ns.GetWorkflowInstance(ctx, state.ExecutionId)
+			wi, wierr := c.ns.GetExecution(ctx, state.ExecutionId)
 			if wierr != nil && !errors2.Is(wierr, nats.ErrKeyNotFound) {
 				return fmt.Errorf("activity complete processor failed to get workflow instance: %w", err)
 			}

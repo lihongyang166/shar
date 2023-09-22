@@ -29,7 +29,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	if err := shar.CancelWorkflowInstance(ctx, wfiID); err != nil {
+	if err := shar.CancelExecution(ctx, wfiID); err != nil {
 		return fmt.Errorf("cancel workflow instance: %w", err)
 	}
 	output.Current.OutputCancelledWorkflow(wfiID)

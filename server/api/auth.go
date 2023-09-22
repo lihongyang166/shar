@@ -55,7 +55,7 @@ func (s *SharServer) authFromJobID(ctx context.Context, trackingID string) (cont
 }
 
 func (s *SharServer) authFromInstanceID(ctx context.Context, instanceID string) (context.Context, *model.WorkflowInstance, error) {
-	wi, err := s.ns.GetWorkflowInstance(ctx, instanceID)
+	wi, err := s.ns.GetExecution(ctx, instanceID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow instance for authorization: %w", err)
 	}

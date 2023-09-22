@@ -52,7 +52,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	wi, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
-	pis, err := cl.ListWorkflowInstanceProcesses(ctx, wi)
+	pis, err := cl.ListExecutionProcesses(ctx, wi)
 	require.NoError(t, err)
 	for _, pi := range pis.ProcessInstanceId {
 		ps, err := cl.GetProcessInstanceStatus(ctx, pi)

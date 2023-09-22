@@ -31,7 +31,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	status, err := shar.ListWorkflowInstanceProcesses(ctx, instanceID)
+	status, err := shar.ListExecutionProcesses(ctx, instanceID)
 	if err != nil {
 		return fmt.Errorf("getting workflow instance status: %w", err)
 	}

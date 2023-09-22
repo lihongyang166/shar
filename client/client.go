@@ -422,8 +422,8 @@ func (c *Client) listen(ctx context.Context) error {
 							Name: ae.Message,
 							Code: "client-" + strconv.Itoa(ae.Code),
 						}
-						if err := c.cancelWorkflowInstanceWithError(ctx, ut.ExecutionId, e); err != nil {
-							log.Error("cancel workflow instance in response to fatal error", err)
+						if err := c.cancelExecutionWithError(ctx, ut.ExecutionId, e); err != nil {
+							log.Error("cancel execution in response to fatal error", err)
 						}
 						return true, nil
 					}
@@ -620,19 +620,19 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, e
 	return res.Definition, nil
 }
 
-// CancelWorkflowInstance cancels a running workflow instance.
-func (c *Client) CancelWorkflowInstance(ctx context.Context, instanceID string) error {
-	return c.cancelWorkflowInstanceWithError(ctx, instanceID, nil)
+// CancelExecution cancels a running Execution.
+func (c *Client) CancelExecution(ctx context.Context, instanceID string) error {
+	return c.cancelExecutionWithError(ctx, instanceID, nil)
 }
 
-func (c *Client) cancelWorkflowInstanceWithError(ctx context.Context, instanceID string, wfe *model.Error) error {
+func (c *Client) cancelExecutionWithError(ctx context.Context, instanceID string, wfe *model.Error) error {
 	res := &emptypb.Empty{}
 	req := &model.CancelWorkflowInstanceRequest{
 		Id:    instanceID,
 		State: model.CancellationState_errored,
 		Error: wfe,
 	}
-	if err := api2.Call(ctx, c.txCon, messages.APICancelWorkflowInstance, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APICancelExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
@@ -652,11 +652,11 @@ func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars mo
 	return res.InstanceId, res.WorkflowId, nil
 }
 
-// ListWorkflowInstance gets a list of running workflow instances by workflow name.
-func (c *Client) ListWorkflowInstance(ctx context.Context, name string) ([]*model.ListWorkflowInstanceResult, error) {
+// ListExecution gets a list of running executions by workflow name.
+func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListWorkflowInstanceResult, error) {
 	req := &model.ListWorkflowInstanceRequest{WorkflowName: name}
 	res := &model.ListWorkflowInstanceResponse{}
-	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflowInstance, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Result, nil
@@ -672,11 +672,11 @@ func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResult
 	return res.Result, nil
 }
 
-// ListWorkflowInstanceProcesses lists the current process IDs for a workflow instance.
-func (c *Client) ListWorkflowInstanceProcesses(ctx context.Context, id string) (*model.ListWorkflowInstanceProcessesResult, error) {
+// ListExecutionProcesses lists the current process IDs for an Execution.
+func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.ListWorkflowInstanceProcessesResult, error) {
 	req := &model.ListWorkflowInstanceProcessesRequest{Id: id}
 	res := &model.ListWorkflowInstanceProcessesResult{}
-	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflowInstanceProcesses, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIListExecutionProcesses, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res, nil

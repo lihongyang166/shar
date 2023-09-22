@@ -22,16 +22,16 @@ type NatsService interface {
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
 	GetWorkflowNameFor(ctx context.Context, processName string) (string, error)
 	GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error)
-	CreateWorkflowInstance(ctx context.Context, wfInstance *model.WorkflowInstance) (*model.WorkflowInstance, error)
-	GetWorkflowInstance(ctx context.Context, workflowInstanceID string) (*model.WorkflowInstance, error)
-	XDestroyWorkflowInstance(ctx context.Context, state *model.WorkflowState) error
+	CreateExecution(ctx context.Context, wfInstance *model.WorkflowInstance) (*model.WorkflowInstance, error)
+	GetExecution(ctx context.Context, workflowInstanceID string) (*model.WorkflowInstance, error)
+	XDestroyExecution(ctx context.Context, state *model.WorkflowState) error
 	GetServiceTaskRoutingKey(ctx context.Context, taskName string) (string, error)
 	GetLatestVersion(ctx context.Context, workflowName string) (string, error)
 	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
 	GetJob(ctx context.Context, id string) (*model.WorkflowState, error)
 	GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error)
 	ListWorkflowInstance(ctx context.Context, workflowName string) (chan *model.ListWorkflowInstanceResult, chan error)
-	ListWorkflowInstanceProcesses(ctx context.Context, id string) ([]string, error)
+	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
 	StartProcessing(ctx context.Context) error
 	SetEventProcessor(processor services.EventProcessorFunc)
 	SetMessageProcessor(processor services.MessageProcessorFunc)

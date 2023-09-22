@@ -28,7 +28,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	res, err := shar.ListWorkflowInstance(ctx, wfName)
+	res, err := shar.ListExecution(ctx, wfName)
 	if err != nil {
 		return fmt.Errorf("list workflows: %w", err)
 	}

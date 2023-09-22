@@ -41,7 +41,7 @@ func TestLaunchWorkflow(t *testing.T) {
 
 	executionId := "test-execution-id"
 
-	svc.On("CreateWorkflowInstance", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowInstance")).
+	svc.On("CreateExecution", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowInstance")).
 		Once().
 		Return(&model.WorkflowInstance{
 			ExecutionId:     executionId,
@@ -259,7 +259,7 @@ func TestCompleteJobProcessor(t *testing.T) {
 			Vars:               []byte{},
 		}, nil)
 
-	svc.On("GetWorkflowInstance", mock.AnythingOfType("*context.emptyCtx"), "test-workflow-instance-id").
+	svc.On("GetExecution", mock.AnythingOfType("*context.emptyCtx"), "test-workflow-instance-id").
 		Once().
 		Return(&model.WorkflowInstance{
 			WorkflowInstanceId:       "test-workflow-instance-id",

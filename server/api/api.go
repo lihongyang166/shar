@@ -84,8 +84,8 @@ func (s *SharServer) Listen() error {
 	if err := listen(con, s.panicRecovery, s.subs, messages.APICancelWorkflowInstance, &model.CancelWorkflowInstanceRequest{}, s.cancelWorkflowInstance); err != nil {
 		return fmt.Errorf("APICancelWorkflowInstance failed: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APILaunchWorkflow, &model.LaunchWorkflowRequest{}, s.launchWorkflow); err != nil {
-		return fmt.Errorf("APILaunchWorkflow failed: %w", err)
+	if err := listen(con, s.panicRecovery, s.subs, messages.APILaunchProcess, &model.LaunchWorkflowRequest{}, s.launchWorkflow); err != nil {
+		return fmt.Errorf("APILaunchProcess failed: %w", err)
 	}
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIListWorkflows, &emptypb.Empty{}, s.listWorkflows); err != nil {
 		return fmt.Errorf("APIListWorkflows failed: %w", err)

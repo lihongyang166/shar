@@ -49,7 +49,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	}()
 
 	// Launch the workflow
-	wi, _, err := cl.LaunchWorkflow(ctx, "SimpleProcess", model.Vars{})
+	wi, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 	pis, err := cl.ListWorkflowInstanceProcesses(ctx, wi)

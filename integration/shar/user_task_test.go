@@ -53,7 +53,7 @@ func TestUserTasks(t *testing.T) {
 	err = cl.RegisterProcessComplete("TestUserTasks", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "TestUserTasks", model.Vars{"OrderId": 68})
+	_, _, err = cl.LaunchProcess(ctx, "TestUserTasks", model.Vars{"OrderId": 68})
 	if err != nil {
 		panic(err)
 	}

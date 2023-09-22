@@ -127,7 +127,7 @@ var WorkflowMessageFormat = "WORKFLOW.%s.Message.%s"
 const (
 	APIAll                           = "WORKFLOW.Api.*"                             // APIAll is all API message subjects.
 	APIStoreWorkflow                 = "WORKFLOW.Api.StoreWorkflow"                 // APIStoreWorkflow is the store Workflow API subject.
-	APILaunchWorkflow                = "WORKFLOW.Api.LaunchWorkflow"                // APILaunchWorkflow is the launch workflow API subject.
+	APILaunchProcess                 = "WORKFLOW.Api.LaunchProcess"                 // APILaunchProcess is the launch process API subject.
 	APIListWorkflows                 = "WORKFLOW.Api.ListWorkflows"                 // APIListWorkflows is the list workflows API subject.
 	APIListWorkflowInstance          = "WORKFLOW.Api.ListWorkflowInstance"          // APIListWorkflowInstance is the list workflow instances API subject.
 	APIListWorkflowInstanceProcesses = "WORKFLOW.Api.ListWorkflowInstanceProcesses" // APIListWorkflowInstanceProcesses is the get processes of a running workflow instance API subject.

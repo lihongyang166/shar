@@ -58,7 +58,7 @@ func TestSimpleAuthZ(t *testing.T) {
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
@@ -185,7 +185,7 @@ func APIauth(api string, permissions map[string]struct{}) bool {
 		return true
 	case "WORKFLOW.Api.GetServiceTaskRoutingID":
 		return true
-	case "WORKFLOW.Api.LaunchWorkflow":
+	case "WORKFLOW.Api.LaunchProcess":
 		_, ok := permissions["X"]
 		return ok
 	case "WORKFLOW.Api.CompleteServiceTask":

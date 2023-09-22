@@ -638,15 +638,15 @@ func (c *Client) cancelWorkflowInstanceWithError(ctx context.Context, instanceID
 	return nil
 }
 
-// LaunchWorkflow launches a new workflow instance.
-func (c *Client) LaunchWorkflow(ctx context.Context, processName string, mvars model.Vars) (string, string, error) {
+// LaunchProcess launches a new workflow instance.
+func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars model.Vars) (string, string, error) {
 	ev, err := vars.Encode(ctx, mvars)
 	if err != nil {
 		return "", "", fmt.Errorf("encode variables for launch workflow: %w", err)
 	}
 	req := &model.LaunchWorkflowRequest{Name: processName, Vars: ev}
 	res := &model.LaunchWorkflowResponse{}
-	if err := api2.Call(ctx, c.txCon, messages.APILaunchWorkflow, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return "", "", c.clientErr(ctx, err)
 	}
 	return res.InstanceId, res.WorkflowId, nil

@@ -52,13 +52,13 @@ func TestMessaging(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the processes
-	_, _, err = cl.LaunchWorkflow(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
+	_, _, err = cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
 
-	_, _, err = cl.LaunchWorkflow(ctx, "Process_03llwnm", model.Vars{"orderId": 57})
+	_, _, err = cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": 57})
 	if err != nil {
 		t.Fatal(err)
 		return

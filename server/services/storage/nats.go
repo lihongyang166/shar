@@ -610,7 +610,7 @@ func (s *Nats) deleteExecution(ctx context.Context, state *model.WorkflowState) 
 	if err := s.wfTracking.Delete(state.ExecutionId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 		return fmt.Errorf("delete workflow tracking: %w", err)
 	}
-	if err := s.PublishWorkflowState(ctx, messages.WorkflowInstanceTerminated, state); err != nil {
+	if err := s.PublishWorkflowState(ctx, messages.ExecutionTerminated, state); err != nil {
 		return fmt.Errorf("send workflow terminate message: %w", err)
 	}
 	return nil
@@ -971,7 +971,7 @@ func (s *Nats) Shutdown() {
 }
 
 func (s *Nats) processWorkflowEvents(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "workflowEvent", s.closing, subj.NS(messages.WorkflowInstanceAll, "*"), "WorkflowConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "workflowEvent", s.closing, subj.NS(messages.ExecutionAll, "*"), "WorkflowConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
@@ -1371,7 +1371,7 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 		return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
 	}
 	if len(e.ProcessInstanceId) == 0 && !lock {
-		if err := s.PublishWorkflowState(ctx, messages.WorkflowInstanceComplete, state); err != nil {
+		if err := s.PublishWorkflowState(ctx, messages.ExecutionComplete, state); err != nil {
 			return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
 		}
 	}

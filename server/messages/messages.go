@@ -12,11 +12,11 @@ const (
 	WorkflowCommands                  = "WORKFLOW.%s.Command.>"                       // WorkflowCommands is the wildcard state message subject for all workflow commands.
 	WorkflowElementTimedExecute       = "WORKFLOW.%s.Timers.ElementExecute"           // WorkflowElementTimedExecute is the state message subject for a timed element execute operation.
 	WorkflowGeneralAbortAll           = "WORKFLOW.%s.State.*.Abort"                   // WorkflowGeneralAbortAll is the wildcard state message subject for all abort messages/.
-	WorkflowInstanceAbort             = "WORKFLOW.%s.State.Workflow.Abort"            // WorkflowInstanceAbort is the state message subject for a workflow instace being aborted.
-	WorkflowInstanceAll               = "WORKFLOW.%s.State.Workflow.>"                // WorkflowInstanceAll is the wildcard state message subject for all workflow state messages.
-	WorkflowInstanceComplete          = "WORKFLOW.%s.State.Workflow.Complete"         // WorkflowInstanceComplete is the state message subject for completing a workfloe instance.
-	WorkflowInstanceExecute           = "WORKFLOW.%s.State.Workflow.Execute"          // WorkflowInstanceExecute is the state message subject for executing a workflow instance.
-	WorkflowInstanceTerminated        = "WORKFLOW.%s.State.Workflow.Terminated"       // WorkflowInstanceTerminated is the state message subject for a workflow instance terminating.
+	ExecutionAbort                    = "WORKFLOW.%s.State.Workflow.Abort"            // ExecutionAbort is the state message subject for a workflow instace being aborted.
+	ExecutionAll                      = "WORKFLOW.%s.State.Workflow.>"                // ExecutionAll is the wildcard state message subject for all workflow state messages.
+	ExecutionComplete                 = "WORKFLOW.%s.State.Workflow.Complete"         // ExecutionComplete is the state message subject for completing a workfloe instance.
+	ExecutionExecute                  = "WORKFLOW.%s.State.Workflow.Execute"          // ExecutionExecute is the state message subject for executing a workflow instance.
+	ExecutionTerminated               = "WORKFLOW.%s.State.Workflow.Terminated"       // ExecutionTerminated is the state message subject for a workflow instance terminating.
 	WorkflowJobAwaitMessageExecute    = "WORKFLOW.%s.State.Job.Execute.AwaitMessage"  // WorkflowJobAwaitMessageExecute is the state message subject for awaiting a message.
 	WorkflowJobAwaitMessageComplete   = "WORKFLOW.%s.State.Job.Complete.AwaitMessage" // WorkflowJobAwaitMessageComplete is the state message subject for completing awaiting a message.
 	WorkflowJobAwaitMessageAbort      = "WORKFLOW.%s.State.Job.Abort.AwaitMessage"    // WorkflowJobAwaitMessageAbort is the state message subject for aborting awaiting a message.
@@ -98,7 +98,7 @@ var AllMessages = []string{
 	subj.NS(WorkflowActivityExecute, "*"),
 	subj.NS(WorkflowCommands, "*"),
 	subj.NS(WorkflowElementTimedExecute, "*"),
-	subj.NS(WorkflowInstanceAll, "*"),
+	subj.NS(ExecutionAll, "*"),
 	subj.NS(WorkflowJobAwaitMessageExecute, "*"),
 	subj.NS(WorkflowJobLaunchExecute, "*"),
 	subj.NS(WorkflowJobManualTaskExecute, "*"),

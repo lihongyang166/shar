@@ -41,13 +41,12 @@ func TestLaunchWorkflow(t *testing.T) {
 
 	executionId := "test-execution-id"
 
-	svc.On("CreateExecution", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowInstance")).
+	svc.On("CreateExecution", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.Execution")).
 		Once().
-		Return(&model.WorkflowInstance{
-			ExecutionId:     executionId,
-			ParentElementId: nil,
-			WorkflowId:      "test-workflow-id",
-			WorkflowName:    workflowName,
+		Return(&model.Execution{
+			ExecutionId:  executionId,
+			WorkflowId:   "test-workflow-id",
+			WorkflowName: workflowName,
 		}, nil)
 
 	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), executionId, "", "", processName, workflowName, "test-workflow-id").

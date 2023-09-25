@@ -54,16 +54,16 @@ func (s *SharServer) authFromJobID(ctx context.Context, trackingID string) (cont
 	return ctx, job, nil
 }
 
-func (s *SharServer) authFromInstanceID(ctx context.Context, instanceID string) (context.Context, *model.WorkflowInstance, error) {
-	wi, err := s.ns.GetExecution(ctx, instanceID)
+func (s *SharServer) authFromInstanceID(ctx context.Context, instanceID string) (context.Context, *model.Execution, error) {
+	execution, err := s.ns.GetExecution(ctx, instanceID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow instance for authorization: %w", err)
 	}
-	ctx, auth := s.authorize(ctx, wi.WorkflowName)
+	ctx, auth := s.authorize(ctx, execution.WorkflowName)
 	if auth != nil {
 		return ctx, nil, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
 	}
-	return ctx, wi, nil
+	return ctx, execution, nil
 }
 
 func (s *SharServer) authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error) {

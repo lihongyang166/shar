@@ -79,7 +79,7 @@ func (c *Engine) LoadWorkflow(ctx context.Context, model *model.Workflow) (strin
 	return wfID, nil
 }
 
-// Launch starts a new instance of a workflow and returns a workflow instance Id.
+// Launch starts a new instance of a workflow and returns an execution Id.
 func (c *Engine) Launch(ctx context.Context, processName string, vars []byte) (string, string, error) {
 	return c.launch(ctx, processName, []string{}, vars, "", "")
 }
@@ -125,11 +125,9 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 	var executionId string
 
 	if parentpiID == "" {
-		e, err := c.ns.CreateExecution(ctx, &model.WorkflowInstance{
-			WorkflowId:              wfID,
-			ParentProcessInstanceId: &parentpiID,
-			ParentElementId:         &parentElID,
-			WorkflowName:            wf.Name,
+		e, err := c.ns.CreateExecution(ctx, &model.Execution{
+			WorkflowId:   wfID,
+			WorkflowName: wf.Name,
 		})
 
 		if err != nil {
@@ -316,15 +314,15 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 	return nil
 }
 
-func (c *Engine) rollBackLaunch(ctx context.Context, wfi *model.WorkflowInstance) {
+func (c *Engine) rollBackLaunch(ctx context.Context, e *model.Execution) {
 	log := logx.FromContext(ctx)
 	log.Info("rolling back workflow launch")
 	err := c.ns.PublishWorkflowState(ctx, messages.WorkflowInstanceAbort, &model.WorkflowState{
-		//Id:           []string{wfi.WorkflowInstanceId},
-		Id:           []string{wfi.ExecutionId},
-		ExecutionId:  wfi.ExecutionId,
-		WorkflowName: wfi.WorkflowName,
-		WorkflowId:   wfi.WorkflowId,
+		//Id:           []string{e.WorkflowInstanceId},
+		Id:           []string{e.ExecutionId},
+		ExecutionId:  e.ExecutionId,
+		WorkflowName: e.WorkflowName,
+		WorkflowId:   e.WorkflowId,
 		State:        model.CancellationState_terminated,
 	})
 	if err != nil {
@@ -1173,7 +1171,7 @@ func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState
 	return nil
 }
 
-func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.WorkflowState, wi *model.WorkflowInstance, due int64) (bool, int, error) {
+func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.WorkflowState, execution *model.Execution, due int64) (bool, int, error) {
 	ctx, log := logx.ContextWith(ctx, "engine.timedExecuteProcessor")
 	slog.Info("timedExecuteProcessor")
 	wf, err := c.ns.GetWorkflow(ctx, state.WorkflowId)
@@ -1211,7 +1209,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 		shouldFire = value <= now
 	case model.WorkflowTimerType_duration:
 		if repeat != 0 && count >= repeat {
-			if err := c.ns.SatisfyProcess(ctx, wi, state.ProcessName); err != nil {
+			if err := c.ns.SatisfyProcess(ctx, execution, state.ProcessName); err != nil {
 				return false, 0, fmt.Errorf("timedExecuteProcessor failed to satisfy a process upon time completion: %w", err)
 			}
 			return true, 0, nil

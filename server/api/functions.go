@@ -175,7 +175,7 @@ func (s *SharServer) listExecution(ctx context.Context, req *model.ListWorkflowI
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	wch, errs := s.ns.ListWorkflowInstance(ctx, req.WorkflowName)
+	wch, errs := s.ns.ListExecutions(ctx, req.WorkflowName)
 	ret := make([]*model.ListWorkflowInstanceResult, 0)
 	for {
 		select {

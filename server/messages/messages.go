@@ -160,6 +160,7 @@ var (
 	KvDefinition       = "WORKFLOW_DEF"             // KvDefinition is the name of the key value store that holds the state machine definition for workflows
 	KvTracking         = "WORKFLOW_TRACKING"        // KvTracking is the name of the key value store that holds the state of a workflow task.
 	KvInstance         = "WORKFLOW_INSTANCE"        // KvInstance is the name of the key value store that holds workflow instance information.
+	KvExecution        = "WORKFLOW_EXECUTION"       // KvExecution is the name of the key value store that holds execution information.
 	KvMessageInterest  = "WORKFLOW_MSGNAME"         // KvMessageInterest is the name of the key value store that holds recipients for messages.
 	KvUserTask         = "WORKFLOW_USERTASK"        // KvUserTask is the name of the key value store that holds active user tasks.
 	KvOwnerName        = "WORKFLOW_OWNERNAME"       // KvOwnerName is the name of the key value store that holds owner names for owner IDs

@@ -161,6 +161,18 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
 	}
 
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIDeprecateTaskSpec, &model.DeprecateTaskSpecRequest{}, s.deprecateTaskSpec); err != nil {
+		return fmt.Errorf("APIDeprecateTaskSpec failed: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIDeleteTaskSpec, &model.DeleteTaskSpecRequest{}, s.deleteTaskSpec); err != nil {
+		return fmt.Errorf("APIDeleteTaskSpec failed: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIFindTaskSpecUsage, &model.FindTaskSpecUsageRequest{}, s.findTaskSpecUsage); err != nil {
+		return fmt.Errorf("APIFindTaskSpecUsage failed: %w", err)
+	}
+
 	slog.Info("shar api listener started")
 	return nil
 }

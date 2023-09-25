@@ -467,7 +467,6 @@ func UpdateLargeObj[T proto.Message](ctx context.Context, ds nats.ObjectStore, m
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "update object", slog.String("key", k), slog.Any("fn", reflect.TypeOf(updateFn)))
-	}
 
 	if err := LoadLargeObj(ctx, ds, mutex, k, msg); err != nil {
 		return msg, fmt.Errorf("update large object load: %w", err)
@@ -496,4 +495,76 @@ func DeleteLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, 
 		return fmt.Errorf("delete large removing: %w", err)
 	}
 	return nil
+}
+
+func CursorToChan[T proto.Message, U any](ctx context.Context, db nats.KeyValue, record T, fn func(string, T) (U, bool, error)) (chan U, chan error) {
+	errs := make(chan error, 1)
+	result := make(chan U)
+	ks, err := db.Keys()
+	if err != nil {
+		if errors.Is(err, nats.ErrNoKeysFound) {
+			close(errs)
+			close(result)
+			return result, errs
+		}
+		errs <- fmt.Errorf("search %s failed to get keys: %w", db.Bucket(), err)
+		close(result)
+		close(errs)
+		return result, errs
+	}
+	go func() {
+		for _, i := range ks {
+			select {
+			case <-ctx.Done():
+				close(errs)
+				close(result)
+			}
+			err := LoadObj(ctx, db, i, record)
+			if errors.Is(err, nats.ErrKeyNotFound) {
+				continue
+			}
+			res, add, err := fn(i, record)
+			if err != nil {
+				errs <- fmt.Errorf("search %s failed to deserialize record %s: %w", db.Bucket(), i, err)
+				close(errs)
+				close(result)
+			}
+			if add {
+				result <- res
+			}
+		}
+		close(errs)
+		close(result)
+	}()
+	return result, errs
+}
+
+func ChanToArray[T any](result chan T, errs chan error) ([]T, error) {
+	ret := make([]T, 0)
+	for {
+		select {
+		case err := <-errs:
+			if err == nil {
+				break
+			}
+			return nil, err
+		case value := <-result:
+			ret = append(ret, value)
+		}
+	}
+}
+
+func ChanToList(result chan string, errs chan error) (map[string]struct{}, error) {
+	ret := make(map[string]struct{}, 0)
+	for {
+		select {
+		case err := <-errs:
+			if err == nil {
+				return ret, nil
+			}
+			return nil, err
+		case value := <-result:
+			ret[value] = struct{}{}
+		}
+	}
 }

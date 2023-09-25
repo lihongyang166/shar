@@ -442,3 +442,66 @@ func (s *SharServer) getTaskSpec(ctx context.Context, req *model.GetTaskSpecRequ
 	}
 	return &model.GetTaskSpecResponse{Spec: spec}, nil
 }
+
+func (s *SharServer) deprecateTaskSpec(ctx context.Context, req *model.DeprecateTaskSpecRequest) (*model.DeprecateTaskSpecResponse, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	err := s.ns.DeprecateTaskSpec(ctx, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get task spec: %w", err)
+	}
+	return &model.DeprecateTaskSpecResponse{}, nil
+}
+
+func (s *SharServer) deleteTaskSpec(ctx context.Context, req *model.DeleteTaskSpecRequest) (*model.DeleteTaskSpecResponse, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	if err := s.ns.DeprecateTaskSpec(ctx, req.Name); err != nil {
+		return nil, fmt.Errorf("delete task spec deprecating task %s: %w", req.Name, err)
+	}
+
+	if p, x, w, err := s.ns.FindTaskSpecUsage(ctx, req.Name); err != nil {
+		return nil, fmt.Errorf("delete task spec querying task usage for %s: %w", req.Name, err)
+	} else if len(p) > 0 || len(x) > 0 || len(w) > 0 {
+		return &model.DeleteTaskSpecResponse{
+			Success: false,
+			Usage: &model.FindTaskSpecUsageResponse{
+				ProcessInstance:    p,
+				ExecutingWorkflow:  x,
+				ExecutableWorkflow: w,
+			},
+		}, nil
+	}
+
+	err := s.ns.DeleteTaskSpec(ctx, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get task spec: %w", err)
+	}
+	return &model.DeleteTaskSpecResponse{
+		Success: true,
+		Usage:   &model.FindTaskSpecUsageResponse{},
+	}, nil
+}
+
+func (s *SharServer) findTaskSpecUsage(ctx context.Context, req *model.FindTaskSpecUsageRequest) (*model.FindTaskSpecUsageResponse, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	p, x, w, err := s.ns.FindTaskSpecUsage(ctx, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get task spec: %w", err)
+	}
+	return &model.FindTaskSpecUsageResponse{
+		ProcessInstance:    p,
+		ExecutingWorkflow:  x,
+		ExecutableWorkflow: w,
+	}, nil
+}

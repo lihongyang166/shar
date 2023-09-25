@@ -141,6 +141,34 @@ func (_m *MockNatsService) DeleteJob(ctx context.Context, trackingID string) err
 	return r0
 }
 
+// DeleteTaskSpec provides a mock function with given fields: ctx, name
+func (_m *MockNatsService) DeleteTaskSpec(ctx context.Context, name string) error {
+	ret := _m.Called(ctx, name)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeprecateTaskSpec provides a mock function with given fields: ctx, name
+func (_m *MockNatsService) DeprecateTaskSpec(ctx context.Context, name string) error {
+	ret := _m.Called(ctx, name)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DestroyProcessInstance provides a mock function with given fields: ctx, state, pi, wi
 func (_m *MockNatsService) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.WorkflowInstance) error {
 	ret := _m.Called(ctx, state, pi, wi)
@@ -153,6 +181,50 @@ func (_m *MockNatsService) DestroyProcessInstance(ctx context.Context, state *mo
 	}
 
 	return r0
+}
+
+// FindTaskSpecUsage provides a mock function with given fields: _a0, _a1
+func (_m *MockNatsService) FindTaskSpecUsage(_a0 context.Context, _a1 string) ([]string, []string, []string, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 []string
+	var r1 []string
+	var r2 []string
+	var r3 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]string, []string, []string, error)); ok {
+		return rf(_a0, _a1)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []string); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) []string); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]string)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string) []string); ok {
+		r2 = rf(_a0, _a1)
+	} else {
+		if ret.Get(2) != nil {
+			r2 = ret.Get(2).([]string)
+		}
+	}
+
+	if rf, ok := ret.Get(3).(func(context.Context, string) error); ok {
+		r3 = rf(_a0, _a1)
+	} else {
+		r3 = ret.Error(3)
+	}
+
+	return r0, r1, r2, r3
 }
 
 // GetElement provides a mock function with given fields: ctx, state

@@ -150,6 +150,9 @@ const (
 	APIGetWorkflow                   = "WORKFLOW.Api.GetWorkflow"                   // APIGetWorkflow is the get workflow API message subject.
 	APIGetProcessHistory             = "WORKFLOW.Api.GetProcessHistory"             // APIGetProcessHistory is the get process history API message subject.
 	APIGetVersionInfo                = "WORKFLOW.API.GetVersionInfo"                // APIGetVersionInfo is the get server version information API message subject.
+	APIDeprecateTaskSpec             = "WORKFLOW.API.DeprecateTaskSpec"             // APIDeprecateTaskSpec is the deprecate task spec API message subject.
+	APIDeleteTaskSpec                = "WORKFLOW.API.DeleteTaskSpec"                // APIDeleteTaskSpec is the delete task spec API message subject.
+	APIFindTaskSpecUsage             = "WORKFLOW.API.FindTaskSpecUsage"             // APIFindTaskSpecUsage is the find task spec API message subject.
 )
 
 const APISpoolWorkflowEvents = "WORKFLOW.Api.SpoolWorkflowEvents" // APISpoolWorkflowEvents returns the latest workflow events from SHAR for export.  Event spooling must be enabled on the server.

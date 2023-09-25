@@ -839,3 +839,16 @@ func (c *Client) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskS
 	}
 	return res.Spec, nil
 }
+
+func (c *Client) UnregisterTask(ctx context.Context, name string) (*model.DeleteTaskSpecResponse, error) {
+
+	req := &model.DeleteTaskSpecRequest{
+		Name: name,
+	}
+	res := &model.DeleteTaskSpecResponse{}
+
+	if err := api2.Call(ctx, c.txCon, messages.APIDeleteTaskSpec, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return res, nil
+}

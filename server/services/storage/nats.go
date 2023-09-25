@@ -333,6 +333,10 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 					return "", fmt.Errorf("failed to look up task spec for '%s': %w", j.Execute, err)
 				}
 
+				if def.Behaviour != nil && def.Behaviour.Deprecated {
+					return "", fmt.Errorf("task speccification '%s' is deprecated, and can't be used", def.Metadata.Type)
+				}
+
 				// Validate the input parameters
 				if def.Parameters != nil && def.Parameters.Input != nil {
 					for _, val := range def.Parameters.Input {
@@ -1433,4 +1437,104 @@ func (s *Nats) SpoolWorkflowEvents(ctx context.Context, maxResult int) ([]*model
 		}
 	}
 	return ret, nil
+}
+
+func (s *Nats) DeprecateTaskSpec(ctx context.Context, name string) error {
+
+	uid, err := s.GetTaskSpecUID(ctx, name)
+	if err != nil {
+		return fmt.Errorf("delete task spec get UID for %s: %w", name, err)
+	}
+
+	taskSpec := &model.TaskSpec{}
+	if err := common.UpdateObj(ctx, s.wfTaskSpec, uid, taskSpec, func(v *model.TaskSpec) (*model.TaskSpec, error) {
+		if v.Behaviour == nil {
+			v.Behaviour = &model.TaskBehaviour{}
+		}
+		v.Behaviour.Deprecated = true
+		return v, nil
+	}); err != nil {
+		return fmt.Errorf("deprecate task spec: %w", err)
+	}
+	return nil
+}
+
+func (s *Nats) DeleteTaskSpec(ctx context.Context, name string) error {
+	ver := &model.TaskSpecVersions{}
+	if err := common.LoadObj(ctx, s.wfTaskSpecVer, name, ver); err != nil {
+		return fmt.Errorf("delete task spec loading versions for %s: %w", name, err)
+	}
+	for _, i := range ver.Id {
+		err := common.Delete(s.wfTaskSpecVer, i)
+		if errors2.Is(err, nats.ErrKeyNotFound) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("delete task spec deleting version for %s: %w", name, err)
+		}
+	}
+	err := common.Delete(s.wfTaskSpec, name)
+	if err != nil {
+		return fmt.Errorf("delete task spec deleting version history for %s: %w", name, err)
+	}
+	return nil
+}
+
+func (s *Nats) FindTaskSpecUsage(ctx context.Context, name string) ([]string, []string, []string, error) {
+	// Variable to de-serialise process instances to
+	pi := &model.ProcessInstance{}
+
+	// A custom type to use for the cache
+	type WorkflowVersion struct {
+		ContainsProcess bool
+		name            string
+	}
+
+	// A workflow object to use for deserialization
+	wf := &model.Workflow{}
+
+	// Find every sing workflow that uses the TaskSpec
+	activeWorkflowsUsing := make(map[string]struct{})
+
+	// Cursor workflow versions noting ones that use the task
+	res1, errs1 := common.CursorToChan(ctx, s.wf, wf, func(key string, m *model.Workflow) (string, bool, error) {
+		var contains bool
+		for _, p := range wf.Process {
+			for _, j := range p.Elements {
+				if j.Type == "ServiceTask" && j.Execute == name {
+					contains = true
+				}
+			}
+		}
+		return key, contains, nil
+	})
+	workflowsUsing, err := common.ChanToList(res1, errs1)
+
+	// Cursor process instances looking for ones that match one of the marked workflows.
+	res, errs := common.CursorToChan(ctx, s.wfProcessInstance, pi, func(key string, m *model.ProcessInstance) (string, bool, error) {
+		_, ok := workflowsUsing[m.WorkflowId]
+		if ok {
+			// Record active workflows for return
+			activeWorkflowsUsing[m.WorkflowId] = struct{}{}
+		}
+		return m.ProcessInstanceId, ok, nil
+	})
+	arr, err := common.ChanToArray(res, errs)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("cursoring task spec: %w", err)
+	}
+
+	// Add to activeWorkflowsUsing any workflow that is latest revision and contains the task
+	wv := &model.WorkflowVersions{}
+	res2, errs2 := common.CursorToChan(ctx, s.wfVersion, wv, func(key string, m *model.WorkflowVersions) (string, bool, error) {
+		id := m.Version[len(m.Version)-1].Id
+		_, ok := workflowsUsing[id]
+		return id, ok, nil
+	})
+	launchable, err := common.ChanToArray(res2, errs2)
+	active := make([]string, 0, len(activeWorkflowsUsing))
+	for v, _ := range activeWorkflowsUsing {
+		active = append(active, v)
+	}
+	return arr, active, launchable, nil
 }

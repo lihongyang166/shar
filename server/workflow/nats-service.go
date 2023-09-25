@@ -62,4 +62,7 @@ type NatsService interface {
 	RecordHistoryProcessComplete(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryProcessSpawn(ctx context.Context, state *model.WorkflowState, newProcessInstanceID string) error
 	GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error)
+	DeprecateTaskSpec(ctx context.Context, name string) error
+	DeleteTaskSpec(ctx context.Context, name string) error
+	FindTaskSpecUsage(context.Context, string) ([]string, []string, []string, error)
 }

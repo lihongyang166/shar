@@ -30,6 +30,7 @@ func run(cmd *cobra.Command, args []string) error {
 	// Capture SIGTERM and SIGINT
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 
+	setupLogging()
 	ns, ss, err := server.GetServers(flag.Value.Concurrency, nil, nil)
 	if err != nil {
 		panic(err)
@@ -54,7 +55,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&flag.Value.Server, flag.Server, flag.ServerShort, nats.DefaultURL, "sets the address of a NATS server")
 	rootCmd.PersistentFlags().StringVarP(&flag.Value.LogLevel, flag.LogLevel, flag.LogLevelShort, "error", "sets the logging level")
 	rootCmd.PersistentFlags().IntVarP(&flag.Value.Concurrency, flag.Concurrency, flag.ConcurrencyShort, 10, "sets the address of a NATS server")
+}
 
+func setupLogging() {
 	var lev slog.Level
 	var addSource bool
 	switch flag.Value.LogLevel {

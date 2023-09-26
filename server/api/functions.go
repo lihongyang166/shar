@@ -145,11 +145,11 @@ func (s *SharServer) launchWorkflow(ctx context.Context, req *model.LaunchWorkfl
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	wfiID, wfID, err := s.engine.Launch(ctx, req.Name, req.Vars)
+	executionID, wfID, err := s.engine.Launch(ctx, req.Name, req.Vars)
 	if err != nil {
-		return nil, fmt.Errorf("launch workflow instance kv: %w", err)
+		return nil, fmt.Errorf("launch execution kv: %w", err)
 	}
-	return &model.LaunchWorkflowResponse{WorkflowId: wfID, InstanceId: wfiID}, nil
+	return &model.LaunchWorkflowResponse{WorkflowId: wfID, InstanceId: executionID}, nil
 }
 
 func (s *SharServer) cancelExecution(ctx context.Context, req *model.CancelWorkflowInstanceRequest) (*emptypb.Empty, error) {

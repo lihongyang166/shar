@@ -31,11 +31,11 @@ func (c *Json) OutputWorkflow(res []*model.ListWorkflowResult) {
 }
 
 // OutputListExecution returns a CLI response
-func (c *Json) OutputListExecution(res []*model.ListWorkflowInstanceResult) {
+func (c *Json) OutputListExecution(res []*model.ListExecutionResult) {
 	outJson(struct {
-		WorkflowInstance []*model.ListWorkflowInstanceResult
+		Execution []*model.ListExecutionResult
 	}{
-		WorkflowInstance: res,
+		Execution: res,
 	})
 }
 

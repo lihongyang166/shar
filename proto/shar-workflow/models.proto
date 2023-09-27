@@ -139,7 +139,7 @@ message Targets {
 // WorkflowState describes a current executing state inside a workflow state machine.
 message WorkflowState {
   string workflowId = 1; // WorkflowId - the ID of the workflow version that provides the template for execution.
-  string workflowInstanceId = 2; // WorkflowInstanceId - the workflow instance that this state belongs to.
+  string workflowInstanceId = 2  [deprecated = true]; // WorkflowInstanceId - the workflow instance that this state belongs to.
   string elementId = 3; // ElementId - the currently executing element withing the workflow state machine.
   string elementType = 4; // ElementType - the currently executing element type, cached here to reduce lookups.
   repeated string id = 5; // Id - a stack of IDs that descibe the state and its parents up to the original workflow instance ID.
@@ -163,7 +163,7 @@ message WorkflowState {
 
 message WorkflowStateSummary {
   string workflowId = 1; // WorkflowId - the ID of the workflow version that provides the template for execution.
-  string workflowInstanceId = 2; // WorkflowInstanceId - the workflow instance that this state belongs to.
+  string workflowInstanceId = 2  [deprecated = true]; // WorkflowInstanceId - the workflow instance that this state belongs to.
   string elementId = 3; // ElementId - the currently executing element withing the workflow state machine.
   string elementType = 4; // ElementType - the currently executing element type, cached here to reduce lookups.
   repeated string id = 5; // Id - a stack of IDs that descibe the state and its parents up to the original workflow instance ID.
@@ -191,7 +191,7 @@ enum ProcessHistoryType {
 message ProcessHistoryEntry {
   ProcessHistoryType itemType = 1;
   optional string workflowId = 2;
-  optional string workflowInstanceId = 3;
+  optional string workflowInstanceId = 3  [deprecated = true];
   optional string elementId = 4;
   optional string processInstanceId = 5;
   optional CancellationState cancellationState = 6;
@@ -252,6 +252,7 @@ message Execution {
 
 // WorkflowInstance contains all of the metadata for a currently running workflow instance.
 message WorkflowInstance {
+  option deprecated = true;
   string workflowInstanceId = 1; // WorkflowInstanceId - the unique ID for the workflow instance.
   string workflowId = 2; // WorkflowId - the workflow version ID that this instance is executing.
   optional string parentProcessInstanceId = 3 [deprecated = true]; // ParentProcessInstanceId - the parent process instance that launched this process - if nil, the workflow instance launched the process instance.
@@ -264,7 +265,7 @@ message WorkflowInstance {
 
 message ProcessInstance {
   string processInstanceId = 1; // ProcessInstanceId - the unique ID for the process instance.
-  string workflowInstanceId = 2; // WorkflowInstanceId - the workflow instance this process belongs to.
+  string workflowInstanceId = 2  [deprecated = true]; // WorkflowInstanceId - the workflow instance this process belongs to.
   optional string parentProcessId = 3; // ParentProcessInstanceId - the parent process instance that launched this process - if nil, the workflow instance launched the process instance.
   optional string parentElementId = 4; // ParentElementId - the ID of the element in the parent process that triggered the launch of this process instance.
   string workflowId = 5; // WorkflowId - the workflow version ID that this instance is executing.
@@ -340,11 +341,11 @@ message CancelWorkflowInstanceRequest {
   Error error = 3;
 }
 
-message ListWorkflowInstanceProcessesRequest {
+message ListExecutionProcessesRequest {
   string id = 1;
 }
 
-message ListWorkflowInstanceProcessesResult {
+message ListExecutionProcessesResult {
   repeated string processInstanceId = 1; // ProcessInstance - process instances berlonging to this workflow instance.
 }
 
@@ -356,16 +357,16 @@ message GetProcessInstanceStatusResult {
   repeated WorkflowState processState = 1; // ProcessInstance - process instances berlonging to this workflow instance.
 }
 
-message ListWorkflowInstanceRequest {
+message ListExecutionRequest {
   string workflowName = 1;
 }
 
-message ListWorkflowInstanceResponse {
-  repeated ListWorkflowInstanceResult result = 1;
+message ListExecutionResponse {
+  repeated ListExecutionResult result = 1;
 }
 
 
-message ListWorkflowInstanceResult {
+message ListExecutionResult {
   string id = 1;
   int32 version = 2;
 }

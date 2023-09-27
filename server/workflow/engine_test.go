@@ -103,7 +103,7 @@ func TestTraversal(t *testing.T) {
 	els := make(map[string]*model.Element)
 	common.IndexProcessElements(process.Elements, els)
 
-	//wfi := &model.WorkflowInstance{
+	//wfi := &model.Execution{
 	//	WorkflowInstanceId: "test-workflow-instance-id",
 	//	ParentElementId:    nil,
 	//	WorkflowId:         "test-workflow-id",
@@ -260,7 +260,7 @@ func TestCompleteJobProcessor(t *testing.T) {
 
 	svc.On("GetExecution", mock.AnythingOfType("*context.emptyCtx"), "test-workflow-instance-id").
 		Once().
-		Return(&model.WorkflowInstance{
+		Return(&model.Execution{
 			WorkflowInstanceId:       "test-workflow-instance-id",
 			ParentWorkflowInstanceId: nil,
 			ParentElementId:          nil,

@@ -27,7 +27,7 @@ func (c *Text) OutputWorkflow(res []*model.ListWorkflowResult) {
 }
 
 // OutputListExecution returns a CLI response
-func (c *Text) OutputListExecution(res []*model.ListWorkflowInstanceResult) {
+func (c *Text) OutputListExecution(res []*model.ListExecutionResult) {
 	for i, v := range res {
 		fmt.Println(i, ":", v.Id, "version", v.Version)
 	}

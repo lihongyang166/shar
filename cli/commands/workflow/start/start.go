@@ -24,7 +24,7 @@ import (
 var Cmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts a new execution",
-	Long:  `shar workflow start "WorkflowName"`,
+	Long:  `shar workflow start "ProcessID"`,
 	RunE:  run,
 	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 }

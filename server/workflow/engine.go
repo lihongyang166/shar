@@ -1145,13 +1145,13 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 			if err := c.ns.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 				return fmt.Errorf("activity complete processor failed to delete job %s: %w", jobID, err)
 			}
-			wi, wierr := c.ns.GetExecution(ctx, state.ExecutionId)
-			if wierr != nil && !errors2.Is(wierr, nats.ErrKeyNotFound) {
-				return fmt.Errorf("activity complete processor failed to get workflow instance: %w", err)
+			execution, eerr := c.ns.GetExecution(ctx, state.ExecutionId)
+			if eerr != nil && !errors2.Is(eerr, nats.ErrKeyNotFound) {
+				return fmt.Errorf("activity complete processor failed to get execution: %w", err)
 			}
 			if pierr == nil {
-				if err := c.ns.DestroyProcessInstance(ctx, state, pi, wi); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
-					return fmt.Errorf("activity complete processor failed to destroy workflow instance: %w", err)
+				if err := c.ns.DestroyProcessInstance(ctx, state, pi, execution); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+					return fmt.Errorf("activity complete processor failed to destroy execution: %w", err)
 				}
 			}
 		}

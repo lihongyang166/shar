@@ -527,7 +527,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 func (s *Nats) GetExecution(ctx context.Context, executionID string) (*model.Execution, error) {
 	e := &model.Execution{}
 	if err := common.LoadObj(ctx, s.wfExecution, executionID, e); errors2.Is(err, nats.ErrKeyNotFound) {
-		return nil, fmt.Errorf("get execution failed to load object: %w", errors.ErrWorkflowInstanceNotFound)
+		return nil, fmt.Errorf("get execution failed to load object: %w", errors.ErrExecutionNotFound)
 	} else if err != nil {
 		return nil, fmt.Errorf("load execution from KV: %w", err)
 	}
@@ -661,10 +661,10 @@ func (s *Nats) DeleteJob(_ context.Context, trackingID string) error {
 }
 
 // ListExecutions returns a list of running workflows and versions given a workflow Name
-func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListWorkflowInstanceResult, chan error) {
+func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error) {
 	log := logx.FromContext(ctx)
 	errs := make(chan error, 1)
-	wch := make(chan *model.ListWorkflowInstanceResult, 100)
+	wch := make(chan *model.ListExecutionResult, 100)
 
 	wfv := &model.WorkflowVersions{}
 	if err := common.LoadObj(ctx, s.wfVersion, workflowName, wfv); err != nil {
@@ -696,7 +696,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 					close(errs)
 					return
 				}
-				wch <- &model.ListWorkflowInstanceResult{
+				wch <- &model.ListExecutionResult{
 					Id:      k,
 					Version: wv.Number,
 				}
@@ -825,7 +825,7 @@ func (s *Nats) processTraversals(ctx context.Context) error {
 			return false, fmt.Errorf("unmarshal traversal proto: %w", err)
 		}
 
-		if _, _, err := s.HasValidProcess(ctx, traversal.ProcessInstanceId, traversal.ExecutionId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, traversal.ProcessInstanceId, traversal.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processTraversals aborted due to a missing process")
 			return true, nil
@@ -855,7 +855,7 @@ func (s *Nats) processTraversals(ctx context.Context) error {
 
 // HasValidProcess - checks for a valid process and instance for a workflow process and instance ids
 func (s *Nats) HasValidProcess(ctx context.Context, processInstanceId, executionId string) (*model.ProcessInstance, *model.Execution, error) {
-	execution, err := s.hasValidInstance(ctx, executionId)
+	execution, err := s.hasValidExecution(ctx, executionId)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -869,9 +869,9 @@ func (s *Nats) HasValidProcess(ctx context.Context, processInstanceId, execution
 	return pi, execution, err
 }
 
-func (s *Nats) hasValidInstance(ctx context.Context, executionId string) (*model.Execution, error) {
+func (s *Nats) hasValidExecution(ctx context.Context, executionId string) (*model.Execution, error) {
 	execution, err := s.GetExecution(ctx, executionId)
-	if errors2.Is(err, errors.ErrWorkflowInstanceNotFound) {
+	if errors2.Is(err, errors.ErrExecutionNotFound) {
 		return nil, fmt.Errorf("orphaned activity: %w", err)
 	}
 	if err != nil {
@@ -894,7 +894,7 @@ func (s *Nats) processCompletedJobs(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed job state: %w", err)
 		}
-		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processCompletedJobs aborted due to a missing process")
 			return true, nil
@@ -977,7 +977,7 @@ func (s *Nats) processWorkflowEvents(ctx context.Context) error {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
 		}
 		if strings.HasSuffix(msg.Subject, ".State.Workflow.Complete") {
-			if _, err := s.hasValidInstance(ctx, job.ExecutionId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+			if _, err := s.hasValidExecution(ctx, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processWorkflowEvents aborted due to a missing process")
 				return true, nil
@@ -1007,7 +1007,7 @@ func (s *Nats) processActivities(ctx context.Context) error {
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
 
-			if _, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.ExecutionId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+			if _, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processActivities aborted due to a missing process")
 				return true, nil
@@ -1155,7 +1155,7 @@ func (s *Nats) processLaunch(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("unmarshal during process launch: %w", err)
 		}
-		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
 			return true, err
@@ -1179,7 +1179,7 @@ func (s *Nats) processJobAbort(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data, &state); err != nil {
 			return false, fmt.Errorf("job abort consumer failed to unmarshal state: %w", err)
 		}
-		if _, _, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId); errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processJobAbort aborted due to a missing process")
 			return true, err
@@ -1210,7 +1210,7 @@ func (s *Nats) processProcessComplete(ctx context.Context) error {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
 		}
 		pi, wi, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId)
-		if errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processProcessComplete aborted due to a missing process")
 			return true, err

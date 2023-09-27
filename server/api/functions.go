@@ -28,16 +28,16 @@ func (s *SharServer) getProcessInstanceStatus(ctx context.Context, req *model.Ge
 	return &model.GetProcessInstanceStatusResult{ProcessState: ps}, nil
 }
 
-func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.ListWorkflowInstanceProcessesRequest) (*model.ListWorkflowInstanceProcessesResult, error) {
-	ctx, instance, err2 := s.authFromInstanceID(ctx, req.Id)
+func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.ListExecutionProcessesRequest) (*model.ListExecutionProcessesResult, error) {
+	ctx, instance, err2 := s.authFromExecutionID(ctx, req.Id)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 	res, err := s.ns.ListExecutionProcesses(ctx, instance.ExecutionId)
 	if err != nil {
-		return nil, fmt.Errorf("get workflow instance status: %w", err)
+		return nil, fmt.Errorf("get execution status: %w", err)
 	}
-	return &model.ListWorkflowInstanceProcessesResult{ProcessInstanceId: res}, nil
+	return &model.ListExecutionProcessesResult{ProcessInstanceId: res}, nil
 }
 
 func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*model.ListWorkflowsResponse, error) {
@@ -153,7 +153,7 @@ func (s *SharServer) launchWorkflow(ctx context.Context, req *model.LaunchWorkfl
 }
 
 func (s *SharServer) cancelExecution(ctx context.Context, req *model.CancelWorkflowInstanceRequest) (*emptypb.Empty, error) {
-	ctx, instance, err2 := s.authFromInstanceID(ctx, req.Id)
+	ctx, instance, err2 := s.authFromExecutionID(ctx, req.Id)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
@@ -170,20 +170,20 @@ func (s *SharServer) cancelExecution(ctx context.Context, req *model.CancelWorkf
 	return &emptypb.Empty{}, nil
 }
 
-func (s *SharServer) listExecution(ctx context.Context, req *model.ListWorkflowInstanceRequest) (*model.ListWorkflowInstanceResponse, error) {
+func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecutionRequest) (*model.ListExecutionResponse, error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.WorkflowName)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
 	wch, errs := s.ns.ListExecutions(ctx, req.WorkflowName)
-	ret := make([]*model.ListWorkflowInstanceResult, 0)
+	ret := make([]*model.ListExecutionResult, 0)
 	for {
 		select {
 		case winf := <-wch:
 			if winf == nil {
-				return &model.ListWorkflowInstanceResponse{Result: ret}, nil
+				return &model.ListExecutionResponse{Result: ret}, nil
 			}
-			ret = append(ret, &model.ListWorkflowInstanceResult{
+			ret = append(ret, &model.ListExecutionResult{
 				Id:      winf.Id,
 				Version: winf.Version,
 			})

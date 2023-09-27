@@ -621,14 +621,14 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, e
 }
 
 // CancelExecution cancels a running Execution.
-func (c *Client) CancelExecution(ctx context.Context, instanceID string) error {
-	return c.cancelExecutionWithError(ctx, instanceID, nil)
+func (c *Client) CancelExecution(ctx context.Context, executionID string) error {
+	return c.cancelExecutionWithError(ctx, executionID, nil)
 }
 
-func (c *Client) cancelExecutionWithError(ctx context.Context, instanceID string, wfe *model.Error) error {
+func (c *Client) cancelExecutionWithError(ctx context.Context, executionID string, wfe *model.Error) error {
 	res := &emptypb.Empty{}
 	req := &model.CancelWorkflowInstanceRequest{
-		Id:    instanceID,
+		Id:    executionID,
 		State: model.CancellationState_errored,
 		Error: wfe,
 	}
@@ -653,9 +653,9 @@ func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars mo
 }
 
 // ListExecution gets a list of running executions by workflow name.
-func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListWorkflowInstanceResult, error) {
-	req := &model.ListWorkflowInstanceRequest{WorkflowName: name}
-	res := &model.ListWorkflowInstanceResponse{}
+func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListExecutionResult, error) {
+	req := &model.ListExecutionRequest{WorkflowName: name}
+	res := &model.ListExecutionResponse{}
 	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -673,9 +673,9 @@ func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResult
 }
 
 // ListExecutionProcesses lists the current process IDs for an Execution.
-func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.ListWorkflowInstanceProcessesResult, error) {
-	req := &model.ListWorkflowInstanceProcessesRequest{Id: id}
-	res := &model.ListWorkflowInstanceProcessesResult{}
+func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.ListExecutionProcessesResult, error) {
+	req := &model.ListExecutionProcessesRequest{Id: id}
+	res := &model.ListExecutionProcessesResult{}
 	if err := api2.Call(ctx, c.txCon, messages.APIListExecutionProcesses, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}

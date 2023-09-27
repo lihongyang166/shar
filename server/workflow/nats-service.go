@@ -30,7 +30,7 @@ type NatsService interface {
 	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
 	GetJob(ctx context.Context, id string) (*model.WorkflowState, error)
 	GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error)
-	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListWorkflowInstanceResult, chan error)
+	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error)
 	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
 	StartProcessing(ctx context.Context) error
 	SetEventProcessor(processor services.EventProcessorFunc)

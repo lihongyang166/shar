@@ -82,11 +82,11 @@ func TestCLI(t *testing.T) {
 
 	// Get Workflow Instances
 	instances := &struct {
-		WorkflowInstance []model.ListWorkflowInstanceResult
+		Execution []model.ListWorkflowInstanceResult
 	}{}
 	sharExecf(t, &instances, "instance list SimpleWorkflow --server %s --json", tst.NatsURL)
-	assert.Equal(t, 1, len(instances.WorkflowInstance))
-	assert.Equal(t, wfi.ExecutionID, instances.WorkflowInstance[0].Id)
+	assert.Equal(t, 1, len(instances.Execution))
+	assert.Equal(t, wfi.ExecutionID, instances.Execution[0].Id)
 
 	//TODO:RE-implement
 	/*

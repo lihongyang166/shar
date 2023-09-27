@@ -90,10 +90,10 @@ func (s *SharServer) Listen() error {
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIListWorkflows, &emptypb.Empty{}, s.listWorkflows); err != nil {
 		return fmt.Errorf("APIListWorkflows failed: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIListExecutionProcesses, &model.ListWorkflowInstanceProcessesRequest{}, s.listExecutionProcesses); err != nil {
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIListExecutionProcesses, &model.ListExecutionProcessesRequest{}, s.listExecutionProcesses); err != nil {
 		return fmt.Errorf("APIListExecutionProcesses failed: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIListExecution, &model.ListWorkflowInstanceRequest{}, s.listExecution); err != nil {
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIListExecution, &model.ListExecutionRequest{}, s.listExecution); err != nil {
 		return fmt.Errorf("APIListExecution failed: %w", err)
 	}
 	if err := listen(con, s.panicRecovery, s.subs, messages.APISendMessage, &model.SendMessageRequest{}, s.sendMessage); err != nil {

@@ -446,9 +446,53 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 		return "", fmt.Errorf("create workflow message buckets: %w", err)
 	}
 
+	for _, pr := range wf.Process {
+		// Start all timed start events.
+		vErr := forEachTimedStartElement(pr, func(el *model.Element) error {
+			if el.Type == element.TimedStartEvent {
+				timer := &model.WorkflowState{
+					Id:           []string{},
+					WorkflowId:   wfID,
+					ExecutionId:  "",
+					ElementId:    el.Id,
+					UnixTimeNano: time.Now().UnixNano(),
+					Timer: &model.WorkflowTimer{
+						LastFired: 0,
+						Count:     0,
+					},
+					Vars:         []byte{},
+					WorkflowName: wf.Name,
+					ProcessName:  pr.Name,
+				}
+				if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, "default"), timer); err != nil {
+					return fmt.Errorf("publish workflow timed execute: %w", err)
+				}
+				return nil
+			}
+			return nil
+		})
+
+		if vErr != nil {
+			return "", fmt.Errorf("initialize all workflow timed start events for %s: %w", pr.Name, vErr)
+		}
+	}
+
 	go s.incrementWorkflowCount()
 
 	return wfID, nil
+}
+
+// forEachStartElement finds all start elements for a given process and executes a function on the element.
+func forEachTimedStartElement(pr *model.Process, fn func(element *model.Element) error) error {
+	for _, i := range pr.Elements {
+		if i.Type == element.TimedStartEvent {
+			err := fn(i)
+			if err != nil {
+				return fmt.Errorf("timed start event execution: %w", err)
+			}
+		}
+	}
+	return nil
 }
 
 func ensureConsumer(js nats.JetStreamContext, streamName string, consumerConfig *nats.ConsumerConfig) error {
@@ -499,11 +543,9 @@ func (s *Nats) GetWorkflowVersions(ctx context.Context, workflowName string) (*m
 
 // CreateExecution given a workflow, starts a new execution and returns its ID
 func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) (*model.Execution, error) {
-	//wfiID := ksuid.New().String()
 	executionID := ksuid.New().String()
 	log := logx.FromContext(ctx)
 	log.Info("creating execution", slog.String(keys.ExecutionID, executionID))
-	//execution.WorkflowInstanceId = wfiID
 	execution.ExecutionId = executionID
 	execution.ProcessInstanceId = []string{}
 	execution.SatisfiedProcesses = map[string]bool{".": true}

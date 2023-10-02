@@ -227,36 +227,6 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 		return reterr
 	}
 
-	// Start all timed start events.
-	vErr = forEachTimedStartElement(pr, func(el *model.Element) error {
-		if el.Type == element.TimedStartEvent {
-			timer := &model.WorkflowState{
-				Id:           ID.Push(ksuid.New().String()),
-				WorkflowId:   wfID,
-				ExecutionId:  executionId,
-				ElementId:    el.Id,
-				UnixTimeNano: time.Now().UnixNano(),
-				Timer: &model.WorkflowTimer{
-					LastFired: 0,
-					Count:     0,
-				},
-				Vars:         vrs,
-				WorkflowName: workflowName,
-				ProcessName:  pr.Name,
-			}
-			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, "default"), timer); err != nil {
-				return fmt.Errorf("publish workflow timed execute: %w", err)
-			}
-			return nil
-		}
-		return nil
-	})
-
-	if vErr != nil {
-		reterr = fmt.Errorf("initialize all workflow timed start events: %w", vErr)
-		return reterr
-	}
-
 	if hasStartEvents {
 
 		pi, err := c.ns.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Name, workflowName, wfID)
@@ -337,19 +307,6 @@ func forEachStartElement(pr *model.Process, fn func(element *model.Element) erro
 			err := fn(i)
 			if err != nil {
 				return fmt.Errorf("start event execution: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-// forEachStartElement finds all start elements for a given process and executes a function on the element.
-func forEachTimedStartElement(pr *model.Process, fn func(element *model.Element) error) error {
-	for _, i := range pr.Elements {
-		if i.Type == element.TimedStartEvent {
-			err := fn(i)
-			if err != nil {
-				return fmt.Errorf("timed start event execution: %w", err)
 			}
 		}
 	}
@@ -1220,11 +1177,21 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 
 	if isTimer {
 		if shouldFire {
-			pi, err := c.ns.CreateProcessInstance(ctx, state.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
+			exec, err := c.ns.CreateExecution(ctx, &model.Execution{
+				WorkflowId:   state.WorkflowId,
+				WorkflowName: state.WorkflowName,
+			})
+			if err != nil {
+				log.Error("creating execution instance", err)
+				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
+			}
+
+			pi, err := c.ns.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
 			if err != nil {
 				log.Error("creating timed process instance", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
 			}
+			state.ExecutionId = pi.ExecutionId
 			state.ProcessInstanceId = pi.ProcessInstanceId
 			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, state); err != nil {
 				log.Error("spawning process", err)

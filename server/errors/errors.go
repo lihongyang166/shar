@@ -2,6 +2,8 @@ package errors
 
 import (
 	"errors"
+	"fmt"
+	"github.com/nats-io/nats.go"
 	"runtime"
 )
 
@@ -63,4 +65,52 @@ func Fn() string {
 	pc, _, _, _ := runtime.Caller(1)
 	fn := runtime.FuncForPC(pc).Name()
 	return fn
+}
+
+var integrityErrors = []error{
+	nats.ErrKeyNotFound,
+	nats.ErrNoKeysFound,
+	nats.ErrConsumerNotFound,
+	nats.ErrStreamNotFound,
+	nats.ErrObjectNotFound,
+	nats.ErrMsgNotFound,
+	ErrElementNotFound,
+	ErrJobNotFound,
+	ErrExecutionNotFound,
+	ErrProcessNotFound,
+	ErrProcessInstanceNotFound,
+	ErrStateNotFound,
+	ErrWorkflowNotFound,
+	ErrGatewayInstanceNotFound,
+	ErrWorkflowVersionNotFound,
+	ErrWorkflowErrorNotFound,
+}
+
+// CheckIfFatal will return *ErrWorkflowFatal if the error is obviously unrecoverable
+func CheckIfFatal(err error) error {
+	var wff *ErrWorkflowFatal
+	if errors.As(err, &wff); wff != nil {
+		return err
+	}
+
+	if IsNotFound(err) {
+		return &ErrWorkflowFatal{Err: err}
+	}
+	return err
+}
+
+// Errorf will return a formatted error, marking it fatal if the error is obviously unrecoverable
+func Errorf(format string, a ...any) error {
+	err := fmt.Errorf(format, a...)
+	return CheckIfFatal(err)
+}
+
+// IsNotFound will return true if the error is a SHAR or NATS not found error type
+func IsNotFound(err error) bool {
+	for _, e := range integrityErrors {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
+	return false
 }

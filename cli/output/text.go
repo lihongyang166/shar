@@ -40,9 +40,9 @@ func (c *Text) OutputUserTaskIDs(ut []*model.GetUserTaskResponse) {
 	}
 }
 
-// OutputCancelledProcessInstance returns a CLI response
-func (c *Text) OutputCancelledProcessInstance(id string) {
-	fmt.Println("process instance", id, "cancelled.")
+// OutputCancelledWorkflow returns a CLI response
+func (c *Text) OutputCancelledWorkflow(id string) {
+	fmt.Println("workflow", id, "cancelled.")
 }
 
 // OutputExecutionStatus outputs an execution status

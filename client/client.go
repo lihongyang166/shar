@@ -422,7 +422,7 @@ func (c *Client) listen(ctx context.Context) error {
 							Name: ae.Message,
 							Code: "client-" + strconv.Itoa(ae.Code),
 						}
-						if err := c.cancelProcessInstanceWithError(ctx, ut.ProcessInstanceId, e); err != nil {
+						if err := c.cancelExecutionWithError(ctx, ut.ExecutionId, e); err != nil {
 							log.Error("cancel execution in response to fatal error", err)
 						}
 						return true, nil
@@ -620,15 +620,15 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, e
 	return res.Definition, nil
 }
 
-// CancelProcessInstance cancels a running Process Instance.
-func (c *Client) CancelProcessInstance(ctx context.Context, executionID string) error {
-	return c.cancelProcessInstanceWithError(ctx, executionID, nil)
+// CancelExecution cancels a running Execution.
+func (c *Client) CancelExecution(ctx context.Context, executionID string) error {
+	return c.cancelExecutionWithError(ctx, executionID, nil)
 }
 
-func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInstanceID string, wfe *model.Error) error {
+func (c *Client) cancelExecutionWithError(ctx context.Context, executionID string, wfe *model.Error) error {
 	res := &emptypb.Empty{}
-	req := &model.CancelProcessInstanceRequest{
-		Id:    processInstanceID,
+	req := &model.CancelWorkflowInstanceRequest{
+		Id:    executionID,
 		State: model.CancellationState_errored,
 		Error: wfe,
 	}

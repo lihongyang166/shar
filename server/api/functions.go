@@ -152,18 +152,18 @@ func (s *SharServer) launchWorkflow(ctx context.Context, req *model.LaunchWorkfl
 	return &model.LaunchWorkflowResponse{WorkflowId: wfID, InstanceId: executionID}, nil
 }
 
-func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.CancelProcessInstanceRequest) (*emptypb.Empty, error) {
-	ctx, instance, err2 := s.authFromProcessInstanceID(ctx, req.Id)
+func (s *SharServer) cancelExecution(ctx context.Context, req *model.CancelWorkflowInstanceRequest) (*emptypb.Empty, error) {
+	ctx, instance, err2 := s.authFromExecutionID(ctx, req.Id)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 	// TODO: get working state here
 	state := &model.WorkflowState{
-		ProcessInstanceId: instance.ProcessInstanceId,
-		State:             req.State,
-		Error:             req.Error,
+		ExecutionId: instance.ExecutionId,
+		State:       req.State,
+		Error:       req.Error,
 	}
-	err := s.engine.CancelProcessInstance(ctx, state)
+	err := s.engine.CancelExecution(ctx, state)
 	if err != nil {
 		return nil, fmt.Errorf("cancel execution kv: %w", err)
 	}
@@ -238,7 +238,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 			Name: "UNKNOWN",
 			Code: req.ErrorCode,
 		}
-		if err := s.engine.CancelProcessInstance(ctx, cancelState); err != nil {
+		if err := s.engine.CancelExecution(ctx, cancelState); err != nil {
 			return nil, fmt.Errorf("cancel workflow instance: %w", werr)
 		}
 		return nil, fmt.Errorf("workflow halted: %w", werr)

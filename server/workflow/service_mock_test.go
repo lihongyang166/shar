@@ -569,19 +569,19 @@ func (_m *MockNatsService) ListExecutionProcesses(ctx context.Context, id string
 }
 
 // ListExecutions provides a mock function with given fields: ctx, workflowName
-func (_m *MockNatsService) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error) {
+func (_m *MockNatsService) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListWorkflowInstanceResult, chan error) {
 	ret := _m.Called(ctx, workflowName)
 
-	var r0 chan *model.ListExecutionResult
+	var r0 chan *model.ListWorkflowInstanceResult
 	var r1 chan error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (chan *model.ListExecutionResult, chan error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (chan *model.ListWorkflowInstanceResult, chan error)); ok {
 		return rf(ctx, workflowName)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) chan *model.ListExecutionResult); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) chan *model.ListWorkflowInstanceResult); ok {
 		r0 = rf(ctx, workflowName)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chan *model.ListExecutionResult)
+			r0 = ret.Get(0).(chan *model.ListWorkflowInstanceResult)
 		}
 	}
 
@@ -926,8 +926,8 @@ func (_m *MockNatsService) StoreWorkflow(ctx context.Context, wf *model.Workflow
 	return r0, r1
 }
 
-// XDestroyProcessInstance provides a mock function with given fields: ctx, state
-func (_m *MockNatsService) XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error {
+// XDestroyExecution provides a mock function with given fields: ctx, state
+func (_m *MockNatsService) XDestroyExecution(ctx context.Context, state *model.WorkflowState) error {
 	ret := _m.Called(ctx, state)
 
 	var r0 error

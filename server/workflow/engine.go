@@ -991,12 +991,12 @@ func (c *Engine) Shutdown() {
 	}
 }
 
-// CancelExecution cancels a workflow instance with a reason.
-func (c *Engine) CancelExecution(ctx context.Context, state *model.WorkflowState) error {
+// CancelProcessInstance cancels a workflow instance with a reason.
+func (c *Engine) CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error {
 	if state.State == model.CancellationState_executing {
 		return fmt.Errorf("executing is an invalid cancellation state: %w", errors.ErrInvalidState)
 	}
-	if err := c.ns.XDestroyExecution(ctx, state); err != nil {
+	if err := c.ns.XDestroyProcessInstance(ctx, state); err != nil {
 		return fmt.Errorf("cancel workflow instance failed: %w", errors.ErrCancelFailed)
 	}
 	return nil

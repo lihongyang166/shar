@@ -2,9 +2,9 @@ package execution
 
 import (
 	"github.com/spf13/cobra"
-	"gitlab.com/shar-workflow/shar/cli/commands/execution/cancel"
 	"gitlab.com/shar-workflow/shar/cli/commands/execution/list"
 	"gitlab.com/shar-workflow/shar/cli/commands/execution/status"
+	"gitlab.com/shar-workflow/shar/cli/commands/process-instance/cancel"
 )
 
 // Cmd is the cobra command object

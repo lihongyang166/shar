@@ -547,35 +547,28 @@ func (s *Nats) GetServiceTaskRoutingKey(ctx context.Context, taskName string) (s
 	return string(b), nil
 }
 
-// XDestroyExecution terminates a running execution with a cancellation reason and error
-func (s *Nats) XDestroyExecution(ctx context.Context, state *model.WorkflowState) error {
+// XDestroyProcessInstance terminates a running process instance with a cancellation reason and error
+func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
-	log.Info("destroying execution", slog.String(keys.ExecutionID, state.ExecutionId))
-	// Get the execution
-	execution := &model.Execution{}
-	if err := common.LoadObj(ctx, s.wfExecution, state.ExecutionId, execution); err != nil {
-		log.Warn("fetch execution",
-			slog.String(keys.ExecutionID, state.ExecutionId),
-		)
-		return s.expectPossibleMissingKey(ctx, "fetching execution", err)
-	}
-
-	// TODO wfiid do we perhaps need to get the process instances based on ProcessInstanceId rather than workflowInstance?
-	// the thing that keeps track of a process instance and any siblings (wfInstance) no longer exists what to do in this case now?
-	// we'd need to keep the ExecutionId somewhere in something similar to workflowInstance...
-	// should we just keep workflow instance???
+	log.Info("destroying process instance", slog.String(keys.ProcessInstanceID, state.ProcessInstanceId))
 
 	// TODO: soft error
-	for _, piID := range execution.ProcessInstanceId {
-		pi, err := s.GetProcessInstance(ctx, piID)
-		if err != nil {
-			return err
-		}
-		err = s.DestroyProcessInstance(ctx, state, pi, execution)
-		if err != nil {
-			return err
-		}
+	execution, err := s.GetExecution(ctx, state.ExecutionId)
+	if err != nil {
+		return fmt.Errorf("x destroy process instance, get execution: %w", err)
 	}
+	pi, err := s.GetProcessInstance(ctx, state.ProcessInstanceId)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("x destroy process instance, get process instance: %w", err)
+	}
+	err = s.DestroyProcessInstance(ctx, state, pi, execution)
+	if err != nil {
+		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
+	}
+
 	// Get the workflow
 	wf := &model.Workflow{}
 	if execution.WorkflowId != "" {
@@ -984,8 +977,8 @@ func (s *Nats) processWorkflowEvents(ctx context.Context) error {
 			} else if err != nil {
 				return false, err
 			}
-			if err := s.XDestroyExecution(ctx, &job); err != nil {
-				return false, fmt.Errorf("destroy workflow instance whilst processing workflow events: %w", err)
+			if err := s.XDestroyProcessInstance(ctx, &job); err != nil {
+				return false, fmt.Errorf("destroy process instance whilst processing workflow events: %w", err)
 			}
 		}
 		return true, nil
@@ -1245,8 +1238,8 @@ func (s *Nats) processGeneralAbort(ctx context.Context) error {
 		case strings.HasSuffix(msg.Subject, ".State.Workflow.Abort"):
 			abortState := common.CopyWorkflowState(&state)
 			abortState.State = model.CancellationState_terminated
-			if err := s.XDestroyExecution(ctx, &state); err != nil {
-				return false, fmt.Errorf("delete workflow during general abort processor: %w", err)
+			if err := s.XDestroyProcessInstance(ctx, &state); err != nil {
+				return false, fmt.Errorf("delete process instance during general abort processor: %w", err)
 			}
 		default:
 			return true, nil
@@ -1347,6 +1340,11 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 		v.ProcessInstanceId = remove(v.ProcessInstanceId, pi.ProcessInstanceId)
 		return v, nil
 	})
+	if len(e.ProcessInstanceId) == 0 {
+		if err := common.Delete(s.wfExecution, execution.ExecutionId); err != nil {
+			return fmt.Errorf("destroy process instance delete execution: %w", err)
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("destroy process instance failed to update execution: %w", err)
 	}

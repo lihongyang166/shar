@@ -266,11 +266,13 @@ func (s *Integration) checkCleanKV() error {
 						str := &model.WorkflowState{}
 						err := proto.Unmarshal(p.Value(), str)
 						if err == nil {
+							fmt.Println(kvs.Bucket())
 							sc.Dump(str)
 						} else {
 							str := &model.MessageInstance{}
 							err := proto.Unmarshal(p.Value(), str)
 							if err == nil {
+								fmt.Println(kvs.Bucket())
 								sc.Dump(str)
 							}
 						}

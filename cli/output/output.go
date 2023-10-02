@@ -11,7 +11,7 @@ type Method interface {
 	OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState)
 	OutputLoadResult(executionID string)
 	OutputListExecution(res []*model.ListExecutionResult)
-	OutputCancelledWorkflow(id string)
+	OutputCancelledProcessInstance(id string)
 	OutputUserTaskIDs(ut []*model.GetUserTaskResponse)
 	OutputWorkflow(res []*model.ListWorkflowResult)
 	OutputStartWorkflowResult(wfiID string, wfID string)

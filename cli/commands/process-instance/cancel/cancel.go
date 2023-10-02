@@ -12,7 +12,7 @@ import (
 // Cmd is the cobra command object
 var Cmd = &cobra.Command{
 	Use:   "cancel",
-	Short: "Cancel a running execution",
+	Short: "Cancel a process instance",
 	Long:  ``,
 	RunE:  run,
 	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
@@ -23,15 +23,15 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid arguments: %w", err)
 	}
 	ctx := context.Background()
-	executionID := args[0]
+	processInstanceID := args[0]
 
 	shar := client.New()
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	if err := shar.CancelExecution(ctx, executionID); err != nil {
+	if err := shar.CancelProcessInstance(ctx, processInstanceID); err != nil {
 		return fmt.Errorf("cancel execution: %w", err)
 	}
-	output.Current.OutputCancelledWorkflow(executionID)
+	output.Current.OutputCancelledProcessInstance(processInstanceID)
 	return nil
 }

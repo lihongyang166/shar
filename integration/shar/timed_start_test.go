@@ -17,7 +17,7 @@ import (
 
 func TestTimedStart(t *testing.T) {
 	tst := &support.Integration{}
-	//tst.WithTrace = true
+	tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
@@ -39,9 +39,6 @@ func TestTimedStart(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/timed-start-workflow.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TimedStartTest", b)
-	require.NoError(t, err)
-
-	_, _, err = cl.LaunchWorkflow(ctx, "TimedStartTest", model.Vars{})
 	require.NoError(t, err)
 
 	// A hook to watch for completion

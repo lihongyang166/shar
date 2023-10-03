@@ -73,9 +73,9 @@ type MessageClient interface {
 }
 
 type messageClient struct {
-	cl         *Client
-	wfiID      string
-	trackingID string
+	cl          *Client
+	executionId string
+	trackingID  string
 }
 
 // SendMessage sends a Workflow Message into the SHAR engine
@@ -341,7 +341,7 @@ func (c *Client) listen(ctx context.Context) error {
 				log.Error("unmarshaling", err)
 				return false, fmt.Errorf("service task listener: %w", err)
 			}
-			ctx = context.WithValue(ctx, ctxkey.WorkflowInstanceID, ut.WorkflowInstanceId)
+			ctx = context.WithValue(ctx, ctxkey.ExecutionID, ut.ExecutionId)
 			ctx = context.WithValue(ctx, ctxkey.ProcessInstanceID, ut.ProcessInstanceId)
 			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Header)
 			if err != nil {
@@ -422,8 +422,8 @@ func (c *Client) listen(ctx context.Context) error {
 							Name: ae.Message,
 							Code: "client-" + strconv.Itoa(ae.Code),
 						}
-						if err := c.cancelWorkflowInstanceWithError(ctx, ut.WorkflowInstanceId, e); err != nil {
-							log.Error("cancel workflow instance in response to fatal error", err)
+						if err := c.cancelProcessInstanceWithError(ctx, ut.ProcessInstanceId, e); err != nil {
+							log.Error("cancel execution in response to fatal error", err)
 						}
 						return true, nil
 					}
@@ -455,7 +455,7 @@ func (c *Client) listen(ctx context.Context) error {
 				}
 				ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
 				pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
-				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, wfiID: job.WorkflowInstanceId}, dv); err != nil {
+				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv); err != nil {
 					log.Warn("nats listener", err)
 					return false, err
 				}
@@ -620,43 +620,43 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, e
 	return res.Definition, nil
 }
 
-// CancelWorkflowInstance cancels a running workflow instance.
-func (c *Client) CancelWorkflowInstance(ctx context.Context, instanceID string) error {
-	return c.cancelWorkflowInstanceWithError(ctx, instanceID, nil)
+// CancelProcessInstance cancels a running Process Instance.
+func (c *Client) CancelProcessInstance(ctx context.Context, executionID string) error {
+	return c.cancelProcessInstanceWithError(ctx, executionID, nil)
 }
 
-func (c *Client) cancelWorkflowInstanceWithError(ctx context.Context, instanceID string, wfe *model.Error) error {
+func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInstanceID string, wfe *model.Error) error {
 	res := &emptypb.Empty{}
-	req := &model.CancelWorkflowInstanceRequest{
-		Id:    instanceID,
+	req := &model.CancelProcessInstanceRequest{
+		Id:    processInstanceID,
 		State: model.CancellationState_errored,
 		Error: wfe,
 	}
-	if err := api2.Call(ctx, c.txCon, messages.APICancelWorkflowInstance, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APICancelExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
 }
 
-// LaunchWorkflow launches a new workflow instance.
-func (c *Client) LaunchWorkflow(ctx context.Context, workflowName string, mvars model.Vars) (string, string, error) {
+// LaunchProcess launches a new workflow instance.
+func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars model.Vars) (string, string, error) {
 	ev, err := vars.Encode(ctx, mvars)
 	if err != nil {
 		return "", "", fmt.Errorf("encode variables for launch workflow: %w", err)
 	}
-	req := &model.LaunchWorkflowRequest{Name: workflowName, Vars: ev}
+	req := &model.LaunchWorkflowRequest{Name: processName, Vars: ev}
 	res := &model.LaunchWorkflowResponse{}
-	if err := api2.Call(ctx, c.txCon, messages.APILaunchWorkflow, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return "", "", c.clientErr(ctx, err)
 	}
 	return res.InstanceId, res.WorkflowId, nil
 }
 
-// ListWorkflowInstance gets a list of running workflow instances by workflow name.
-func (c *Client) ListWorkflowInstance(ctx context.Context, name string) ([]*model.ListWorkflowInstanceResult, error) {
-	req := &model.ListWorkflowInstanceRequest{WorkflowName: name}
-	res := &model.ListWorkflowInstanceResponse{}
-	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflowInstance, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+// ListExecution gets a list of running executions by workflow name.
+func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListExecutionResult, error) {
+	req := &model.ListExecutionRequest{WorkflowName: name}
+	res := &model.ListExecutionResponse{}
+	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Result, nil
@@ -672,11 +672,11 @@ func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResult
 	return res.Result, nil
 }
 
-// ListWorkflowInstanceProcesses lists the current process IDs for a workflow instance.
-func (c *Client) ListWorkflowInstanceProcesses(ctx context.Context, id string) (*model.ListWorkflowInstanceProcessesResult, error) {
-	req := &model.ListWorkflowInstanceProcessesRequest{Id: id}
-	res := &model.ListWorkflowInstanceProcessesResult{}
-	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflowInstanceProcesses, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+// ListExecutionProcesses lists the current process IDs for an Execution.
+func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.ListExecutionProcessesResult, error) {
+	req := &model.ListExecutionProcessesRequest{Id: id}
+	res := &model.ListExecutionProcessesResult{}
+	if err := api2.Call(ctx, c.txCon, messages.APIListExecutionProcesses, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res, nil

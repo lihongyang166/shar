@@ -17,6 +17,7 @@ import (
 
 //goland:noinspection GoNilness
 func TestMultiWorkflow(t *testing.T) {
+
 	tst := &support.Integration{Cooldown: 45 * time.Second}
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
@@ -66,19 +67,20 @@ func TestMultiWorkflow(t *testing.T) {
 	n := 100
 	mx := sync.Mutex{}
 	instances := make(map[string]struct{})
-	wg := sync.WaitGroup{}
+	//wg := sync.WaitGroup{}
 	for inst := 0; inst < n; inst++ {
-		wg.Add(1)
+		//wg.Add(1)
 		go func(inst int) {
-			// Launch the workflow
-			if wfiID, _, err := cl.LaunchWorkflow(ctx, "TestMultiWorkflow1", model.Vars{"orderId": inst}); err != nil {
+			// Launch the processes
+			if wfiID, _, err := cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {
 				panic(err)
 			} else {
 				mx.Lock()
 				instances[wfiID] = struct{}{}
 				mx.Unlock()
 			}
-			if wfiID2, _, err := cl.LaunchWorkflow(ctx, "TestMultiWorkflow2", model.Vars{}); err != nil {
+
+			if wfiID2, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{}); err != nil {
 				panic(err)
 			} else {
 				mx.Lock()
@@ -87,13 +89,9 @@ func TestMultiWorkflow(t *testing.T) {
 			}
 		}(inst)
 	}
-	go func() {
-		for i := 0; i < n; i++ {
-			<-handlers.finished
-			wg.Done()
-		}
-	}()
-	wg.Wait()
+
+	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*60)
+
 	tst.AssertCleanKV()
 }
 

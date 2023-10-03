@@ -45,7 +45,7 @@ func TestSimpleLegacy(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowTest", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

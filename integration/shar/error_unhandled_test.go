@@ -20,8 +20,8 @@ func TestUnhandledError(t *testing.T) {
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
-	//sub := tracer.Trace(NatsURL)
-	//defer sub.Drain()
+	//sub := tracer.Trace(tst.NatsURL)
+	//defer sub.Close()
 
 	// Create a starting context
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func TestUnhandledError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "TestUnhandledError", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, "Process_07lm3kx", model.Vars{})
 	if err != nil {
 		panic(err)
 	}

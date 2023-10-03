@@ -17,11 +17,16 @@ import (
 func TestLaunchWorkflow(t *testing.T) {
 	ctx := context.Background()
 
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn")
+	workflowName := "TestWorkflow"
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", workflowName)
 
-	process := wf.Process["SimpleProcess"]
+	processName := "SimpleProcess"
+	process := wf.Process[processName]
 	els := make(map[string]*model.Element)
 	common.IndexProcessElements(process.Elements, els)
+
+	svc.On("GetWorkflowNameFor", mock.AnythingOfType("*context.valueCtx"), processName).
+		Return(workflowName, nil)
 
 	svc.On("RecordHistoryProcessStart", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowState")).
 		Return(nil)
@@ -34,32 +39,33 @@ func TestLaunchWorkflow(t *testing.T) {
 		Once().
 		Return(wf, nil)
 
-	svc.On("CreateWorkflowInstance", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowInstance")).
+	executionId := "test-execution-id"
+
+	svc.On("CreateExecution", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.Execution")).
 		Once().
-		Return(&model.WorkflowInstance{
-			WorkflowInstanceId: "test-workflow-instance-id",
-			ParentElementId:    nil,
-			WorkflowId:         "test-workflow-id",
-			WorkflowName:       "TestWorkflow",
+		Return(&model.Execution{
+			ExecutionId:  executionId,
+			WorkflowId:   "test-workflow-id",
+			WorkflowName: workflowName,
 		}, nil)
 
-	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), "test-workflow-instance-id", "", "", "SimpleProcess").
+	svc.On("CreateProcessInstance", mock.AnythingOfType("*context.valueCtx"), executionId, "", "", processName, workflowName, "test-workflow-id").
 		Once().
 		Return(&model.ProcessInstance{
-			ProcessInstanceId:  "test-process-instance-id",
-			WorkflowInstanceId: "test-workflow-instance-id",
-			ParentProcessId:    nil,
-			ParentElementId:    nil,
-			WorkflowId:         "test-workflow-id",
-			WorkflowName:       "TestWorkflow",
-			ProcessName:        "TestProcess",
+			ProcessInstanceId: "test-process-instance-id",
+			ExecutionId:       executionId,
+			ParentProcessId:   nil,
+			ParentElementId:   nil,
+			WorkflowId:        "test-workflow-id",
+			WorkflowName:      workflowName,
+			ProcessName:       "TestProcess",
 		}, nil)
 
 	svc.On("PublishWorkflowState", mock.AnythingOfType("*context.valueCtx"), "WORKFLOW.%s.State.Traversal.Execute", mock.AnythingOfType("*model.WorkflowState")).
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowInstanceId, "test-workflow-instance-id")
+			assert.Equal(t, args[2].(*model.WorkflowState).ExecutionId, executionId)
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementId, "StartEvent")
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementType, "startEvent")
 		}).
@@ -69,7 +75,7 @@ func TestLaunchWorkflow(t *testing.T) {
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowInstanceId, "test-workflow-instance-id")
+			assert.Equal(t, args[2].(*model.WorkflowState).ExecutionId, executionId)
 		}).
 		Return(nil)
 
@@ -77,13 +83,13 @@ func TestLaunchWorkflow(t *testing.T) {
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowInstanceId, "test-workflow-instance-id")
+			assert.Equal(t, args[2].(*model.WorkflowState).ExecutionId, executionId)
 		}).
 		Return(nil)
 
-	wfiid, _, err := eng.Launch(ctx, "TestWorkflow", []byte{})
+	wfiid, _, err := eng.Launch(ctx, processName, []byte{})
 	assert.NoError(t, err)
-	assert.Equal(t, "test-workflow-instance-id", wfiid)
+	assert.Equal(t, executionId, wfiid)
 	svc.AssertExpectations(t)
 
 }
@@ -91,13 +97,13 @@ func TestLaunchWorkflow(t *testing.T) {
 func TestTraversal(t *testing.T) {
 	ctx := context.Background()
 
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn")
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", "TestWorkflow")
 
 	process := wf.Process["SimpleProcess"]
 	els := make(map[string]*model.Element)
 	common.IndexProcessElements(process.Elements, els)
 
-	//wfi := &model.WorkflowInstance{
+	//wfi := &model.Execution{
 	//	WorkflowInstanceId: "test-workflow-instance-id",
 	//	ParentElementId:    nil,
 	//	WorkflowId:         "test-workflow-id",
@@ -105,31 +111,29 @@ func TestTraversal(t *testing.T) {
 	//}
 
 	currentState := &model.WorkflowState{
-		WorkflowId:         "test-workflow-id",
-		WorkflowInstanceId: "test-workflow-instance-id",
-		ElementId:          "StartEvent",
-		ElementType:        element.StartEvent,
-		Id:                 common.TrackingID{"test-id"},
-		State:              model.CancellationState_executing,
-		UnixTimeNano:       time.Now().UnixNano(),
-		WorkflowName:       "TestWorkflow",
-		ProcessName:        "TestProcess",
-		ProcessInstanceId:  "test-process-instance-id",
+		WorkflowId:        "test-workflow-id",
+		ElementId:         "StartEvent",
+		ElementType:       element.StartEvent,
+		Id:                common.TrackingID{"test-id"},
+		State:             model.CancellationState_executing,
+		UnixTimeNano:      time.Now().UnixNano(),
+		WorkflowName:      "TestWorkflow",
+		ProcessName:       "TestProcess",
+		ProcessInstanceId: "test-process-instance-id",
 	}
 
 	pi := &model.ProcessInstance{
-		ProcessInstanceId:  "test-process-instance-id",
-		WorkflowInstanceId: "test-workflow-instance-id",
-		WorkflowId:         "test-workflow-id",
-		WorkflowName:       "TestWorkflow",
-		ProcessName:        "TestProcess",
+		ProcessInstanceId: "test-process-instance-id",
+		ExecutionId:       "test-execution-id",
+		WorkflowId:        "test-workflow-id",
+		WorkflowName:      "TestWorkflow",
+		ProcessName:       "TestProcess",
 	}
 
 	svc.On("PublishWorkflowState", mock.AnythingOfType("*context.valueCtx"), "WORKFLOW.%s.State.Traversal.Execute", mock.AnythingOfType("*model.WorkflowState")).
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowInstanceId, "test-workflow-instance-id")
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementId, "Step1")
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementType, element.ServiceTask)
 			assert.NotEmpty(t, args[2].(*model.WorkflowState).Id)
@@ -145,7 +149,7 @@ func TestTraversal(t *testing.T) {
 func TestActivityProcessorServiceTask(t *testing.T) {
 	ctx := context.Background()
 
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn")
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", "TestWorkflow")
 
 	process := wf.Process["SimpleProcess"]
 	els := make(map[string]*model.Element)
@@ -158,26 +162,16 @@ func TestActivityProcessorServiceTask(t *testing.T) {
 	svc.On("GetTaskSpecUID", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("string")).
 		Return(id, nil)
 
-	svc.On("GetWorkflowInstance", mock.AnythingOfType("*context.valueCtx"), "test-workflow-instance-id").
-		Once().
-		Return(&model.WorkflowInstance{
-			WorkflowInstanceId: "test-workflow-instance-id",
-			ParentElementId:    nil,
-			WorkflowId:         "test-workflow-id",
-			WorkflowName:       "TestWorkflow",
-			ProcessInstanceId:  []string{"test-process-instance-id"},
-		}, nil)
-
 	svc.On("GetProcessInstance", mock.AnythingOfType("*context.valueCtx"), "test-process-instance-id").
 		Once().
 		Return(&model.ProcessInstance{
-			ProcessInstanceId:  "test-process-instance-id",
-			WorkflowInstanceId: "test-workflow-instance-id",
-			ParentProcessId:    nil,
-			ParentElementId:    nil,
-			WorkflowId:         "test-workflow-id",
-			WorkflowName:       "TestWorkflow",
-			ProcessName:        "TestProcess",
+			ProcessInstanceId: "test-process-instance-id",
+			ExecutionId:       "test-execution-id",
+			ParentProcessId:   nil,
+			ParentElementId:   nil,
+			WorkflowId:        "test-workflow-id",
+			WorkflowName:      "TestWorkflow",
+			ProcessName:       "TestProcess",
 		}, nil)
 
 	svc.On("GetWorkflow", mock.AnythingOfType("*context.valueCtx"), "test-workflow-id").
@@ -196,7 +190,6 @@ func TestActivityProcessorServiceTask(t *testing.T) {
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowInstanceId, "test-workflow-instance-id")
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementId, "Step1")
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementType, element.ServiceTask)
 			assert.NotEmpty(t, args[2].(*model.WorkflowState).Id)
@@ -207,7 +200,6 @@ func TestActivityProcessorServiceTask(t *testing.T) {
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[1].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[1].(*model.WorkflowState).WorkflowInstanceId, "test-workflow-instance-id")
 			assert.Equal(t, args[1].(*model.WorkflowState).ElementId, "Step1")
 			assert.Equal(t, args[1].(*model.WorkflowState).ElementType, element.ServiceTask)
 		}).
@@ -217,7 +209,6 @@ func TestActivityProcessorServiceTask(t *testing.T) {
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowInstanceId, "test-workflow-instance-id")
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementId, "Step1")
 			assert.Equal(t, args[2].(*model.WorkflowState).ElementType, element.ServiceTask)
 			//assert.NotEmpty(t, args[2].(*model.WorkflowState).TrackingId)
@@ -227,14 +218,13 @@ func TestActivityProcessorServiceTask(t *testing.T) {
 	v, err := vars.Encode(context.Background(), model.Vars{})
 	require.NoError(t, err)
 	err = eng.activityStartProcessor(ctx, "", &model.WorkflowState{
-		WorkflowInstanceId: "test-workflow-instance-id",
-		ElementId:          els["Step1"].Id,
-		ElementType:        els["Step1"].Type,
-		Id:                 []string{trackingID},
-		Vars:               v,
-		WorkflowName:       "TestWorkflow",
-		ProcessInstanceId:  "test-process-instance-id",
-		WorkflowId:         "test-workflow-id",
+		ElementId:         els["Step1"].Id,
+		ElementType:       els["Step1"].Type,
+		Id:                []string{trackingID},
+		Vars:              v,
+		WorkflowName:      "TestWorkflow",
+		ProcessInstanceId: "test-process-instance-id",
+		WorkflowId:        "test-workflow-id",
 	}, false)
 	assert.NoError(t, err)
 	svc.AssertExpectations(t)
@@ -268,9 +258,9 @@ func TestCompleteJobProcessor(t *testing.T) {
 			Vars:               []byte{},
 		}, nil)
 
-	svc.On("GetWorkflowInstance", mock.AnythingOfType("*context.emptyCtx"), "test-workflow-instance-id").
+	svc.On("GetExecution", mock.AnythingOfType("*context.emptyCtx"), "test-workflow-instance-id").
 		Once().
-		Return(&model.WorkflowInstance{
+		Return(&model.Execution{
 			WorkflowInstanceId:       "test-workflow-instance-id",
 			ParentWorkflowInstanceId: nil,
 			ParentElementId:          nil,

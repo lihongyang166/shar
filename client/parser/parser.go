@@ -35,6 +35,13 @@ func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
 		Name:    name,
 		Process: make(map[string]*model.Process, len(prXmls)),
 	}
+	if collaboration := doc.SelectElements("//bpmn:collaboration"); len(collaboration) > 0 {
+		if err := parseCollaboration(wf, collaboration[0]); err != nil {
+			return nil, fmt.Errorf("parse collaboration: %w", err)
+		}
+	} else {
+		wf.Collaboration = &model.Collaboration{}
+	}
 	for _, prXML := range prXmls {
 		pr := &model.Process{
 			Elements: make([]*model.Element, 0),
@@ -62,6 +69,29 @@ func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
 		return nil, fmt.Errorf("linting found issues: %w", err)
 	}
 	return wf, nil
+}
+
+func parseCollaboration(wf *model.Workflow, collaboration *xmlquery.Node) error {
+	c := &model.Collaboration{}
+	for _, i := range collaboration.SelectElements("bpmn:participant") {
+		c.Participant = append(c.Participant,
+			&model.Participant{
+				Id:        i.SelectElement("@id").InnerText(),
+				ProcessId: i.SelectElement("@processRef").InnerText(),
+			},
+		)
+	}
+	for _, i := range collaboration.SelectElements("bpmn:messageFlow") {
+		c.MessageFlow = append(c.MessageFlow,
+			&model.MessageFlow{
+				Id:        i.SelectElement("@id").InnerText(),
+				Sender:    i.SelectElement("@sourceRef").InnerText(),
+				Recipient: i.SelectElement("@targetRef").InnerText(),
+			},
+		)
+	}
+	wf.Collaboration = c
+	return nil
 }
 
 func parseProcess(doc *xmlquery.Node, wf *model.Workflow, prXML *xmlquery.Node, pr *model.Process, msgXML []*xmlquery.Node, errXML []*xmlquery.Node, msgs map[string]string, errs map[string]string) error {

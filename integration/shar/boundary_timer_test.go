@@ -111,7 +111,7 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
 	err = cl.RegisterProcessComplete("Process_16piog5", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	wfiID, _, err := cl.LaunchWorkflow(ctx, "PossibleTimeout", model.Vars{})
+	wfiID, _, err := cl.LaunchProcess(ctx, "Process_16piog5", model.Vars{})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

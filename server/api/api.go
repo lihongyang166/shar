@@ -145,10 +145,6 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("APIGetProcessHistory failed: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APISpoolWorkflowEvents, &model.SpoolWorkflowEventsRequest{}, s.spoolWorkflowEvents); err != nil {
-		return fmt.Errorf("APIGetProcessHistory failed: %w", err)
-	}
-
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetVersionInfo, &model.GetVersionInfoRequest{}, s.versionInfo); err != nil {
 		return fmt.Errorf("APIGetProcessHistory failed: %w", err)
 	}

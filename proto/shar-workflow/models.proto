@@ -471,14 +471,6 @@ message GetServiceTaskRoutingIDResponse {
   string id = 1;
 }
 
-message SpoolWorkflowEventsRequest {
-
-}
-
-message SpoolWorkflowEventsResponse {
-  repeated WorkflowStateSummary state = 1;
-}
-
 message GetVersionInfoRequest {
   string clientVersion = 1;
 }

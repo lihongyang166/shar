@@ -21,7 +21,7 @@ and then include the function in the list below.
 Always add the latest version at the bottom of the list.
 */
 var list = []patch{
-	v1_0_503,
+	v1_1_503,
 }
 
 var nver int

@@ -10,7 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 )
 
-var ver = "1.0.503"
+var ver = "1.1.503"
 
 /*
 In this upgrade the database changes are as follows:
@@ -18,7 +18,7 @@ In this upgrade the database changes are as follows:
 */
 
 //goland:noinspection GoSnakeCaseUsage
-func v1_0_503(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext) error {
+func v1_1_503(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext) error {
 	// *Upgrade data in service task registry
 	kv, err := js.KeyValue(messages.KvClientTaskID)
 	if err != nil {

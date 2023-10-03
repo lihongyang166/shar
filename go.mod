@@ -1,6 +1,6 @@
 module gitlab.com/shar-workflow/shar
 
-go 1.20
+go 1.21
 
 replace github.com/golang/protobuf v1.5.2 => google.golang.org/protobuf v1.28.1
 

@@ -41,12 +41,12 @@ func main() {
 	}
 
 	// Add a hook to watch for completion
-	if err := cl.RegisterProcessComplete("TestUserTasks", processEnd); err != nil {
+	if err := cl.RegisterProcessComplete("Process_03llwnm", processEnd); err != nil {
 		panic(err)
 	}
 
 	// Launch the workflow
-	if _, _, err := cl.LaunchProcess(ctx, "TestUserTasks", model.Vars{"OrderId": 68}); err != nil {
+	if _, _, err := cl.LaunchWorkflow(ctx, "UserTaskWorkflowDemo", model.Vars{"OrderId": 68}); err != nil {
 		panic(err)
 	}
 

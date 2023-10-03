@@ -53,7 +53,7 @@ func main() {
 	}
 
 	// Launch the workflow
-	if _, _, err = cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": 57, "carried": 128}); err != nil {
+	if _, _, err = cl.LaunchWorkflow(ctx, "MessageManualDemo", model.Vars{"orderId": 57, "carried": 128}); err != nil {
 		panic(err)
 	}
 

@@ -20,18 +20,17 @@ type NatsService interface {
 	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResult, chan error)
 	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
-	GetWorkflowNameFor(ctx context.Context, processName string) (string, error)
 	GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error)
-	CreateExecution(ctx context.Context, wfInstance *model.Execution) (*model.Execution, error)
-	GetExecution(ctx context.Context, workflowInstanceID string) (*model.Execution, error)
-	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
+	CreateWorkflowInstance(ctx context.Context, wfInstance *model.WorkflowInstance) (*model.WorkflowInstance, error)
+	GetWorkflowInstance(ctx context.Context, workflowInstanceID string) (*model.WorkflowInstance, error)
+	XDestroyWorkflowInstance(ctx context.Context, state *model.WorkflowState) error
 	GetServiceTaskRoutingKey(ctx context.Context, taskName string) (string, error)
 	GetLatestVersion(ctx context.Context, workflowName string) (string, error)
 	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
 	GetJob(ctx context.Context, id string) (*model.WorkflowState, error)
 	GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error)
-	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error)
-	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
+	ListWorkflowInstance(ctx context.Context, workflowName string) (chan *model.ListWorkflowInstanceResult, chan error)
+	ListWorkflowInstanceProcesses(ctx context.Context, id string) ([]string, error)
 	StartProcessing(ctx context.Context) error
 	SetEventProcessor(processor services.EventProcessorFunc)
 	SetMessageProcessor(processor services.MessageProcessorFunc)
@@ -49,9 +48,10 @@ type NatsService interface {
 	OwnerID(name string) (string, error)
 	OwnerName(id string) (string, error)
 	GetOldState(ctx context.Context, id string) (*model.WorkflowState, error)
-	CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error)
+	CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string) (*model.ProcessInstance, error)
 	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
-	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.Execution) error
+	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.WorkflowInstance) error
+	SatisfyProcess(ctx context.Context, workflowInstance *model.WorkflowInstance, processName string) error
 	GetGatewayInstanceID(state *model.WorkflowState) (string, string, error)
 	GetGatewayInstance(ctx context.Context, gatewayInstanceID string) (*model.Gateway, error)
 	RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error

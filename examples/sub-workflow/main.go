@@ -49,7 +49,7 @@ func main() {
 	}
 
 	// Launch the workflow
-	if _, _, err := cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{}); err != nil {
+	if _, _, err := cl.LaunchWorkflow(ctx, "MasterWorkflowDemo", model.Vars{}); err != nil {
 		panic(err)
 	}
 	go func() {

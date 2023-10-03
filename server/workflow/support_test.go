@@ -10,14 +10,14 @@ import (
 	"testing"
 )
 
-func setupTestWorkflow(t *testing.T, workflowFilename string, workflowName string) (*Engine, *MockNatsService, *model.Workflow) {
+func setupTestWorkflow(t *testing.T, workflowName string) (*Engine, *MockNatsService, *model.Workflow) {
 	svc := &MockNatsService{}
 
 	eng, err := New(svc)
 	require.NoError(t, err)
-	b, err := os.ReadFile("../../testdata/" + workflowFilename)
+	b, err := os.ReadFile("../../testdata/" + workflowName)
 	require.NoError(t, err)
-	wf, err := parser.Parse(workflowName, bytes.NewBuffer(b))
+	wf, err := parser.Parse("TestWorkflow", bytes.NewBuffer(b))
 	require.NoError(t, err)
 
 	return eng, svc, wf

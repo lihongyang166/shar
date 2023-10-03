@@ -12,11 +12,11 @@ const (
 	WorkflowCommands                  = "WORKFLOW.%s.Command.>"                       // WorkflowCommands is the wildcard state message subject for all workflow commands.
 	WorkflowElementTimedExecute       = "WORKFLOW.%s.Timers.ElementExecute"           // WorkflowElementTimedExecute is the state message subject for a timed element execute operation.
 	WorkflowGeneralAbortAll           = "WORKFLOW.%s.State.*.Abort"                   // WorkflowGeneralAbortAll is the wildcard state message subject for all abort messages/.
-	ExecutionAbort                    = "WORKFLOW.%s.State.Workflow.Abort"            // ExecutionAbort is the state message subject for a workflow instace being aborted.
-	ExecutionAll                      = "WORKFLOW.%s.State.Workflow.>"                // ExecutionAll is the wildcard state message subject for all workflow state messages.
-	ExecutionComplete                 = "WORKFLOW.%s.State.Workflow.Complete"         // ExecutionComplete is the state message subject for completing a workfloe instance.
-	ExecutionExecute                  = "WORKFLOW.%s.State.Workflow.Execute"          // ExecutionExecute is the state message subject for executing a workflow instance.
-	ExecutionTerminated               = "WORKFLOW.%s.State.Workflow.Terminated"       // ExecutionTerminated is the state message subject for a workflow instance terminating.
+	WorkflowInstanceAbort             = "WORKFLOW.%s.State.Workflow.Abort"            // WorkflowInstanceAbort is the state message subject for a workflow instace being aborted.
+	WorkflowInstanceAll               = "WORKFLOW.%s.State.Workflow.>"                // WorkflowInstanceAll is the wildcard state message subject for all workflow state messages.
+	WorkflowInstanceComplete          = "WORKFLOW.%s.State.Workflow.Complete"         // WorkflowInstanceComplete is the state message subject for completing a workfloe instance.
+	WorkflowInstanceExecute           = "WORKFLOW.%s.State.Workflow.Execute"          // WorkflowInstanceExecute is the state message subject for executing a workflow instance.
+	WorkflowInstanceTerminated        = "WORKFLOW.%s.State.Workflow.Terminated"       // WorkflowInstanceTerminated is the state message subject for a workflow instance terminating.
 	WorkflowJobAwaitMessageExecute    = "WORKFLOW.%s.State.Job.Execute.AwaitMessage"  // WorkflowJobAwaitMessageExecute is the state message subject for awaiting a message.
 	WorkflowJobAwaitMessageComplete   = "WORKFLOW.%s.State.Job.Complete.AwaitMessage" // WorkflowJobAwaitMessageComplete is the state message subject for completing awaiting a message.
 	WorkflowJobAwaitMessageAbort      = "WORKFLOW.%s.State.Job.Abort.AwaitMessage"    // WorkflowJobAwaitMessageAbort is the state message subject for aborting awaiting a message.
@@ -98,7 +98,7 @@ var AllMessages = []string{
 	subj.NS(WorkflowActivityExecute, "*"),
 	subj.NS(WorkflowCommands, "*"),
 	subj.NS(WorkflowElementTimedExecute, "*"),
-	subj.NS(ExecutionAll, "*"),
+	subj.NS(WorkflowInstanceAll, "*"),
 	subj.NS(WorkflowJobAwaitMessageExecute, "*"),
 	subj.NS(WorkflowJobLaunchExecute, "*"),
 	subj.NS(WorkflowJobManualTaskExecute, "*"),
@@ -125,54 +125,53 @@ var AllMessages = []string{
 var WorkflowMessageFormat = "WORKFLOW.%s.Message.%s"
 
 const (
-	APIAll                       = "WORKFLOW.Api.*"                         // APIAll is all API message subjects.
-	APIStoreWorkflow             = "WORKFLOW.Api.StoreWorkflow"             // APIStoreWorkflow is the store Workflow API subject.
-	APILaunchProcess             = "WORKFLOW.Api.LaunchProcess"             // APILaunchProcess is the launch process API subject.
-	APIListWorkflows             = "WORKFLOW.Api.ListWorkflows"             // APIListWorkflows is the list workflows API subject.
-	APIListExecution             = "WORKFLOW.Api.ListExecution"             // APIListExecution is the list workflow instances API subject.
-	APIListExecutionProcesses    = "WORKFLOW.Api.ListExecutionProcesses"    // APIListExecutionProcesses is the get processes of a running workflow instance API subject.
-	APICancelExecution           = "WORKFLOW.Api.CancelExecution"           // APICancelExecution is the cancel an execution API subject.
-	APISendMessage               = "WORKFLOW.Api.SendMessage"               // APISendMessage is the send workflow message API subject.
-	APICancelProcessInstance     = "WORKFLOW.API.CancelProcessInstance"     // APICancelProcessInstance is the cancel process instance API message subject.
-	APICompleteManualTask        = "WORKFLOW.Api.CompleteManualTask"        // APICompleteManualTask is the complete manual task API subject.
-	APICompleteServiceTask       = "WORKFLOW.Api.CompleteServiceTask"       // APICompleteServiceTask is the complete service task API subject.
-	APICompleteUserTask          = "WORKFLOW.Api.CompleteUserTask"          // APICompleteUserTask is the complete user task API subject.
-	APICompleteSendMessageTask   = "WORKFLOW.Api.CompleteSendMessageTask"   // APICompleteSendMessageTask is the complete send message task API subject.
-	APIListUserTaskIDs           = "WORKFLOW.Api.ListUserTaskIDs"           // APIListUserTaskIDs is the list user task IDs API subject.
-	APIGetUserTask               = "WORKFLOW.Api.GetUserTask"               // APIGetUserTask is the get user task API subject.
-	APIHandleWorkflowError       = "WORKFLOW.Api.HandleWorkflowError"       // APIHandleWorkflowError is the handle workflow error API subject.
-	APIGetServerInstanceStats    = "WORKFLOW.Api.GetServerInstanceStats"    // APIGetServerInstanceStats is the get server instance status API subject.
-	APIGetServiceTaskRoutingID   = "WORKFLOW.Api.GetServiceTaskRoutingID"   // APIGetServiceTaskRoutingID is the get client routing ID for a service task API subject.
-	APIGetMessageSenderRoutingID = "WORKFLOW.Api.GetMessageSenderRoutingID" // APIGetMessageSenderRoutingID is the get message sender routing ID API subject.
-	APIRegisterTask              = "Workflow.Api.RegisterTask"              // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
-	APIGetProcessInstanceStatus  = "WORKFLOW.Api.GetProcessInstanceStatus"  // APIGetProcessInstanceStatus is the get process instance status API subject.
-	ApiGetTaskSpec               = "WORKFLOW.Api.GetTaskSpec"               // ApiGetTaskSpec is the get task spec API message subject.
-	APIGetWorkflowVersions       = "WORKFLOW.Api.GetWorkflowVersions"       // APIGetWorkflowVersions is the get workflow versions API message subject.
-	APIGetWorkflow               = "WORKFLOW.Api.GetWorkflow"               // APIGetWorkflow is the get workflow API message subject.
-	APIGetProcessHistory         = "WORKFLOW.Api.GetProcessHistory"         // APIGetProcessHistory is the get process history API message subject.
-	APIGetVersionInfo            = "WORKFLOW.API.GetVersionInfo"            // APIGetVersionInfo is the get server version information API message subject.
+	APIAll                           = "WORKFLOW.Api.*"                             // APIAll is all API message subjects.
+	APIStoreWorkflow                 = "WORKFLOW.Api.StoreWorkflow"                 // APIStoreWorkflow is the store Workflow API subject.
+	APILaunchWorkflow                = "WORKFLOW.Api.LaunchWorkflow"                // APILaunchWorkflow is the launch workflow API subject.
+	APIListWorkflows                 = "WORKFLOW.Api.ListWorkflows"                 // APIListWorkflows is the list workflows API subject.
+	APIListWorkflowInstance          = "WORKFLOW.Api.ListWorkflowInstance"          // APIListWorkflowInstance is the list workflow instances API subject.
+	APIListWorkflowInstanceProcesses = "WORKFLOW.Api.ListWorkflowInstanceProcesses" // APIListWorkflowInstanceProcesses is the get processes of a running workflow instance API subject.
+	APICancelWorkflowInstance        = "WORKFLOW.Api.CancelWorkflowInstance"        // APICancelWorkflowInstance is the cancel a workflow instance API subject.
+	APISendMessage                   = "WORKFLOW.Api.SendMessage"                   // APISendMessage is the send workflow message API subject.
+	APICompleteManualTask            = "WORKFLOW.Api.CompleteManualTask"            // APICompleteManualTask is the complete manual task API subject.
+	APICompleteServiceTask           = "WORKFLOW.Api.CompleteServiceTask"           // APICompleteServiceTask is the complete service task API subject.
+	APICompleteUserTask              = "WORKFLOW.Api.CompleteUserTask"              // APICompleteUserTask is the complete user task API subject.
+	APICompleteSendMessageTask       = "WORKFLOW.Api.CompleteSendMessageTask"       // APICompleteSendMessageTask is the complete send message task API subject.
+	APIListUserTaskIDs               = "WORKFLOW.Api.ListUserTaskIDs"               // APIListUserTaskIDs is the list user task IDs API subject.
+	APIGetUserTask                   = "WORKFLOW.Api.GetUserTask"                   // APIGetUserTask is the get user task API subject.
+	APIHandleWorkflowError           = "WORKFLOW.Api.HandleWorkflowError"           // APIHandleWorkflowError is the handle workflow error API subject.
+	APIGetServerInstanceStats        = "WORKFLOW.Api.GetServerInstanceStats"        // APIGetServerInstanceStats is the get server instance status API subject.
+	APIGetServiceTaskRoutingID       = "WORKFLOW.Api.GetServiceTaskRoutingID"       // APIGetServiceTaskRoutingID is the get client routing ID for a service task API subject.
+	APIGetMessageSenderRoutingID     = "WORKFLOW.Api.GetMessageSenderRoutingID"     // APIGetMessageSenderRoutingID is the get message sender routing ID API subject.
+	APIRegisterTask                  = "Workflow.Api.RegisterTask"                  // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
+	APIGetProcessInstanceStatus      = "WORKFLOW.Api.GetProcessInstanceStatus"      // APIGetProcessInstanceStatus is the get process instance status API subject.
+	ApiGetTaskSpec                   = "WORKFLOW.Api.GetTaskSpec"                   // ApiGetTaskSpec is the get task spec API message subject.
+	APIGetWorkflowVersions           = "WORKFLOW.Api.GetWorkflowVersions"           // APIGetWorkflowVersions is the get workflow versions API message subject.
+	APIGetWorkflow                   = "WORKFLOW.Api.GetWorkflow"                   // APIGetWorkflow is the get workflow API message subject.
+	APIGetProcessHistory             = "WORKFLOW.Api.GetProcessHistory"             // APIGetProcessHistory is the get process history API message subject.
+	APIGetVersionInfo                = "WORKFLOW.API.GetVersionInfo"                // APIGetVersionInfo is the get server version information API message subject.
 )
 
+const APISpoolWorkflowEvents = "WORKFLOW.Api.SpoolWorkflowEvents" // APISpoolWorkflowEvents returns the latest workflow events from SHAR for export.  Event spooling must be enabled on the server.
+
 var (
-	KvJob              = "WORKFLOW_JOB"             // KvJob is the name of the key value store that holds workflow jobs.
-	KvVersion          = "WORKFLOW_VERSION"         // KvVersion is the name of the key value store that holds an ordered list of workflow version IDs for a given workflow
-	KvDefinition       = "WORKFLOW_DEF"             // KvDefinition is the name of the key value store that holds the state machine definition for workflows
-	KvTracking         = "WORKFLOW_TRACKING"        // KvTracking is the name of the key value store that holds the state of a workflow task.
-	KvInstance         = "WORKFLOW_INSTANCE"        // KvInstance is the name of the key value store that holds workflow instance information.
-	KvExecution        = "WORKFLOW_EXECUTION"       // KvExecution is the name of the key value store that holds execution information.
-	KvMessageInterest  = "WORKFLOW_MSGNAME"         // KvMessageInterest is the name of the key value store that holds recipients for messages.
-	KvUserTask         = "WORKFLOW_USERTASK"        // KvUserTask is the name of the key value store that holds active user tasks.
-	KvOwnerName        = "WORKFLOW_OWNERNAME"       // KvOwnerName is the name of the key value store that holds owner names for owner IDs
-	KvOwnerID          = "WORKFLOW_OWNERID"         // KvOwnerID is the name of the key value store that holds owner IDs for owner names.
-	KvClientTaskID     = "WORKFLOW_CLIENTTASK"      // KvClientTaskID is the name of the key value store that holds the unique ID used by clients to subscribe to service task messages.
-	KvWfName           = "WORKFLOW_NAME"            // KvWfName is the name of the key value store that holds workflow IDs for workflow names.
-	KvVarState         = "WORKFLOW_VARSTATE"        // KvVarState is the name of the key value store that holds the state of variables upon entering a task.
-	KvProcessInstance  = "WORKFLOW_PROCESS"         // KvProcessInstance is the name of the key value store holding process instances.
-	KvGateway          = "WORKFLOW_GATEWAY"         // KvGateway is the name of the key value store holding gateway instances.
-	KvHistory          = "WORKFLOW_HISTORY"         // KvHistory is the name of the key value store holding process histories.
-	KvLock             = "WORKFLOW_GENLCK"          // KvLock is the name of the key value store holding locks.
-	KvMessageTypes     = "WORKFLOW_MSGTYPES"        // KvMessageTypes is the name of the key value store containing known message types.
-	KvTaskSpecVersions = "WORKFLOW_TSPECVER"        // KvTaskSpecVersions is the name of the key value store holding task specification versions
-	KvTaskSpec         = "WORKFLOW_TSKSPEC"         // KvTaskSpec is the name of the key value store holding task specification
-	KvProcess          = "WORKFLOW_PROCESS_MAPPING" // KvProcess is the name of the key value store mapping process names to workflow names
+	KvJob              = "WORKFLOW_JOB"        // KvJob is the name of the key value store that holds workflow jobs.
+	KvVersion          = "WORKFLOW_VERSION"    // KvVersion is the name of the key value store that holds an ordered list of workflow version IDs for a given workflow
+	KvDefinition       = "WORKFLOW_DEF"        // KvDefinition is the name of the key value store that holds the state machine definition for workflows
+	KvTracking         = "WORKFLOW_TRACKING"   // KvTracking is the name of the key value store that holds the state of a workflow task.
+	KvInstance         = "WORKFLOW_INSTANCE"   // KvInstance is the name of the key value store that holds workflow instance information.
+	KvMessageInterest  = "WORKFLOW_MSGNAME"    // KvMessageInterest is the name of the key value store that holds recipients for messages.
+	KvUserTask         = "WORKFLOW_USERTASK"   // KvUserTask is the name of the key value store that holds active user tasks.
+	KvOwnerName        = "WORKFLOW_OWNERNAME"  // KvOwnerName is the name of the key value store that holds owner names for owner IDs
+	KvOwnerID          = "WORKFLOW_OWNERID"    // KvOwnerID is the name of the key value store that holds owner IDs for owner names.
+	KvClientTaskID     = "WORKFLOW_CLIENTTASK" // KvClientTaskID is the name of the key value store that holds the unique ID used by clients to subscribe to service task messages.
+	KvWfName           = "WORKFLOW_NAME"       // KvWfName is the name of the key value store that holds workflow IDs for workflow names.
+	KvVarState         = "WORKFLOW_VARSTATE"   // KvVarState is the name of the key value store that holds the state of variables upon entering a task.
+	KvProcessInstance  = "WORKFLOW_PROCESS"    // KvProcessInstance is the name of the key value store holding process instances.
+	KvGateway          = "WORKFLOW_GATEWAY"    // KvGateway is the name of the key value store holding gateway instances.
+	KvHistory          = "WORKFLOW_HISTORY"    // KvHistory is the name of the key value store holding process histories.
+	KvLock             = "WORKFLOW_GENLCK"     // KvLock is the name of the key value store holding locks.
+	KvMessageTypes     = "WORKFLOW_MSGTYPES"   // KvMessageTypes is the name of the key value store containing known message types.
+	KvTaskSpecVersions = "WORKFLOW_TSPECVER"   // KvTaskSpecVersions is the name of the key value store holding task specification versions
+	KvTaskSpec         = "WORKFLOW_TSKSPEC"    // KvTaskSpec is the name of the key value store holding task specification
 )

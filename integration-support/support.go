@@ -243,8 +243,7 @@ func (s *Integration) checkCleanKV() error {
 			"WORKFLOW_MSGTYPES",
 			"WORKFLOW_HISTORY",
 			"WORKFLOW_TSKSPEC",
-			"WORKFLOW_TSPECVER",
-			"WORKFLOW_PROCESS_MAPPING":
+			"WORKFLOW_TSPECVER":
 			//noop
 		default:
 			if len(keys) > 0 {
@@ -266,13 +265,11 @@ func (s *Integration) checkCleanKV() error {
 						str := &model.WorkflowState{}
 						err := proto.Unmarshal(p.Value(), str)
 						if err == nil {
-							fmt.Println(kvs.Bucket())
 							sc.Dump(str)
 						} else {
 							str := &model.MessageInstance{}
 							err := proto.Unmarshal(p.Value(), str)
 							if err == nil {
-								fmt.Println(kvs.Bucket())
 								sc.Dump(str)
 							}
 						}
@@ -383,25 +380,6 @@ func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
 	case <-time.After(d):
 		assert.Fail(t, "timed out waiting for completion")
 		return
-	}
-}
-
-// WaitForExpectedCompletions will wait up to timeout for expectedCompletions on the completion channel
-func WaitForExpectedCompletions(t *testing.T, expectedCompletions int, completion chan struct{}, timeout time.Duration) {
-	var c int
-	for i := 0; i < expectedCompletions; i++ {
-		select {
-		case <-completion:
-			c = c + 1
-			if c == expectedCompletions-1 {
-				return
-			} else {
-				continue
-			}
-		case <-time.After(timeout):
-			assert.Fail(t, fmt.Sprintf("###timed out waiting for completion. Expected %d, got %d", expectedCompletions, c))
-			return
-		}
 	}
 }
 

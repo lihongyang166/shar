@@ -14,8 +14,8 @@ type Text struct {
 }
 
 // OutputStartWorkflowResult returns a CLI response
-func (c *Text) OutputStartWorkflowResult(executionID string, wfID string) {
-	fmt.Println("Execution:", executionID)
+func (c *Text) OutputStartWorkflowResult(wfiID string, wfID string) {
+	fmt.Println("Workflow Instance:", wfiID)
 	fmt.Println("Workflow:", wfID)
 }
 
@@ -26,8 +26,8 @@ func (c *Text) OutputWorkflow(res []*model.ListWorkflowResult) {
 	}
 }
 
-// OutputListExecution returns a CLI response
-func (c *Text) OutputListExecution(res []*model.ListExecutionResult) {
+// OutputListWorkflowInstance returns a CLI response
+func (c *Text) OutputListWorkflowInstance(res []*model.ListWorkflowInstanceResult) {
 	for i, v := range res {
 		fmt.Println(i, ":", v.Id, "version", v.Version)
 	}
@@ -40,14 +40,14 @@ func (c *Text) OutputUserTaskIDs(ut []*model.GetUserTaskResponse) {
 	}
 }
 
-// OutputCancelledProcessInstance returns a CLI response
-func (c *Text) OutputCancelledProcessInstance(id string) {
-	fmt.Println("process instance", id, "cancelled.")
+// OutputCancelledWorkflow returns a CLI response
+func (c *Text) OutputCancelledWorkflow(id string) {
+	fmt.Println("workflow", id, "cancelled.")
 }
 
-// OutputExecutionStatus outputs an execution status
-func (c *Text) OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState) {
-	fmt.Println("Execution: " + executionID)
+// OutputWorkflowInstanceStatus outputs a workflow instance status
+func (c *Text) OutputWorkflowInstanceStatus(workflowInstanceID string, states map[string][]*model.WorkflowState) {
+	fmt.Println("Instance: " + workflowInstanceID)
 
 	ll := make(pterm.LeveledList, 0, len(states)*7+1)
 
@@ -74,8 +74,8 @@ func (c *Text) OutputExecutionStatus(executionID string, states map[string][]*mo
 }
 
 // OutputLoadResult returns a CLI response
-func (c *Text) OutputLoadResult(workflowID string) {
-	fmt.Println("Workflow id: " + workflowID)
+func (c *Text) OutputLoadResult(workflowInstanceID string) {
+	fmt.Println("Instance: " + workflowInstanceID)
 }
 
 func readStringPtr(ptr *string) string {

@@ -23,8 +23,8 @@ import (
 // Cmd is the cobra command object
 var Cmd = &cobra.Command{
 	Use:   "start",
-	Short: "Starts a new execution",
-	Long:  `shar workflow start "ProcessID"`,
+	Short: "Starts a new workflow instance",
+	Long:  `shar workflow start "WorkflowName"`,
 	RunE:  run,
 	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 }
@@ -47,7 +47,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	executionID, wfID, err := shar.LaunchProcess(ctx, args[0], *vars)
+	wfiID, wfID, err := shar.LaunchWorkflow(ctx, args[0], *vars)
 	if err != nil {
 		return fmt.Errorf("workflow launch failed: %w", err)
 	}
@@ -96,9 +96,9 @@ func run(cmd *cobra.Command, args []string) error {
 				log.Error("unmarshal message", err)
 				return fmt.Errorf("unmarshal status trace message: %w", err)
 			}
-			//if state.WorkflowInstanceId == executionID {
+			//if state.WorkflowInstanceId == wfiID {
 			//TODO: Re- implement
-			//	output.Current.OutputExecutionStatus(executionID, []*model.WorkflowState{&state})
+			//	output.Current.OutputWorkflowInstanceStatus(wfiID, []*model.WorkflowState{&state})
 			//}
 			// Check end states once they are implemented
 			// if state.State == "" {
@@ -107,7 +107,7 @@ func run(cmd *cobra.Command, args []string) error {
 			// }
 		}
 	}
-	output.Current.OutputStartWorkflowResult(executionID, wfID)
+	output.Current.OutputStartWorkflowResult(wfiID, wfID)
 	return nil
 }
 

@@ -8,10 +8,10 @@ import (
 
 // Method represents the output method
 type Method interface {
-	OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState)
-	OutputLoadResult(executionID string)
-	OutputListExecution(res []*model.ListExecutionResult)
-	OutputCancelledProcessInstance(id string)
+	OutputWorkflowInstanceStatus(workflowInstanceID string, states map[string][]*model.WorkflowState)
+	OutputLoadResult(workflowInstanceID string)
+	OutputListWorkflowInstance(res []*model.ListWorkflowInstanceResult)
+	OutputCancelledWorkflow(id string)
 	OutputUserTaskIDs(ut []*model.GetUserTaskResponse)
 	OutputWorkflow(res []*model.ListWorkflowResult)
 	OutputStartWorkflowResult(wfiID string, wfID string)

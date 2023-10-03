@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/cli/commands/bpmn"
-	"gitlab.com/shar-workflow/shar/cli/commands/execution"
+	"gitlab.com/shar-workflow/shar/cli/commands/instance"
 	"gitlab.com/shar-workflow/shar/cli/commands/message"
 	"gitlab.com/shar-workflow/shar/cli/commands/usertask"
 	"gitlab.com/shar-workflow/shar/cli/commands/workflow"
@@ -40,7 +40,7 @@ func Execute() {
 
 func init() {
 	RootCmd.AddCommand(bpmn.Cmd)
-	RootCmd.AddCommand(execution.Cmd)
+	RootCmd.AddCommand(instance.Cmd)
 	RootCmd.AddCommand(workflow.Cmd)
 	RootCmd.AddCommand(message.Cmd)
 	RootCmd.AddCommand(usertask.Cmd)

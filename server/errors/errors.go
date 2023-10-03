@@ -2,14 +2,12 @@ package errors
 
 import (
 	"errors"
-	"fmt"
-	"github.com/nats-io/nats.go"
 	"runtime"
 )
 
 var (
 	ErrClosing                        = errors.New("SHAR server is shutting down")                                                               // ErrClosing si-gnifies SHAR server is shutting down.
-	ErrExecutionNotFound              = errors.New("execution not found")                                                                        // ErrExecutionNotFound - execution not found.
+	ErrWorkflowInstanceNotFound       = errors.New("workflow instance not found")                                                                // ErrWorkflowInstanceNotFound - workflow instance not found.
 	ErrProcessInstanceNotFound        = errors.New("process instance not found")                                                                 // ErrProcessInstanceNotFound - process instance not found.
 	ErrWorkflowNotFound               = errors.New("workflow not found")                                                                         // ErrWorkflowNotFound - workflow not found.
 	ErrWorkflowVersionNotFound        = errors.New("workflow version not found")                                                                 // ErrWorkflowVersionNotFound - workflow version not found.
@@ -38,7 +36,6 @@ var (
 	ErrApiAuthNFail                   = errors.New("authenticate API call")                                                                      // ErrApiAuthNFail - an attempt was made to call an API that failed an authentication check.
 	ErrLint                           = errors.New("linter returned errors")                                                                     // ErrLint - linter returned errors.
 	ErrGatewayInstanceNotFound        = errors.New("find gateway instance")                                                                      // ErrGatewayInstanceNotFound - failed to find gateway instance.
-	ErrProcessNotFound                = errors.New("process not found")                                                                          // ErrProcessNotFound - failed to find a process
 )
 
 const TraceLevel = -41   // TraceLevel specifies a custom level for trace logging.
@@ -65,52 +62,4 @@ func Fn() string {
 	pc, _, _, _ := runtime.Caller(1)
 	fn := runtime.FuncForPC(pc).Name()
 	return fn
-}
-
-var integrityErrors = []error{
-	nats.ErrKeyNotFound,
-	nats.ErrNoKeysFound,
-	nats.ErrConsumerNotFound,
-	nats.ErrStreamNotFound,
-	nats.ErrObjectNotFound,
-	nats.ErrMsgNotFound,
-	ErrElementNotFound,
-	ErrJobNotFound,
-	ErrExecutionNotFound,
-	ErrProcessNotFound,
-	ErrProcessInstanceNotFound,
-	ErrStateNotFound,
-	ErrWorkflowNotFound,
-	ErrGatewayInstanceNotFound,
-	ErrWorkflowVersionNotFound,
-	ErrWorkflowErrorNotFound,
-}
-
-// CheckIfFatal will return *ErrWorkflowFatal if the error is obviously unrecoverable
-func CheckIfFatal(err error) error {
-	var wff *ErrWorkflowFatal
-	if errors.As(err, &wff); wff != nil {
-		return err
-	}
-
-	if IsNotFound(err) {
-		return &ErrWorkflowFatal{Err: err}
-	}
-	return err
-}
-
-// Errorf will return a formatted error, marking it fatal if the error is obviously unrecoverable
-func Errorf(format string, a ...any) error {
-	err := fmt.Errorf(format, a...)
-	return CheckIfFatal(err)
-}
-
-// IsNotFound will return true if the error is a SHAR or NATS not found error type
-func IsNotFound(err error) bool {
-	for _, e := range integrityErrors {
-		if errors.Is(err, e) {
-			return true
-		}
-	}
-	return false
 }

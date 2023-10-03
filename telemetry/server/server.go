@@ -127,7 +127,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("saving Activity.Complete operation abandoned", err,
-					slog.String(keys.ExecutionID, state.ExecutionId),
+					slog.String(keys.WorkflowInstanceID, state.WorkflowInstanceId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
 				)
@@ -144,7 +144,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("saving Job.Complete operation abandoned", err,
-					slog.String(keys.ExecutionID, state.ExecutionId),
+					slog.String(keys.WorkflowInstanceID, state.WorkflowInstanceId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
 				)
@@ -195,7 +195,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 		log.Error("load span state:", err, slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()))
 		return abandon(err)
 	}
-	state.ExecutionId = oldState.ExecutionId
+	state.WorkflowInstanceId = oldState.WorkflowInstanceId
 	state.Id = oldState.Id
 	state.WorkflowId = oldState.WorkflowId
 	state.ElementId = oldState.ElementId
@@ -212,7 +212,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 
 func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.WorkflowState, newState *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
-	traceID := common.KSuidTo128bit(oldState.ExecutionId)
+	traceID := common.KSuidTo128bit(oldState.WorkflowInstanceId)
 	spanID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ID())
 	parentID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ParentID())
 	parentSpan := trace.SpanContext{}
@@ -226,16 +226,15 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 	id := common.TrackingID(oldState.Id).ID()
 	st := oldState.State.String()
 	at := map[string]*string{
-		keys.ElementID:   &oldState.ElementId,
-		keys.ElementType: &oldState.ElementType,
-		keys.WorkflowID:  &oldState.WorkflowId,
-		//keys.ExecutionID: &oldState.WorkflowInstanceId,
-		keys.ExecutionID: &oldState.ExecutionId,
-		keys.Condition:   oldState.Condition,
-		keys.Execute:     oldState.Execute,
-		keys.State:       &st,
-		"trackingId":     &id,
-		"parentTrId":     &pid,
+		keys.ElementID:          &oldState.ElementId,
+		keys.ElementType:        &oldState.ElementType,
+		keys.WorkflowID:         &oldState.WorkflowId,
+		keys.WorkflowInstanceID: &oldState.WorkflowInstanceId,
+		keys.Condition:          oldState.Condition,
+		keys.Execute:            oldState.Execute,
+		keys.State:              &st,
+		"trackingId":            &id,
+		"parentTrId":            &pid,
 	}
 
 	kv, err := vars.Decode(ctx, newState.Vars)

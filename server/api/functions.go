@@ -28,16 +28,16 @@ func (s *SharServer) getProcessInstanceStatus(ctx context.Context, req *model.Ge
 	return &model.GetProcessInstanceStatusResult{ProcessState: ps}, nil
 }
 
-func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.ListExecutionProcessesRequest) (*model.ListExecutionProcessesResult, error) {
-	ctx, instance, err2 := s.authFromExecutionID(ctx, req.Id)
+func (s *SharServer) listWorkflowInstanceProcesses(ctx context.Context, req *model.ListWorkflowInstanceProcessesRequest) (*model.ListWorkflowInstanceProcessesResult, error) {
+	ctx, instance, err2 := s.authFromInstanceID(ctx, req.Id)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	res, err := s.ns.ListExecutionProcesses(ctx, instance.ExecutionId)
+	res, err := s.ns.ListWorkflowInstanceProcesses(ctx, instance.WorkflowInstanceId)
 	if err != nil {
-		return nil, fmt.Errorf("get execution status: %w", err)
+		return nil, fmt.Errorf("get workflow instance status: %w", err)
 	}
-	return &model.ListExecutionProcessesResult{ProcessInstanceId: res}, nil
+	return &model.ListWorkflowInstanceProcessesResult{ProcessInstanceId: res}, nil
 }
 
 func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*model.ListWorkflowsResponse, error) {
@@ -145,50 +145,50 @@ func (s *SharServer) launchWorkflow(ctx context.Context, req *model.LaunchWorkfl
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	executionID, wfID, err := s.engine.Launch(ctx, req.Name, req.Vars)
+	wfiID, wfID, err := s.engine.Launch(ctx, req.Name, req.Vars)
 	if err != nil {
-		return nil, fmt.Errorf("launch execution kv: %w", err)
+		return nil, fmt.Errorf("launch workflow instance kv: %w", err)
 	}
-	return &model.LaunchWorkflowResponse{WorkflowId: wfID, InstanceId: executionID}, nil
+	return &model.LaunchWorkflowResponse{WorkflowId: wfID, InstanceId: wfiID}, nil
 }
 
-func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.CancelProcessInstanceRequest) (*emptypb.Empty, error) {
-	ctx, instance, err2 := s.authFromProcessInstanceID(ctx, req.Id)
+func (s *SharServer) cancelWorkflowInstance(ctx context.Context, req *model.CancelWorkflowInstanceRequest) (*emptypb.Empty, error) {
+	ctx, instance, err2 := s.authFromInstanceID(ctx, req.Id)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 	// TODO: get working state here
 	state := &model.WorkflowState{
-		ProcessInstanceId: instance.ProcessInstanceId,
-		State:             req.State,
-		Error:             req.Error,
+		WorkflowInstanceId: instance.WorkflowInstanceId,
+		State:              req.State,
+		Error:              req.Error,
 	}
-	err := s.engine.CancelProcessInstance(ctx, state)
+	err := s.engine.CancelWorkflowInstance(ctx, state)
 	if err != nil {
-		return nil, fmt.Errorf("cancel execution kv: %w", err)
+		return nil, fmt.Errorf("cancel workflow instance kv: %w", err)
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecutionRequest) (*model.ListExecutionResponse, error) {
+func (s *SharServer) listWorkflowInstance(ctx context.Context, req *model.ListWorkflowInstanceRequest) (*model.ListWorkflowInstanceResponse, error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.WorkflowName)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	wch, errs := s.ns.ListExecutions(ctx, req.WorkflowName)
-	ret := make([]*model.ListExecutionResult, 0)
+	wch, errs := s.ns.ListWorkflowInstance(ctx, req.WorkflowName)
+	ret := make([]*model.ListWorkflowInstanceResult, 0)
 	for {
 		select {
 		case winf := <-wch:
 			if winf == nil {
-				return &model.ListExecutionResponse{Result: ret}, nil
+				return &model.ListWorkflowInstanceResponse{Result: ret}, nil
 			}
-			ret = append(ret, &model.ListExecutionResult{
+			ret = append(ret, &model.ListWorkflowInstanceResult{
 				Id:      winf.Id,
 				Version: winf.Version,
 			})
 		case err := <-errs:
-			return nil, fmt.Errorf("list executions: %w", err)
+			return nil, fmt.Errorf("list workflow instancesr: %w", err)
 		}
 	}
 }
@@ -238,7 +238,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 			Name: "UNKNOWN",
 			Code: req.ErrorCode,
 		}
-		if err := s.engine.CancelProcessInstance(ctx, cancelState); err != nil {
+		if err := s.engine.CancelWorkflowInstance(ctx, cancelState); err != nil {
 			return nil, fmt.Errorf("cancel workflow instance: %w", werr)
 		}
 		return nil, fmt.Errorf("workflow halted: %w", werr)
@@ -271,16 +271,15 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		return nil, &errors2.ErrWorkflowFatal{Err: err}
 	}
 	if err := s.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
-		ElementType: target.Type,
-		ElementId:   target.Id,
-		WorkflowId:  job.WorkflowId,
-		//WorkflowInstanceId: job.WorkflowInstanceId,
-		ExecutionId:       job.ExecutionId,
-		Id:                common.TrackingID(job.Id).Pop().Pop(),
-		Vars:              oldState.Vars,
-		WorkflowName:      wf.Name,
-		ProcessInstanceId: job.ProcessInstanceId,
-		ProcessName:       job.ProcessName,
+		ElementType:        target.Type,
+		ElementId:          target.Id,
+		WorkflowId:         job.WorkflowId,
+		WorkflowInstanceId: job.WorkflowInstanceId,
+		Id:                 common.TrackingID(job.Id).Pop().Pop(),
+		Vars:               oldState.Vars,
+		WorkflowName:       wf.Name,
+		ProcessInstanceId:  job.ProcessInstanceId,
+		ProcessName:        job.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", err)
@@ -288,16 +287,15 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 	}
 	// TODO: This always assumes service task.  Wrong!
 	if err := s.ns.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, &model.WorkflowState{
-		ElementType: target.Type,
-		ElementId:   target.Id,
-		WorkflowId:  job.WorkflowId,
-		//WorkflowInstanceId: job.WorkflowInstanceId,
-		ExecutionId:       job.ExecutionId,
-		Id:                job.Id,
-		Vars:              job.Vars,
-		WorkflowName:      wf.Name,
-		ProcessInstanceId: job.ProcessInstanceId,
-		ProcessName:       job.ProcessName,
+		ElementType:        target.Type,
+		ElementId:          target.Id,
+		WorkflowId:         job.WorkflowId,
+		WorkflowInstanceId: job.WorkflowInstanceId,
+		Id:                 job.Id,
+		Vars:               job.Vars,
+		WorkflowName:       wf.Name,
+		ProcessInstanceId:  job.ProcessInstanceId,
+		ProcessName:        job.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", err)

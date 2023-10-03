@@ -81,20 +81,20 @@ func (s *SharServer) Listen() error {
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIStoreWorkflow, &model.Workflow{}, s.storeWorkflow); err != nil {
 		return fmt.Errorf("APIStoreWorkflow failed: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APICancelProcessInstance, &model.CancelProcessInstanceRequest{}, s.cancelProcessInstance); err != nil {
-		return fmt.Errorf("APICancelProcessInstance failed: %w", err)
+	if err := listen(con, s.panicRecovery, s.subs, messages.APICancelWorkflowInstance, &model.CancelWorkflowInstanceRequest{}, s.cancelWorkflowInstance); err != nil {
+		return fmt.Errorf("APICancelWorkflowInstance failed: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APILaunchProcess, &model.LaunchWorkflowRequest{}, s.launchWorkflow); err != nil {
-		return fmt.Errorf("APILaunchProcess failed: %w", err)
+	if err := listen(con, s.panicRecovery, s.subs, messages.APILaunchWorkflow, &model.LaunchWorkflowRequest{}, s.launchWorkflow); err != nil {
+		return fmt.Errorf("APILaunchWorkflow failed: %w", err)
 	}
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIListWorkflows, &emptypb.Empty{}, s.listWorkflows); err != nil {
 		return fmt.Errorf("APIListWorkflows failed: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIListExecutionProcesses, &model.ListExecutionProcessesRequest{}, s.listExecutionProcesses); err != nil {
-		return fmt.Errorf("APIListExecutionProcesses failed: %w", err)
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIListWorkflowInstanceProcesses, &model.ListWorkflowInstanceProcessesRequest{}, s.listWorkflowInstanceProcesses); err != nil {
+		return fmt.Errorf("APIListWorkflowInstanceProcesses failed: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIListExecution, &model.ListExecutionRequest{}, s.listExecution); err != nil {
-		return fmt.Errorf("APIListExecution failed: %w", err)
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIListWorkflowInstance, &model.ListWorkflowInstanceRequest{}, s.listWorkflowInstance); err != nil {
+		return fmt.Errorf("APIListWorkflowInstance failed: %w", err)
 	}
 	if err := listen(con, s.panicRecovery, s.subs, messages.APISendMessage, &model.SendMessageRequest{}, s.sendMessage); err != nil {
 		return fmt.Errorf("APISendMessage failed: %w", err)
@@ -142,6 +142,10 @@ func (s *SharServer) Listen() error {
 	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetProcessHistory, &model.GetProcessHistoryRequest{}, s.getProcessHistory); err != nil {
+		return fmt.Errorf("APIGetProcessHistory failed: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.APISpoolWorkflowEvents, &model.SpoolWorkflowEventsRequest{}, s.spoolWorkflowEvents); err != nil {
 		return fmt.Errorf("APIGetProcessHistory failed: %w", err)
 	}
 

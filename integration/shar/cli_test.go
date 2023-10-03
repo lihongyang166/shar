@@ -75,18 +75,18 @@ func TestCLI(t *testing.T) {
 
 	// Start Workflow
 	wfi := &struct {
-		ExecutionID string
+		WorkflowInstanceID string
 	}{}
 	sharExecf(t, wfi, "workflow start SimpleWorkflow --server %s --json", tst.NatsURL)
-	assert.NotEmpty(t, wfi.ExecutionID)
+	assert.NotEmpty(t, wfi.WorkflowInstanceID)
 
 	// Get Workflow Instances
 	instances := &struct {
-		Execution []model.ListWorkflowInstanceResult
+		WorkflowInstance []model.ListWorkflowInstanceResult
 	}{}
 	sharExecf(t, &instances, "instance list SimpleWorkflow --server %s --json", tst.NatsURL)
-	assert.Equal(t, 1, len(instances.Execution))
-	assert.Equal(t, wfi.ExecutionID, instances.Execution[0].Id)
+	assert.Equal(t, 1, len(instances.WorkflowInstance))
+	assert.Equal(t, wfi.WorkflowInstanceID, instances.WorkflowInstance[0].Id)
 
 	//TODO:RE-implement
 	/*
@@ -99,7 +99,7 @@ func TestCLI(t *testing.T) {
 			Executing  string
 			Since      int64
 		}{}
-		sharExecf(t, &status, "instance status %s --server %s --json", wfi.ExecutionID, tst.NatsURL)
+		sharExecf(t, &status, "instance status %s --server %s --json", wfi.WorkflowInstanceID, tst.NatsURL)
 		assert.NotEmpty(t, status.TrackingId)
 		assert.Equal(t, "Step1", status.ID)
 		assert.Equal(t, element.ServiceTask, status.Type)

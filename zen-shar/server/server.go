@@ -103,7 +103,7 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort)
 	}
 
-	slog.Info("Setup completed", "nats port", nPort)
+	slog.Info("Setup completed")
 	return ssvr, nsvr, nil
 }
 

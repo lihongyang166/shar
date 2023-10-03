@@ -43,27 +43,27 @@ func (s *SharServer) authFromJobID(ctx context.Context, trackingID string) (cont
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get job for authorization: %w", err)
 	}
-	w, err := s.ns.GetWorkflow(ctx, job.WorkflowId)
+	wi, err := s.ns.GetWorkflowInstance(ctx, job.WorkflowInstanceId)
 	if err != nil {
-		return ctx, nil, fmt.Errorf("get workflow for authorization: %w", err)
+		return ctx, nil, fmt.Errorf("get workflow instance for authorization: %w", err)
 	}
-	ctx, auth := s.authorize(ctx, w.Name)
+	ctx, auth := s.authorize(ctx, wi.WorkflowName)
 	if auth != nil {
 		return ctx, nil, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
 	}
 	return ctx, job, nil
 }
 
-func (s *SharServer) authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error) {
-	execution, err := s.ns.GetExecution(ctx, executionID)
+func (s *SharServer) authFromInstanceID(ctx context.Context, instanceID string) (context.Context, *model.WorkflowInstance, error) {
+	wi, err := s.ns.GetWorkflowInstance(ctx, instanceID)
 	if err != nil {
-		return ctx, nil, fmt.Errorf("get execution for authorization: %w", err)
+		return ctx, nil, fmt.Errorf("get workflow instance for authorization: %w", err)
 	}
-	ctx, auth := s.authorize(ctx, execution.WorkflowName)
+	ctx, auth := s.authorize(ctx, wi.WorkflowName)
 	if auth != nil {
 		return ctx, nil, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
 	}
-	return ctx, execution, nil
+	return ctx, wi, nil
 }
 
 func (s *SharServer) authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error) {
@@ -88,6 +88,14 @@ func (s *SharServer) authForNonWorkflow(ctx context.Context) (context.Context, e
 
 func (s *SharServer) authForNamedWorkflow(ctx context.Context, name string) (context.Context, error) {
 	ctx, auth := s.authorize(ctx, name)
+	if auth != nil {
+		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
+	}
+	return ctx, nil
+}
+
+func (s *SharServer) authForRawData(ctx context.Context) (context.Context, error) {
+	ctx, auth := s.authorize(ctx, "**")
 	if auth != nil {
 		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
 	}

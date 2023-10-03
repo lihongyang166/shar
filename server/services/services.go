@@ -28,7 +28,7 @@ type TraversalFunc func(ctx context.Context, pr *model.ProcessInstance, tracking
 type LaunchFunc func(ctx context.Context, state *model.WorkflowState) error
 
 // MessageProcessorFunc is the callback function type used to create new workflow instances based on a timer.
-type MessageProcessorFunc func(ctx context.Context, state *model.WorkflowState, execution *model.Execution, due int64) (bool, int, error)
+type MessageProcessorFunc func(ctx context.Context, state *model.WorkflowState, workflowInstance *model.WorkflowInstance, due int64) (bool, int, error)
 
 // CompleteActivityFunc is the callback function type which generates complete activity events.
 type CompleteActivityFunc func(ctx context.Context, state *model.WorkflowState) error

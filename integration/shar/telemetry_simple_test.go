@@ -26,7 +26,7 @@ func TestSimpleTelemetry(t *testing.T) {
 	tel.On("ExportSpans", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("[]trace.ReadOnlySpan")).
 		Run(func(args mock.Arguments) {
 			sp := args.Get(1).([]trace.ReadOnlySpan)
-			slog.Debug(fmt.Sprintf("###%v", sp[0].Name()))
+			slog.Debug(fmt.Sprintf("%v", sp[0].Name()))
 		}).
 		Return(nil).Times(5)
 
@@ -54,7 +54,7 @@ func TestSimpleTelemetry(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowTest", model.Vars{})
 	require.NoError(t, err)
 
 	// Listen for service tasks

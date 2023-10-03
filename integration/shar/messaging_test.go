@@ -51,13 +51,12 @@ func TestMessaging(t *testing.T) {
 	err = cl.RegisterProcessComplete("Process_03llwnm", handlers.processEnd)
 	require.NoError(t, err)
 
-	// Launch the processes
-	_, _, err = cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
+	// Launch the workflow
+	_, _, err = cl.LaunchWorkflow(ctx, "TestMessaging", model.Vars{"orderId": 57})
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
-
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)

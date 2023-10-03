@@ -24,7 +24,7 @@ type NatsService interface {
 	GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error)
 	CreateExecution(ctx context.Context, wfInstance *model.Execution) (*model.Execution, error)
 	GetExecution(ctx context.Context, workflowInstanceID string) (*model.Execution, error)
-	XDestroyExecution(ctx context.Context, state *model.WorkflowState) error
+	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
 	GetServiceTaskRoutingKey(ctx context.Context, taskName string) (string, error)
 	GetLatestVersion(ctx context.Context, workflowName string) (string, error)
 	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
@@ -52,7 +52,6 @@ type NatsService interface {
 	CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error)
 	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
 	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.Execution) error
-	SatisfyProcess(ctx context.Context, workflowInstance *model.Execution, processName string) error
 	GetGatewayInstanceID(state *model.WorkflowState) (string, string, error)
 	GetGatewayInstance(ctx context.Context, gatewayInstanceID string) (*model.Gateway, error)
 	RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error

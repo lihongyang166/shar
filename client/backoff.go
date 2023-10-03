@@ -52,7 +52,7 @@ func (c *Client) backoff(ctx context.Context, msg *nats.Msg) error {
 	if uint32(meta.NumDelivered) >= retryBehaviour.Number {
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
-			if err := c.CancelExecution(ctx, state.ExecutionId); err != nil {
+			if err := c.CancelProcessInstance(ctx, state.ExecutionId); err != nil {
 				return fmt.Errorf("cancelling workflow instance: %w", err)
 			}
 			return nil

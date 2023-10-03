@@ -93,11 +93,3 @@ func (s *SharServer) authForNamedWorkflow(ctx context.Context, name string) (con
 	}
 	return ctx, nil
 }
-
-func (s *SharServer) authForRawData(ctx context.Context) (context.Context, error) {
-	ctx, auth := s.authorize(ctx, "**")
-	if auth != nil {
-		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
-	}
-	return ctx, nil
-}

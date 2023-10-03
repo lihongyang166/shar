@@ -569,19 +569,19 @@ func (_m *MockNatsService) ListExecutionProcesses(ctx context.Context, id string
 }
 
 // ListExecutions provides a mock function with given fields: ctx, workflowName
-func (_m *MockNatsService) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListWorkflowInstanceResult, chan error) {
+func (_m *MockNatsService) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error) {
 	ret := _m.Called(ctx, workflowName)
 
-	var r0 chan *model.ListWorkflowInstanceResult
+	var r0 chan *model.ListExecutionResult
 	var r1 chan error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (chan *model.ListWorkflowInstanceResult, chan error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (chan *model.ListExecutionResult, chan error)); ok {
 		return rf(ctx, workflowName)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) chan *model.ListWorkflowInstanceResult); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) chan *model.ListExecutionResult); ok {
 		r0 = rf(ctx, workflowName)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chan *model.ListWorkflowInstanceResult)
+			r0 = ret.Get(0).(chan *model.ListExecutionResult)
 		}
 	}
 
@@ -815,20 +815,6 @@ func (_m *MockNatsService) RecordHistoryProcessStart(ctx context.Context, state 
 	return r0
 }
 
-// SatisfyProcess provides a mock function with given fields: ctx, workflowInstance, processName
-func (_m *MockNatsService) SatisfyProcess(ctx context.Context, workflowInstance *model.Execution, processName string) error {
-	ret := _m.Called(ctx, workflowInstance, processName)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Execution, string) error); ok {
-		r0 = rf(ctx, workflowInstance, processName)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // SaveState provides a mock function with given fields: ctx, id, state
 func (_m *MockNatsService) SaveState(ctx context.Context, id string, state *model.WorkflowState) error {
 	ret := _m.Called(ctx, id, state)
@@ -926,8 +912,8 @@ func (_m *MockNatsService) StoreWorkflow(ctx context.Context, wf *model.Workflow
 	return r0, r1
 }
 
-// XDestroyExecution provides a mock function with given fields: ctx, state
-func (_m *MockNatsService) XDestroyExecution(ctx context.Context, state *model.WorkflowState) error {
+// XDestroyProcessInstance provides a mock function with given fields: ctx, state
+func (_m *MockNatsService) XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error {
 	ret := _m.Called(ctx, state)
 
 	var r0 error

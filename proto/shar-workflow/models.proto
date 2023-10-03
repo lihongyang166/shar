@@ -12,6 +12,23 @@ message Workflow {
   repeated Element messages = 3; // Messages define the messages that can be sent by the workflow.
   repeated Error errors = 4; // Errors define the errors used by the workflow.
   bytes gzipSource = 5; // Source for round tripping.
+  Collaboration collaboration = 6; // Collaboration between processes.
+}
+
+message Collaboration {
+  repeated Participant participant = 1; // Participant in a collaboration.
+  repeated MessageFlow messageFlow = 2; // MessageFlow describes the collaboration message participants.
+}
+
+message Participant {
+  string id = 2; // Id - participation ID.
+  string processId = 1; // ProcessId of the participating process.
+}
+
+message MessageFlow {
+  string id = 1; // Id for the message flow.
+  string sender = 2; // Source of the message.
+  string recipient = 3; // Recipient of the message.
 }
 
 message Metadata {
@@ -47,7 +64,6 @@ message Element {
   Targets outbound = 6; // Outbound - a number of possible transitions to other state machine state elements.s
   Process process = 7; // Process - defines any subprocesses contained within this state machine.
   string msg = 8; // TODO: Document
-  string retries = 9 [deprecated = true]; // Retries - how many times this state machine element should retry in the case of a non-workflow error.
   string candidates = 10; // Candidates - used for user related state machgine types to define users that may complete the task.
   string candidateGroups = 11; // CandidateGroups - used for user related state machine types to define groups that may complete a task.
   repeated CatchError errors = 12; // Errors - a number of catchable errors for this state machine element.
@@ -139,7 +155,7 @@ message Targets {
 // WorkflowState describes a current executing state inside a workflow state machine.
 message WorkflowState {
   string workflowId = 1; // WorkflowId - the ID of the workflow version that provides the template for execution.
-  string workflowInstanceId = 2  [deprecated = true]; // WorkflowInstanceId - the workflow instance that this state belongs to.
+  string executionId = 2; // executionId - The id of the Execution this workflow state is for
   string elementId = 3; // ElementId - the currently executing element withing the workflow state machine.
   string elementType = 4; // ElementType - the currently executing element type, cached here to reduce lookups.
   repeated string id = 5; // Id - a stack of IDs that descibe the state and its parents up to the original workflow instance ID.
@@ -158,15 +174,14 @@ message WorkflowState {
   string processInstanceId = 19; // ProcessInstanceId - the unique ID for the process instance.
   map<string,SatisfiesGateway> satisfiesGatewayExpectation = 20; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
   map<string,GatewayExpectations> gatewayExpectations = 21; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
-  string executionId = 23; // executionId - The id of the Execution this workflow state is for
 }
 
 message WorkflowStateSummary {
   string workflowId = 1; // WorkflowId - the ID of the workflow version that provides the template for execution.
-  string workflowInstanceId = 2  [deprecated = true]; // WorkflowInstanceId - the workflow instance that this state belongs to.
+  string executionId = 2; // ExecutionId - the execution that this state belongs to.
   string elementId = 3; // ElementId - the currently executing element withing the workflow state machine.
   string elementType = 4; // ElementType - the currently executing element type, cached here to reduce lookups.
-  repeated string id = 5; // Id - a stack of IDs that descibe the state and its parents up to the original workflow instance ID.
+  repeated string id = 5; // Id - a stack of IDs that describe the state and its parents up to the original workflow instance ID.
   optional string execute = 7; // Execute - additional information required to execute depending on the element type.
   CancellationState state = 8; // State - the current execution state of the state machine.
   optional string condition = 9; // Condition - a message condition that needs to be fulfilled before proceeding.
@@ -175,7 +190,6 @@ message WorkflowStateSummary {
   Error error = 14; // Error - an error being carried by the state if it has faulted.
   WorkflowTimer timer = 16; // Timer - a time needed to transition to the next state.
   string processInstanceId = 19; // ProcessInstanceId - the unique ID for the process instance.
-  string executionId = 20; // ExecutionId - the execution that this state belongs to.
 }
 
 enum ProcessHistoryType {
@@ -191,7 +205,7 @@ enum ProcessHistoryType {
 message ProcessHistoryEntry {
   ProcessHistoryType itemType = 1;
   optional string workflowId = 2;
-  optional string workflowInstanceId = 3  [deprecated = true];
+  optional string executionId = 3;
   optional string elementId = 4;
   optional string processInstanceId = 5;
   optional CancellationState cancellationState = 6;
@@ -200,7 +214,6 @@ message ProcessHistoryEntry {
   optional Error error = 9;
   int64 unixTimeNano = 10;
   optional string execute = 11;
-  optional string executionId = 12;
 }
 
 message ProcessHistory {
@@ -247,32 +260,17 @@ message Execution {
   string workflowId = 2; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 5; // WorkflowName - name of this workflow to avoid lookups.
   repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this workflow instance.
-  map<string,bool> satisfiedProcesses = 7; // SatisfiedProcesses - a list of event driven processes that have been completed.
-}
-
-// WorkflowInstance contains all of the metadata for a currently running workflow instance.
-message WorkflowInstance {
-  option deprecated = true;
-  string workflowInstanceId = 1; // WorkflowInstanceId - the unique ID for the workflow instance.
-  string workflowId = 2; // WorkflowId - the workflow version ID that this instance is executing.
-  optional string parentProcessInstanceId = 3 [deprecated = true]; // ParentProcessInstanceId - the parent process instance that launched this process - if nil, the workflow instance launched the process instance.
-  optional string parentElementId = 4 [deprecated = true]; // ParentElementId - the ID of the element in the parent process that triggered the launch of this process instance.
-  string workflowName = 5; // WorkflowName - name of this workflow to avoid lookups.
-  repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this workflow instance.
-  map<string,bool> satisfiedProcesses = 7; // SatisfiedProcesses - a list of event driven processes that have been completed.
-  string executionId = 8; // executionId - The id of this particular BPMExecution
 }
 
 message ProcessInstance {
   string processInstanceId = 1; // ProcessInstanceId - the unique ID for the process instance.
-  string workflowInstanceId = 2  [deprecated = true]; // WorkflowInstanceId - the workflow instance this process belongs to.
+  string executionId = 2; // executionId - The id of this particular BPMExecution
   optional string parentProcessId = 3; // ParentProcessInstanceId - the parent process instance that launched this process - if nil, the workflow instance launched the process instance.
   optional string parentElementId = 4; // ParentElementId - the ID of the element in the parent process that triggered the launch of this process instance.
   string workflowId = 5; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 6; // WorkflowName - name of this workflow to avoid lookups.
   string processName = 7; // ProcessName - name of this process to avoid lookups.
   map<string,bool> gatewayComplete = 8; // GatewayComplete - completed gateway instances register
-  string executionId = 9; // executionId - The id of this particular BPMExecution
 }
 
 // MessageInstance represents a workflow message.
@@ -335,7 +333,7 @@ enum CancellationState {
   obsolete = 4;   // CancellationState_obsolete - this state is obsolete due to an alternate flow
 }
 
-message CancelWorkflowInstanceRequest {
+message CancelProcessInstanceRequest {
   string id = 1;
   CancellationState state = 2;
   Error error = 3;
@@ -488,14 +486,6 @@ message GetServiceTaskRoutingIDRequest {
 
 message GetServiceTaskRoutingIDResponse {
   string id = 1;
-}
-
-message SpoolWorkflowEventsRequest {
-
-}
-
-message SpoolWorkflowEventsResponse {
-  repeated WorkflowStateSummary state = 1;
 }
 
 message GetVersionInfoRequest {

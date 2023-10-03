@@ -133,6 +133,7 @@ const (
 	APIListExecutionProcesses    = "WORKFLOW.Api.ListExecutionProcesses"    // APIListExecutionProcesses is the get processes of a running workflow instance API subject.
 	APICancelExecution           = "WORKFLOW.Api.CancelExecution"           // APICancelExecution is the cancel an execution API subject.
 	APISendMessage               = "WORKFLOW.Api.SendMessage"               // APISendMessage is the send workflow message API subject.
+	APICancelProcessInstance     = "WORKFLOW.API.CancelProcessInstance"     // APICancelProcessInstance is the cancel process instance API message subject.
 	APICompleteManualTask        = "WORKFLOW.Api.CompleteManualTask"        // APICompleteManualTask is the complete manual task API subject.
 	APICompleteServiceTask       = "WORKFLOW.Api.CompleteServiceTask"       // APICompleteServiceTask is the complete service task API subject.
 	APICompleteUserTask          = "WORKFLOW.Api.CompleteUserTask"          // APICompleteUserTask is the complete user task API subject.
@@ -151,8 +152,6 @@ const (
 	APIGetProcessHistory         = "WORKFLOW.Api.GetProcessHistory"         // APIGetProcessHistory is the get process history API message subject.
 	APIGetVersionInfo            = "WORKFLOW.API.GetVersionInfo"            // APIGetVersionInfo is the get server version information API message subject.
 )
-
-const APISpoolWorkflowEvents = "WORKFLOW.Api.SpoolWorkflowEvents" // APISpoolWorkflowEvents returns the latest workflow events from SHAR for export.  Event spooling must be enabled on the server.
 
 var (
 	KvJob              = "WORKFLOW_JOB"             // KvJob is the name of the key value store that holds workflow jobs.

@@ -180,15 +180,34 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 			return "", "", reterr
 		}
 	}
+	partOfCollaboration := false
+	collabProcesses := make([]*model.Process, 0, len(wf.Collaboration.Participant))
 
-	pr, ok := wf.Process[processName]
-	if !ok {
-		reterr = fmt.Errorf("unable to find process with name %s", processName)
-		return "", "", reterr
+	for _, i := range wf.Collaboration.Participant {
+		if i.ProcessId == processName {
+			partOfCollaboration = true
+		}
+		pr, ok := wf.Process[i.ProcessId]
+		if !ok {
+			return "", "", fmt.Errorf("find collaboration process with name %s: %w", processName, err)
+		}
+		collabProcesses = append(collabProcesses, pr)
 	}
-	err2 := c.launchProcess(ctx, ID, processName, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
-	if err2 != nil {
-		return "", "", err2
+	var launchProcesses []*model.Process
+	if partOfCollaboration {
+		launchProcesses = collabProcesses
+	} else {
+		pr, ok := wf.Process[processName]
+		if !ok {
+			return "", "", fmt.Errorf("find process with name %s: %w", processName, err)
+		}
+		launchProcesses = append(launchProcesses, pr)
+	}
+	for _, pr := range launchProcesses {
+		err2 := c.launchProcess(ctx, ID, pr.Name, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
+		if err2 != nil {
+			return "", "", err2
+		}
 	}
 
 	return executionId, wfID, nil
@@ -224,36 +243,6 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 
 	if vErr != nil {
 		reterr = fmt.Errorf("initialize all workflow start events: %w", vErr)
-		return reterr
-	}
-
-	// Start all timed start events.
-	vErr = forEachTimedStartElement(pr, func(el *model.Element) error {
-		if el.Type == element.TimedStartEvent {
-			timer := &model.WorkflowState{
-				Id:           ID.Push(ksuid.New().String()),
-				WorkflowId:   wfID,
-				ExecutionId:  executionId,
-				ElementId:    el.Id,
-				UnixTimeNano: time.Now().UnixNano(),
-				Timer: &model.WorkflowTimer{
-					LastFired: 0,
-					Count:     0,
-				},
-				Vars:         vrs,
-				WorkflowName: workflowName,
-				ProcessName:  pr.Name,
-			}
-			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, "default"), timer); err != nil {
-				return fmt.Errorf("publish workflow timed execute: %w", err)
-			}
-			return nil
-		}
-		return nil
-	})
-
-	if vErr != nil {
-		reterr = fmt.Errorf("initialize all workflow timed start events: %w", vErr)
 		return reterr
 	}
 
@@ -337,19 +326,6 @@ func forEachStartElement(pr *model.Process, fn func(element *model.Element) erro
 			err := fn(i)
 			if err != nil {
 				return fmt.Errorf("start event execution: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-// forEachStartElement finds all start elements for a given process and executes a function on the element.
-func forEachTimedStartElement(pr *model.Process, fn func(element *model.Element) error) error {
-	for _, i := range pr.Elements {
-		if i.Type == element.TimedStartEvent {
-			err := fn(i)
-			if err != nil {
-				return fmt.Errorf("timed start event execution: %w", err)
 			}
 		}
 	}
@@ -620,7 +596,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		}
 	case element.CallActivity:
 		if err := c.startJob(ctx, subj.NS(messages.WorkflowJobLaunchExecute, "default"), newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start message lauch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start message launch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
 	case element.MessageIntermediateCatchEvent:
 		awaitMsg := common.CopyWorkflowState(newState)
@@ -991,12 +967,12 @@ func (c *Engine) Shutdown() {
 	}
 }
 
-// CancelExecution cancels a workflow instance with a reason.
-func (c *Engine) CancelExecution(ctx context.Context, state *model.WorkflowState) error {
+// CancelProcessInstance cancels a workflow instance with a reason.
+func (c *Engine) CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error {
 	if state.State == model.CancellationState_executing {
 		return fmt.Errorf("executing is an invalid cancellation state: %w", errors.ErrInvalidState)
 	}
-	if err := c.ns.XDestroyExecution(ctx, state); err != nil {
+	if err := c.ns.XDestroyProcessInstance(ctx, state); err != nil {
 		return fmt.Errorf("cancel workflow instance failed: %w", errors.ErrCancelFailed)
 	}
 	return nil
@@ -1209,9 +1185,6 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 		shouldFire = value <= now
 	case model.WorkflowTimerType_duration:
 		if repeat != 0 && count >= repeat {
-			if err := c.ns.SatisfyProcess(ctx, execution, state.ProcessName); err != nil {
-				return false, 0, fmt.Errorf("timedExecuteProcessor failed to satisfy a process upon time completion: %w", err)
-			}
 			return true, 0, nil
 		}
 		isTimer = true
@@ -1220,11 +1193,21 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 
 	if isTimer {
 		if shouldFire {
-			pi, err := c.ns.CreateProcessInstance(ctx, state.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
+			exec, err := c.ns.CreateExecution(ctx, &model.Execution{
+				WorkflowId:   state.WorkflowId,
+				WorkflowName: state.WorkflowName,
+			})
+			if err != nil {
+				log.Error("creating execution instance", err)
+				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
+			}
+
+			pi, err := c.ns.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
 			if err != nil {
 				log.Error("creating timed process instance", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
 			}
+			state.ExecutionId = pi.ExecutionId
 			state.ProcessInstanceId = pi.ProcessInstanceId
 			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, state); err != nil {
 				log.Error("spawning process", err)

@@ -195,7 +195,6 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 		log.Error("load span state:", err, slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()))
 		return abandon(err)
 	}
-	state.WorkflowInstanceId = oldState.WorkflowInstanceId
 	state.ExecutionId = oldState.ExecutionId
 	state.Id = oldState.Id
 	state.WorkflowId = oldState.WorkflowId

@@ -86,13 +86,3 @@ func (c *Client) GetServerVersion(ctx context.Context) (*version.Version, error)
 	}
 	return sv, nil
 }
-
-// SpoolWorkflowEvents provides an interface to a datawarehousing application to recieve a stream of workflow events through polling.
-func (c *Client) SpoolWorkflowEvents(ctx context.Context) (*model.SpoolWorkflowEventsResponse, error) {
-	req := &model.SpoolWorkflowEventsRequest{}
-	res := &model.SpoolWorkflowEventsResponse{}
-	if err := api.Call(ctx, c.con, messages.APISpoolWorkflowEvents, c.ExpectedCompatibleServerVersion, req, res); err != nil {
-		return nil, fmt.Errorf("spooling: %w", err)
-	}
-	return res, nil
-}

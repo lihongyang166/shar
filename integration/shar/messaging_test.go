@@ -58,12 +58,6 @@ func TestMessaging(t *testing.T) {
 		return
 	}
 
-	_, _, err = cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": 57})
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)

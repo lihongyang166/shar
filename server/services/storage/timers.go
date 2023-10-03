@@ -84,18 +84,11 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 					}
 					continue
 				}
-				wi, err := s.hasValidExecution(sCtx, state.ExecutionId)
-				if errors2.Is(err, errors.ErrExecutionNotFound) {
-					log := logx.FromContext(sCtx)
-					log.Log(reqCtx, slog.LevelInfo, "listenForTimer aborted due to a missing instance")
-					continue
-				} else if err != nil {
-					continue
-				}
+
 				var cid string
 				if cid = msg[0].Header.Get(logx.CorrelationHeader); cid == "" {
 					log.Error("correlation key missing", errors.ErrMissingCorrelation)
-					return
+					continue
 				}
 
 				ctx, log := logx.NatsMessageLoggingEntrypoint(sCtx, "shar-server", msg[0].Header)
@@ -108,6 +101,15 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 					continue
 				}
 				if strings.HasSuffix(msg[0].Subject, ".Timers.ElementExecute") {
+					_, err := s.hasValidExecution(sCtx, state.ExecutionId)
+					if errors2.Is(err, errors.ErrExecutionNotFound) {
+						log := logx.FromContext(sCtx)
+						log.Log(reqCtx, slog.LevelInfo, "listenForTimer aborted due to a missing instance")
+						continue
+					} else if err != nil {
+						continue
+					}
+
 					pi, err := s.GetProcessInstance(ctx, state.ProcessInstanceId)
 					if errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 						if err := msg[0].Ack(); err != nil {
@@ -149,7 +151,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 					}
 					continue
 				}
-				ack, delay, err := s.messageProcessor(ctx, state, wi, int64(embargo))
+				ack, delay, err := s.messageProcessor(ctx, state, nil, int64(embargo))
 				if err != nil {
 					if errors.IsWorkflowFatal(err) {
 						if err := msg[0].Ack(); err != nil {

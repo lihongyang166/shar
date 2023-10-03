@@ -91,8 +91,8 @@ func (c *Json) OutputLoadResult(workflowID string) {
 	})
 }
 
-// OutputCancelledWorkflow returns a CLI response
-func (c *Json) OutputCancelledWorkflow(id string) {
+// OutputCancelledProcessInstance returns a CLI response
+func (c *Json) OutputCancelledProcessInstance(id string) {
 	outJson(struct {
 		Cancelled string
 	}{

@@ -243,7 +243,6 @@ message Execution {
   string workflowId = 2; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 5; // WorkflowName - name of this workflow to avoid lookups.
   repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this workflow instance.
-  map<string,bool> satisfiedProcesses = 7; // SatisfiedProcesses - a list of event driven processes that have been completed.  An event driven process that has been satisfied can no longer be triggered. eg. a timed process start that is a one off.
 }
 
 message ProcessInstance {

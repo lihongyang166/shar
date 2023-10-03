@@ -548,7 +548,6 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	log.Info("creating execution", slog.String(keys.ExecutionID, executionID))
 	execution.ExecutionId = executionID
 	execution.ProcessInstanceId = []string{}
-	execution.SatisfiedProcesses = map[string]bool{".": true}
 	if err := common.SaveObj(ctx, s.wfExecution, executionID, execution); err != nil {
 		return nil, fmt.Errorf("save execution object to KV: %w", err)
 	}
@@ -1395,22 +1394,11 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 	if err != nil {
 		return fmt.Errorf("destroy process instance failed to delete process instance: %w", err)
 	}
-	def, err := s.GetWorkflow(ctx, pi.WorkflowId)
-	if err != nil {
-		return fmt.Errorf("destroy process instance failed to fetch workflow: %w", err)
-	}
-	var lock bool
-	for _, p := range def.Process {
-		_, satisfied := execution.SatisfiedProcesses[p.Name]
-		if p.Metadata.TimedStart && !satisfied {
-			lock = true
-			break
-		}
-	}
+
 	if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessTerminated, state); err != nil {
 		return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
 	}
-	if len(e.ProcessInstanceId) == 0 && !lock {
+	if len(e.ProcessInstanceId) == 0 {
 		if err := s.PublishWorkflowState(ctx, messages.ExecutionComplete, state); err != nil {
 			return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
 		}
@@ -1427,18 +1415,6 @@ func (s *Nats) populateMetadata(wf *model.Workflow) {
 			}
 		}
 	}
-}
-
-// SatisfyProcess sets a process as "satisfied" i.e. it may no longer trigger.
-func (s *Nats) SatisfyProcess(ctx context.Context, execution *model.Execution, processName string) error {
-	err := common.UpdateObj(ctx, s.wfExecution, execution.ExecutionId, execution, func(execution *model.Execution) (*model.Execution, error) {
-		execution.SatisfiedProcesses[processName] = true
-		return execution, nil
-	})
-	if err != nil {
-		return fmt.Errorf("satify process: %w", err)
-	}
-	return nil
 }
 
 // SpoolWorkflowEvents provides an interface to a datawarehousing application to recieve a stream of workflow events through polling.

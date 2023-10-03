@@ -1166,9 +1166,6 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 		shouldFire = value <= now
 	case model.WorkflowTimerType_duration:
 		if repeat != 0 && count >= repeat {
-			if err := c.ns.SatisfyProcess(ctx, execution, state.ProcessName); err != nil {
-				return false, 0, fmt.Errorf("timedExecuteProcessor failed to satisfy a process upon time completion: %w", err)
-			}
 			return true, 0, nil
 		}
 		isTimer = true

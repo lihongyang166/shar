@@ -31,7 +31,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	d := &testSimpleProcessStatsHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_poll_data_test_SimpleProcess.yaml", d.integrationSimple)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_process_status_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
@@ -49,10 +49,10 @@ func TestSimpleProcessStatus(t *testing.T) {
 	}()
 
 	// Launch the workflow
-	wi, _, err := cl.LaunchWorkflow(ctx, "SimpleWorkflowTest", model.Vars{})
+	wi, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
-	pis, err := cl.ListWorkflowInstanceProcesses(ctx, wi)
+	pis, err := cl.ListExecutionProcesses(ctx, wi)
 	require.NoError(t, err)
 	for _, pi := range pis.ProcessInstanceId {
 		ps, err := cl.GetProcessInstanceStatus(ctx, pi)

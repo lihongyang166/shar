@@ -18,6 +18,7 @@ import (
 
 //goland:noinspection GoNilness
 func TestConcurrentMessaging2(t *testing.T) {
+
 	tst := &support.Integration{
 		Cooldown: time.Second * 10,
 	}
@@ -61,27 +62,25 @@ func TestConcurrentMessaging2(t *testing.T) {
 
 	handlers.instComplete = make(map[string]struct{})
 	n := 100
-	launch := 0
 	tm := time.Now()
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
 			// Launch the workflow
-			if _, _, err := cl.LaunchWorkflow(ctx, "TestConcurrentMessaging", model.Vars{"orderId": inst}); err != nil {
+			if _, _, err := cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
 				panic(err)
 			} else {
 				handlers.mx.Lock()
-				launch++
 				handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
 				handlers.mx.Unlock()
 			}
 		}(inst)
 	}
-	for inst := 0; inst < n; inst++ {
-		support.WaitForChan(t, handlers.finished, 20*time.Second)
-	}
+
+	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*20)
+
 	fmt.Println("Stopwatch:", -time.Until(tm))
 	tst.AssertCleanKV()
-	assert.Equal(t, launch, handlers.received)
+	assert.Equal(t, n, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
 }
 
@@ -111,7 +110,6 @@ func (x *testConcurrentMessaging2HandlerDef) sendMessage(ctx context.Context, cm
 }
 
 func (x *testConcurrentMessaging2HandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	x.finished <- struct{}{}
 	x.mx.Lock()
 	if _, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]; !ok {
 		panic("too many calls")
@@ -119,4 +117,5 @@ func (x *testConcurrentMessaging2HandlerDef) processEnd(ctx context.Context, var
 	delete(x.instComplete, strconv.Itoa(vars["orderId"].(int)))
 	x.received++
 	x.mx.Unlock()
+	x.finished <- struct{}{}
 }

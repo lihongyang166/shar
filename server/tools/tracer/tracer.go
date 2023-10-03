@@ -46,7 +46,7 @@ func Trace(natsURL string) *OpenTrace {
 				}
 				vrs = vrs + "]"
 			}
-			fmt.Println(msg.Subject, d.State, last4(d.WorkflowInstanceId), "T:"+last4(common.TrackingID(d.Id).ID()), "P:"+last4(common.TrackingID(d.Id).ParentID()), d.ElementType, d.ElementId, vrs)
+			fmt.Println(msg.Subject, d.State, last4(d.ExecutionId), "T:"+last4(common.TrackingID(d.Id).ID()), "P:"+last4(common.TrackingID(d.Id).ParentID()), d.ElementType, d.ElementId, vrs)
 		} else {
 			fmt.Println(msg.Subject)
 		}

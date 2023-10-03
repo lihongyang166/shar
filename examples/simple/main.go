@@ -37,14 +37,14 @@ func main() {
 		panic(err)
 	}
 
-	if err := cl.RegisterProcessComplete("Process_03llwnm", processEnd); err != nil {
+	if err := cl.RegisterProcessComplete("SimpleProcess", processEnd); err != nil {
 		panic(err)
 	}
 
 	// A hook to watch for completion
 
 	// Launch the workflow
-	if _, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowDemo", model.Vars{}); err != nil {
+	if _, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{}); err != nil {
 		panic(err)
 	}
 

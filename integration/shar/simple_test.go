@@ -17,7 +17,7 @@ import (
 
 func TestSimple(t *testing.T) {
 	tst := &support.Integration{}
-	//tst.WithTrace = true
+	tst.WithTrace = true
 
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
@@ -46,7 +46,7 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchWorkflow(ctx, "SimpleWorkflowTest", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

@@ -79,15 +79,26 @@ func (c *Engine) LoadWorkflow(ctx context.Context, model *model.Workflow) (strin
 	return wfID, nil
 }
 
-// Launch starts a new instance of a workflow and returns a workflow instance Id.
-func (c *Engine) Launch(ctx context.Context, workflowName string, vars []byte) (string, string, error) {
-	return c.launch(ctx, workflowName, []string{}, vars, "", "")
+// Launch starts a new instance of a workflow and returns an execution Id.
+func (c *Engine) Launch(ctx context.Context, processName string, vars []byte) (string, string, error) {
+	return c.launch(ctx, processName, []string{}, vars, "", "")
 }
 
 // launch contains the underlying logic to start a workflow.  It is also called to spawn new instances of child workflows.
-func (c *Engine) launch(ctx context.Context, workflowName string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
+func (c *Engine) launch(ctx context.Context, processName string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
 	var reterr error
 	ctx, log := logx.ContextWith(ctx, "engine.launch")
+
+	workflowName, err := c.ns.GetWorkflowNameFor(ctx, processName)
+	if err != nil {
+		reterr = c.engineErr(ctx, "get the workflow name for this process name", err,
+			slog.String(keys.ParentInstanceElementID, parentElID),
+			slog.String(keys.ParentProcessInstanceID, parentpiID),
+			slog.String(keys.ProcessName, processName),
+		)
+		return "", "", reterr
+	}
+
 	// get the last ID of the workflow
 	wfID, err := c.ns.GetLatestVersion(ctx, workflowName)
 	if err != nil {
@@ -111,172 +122,197 @@ func (c *Engine) launch(ctx context.Context, workflowName string, ID common.Trac
 		return "", "", reterr
 	}
 
-	wfi, err := c.ns.CreateWorkflowInstance(ctx, &model.WorkflowInstance{
-		WorkflowId:              wfID,
-		ParentProcessInstanceId: &parentpiID,
-		ParentElementId:         &parentElID,
-		WorkflowName:            wf.Name,
-	})
+	var executionId string
 
-	if err != nil {
-		reterr = c.engineErr(ctx, "create workflow instance", err,
-			slog.String(keys.ParentInstanceElementID, parentElID),
-			slog.String(keys.ParentProcessInstanceID, parentpiID),
-			slog.String(keys.WorkflowName, workflowName),
-			slog.String(keys.WorkflowID, wfID),
-		)
-		return "", "", reterr
-	}
+	if parentpiID == "" {
+		e, err := c.ns.CreateExecution(ctx, &model.Execution{
+			WorkflowId:   wfID,
+			WorkflowName: wf.Name,
+		})
 
-	defer func() {
-		if reterr != nil {
-			c.rollBackLaunch(ctx, wfi)
+		if err != nil {
+			reterr = c.engineErr(ctx, "create execution", err,
+				slog.String(keys.ParentInstanceElementID, parentElID),
+				slog.String(keys.ParentProcessInstanceID, parentpiID),
+				slog.String(keys.WorkflowName, workflowName),
+				slog.String(keys.WorkflowID, wfID),
+			)
+			return "", "", reterr
 		}
-	}()
 
-	wiState := &model.WorkflowState{
-		WorkflowInstanceId: wfi.WorkflowInstanceId,
-		WorkflowId:         wfID,
-		WorkflowName:       workflowName,
-		Vars:               vrs,
-		Id:                 []string{wfi.WorkflowInstanceId},
+		defer func() {
+			if reterr != nil {
+				c.rollBackLaunch(ctx, e)
+			}
+		}()
+		executionId = e.ExecutionId
+	} else {
+		pi, err := c.ns.GetProcessInstance(ctx, parentpiID)
+		if err != nil {
+			reterr = fmt.Errorf("launch failed to get process instance for parent: %w", err)
+			return "", "", reterr
+		}
+
+		e, err := c.ns.GetExecution(ctx, pi.ExecutionId)
+		if err != nil {
+			reterr = fmt.Errorf("launch failed to get execution for parent: %w", err)
+			return "", "", reterr
+		}
+
+		executionId = e.ExecutionId
 	}
 
-	// fire off the new workflow state
-	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowInstanceExecute, wiState); err != nil {
-		reterr = c.engineErr(ctx, "publish workflow instance execute", err,
-			slog.String(keys.WorkflowName, workflowName),
-			slog.String(keys.WorkflowID, wfID),
-		)
-		return "", "", reterr
+	if parentpiID == "" { // only publish on creation of top level process as this is the only place an execution is defined at
+		wiState := &model.WorkflowState{
+			ExecutionId:  executionId,
+			WorkflowId:   wfID,
+			WorkflowName: workflowName,
+			Vars:         vrs,
+			Id:           []string{executionId},
+		}
+
+		// fire off the new workflow state
+		if err := c.ns.PublishWorkflowState(ctx, messages.ExecutionExecute, wiState); err != nil {
+			reterr = c.engineErr(ctx, "publish workflow instance execute", err,
+				slog.String(keys.WorkflowName, workflowName),
+				slog.String(keys.WorkflowID, wfID),
+			)
+			return "", "", reterr
+		}
 	}
+	partOfCollaboration := false
+	collabProcesses := make([]*model.Process, 0, len(wf.Collaboration.Participant))
+
+	for _, i := range wf.Collaboration.Participant {
+		if i.ProcessId == processName {
+			partOfCollaboration = true
+		}
+		pr, ok := wf.Process[i.ProcessId]
+		if !ok {
+			return "", "", fmt.Errorf("find collaboration process with name %s: %w", processName, err)
+		}
+		collabProcesses = append(collabProcesses, pr)
+	}
+	var launchProcesses []*model.Process
+	if partOfCollaboration {
+		launchProcesses = collabProcesses
+	} else {
+		pr, ok := wf.Process[processName]
+		if !ok {
+			return "", "", fmt.Errorf("find process with name %s: %w", processName, err)
+		}
+		launchProcesses = append(launchProcesses, pr)
+	}
+	for _, pr := range launchProcesses {
+		err2 := c.launchProcess(ctx, ID, pr.Name, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
+		if err2 != nil {
+			return "", "", err2
+		}
+	}
+
+	return executionId, wfID, nil
+}
+
+func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
+	var reterr error
+	var hasStartEvents bool
 
 	testVars, err := vars.Decode(ctx, vrs)
 	if err != nil {
-		return "", "", fmt.Errorf("decode variables during launch: %w", err)
+		return fmt.Errorf("decode variables during launch: %w", err)
 	}
-	for prName, pr := range wf.Process {
-		var hasStartEvents bool
-		// Test to see if all variables are present.
-		vErr := forEachStartElement(pr, func(el *model.Element) error {
-			hasStartEvents = true
-			if el.OutputTransform != nil {
-				for _, v := range el.OutputTransform {
-					evs, err := expression.GetVariables(v)
-					if err != nil {
-						return fmt.Errorf("extract variables from workflow during launch: %w", err)
-					}
-					for ev := range evs {
-						if _, ok := testVars[ev]; !ok {
-							return fmt.Errorf("workflow expects variable '%s': %w", ev, errors.ErrExpectedVar)
-						}
+
+	// Test to see if all variables are present.
+	vErr := forEachStartElement(pr, func(el *model.Element) error {
+		hasStartEvents = true
+		if el.OutputTransform != nil {
+			for _, v := range el.OutputTransform {
+				evs, err := expression.GetVariables(v)
+				if err != nil {
+					return fmt.Errorf("extract variables from workflow during launch: %w", err)
+				}
+				for ev := range evs {
+					if _, ok := testVars[ev]; !ok {
+						return fmt.Errorf("workflow expects variable '%s': %w", ev, errors.ErrExpectedVar)
 					}
 				}
 			}
-			return nil
-		})
+		}
+		return nil
+	})
 
-		if vErr != nil {
-			reterr = fmt.Errorf("initialize all workflow start events: %w", vErr)
-			return "", "", reterr
+	if vErr != nil {
+		reterr = fmt.Errorf("initialize all workflow start events: %w", vErr)
+		return reterr
+	}
+
+	if hasStartEvents {
+
+		pi, err := c.ns.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Name, workflowName, wfID)
+		if err != nil {
+			reterr = fmt.Errorf("launch failed to create new process instance: %w", err)
+			return reterr
 		}
 
-		// Start all timed start events.
-		vErr = forEachTimedStartElement(pr, func(el *model.Element) error {
-			if el.Type == element.TimedStartEvent {
-				timer := &model.WorkflowState{
-					Id:                 ID.Push(ksuid.New().String()),
-					WorkflowId:         wfID,
-					WorkflowInstanceId: wfi.WorkflowInstanceId,
-					ElementId:          el.Id,
-					UnixTimeNano:       time.Now().UnixNano(),
-					Timer: &model.WorkflowTimer{
-						LastFired: 0,
-						Count:     0,
-					},
-					Vars:         vrs,
-					WorkflowName: wf.Name,
-					ProcessName:  pr.Name,
-				}
-				if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, "default"), timer); err != nil {
-					return fmt.Errorf("publish workflow timed execute: %w", err)
-				}
-				return nil
+		errs := make(chan error)
+
+		// for each start element, launch a workflow thread
+		startErr := forEachStartElement(pr, func(el *model.Element) error {
+			trackingID := ID.Push(pi.ProcessInstanceId).Push(ksuid.New().String())
+			exec := &model.WorkflowState{
+				ElementType: el.Type,
+				ElementId:   el.Id,
+				WorkflowId:  wfID,
+				//WorkflowInstanceId: wfi.WorkflowInstanceId,
+				ExecutionId:       executionId,
+				Id:                trackingID,
+				Vars:              vrs,
+				WorkflowName:      workflowName,
+				ProcessName:       prName,
+				ProcessInstanceId: pi.ProcessInstanceId,
+			}
+			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, "default"), exec); err != nil {
+				return fmt.Errorf("publish workflow timed process execute: %w", err)
+			}
+			if err := c.ns.RecordHistoryProcessStart(ctx, exec); err != nil {
+				log.Error("start events record process start", err)
+				return fmt.Errorf("publish initial traversal: %w", err)
+			}
+			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, exec); err != nil {
+				log.Error("publish initial traversal", err)
+				return fmt.Errorf("publish initial traversal: %w", err)
 			}
 			return nil
 		})
-
-		if vErr != nil {
-			reterr = fmt.Errorf("initialize all workflow timed start events: %w", vErr)
-			return "", "", reterr
+		if startErr != nil {
+			reterr = startErr
+			return reterr
 		}
-
-		if hasStartEvents {
-
-			pi, err := c.ns.CreateProcessInstance(ctx, wfi.WorkflowInstanceId, parentpiID, parentElID, pr.Name)
-			if err != nil {
-				reterr = fmt.Errorf("launch failed to create new process instance: %w", err)
-				return "", "", reterr
-			}
-
-			errs := make(chan error)
-
-			// for each start element, launch a workflow thread
-			startErr := forEachStartElement(pr, func(el *model.Element) error {
-				trackingID := ID.Push(pi.ProcessInstanceId).Push(ksuid.New().String())
-				exec := &model.WorkflowState{
-					ElementType:        el.Type,
-					ElementId:          el.Id,
-					WorkflowId:         wfi.WorkflowId,
-					WorkflowInstanceId: wfi.WorkflowInstanceId,
-					Id:                 trackingID,
-					Vars:               vrs,
-					WorkflowName:       wf.Name,
-					ProcessName:        prName,
-					ProcessInstanceId:  pi.ProcessInstanceId,
-				}
-				if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, "default"), exec); err != nil {
-					return fmt.Errorf("publish workflow timed process execute: %w", err)
-				}
-				if err := c.ns.RecordHistoryProcessStart(ctx, exec); err != nil {
-					log.Error("start events record process start", err)
-					return fmt.Errorf("publish initial traversal: %w", err)
-				}
-				if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, exec); err != nil {
-					log.Error("publish initial traversal", err)
-					return fmt.Errorf("publish initial traversal: %w", err)
-				}
-				return nil
-			})
-			if startErr != nil {
-				reterr = startErr
-				return "", "", startErr
-			}
-			// wait for all paths to be started
-			close(errs)
-			if err := <-errs; err != nil {
-				reterr = c.engineErr(ctx, "initial traversal", err,
-					slog.String(keys.ParentInstanceElementID, parentElID),
-					slog.String(keys.ParentProcessInstanceID, parentpiID),
-					slog.String(keys.WorkflowName, workflowName),
-					slog.String(keys.WorkflowID, wfID),
-				)
-				return "", "", reterr
-			}
+		// wait for all paths to be started
+		close(errs)
+		if err := <-errs; err != nil {
+			reterr = c.engineErr(ctx, "initial traversal", err,
+				slog.String(keys.ParentInstanceElementID, parentElID),
+				slog.String(keys.ParentProcessInstanceID, parentpiID),
+				slog.String(keys.WorkflowName, workflowName),
+				slog.String(keys.WorkflowID, wfID),
+			)
+			return reterr
 		}
 	}
-	return wfi.WorkflowInstanceId, wfID, nil
+	return nil
 }
 
-func (c *Engine) rollBackLaunch(ctx context.Context, wfi *model.WorkflowInstance) {
+func (c *Engine) rollBackLaunch(ctx context.Context, e *model.Execution) {
 	log := logx.FromContext(ctx)
 	log.Info("rolling back workflow launch")
-	err := c.ns.PublishWorkflowState(ctx, messages.WorkflowInstanceAbort, &model.WorkflowState{
-		Id:                 []string{wfi.WorkflowInstanceId},
-		WorkflowInstanceId: wfi.WorkflowInstanceId,
-		WorkflowName:       wfi.WorkflowName,
-		WorkflowId:         wfi.WorkflowId,
-		State:              model.CancellationState_terminated,
+	err := c.ns.PublishWorkflowState(ctx, messages.ExecutionAbort, &model.WorkflowState{
+		//Id:           []string{e.WorkflowInstanceId},
+		Id:           []string{e.ExecutionId},
+		ExecutionId:  e.ExecutionId,
+		WorkflowName: e.WorkflowName,
+		WorkflowId:   e.WorkflowId,
+		State:        model.CancellationState_terminated,
 	})
 	if err != nil {
 		log.Error("workflow fatally terminated, however the termination signal could not be sent", err)
@@ -290,19 +326,6 @@ func forEachStartElement(pr *model.Process, fn func(element *model.Element) erro
 			err := fn(i)
 			if err != nil {
 				return fmt.Errorf("start event execution: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-// forEachStartElement finds all start elements for a given process and executes a function on the element.
-func forEachTimedStartElement(pr *model.Process, fn func(element *model.Element) error) error {
-	for _, i := range pr.Elements {
-		if i.Type == element.TimedStartEvent {
-			err := fn(i)
-			if err != nil {
-				return fmt.Errorf("timed start event execution: %w", err)
 			}
 		}
 	}
@@ -413,7 +436,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	pi, err := c.ns.GetProcessInstance(ctx, traversal.ProcessInstanceId)
 	if errors2.Is(err, errors.ErrProcessInstanceNotFound) || errors2.Is(err, nats.ErrKeyNotFound) {
 		// if the workflow instance has been removed kill any activity and exit
-		log.Warn("process instance not found, cancelling activity", err, slog.String(keys.WorkflowInstanceID, traversal.WorkflowInstanceId))
+		log.Warn("process instance not found, cancelling activity", err, slog.String(keys.ProcessInstanceID, traversal.ProcessInstanceId))
 		return nil
 	} else if err != nil {
 		return c.engineErr(ctx, "get process instance", err,
@@ -421,23 +444,11 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		)
 	}
 
-	// get the corresponding workflow instance so we can cancel
-	_, err = c.ns.GetWorkflowInstance(ctx, traversal.WorkflowInstanceId)
-	if errors2.Is(err, errors.ErrWorkflowInstanceNotFound) || errors2.Is(err, nats.ErrKeyNotFound) {
-		// if the workflow instance has been removed kill any activity and exit
-		log.Warn("workflow instance not found, cancelling activity", err, slog.String(keys.WorkflowInstanceID, traversal.WorkflowInstanceId))
-		return nil
-	} else if err != nil {
-		return c.engineErr(ctx, "get workflow instance", err,
-			slog.String(keys.WorkflowInstanceID, traversal.WorkflowInstanceId),
-		)
-	}
-
 	// get the corresponding workflow definition
 	process, err := c.ns.GetWorkflow(ctx, pi.WorkflowId)
 	if err != nil {
 		return c.engineErr(ctx, "get workflow", err,
-			slog.String(keys.WorkflowInstanceID, pi.WorkflowInstanceId),
+			slog.String(keys.ExecutionID, pi.ExecutionId),
 			slog.String(keys.WorkflowID, pi.WorkflowId),
 		)
 	}
@@ -457,16 +468,16 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	newState.Id = activityID
 	// tell the world we are going to execute an activity
 	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowActivityExecute, newState); err != nil {
-		return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.WorkflowInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 	}
 	// log this with history
 	if err := c.ns.RecordHistoryActivityExecute(ctx, newState); err != nil {
-		return c.engineErr(ctx, "publish process history", err, apErrFields(pi.WorkflowInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish process history", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 	}
 
 	// tell the world we have safely completed the traversal
 	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalComplete, traversal); err != nil {
-		return c.engineErr(ctx, "publish traversal status", err, apErrFields(pi.WorkflowInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish traversal status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 	}
 
 	//Start any timers
@@ -585,7 +596,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		}
 	case element.CallActivity:
 		if err := c.startJob(ctx, subj.NS(messages.WorkflowJobLaunchExecute, "default"), newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start message lauch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start message launch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
 	case element.MessageIntermediateCatchEvent:
 		awaitMsg := common.CopyWorkflowState(newState)
@@ -752,9 +763,9 @@ func (c *Engine) completeActivity(ctx context.Context, state *model.WorkflowStat
 }
 
 // apErrFields writes out the common error fields for an application error
-func apErrFields(workflowInstanceID, workflowID, elementID, elementName, elementType, workflowName string, extraFields ...any) []any {
+func apErrFields(executionID, workflowID, elementID, elementName, elementType, workflowName string, extraFields ...any) []any {
 	fields := []any{
-		slog.String(keys.WorkflowInstanceID, workflowInstanceID),
+		slog.String(keys.ExecutionID, executionID),
 		slog.String(keys.WorkflowID, workflowID),
 		slog.String(keys.ElementID, elementID),
 		slog.String(keys.ElementName, elementName),
@@ -784,7 +795,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	pi, err := c.ns.GetProcessInstance(ctx, job.ProcessInstanceId)
 	if errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		// if the instance has been deleted quash this activity
-		log.Warn("process instance not found, cancelling job processing", err, slog.String(keys.WorkflowInstanceID, job.WorkflowInstanceId))
+		log.Warn("process instance not found, cancelling job processing", err, slog.String(keys.ExecutionID, job.ExecutionId))
 		return nil
 	} else if err != nil {
 		log.Warn("get process instance for job", err,
@@ -800,7 +811,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 		return c.engineErr(ctx, "fetch job workflow", err,
 			slog.String(keys.JobType, job.ElementType),
 			slog.String(keys.JobID, common.TrackingID(job.Id).ID()),
-			slog.String(keys.WorkflowInstanceID, pi.WorkflowInstanceId),
+			slog.String(keys.ExecutionID, pi.ExecutionId),
 			slog.String(keys.WorkflowID, pi.WorkflowId),
 		)
 	}
@@ -876,7 +887,7 @@ func (c *Engine) startJob(ctx context.Context, subject string, job *model.Workfl
 			slog.String(keys.ElementType, el.Type),
 			slog.String(keys.JobType, job.ElementType),
 			slog.String(keys.JobID, common.TrackingID(job.Id).ID()),
-			slog.String(keys.WorkflowInstanceID, job.WorkflowInstanceId),
+			slog.String(keys.ExecutionID, job.ExecutionId),
 		)
 	}
 	/*
@@ -956,12 +967,12 @@ func (c *Engine) Shutdown() {
 	}
 }
 
-// CancelWorkflowInstance cancels a workflow instance with a reason.
-func (c *Engine) CancelWorkflowInstance(ctx context.Context, state *model.WorkflowState) error {
+// CancelProcessInstance cancels a workflow instance with a reason.
+func (c *Engine) CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error {
 	if state.State == model.CancellationState_executing {
 		return fmt.Errorf("executing is an invalid cancellation state: %w", errors.ErrInvalidState)
 	}
-	if err := c.ns.XDestroyWorkflowInstance(ctx, state); err != nil {
+	if err := c.ns.XDestroyProcessInstance(ctx, state); err != nil {
 		return fmt.Errorf("cancel workflow instance failed: %w", errors.ErrCancelFailed)
 	}
 	return nil
@@ -1055,7 +1066,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 	pi, pierr := c.ns.GetProcessInstance(ctx, state.ProcessInstanceId)
 	if errors2.Is(pierr, errors.ErrProcessInstanceNotFound) {
 		errTxt := "process instance not found"
-		log.Warn(errTxt, slog.String(keys.ProcessInstanceID, state.WorkflowInstanceId))
+		log.Warn(errTxt, slog.String(keys.ProcessInstanceID, state.ProcessInstanceId))
 	} else if pierr != nil {
 		return fmt.Errorf("activity complete processor failed to get process instance: %w", pierr)
 	}
@@ -1093,7 +1104,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 	if state.ElementType == element.EndEvent && len(state.Id) > 2 {
 		jobID := common.TrackingID(state.Id).Ancestor(2)
 		// If we are a sub workflow then complete the parent job
-		if jobID != state.WorkflowInstanceId {
+		if jobID != state.ExecutionId {
 			j, joberr := c.ns.GetJob(ctx, jobID)
 			if errors2.Is(joberr, errors.ErrJobNotFound) {
 				log.Warn("job not found " + jobID + " : " + err.Error())
@@ -1110,13 +1121,13 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 			if err := c.ns.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 				return fmt.Errorf("activity complete processor failed to delete job %s: %w", jobID, err)
 			}
-			wi, wierr := c.ns.GetWorkflowInstance(ctx, state.WorkflowInstanceId)
-			if wierr != nil && !errors2.Is(wierr, nats.ErrKeyNotFound) {
-				return fmt.Errorf("activity complete processor failed to get workflow instance: %w", err)
+			execution, eerr := c.ns.GetExecution(ctx, state.ExecutionId)
+			if eerr != nil && !errors2.Is(eerr, nats.ErrKeyNotFound) {
+				return fmt.Errorf("activity complete processor failed to get execution: %w", err)
 			}
 			if pierr == nil {
-				if err := c.ns.DestroyProcessInstance(ctx, state, pi, wi); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
-					return fmt.Errorf("activity complete processor failed to destroy workflow instance: %w", err)
+				if err := c.ns.DestroyProcessInstance(ctx, state, pi, execution); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+					return fmt.Errorf("activity complete processor failed to destroy execution: %w", err)
 				}
 			}
 		}
@@ -1130,13 +1141,13 @@ func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState
 		return &errors.ErrWorkflowFatal{Err: errors.ErrWorkflowNotFound}
 	}
 	els := common.ElementTable(wf)
-	if _, _, err := c.launch(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.WorkflowInstanceId, state.ElementId); err != nil {
+	if _, _, err := c.launch(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.ProcessInstanceId, state.ElementId); err != nil {
 		return c.engineErr(ctx, "launch child workflow", &errors.ErrWorkflowFatal{Err: err})
 	}
 	return nil
 }
 
-func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.WorkflowState, wi *model.WorkflowInstance, due int64) (bool, int, error) {
+func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.WorkflowState, execution *model.Execution, due int64) (bool, int, error) {
 	ctx, log := logx.ContextWith(ctx, "engine.timedExecuteProcessor")
 	slog.Info("timedExecuteProcessor")
 	wf, err := c.ns.GetWorkflow(ctx, state.WorkflowId)
@@ -1174,9 +1185,6 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 		shouldFire = value <= now
 	case model.WorkflowTimerType_duration:
 		if repeat != 0 && count >= repeat {
-			if err := c.ns.SatisfyProcess(ctx, wi, state.ProcessName); err != nil {
-				return false, 0, fmt.Errorf("timedExecuteProcessor failed to satisfy a process upon time completion: %w", err)
-			}
 			return true, 0, nil
 		}
 		isTimer = true
@@ -1185,11 +1193,21 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 
 	if isTimer {
 		if shouldFire {
-			pi, err := c.ns.CreateProcessInstance(ctx, state.WorkflowInstanceId, "", "", state.ProcessName)
+			exec, err := c.ns.CreateExecution(ctx, &model.Execution{
+				WorkflowId:   state.WorkflowId,
+				WorkflowName: state.WorkflowName,
+			})
+			if err != nil {
+				log.Error("creating execution instance", err)
+				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
+			}
+
+			pi, err := c.ns.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
 			if err != nil {
 				log.Error("creating timed process instance", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
 			}
+			state.ExecutionId = pi.ExecutionId
 			state.ProcessInstanceId = pi.ProcessInstanceId
 			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, state); err != nil {
 				log.Error("spawning process", err)

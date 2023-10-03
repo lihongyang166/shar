@@ -64,7 +64,7 @@ func init() {
 			AckPolicy:       nats.AckExplicitPolicy,
 			AckWait:         30 * time.Second,
 			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkflowInstanceAll, "*"),
+			FilterSubject:   subj.NS(messages.ExecutionAll, "*"),
 			MaxRequestBatch: 1,
 		},
 		{

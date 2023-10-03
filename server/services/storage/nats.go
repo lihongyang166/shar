@@ -1162,15 +1162,6 @@ func (s *Nats) incrementWorkflowStarted() {
 	s.statsMx.Unlock()
 }
 
-func (s *Nats) expectPossibleMissingKey(ctx context.Context, msg string, err error) error {
-	if errors2.Is(err, nats.ErrKeyNotFound) {
-		log := logx.FromContext(ctx)
-		log.Debug(msg, err)
-		return nil
-	}
-	return fmt.Errorf("error: %w", err)
-}
-
 // GetOldState gets a task state given its tracking ID.
 func (s *Nats) GetOldState(ctx context.Context, id string) (*model.WorkflowState, error) {
 	oldState := &model.WorkflowState{}

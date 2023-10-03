@@ -815,20 +815,6 @@ func (_m *MockNatsService) RecordHistoryProcessStart(ctx context.Context, state 
 	return r0
 }
 
-// SatisfyProcess provides a mock function with given fields: ctx, workflowInstance, processName
-func (_m *MockNatsService) SatisfyProcess(ctx context.Context, workflowInstance *model.Execution, processName string) error {
-	ret := _m.Called(ctx, workflowInstance, processName)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Execution, string) error); ok {
-		r0 = rf(ctx, workflowInstance, processName)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // SaveState provides a mock function with given fields: ctx, id, state
 func (_m *MockNatsService) SaveState(ctx context.Context, id string, state *model.WorkflowState) error {
 	ret := _m.Called(ctx, id, state)

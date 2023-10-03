@@ -87,12 +87,8 @@ func TestNoAuthN(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	assert.ErrorContains(t, err, "authenticate")
 
-	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
-	require.NoError(t, err)
-
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
-	assert.ErrorContains(t, err, "authenticate")
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_auth_test_SimpleProcess.yaml", nil)
+	require.Error(t, err)
 
 }
 

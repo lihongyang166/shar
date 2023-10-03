@@ -180,15 +180,34 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 			return "", "", reterr
 		}
 	}
+	partOfCollaboration := false
+	collabProcesses := make([]*model.Process, 0, len(wf.Collaboration.Participant))
 
-	pr, ok := wf.Process[processName]
-	if !ok {
-		reterr = fmt.Errorf("unable to find process with name %s", processName)
-		return "", "", reterr
+	for _, i := range wf.Collaboration.Participant {
+		if i.ProcessId == processName {
+			partOfCollaboration = true
+		}
+		pr, ok := wf.Process[i.ProcessId]
+		if !ok {
+			return "", "", fmt.Errorf("find collaboration process with name %s: %w", processName, err)
+		}
+		collabProcesses = append(collabProcesses, pr)
 	}
-	err2 := c.launchProcess(ctx, ID, processName, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
-	if err2 != nil {
-		return "", "", err2
+	var launchProcesses []*model.Process
+	if partOfCollaboration {
+		launchProcesses = collabProcesses
+	} else {
+		pr, ok := wf.Process[processName]
+		if !ok {
+			return "", "", fmt.Errorf("find process with name %s: %w", processName, err)
+		}
+		launchProcesses = append(launchProcesses, pr)
+	}
+	for _, pr := range launchProcesses {
+		err2 := c.launchProcess(ctx, ID, pr.Name, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
+		if err2 != nil {
+			return "", "", err2
+		}
 	}
 
 	return executionId, wfID, nil
@@ -577,7 +596,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		}
 	case element.CallActivity:
 		if err := c.startJob(ctx, subj.NS(messages.WorkflowJobLaunchExecute, "default"), newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start message lauch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start message launch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
 	case element.MessageIntermediateCatchEvent:
 		awaitMsg := common.CopyWorkflowState(newState)

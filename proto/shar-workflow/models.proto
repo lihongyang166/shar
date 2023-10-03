@@ -12,6 +12,23 @@ message Workflow {
   repeated Element messages = 3; // Messages define the messages that can be sent by the workflow.
   repeated Error errors = 4; // Errors define the errors used by the workflow.
   bytes gzipSource = 5; // Source for round tripping.
+  Collaboration collaboration = 6; // Collaboration between processes.
+}
+
+message Collaboration {
+  repeated Participant participant = 1; // Participant in a collaboration.
+  repeated MessageFlow messageFlow = 2; // MessageFlow describes the collaboration message participants.
+}
+
+message Participant {
+  string id = 2; // Id - participation ID.
+  string processId = 1; // ProcessId of the participating process.
+}
+
+message MessageFlow {
+  string id = 1; // Id for the message flow.
+  string sender = 2; // Source of the message.
+  string recipient = 3; // Recipient of the message.
 }
 
 message Metadata {

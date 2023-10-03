@@ -63,7 +63,6 @@ func TestConcurrentMessaging(t *testing.T) {
 
 	handlers.instComplete = make(map[string]struct{})
 	n := 100
-	launch := 0
 	tm := time.Now()
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
@@ -75,15 +74,6 @@ func TestConcurrentMessaging(t *testing.T) {
 				handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
 				handlers.mx.Unlock()
 			}
-
-			if _, _, err := cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {
-				panic(err)
-			} else {
-				handlers.mx.Lock()
-				launch++
-				handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
-				handlers.mx.Unlock()
-			}
 		}(inst)
 	}
 
@@ -91,7 +81,7 @@ func TestConcurrentMessaging(t *testing.T) {
 
 	fmt.Println("Stopwatch:", -time.Until(tm))
 	tst.AssertCleanKV()
-	assert.Equal(t, launch, handlers.received)
+	assert.Equal(t, n, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
 }
 

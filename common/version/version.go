@@ -4,4 +4,4 @@ package version
 // During development this should be set to the minimum compatible version.
 //
 //goland:noinspection GoUnnecessarilyExportedIdentifiers
-var Version = "v1.0.503"
+var Version = "v1.1.503"

@@ -61,16 +61,19 @@ func main() {
 	time.Sleep(100 * time.Hour)
 }
 
+// nolint:ireturn
 func exporterFor(ctx context.Context, traceDataFormat string, cfg *config.Settings) (server.Exporter, error) {
 	switch traceDataFormat {
 	case config.Jaeger:
-		return jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.JaegerURL)))
+		exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.JaegerURL)))
+		return exporter, fmt.Errorf("error constructing jaeger exporter: %w", err)
 	case config.Otlp:
 		opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(cfg.OTLPEndpoint)}
 		if !cfg.OTLPEndpointIsSecure {
 			opts = append(opts, otlptracehttp.WithInsecure())
 		}
-		return otlptracehttp.New(ctx, opts...)
+		exporter, err := otlptracehttp.New(ctx, opts...)
+		return exporter, fmt.Errorf("error constructing oltp exporter: %w", err)
 	}
 	return nil, fmt.Errorf("unknown trace data format %s", traceDataFormat)
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
+// These constants define the valid trace export formats
 const (
 	Otlp   = "otlp"
 	Jaeger = "jaeger"

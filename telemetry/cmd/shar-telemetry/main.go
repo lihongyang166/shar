@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"gitlab.com/shar-workflow/shar/telemetry/server"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"os"
 	"time"
 )
@@ -46,8 +48,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create the Jaeger exporter
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.JaegerURL)))
+	exp, err := exporterFor(ctx, cfg.TraceDataFormat, cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -58,4 +59,18 @@ func main() {
 		panic(err)
 	}
 	time.Sleep(100 * time.Hour)
+}
+
+func exporterFor(ctx context.Context, traceDataFormat string, cfg *config.Settings) (server.Exporter, error) {
+	switch traceDataFormat {
+	case config.Jaeger:
+		return jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.JaegerURL)))
+	case config.Otlp:
+		opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(cfg.OTLPEndpoint)}
+		if !cfg.OTLPEndpointIsSecure {
+			opts = append(opts, otlptracehttp.WithInsecure())
+		}
+		return otlptracehttp.New(ctx, opts...)
+	}
+	return nil, fmt.Errorf("unknown trace data format %s", traceDataFormat)
 }

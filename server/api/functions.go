@@ -128,18 +128,6 @@ func (s *SharServer) storeWorkflow(ctx context.Context, wf *model.Workflow) (*wr
 	return &wrapperspb.StringValue{Value: res}, nil
 }
 
-func (s *SharServer) getServiceTaskRoutingID(ctx context.Context, req *model.GetServiceTaskRoutingIDRequest) (*model.GetServiceTaskRoutingIDResponse, error) {
-	ctx, err2 := s.authForNonWorkflow(ctx)
-	if err2 != nil {
-		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
-	}
-	res, err := s.ns.GetServiceTaskRoutingKey(ctx, req.Name)
-	if err != nil {
-		return nil, fmt.Errorf("get service task routing id: %w", err)
-	}
-	return &model.GetServiceTaskRoutingIDResponse{Id: res}, nil
-}
-
 func (s *SharServer) launchWorkflow(ctx context.Context, req *model.LaunchWorkflowRequest) (*model.LaunchWorkflowResponse, error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.Name)
 	if err2 != nil {
@@ -430,6 +418,34 @@ func (s *SharServer) registerTask(ctx context.Context, req *model.RegisterTaskRe
 	return &model.RegisterTaskResponse{Uid: uid}, nil
 }
 
+func (s *SharServer) deprecateServiceTask(ctx context.Context, req *model.DeprecateServiceTaskRequest) (*model.DeprecateServiceTaskResponse, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	// Get latest version UID
+	uid, err := s.ns.GetTaskSpecUID(ctx, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("delete service task get spec UID: %w", err)
+	}
+
+	usage, err := s.ns.GetTaskSpecUsageByName(ctx, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("delete service task get initial task usage: %w", err)
+	}
+
+	if len(usage.ExecutingWorkflow)+len(usage.ExecutingProcessInstance) > 0 {
+		return &model.DeprecateServiceTaskResponse{Usage: usage}, errors2.ErrDeleteServiceTaskInUse
+	}
+
+	// Deprecate the task to ensure it can't get launched.
+	err = s.ns.DeprecateTaskSpec(ctx, []string{uid})
+	if err != nil {
+		return nil, fmt.Errorf("delete service task get spec UID: %w", err)
+	}
+	return &model.DeprecateServiceTaskResponse{Usage: usage}, nil
+}
 func (s *SharServer) getTaskSpec(ctx context.Context, req *model.GetTaskSpecRequest) (*model.GetTaskSpecResponse, error) {
 	ctx, err2 := s.authForNonWorkflow(ctx)
 	if err2 != nil {

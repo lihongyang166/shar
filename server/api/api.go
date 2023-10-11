@@ -121,10 +121,6 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("APIGetServerInstanceStats failed: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetServiceTaskRoutingID, &model.GetServiceTaskRoutingIDRequest{}, s.getServiceTaskRoutingID); err != nil {
-		return fmt.Errorf("APIGetServiceTaskRoutingID failed: %w", err)
-	}
-
 	if err := listen(con, s.panicRecovery, s.subs, messages.APICompleteSendMessageTask, &model.CompleteSendMessageRequest{}, s.completeSendMessageTask); err != nil {
 		return fmt.Errorf("APICompleteSendMessageTask failed: %w", err)
 	}
@@ -154,6 +150,10 @@ func (s *SharServer) Listen() error {
 	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.ApiGetTaskSpec, &model.GetTaskSpecRequest{}, s.getTaskSpec); err != nil {
+		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIDeprecateServiceTask, &model.DeprecateServiceTaskRequest{}, s.deprecateServiceTask); err != nil {
 		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
 	}
 

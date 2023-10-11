@@ -25,7 +25,6 @@ type NatsService interface {
 	CreateExecution(ctx context.Context, wfInstance *model.Execution) (*model.Execution, error)
 	GetExecution(ctx context.Context, workflowInstanceID string) (*model.Execution, error)
 	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
-	GetServiceTaskRoutingKey(ctx context.Context, taskName string) (string, error)
 	GetLatestVersion(ctx context.Context, workflowName string) (string, error)
 	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
 	GetJob(ctx context.Context, id string) (*model.WorkflowState, error)

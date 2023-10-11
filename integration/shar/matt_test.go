@@ -3,20 +3,22 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"testing"
-	"time"
 )
 
-func TestSimpleLegacy(t *testing.T) {
+func TestMatt(t *testing.T) {
 	tst := &support.Integration{}
-	//tst.WithTrace = true
+	tst.WithTrace = true
+
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
@@ -29,23 +31,22 @@ func TestSimpleLegacy(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register a service task
-	d := &testSimpleLegacyHandlerDef{t: t, finished: make(chan struct{})}
+	d := &testMattHandlerDef{t: t, finished: make(chan struct{})}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple__legacy_test_SimpleProcess.yaml", d.integrationSimple)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "matt.yaml", d.integrationSimple)
 	require.NoError(t, err)
-
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../testdata/matt-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, "MattProcess", model.Vars{})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
@@ -56,19 +57,19 @@ func TestSimpleLegacy(t *testing.T) {
 	tst.AssertCleanKV()
 }
 
-type testSimpleLegacyHandlerDef struct {
+type testMattHandlerDef struct {
 	t        *testing.T
 	finished chan struct{}
 }
 
-func (d *testSimpleLegacyHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testMattHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	assert.Equal(d.t, 42, vars["localVar"].(int))
+	assert.Equal(d.t, 32768, vars["number"].(int))
+	assert.Equal(d.t, 42, vars["postcode"].(int))
 	vars["Success"] = true
 	return vars, nil
 }
 
-func (d *testSimpleLegacyHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (d *testMattHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	close(d.finished)
 }

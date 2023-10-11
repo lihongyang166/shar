@@ -2,42 +2,37 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/nats-io/nats.go"
-	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 )
 
 // GetTaskSpecUID fetches
 func (s *Nats) GetTaskSpecUID(ctx context.Context, name string) (string, error) {
-	tskVer := &model.TaskSpecVersions{}
-	if err := common.LoadObj(ctx, s.wfTaskSpecVer, name, tskVer); errors.Is(err, nats.ErrKeyNotFound) {
-		// Try the legacy store
-		if b, err2 := common.Load(ctx, s.wfClientTask, name); errors.Is(err2, nats.ErrKeyNotFound) {
-			return "", fmt.Errorf("get task spec id: %w", err2)
-		} else if err2 != nil {
-			return "", fmt.Errorf("get legacy task spec id: %w", err2)
-		} else {
-			return string(b), nil
-		}
-	} else if err != nil {
+	tskVer, err := s.GetTaskSpecVersions(ctx, name)
+	if err != nil {
 		return "", fmt.Errorf("opening task spec versions: %w", err)
 	}
 
 	return tskVer.Id[len(tskVer.Id)-1], nil
 }
 
+func (s *Nats) GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error) {
+	tskVer := &model.TaskSpecVersions{}
+	if err := common.LoadObj(ctx, s.wfTaskSpecVer, name, tskVer); err != nil {
+		return nil, fmt.Errorf("opening task spec versions: %w", err)
+	}
+	return tskVer, nil
+}
+
 // PutTaskSpec writes a task spec to the database.
 func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error) {
-	// Legacy task registration
-	if spec.Version == task.LegacyTask {
-		return s.putLegacyTaskSpec(ctx, spec)
-	}
 
 	uid, err := task.CreateUID(spec)
 	if err != nil {
@@ -71,19 +66,128 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 // GetTaskSpecByUID fetches a task spec from the database.
 func (s *Nats) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error) {
 	spec := &model.TaskSpec{}
+	ks, _ := s.wfTaskSpec.Keys()
+	fmt.Println(ks)
 	if err := common.LoadObj(ctx, s.wfTaskSpec, uid, spec); err != nil {
 		return nil, fmt.Errorf("loading task spec: %w", err)
 	}
 	return spec, nil
 }
 
-func (s *Nats) putLegacyTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error) {
-	id, err := ksuid.NewRandom()
+func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.TaskSpecUsageReport, error) {
+	taskSpecVersions, err := s.GetTaskSpecVersions(ctx, name)
+
+	wfKeys, err := s.wf.Keys()
 	if err != nil {
-		return "", fmt.Errorf("put legacy task ksuid generation: %w", err)
+		return nil, fmt.Errorf("task spec usage by name get workflow version keys: %w", err)
 	}
-	if err := common.Save(ctx, s.wfClientTask, spec.Metadata.Type, []byte(id.String())); err != nil {
-		return "", fmt.Errorf("saving legacy task routing: %w", err)
+	rptWf := make(map[string]struct{})
+	rptPr := make(map[string]struct{})
+	for _, vk := range wfKeys {
+		wf := &model.Workflow{}
+		err := common.LoadObj(ctx, s.wfVersion, vk, wf)
+		if err != nil {
+			return nil, fmt.Errorf("task spec usage by name get workflow")
+		}
+		for _, pr := range wf.Process {
+			for _, el := range pr.Elements {
+				if el.Type == element.ServiceTask && el.Version != nil && slices.Contains(taskSpecVersions.Id, *el.Version) {
+					rptPr[pr.Name] = struct{}{}
+					rptWf[wf.Name] = struct{}{}
+				}
+			}
+		}
 	}
-	return id.String(), nil
+
+	piKeys, err := s.wfProcessInstance.Keys()
+	if err != nil {
+		return nil, fmt.Errorf("task spec usage by name get process instance keys: %w", err)
+	}
+
+	rptWfExec := make(map[string]struct{})
+	rptPrExec := make(map[string]struct{})
+
+	for _, piKey := range piKeys {
+		pi := &model.ProcessInstance{}
+		err := common.LoadObj(ctx, s.wfProcessInstance, piKey, pi)
+		if err != nil {
+			return nil, fmt.Errorf("task spec usage by name get process instance: %w", err)
+		}
+		rptWfExec[pi.WorkflowId] = struct{}{}
+		rptPrExec[pi.ProcessInstanceId] = struct{}{}
+	}
+
+	return &model.TaskSpecUsageReport{
+		Workflow:                 maps.Keys(rptWf),
+		Process:                  maps.Keys(rptPr),
+		ExecutingWorkflow:        maps.Keys(rptWfExec),
+		ExecutingProcessInstance: maps.Keys(rptPrExec),
+	}, nil
+}
+
+func (s *Nats) GetExecutableWorkflowIds(ctx context.Context) ([]string, error) {
+	verKeys, err := s.wfVersion.Keys()
+	if err != nil {
+		return nil, fmt.Errorf("get workflow version keys: %w", err)
+	}
+	res := make([]string, 0, len(verKeys))
+	for _, verKey := range verKeys {
+		wfv := &model.WorkflowVersions{}
+		err := common.LoadObj(ctx, s.wfVersion, verKey, wfv)
+		if err != nil {
+			return nil, fmt.Errorf("get workflow version: %w", err)
+		}
+		res = append(res, wfv.Version[len(wfv.Version)-1].Id)
+	}
+	return res, nil
+}
+
+func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskSpecUsageReport, error) {
+
+	wfKeys, err := s.GetExecutableWorkflowIds(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("task spec usage get executasble workflows: %w", err)
+	}
+	rptWf := make(map[string]struct{})
+	rptPr := make(map[string]struct{})
+	for _, vk := range wfKeys {
+		wf := &model.Workflow{}
+		err := common.LoadObj(ctx, s.wfVersion, vk, wf)
+		if err != nil {
+			return nil, fmt.Errorf("task spec usage by name get workflow")
+		}
+		for _, pr := range wf.Process {
+			for _, el := range pr.Elements {
+				if el.Type == element.ServiceTask && el.Version != nil && slices.Contains(uid, *el.Version) {
+					rptPr[pr.Name] = struct{}{}
+					rptWf[wf.Name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	piKeys, err := s.wfProcessInstance.Keys()
+	if err != nil {
+		return nil, fmt.Errorf("task spec usage by name get process instance keys: %w", err)
+	}
+
+	rptWfExec := make(map[string]struct{})
+	rptPrExec := make(map[string]struct{})
+
+	for _, piKey := range piKeys {
+		pi := &model.ProcessInstance{}
+		err := common.LoadObj(ctx, s.wfProcessInstance, piKey, pi)
+		if err != nil {
+			return nil, fmt.Errorf("task spec usage by name get process instance: %w", err)
+		}
+		rptWfExec[pi.WorkflowId] = struct{}{}
+		rptPrExec[pi.ProcessInstanceId] = struct{}{}
+	}
+
+	return &model.TaskSpecUsageReport{
+		Workflow:                 maps.Keys(rptWf),
+		Process:                  maps.Keys(rptPr),
+		ExecutingWorkflow:        maps.Keys(rptWfExec),
+		ExecutingProcessInstance: maps.Keys(rptPrExec),
+	}, nil
 }

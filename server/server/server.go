@@ -120,11 +120,11 @@ func (s *Server) Listen() {
 	}
 
 	ns := s.createServices(s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
-	api, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator)
+	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator)
 	if err != nil {
 		panic(err)
 	}
-	s.api = api
+	s.api = a
 	s.healthService.SetStatus(grpcHealth.HealthCheckResponse_SERVING)
 
 	if err := s.api.Listen(); err != nil {

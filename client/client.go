@@ -18,8 +18,6 @@ import (
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
-	"gitlab.com/shar-workflow/shar/common/task"
-	"gitlab.com/shar-workflow/shar/common/validation"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	api2 "gitlab.com/shar-workflow/shar/internal/client/api"
@@ -201,45 +199,19 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	return nil
 }
 
-// RegisterServiceTask adds a new service task to listen for to the client.
-// Deprecated: RegisterServiceTask exists for historical compatibility.  Use RegisterTask passing in a model.TaskSpec pointer.
-func (c *Client) RegisterServiceTask(ctx context.Context, taskName string, fn ServiceFn) error {
-	id, err := c.getServiceTaskRoutingID(ctx, taskName)
-	if err != nil {
-		return fmt.Errorf("get service task routing: %w", err)
+// DeprecateTaskSpec deprecates a task spec by name.
+func (c *Client) DeprecateTaskSpec(ctx context.Context, name string) error {
+	req := &model.DeprecateServiceTaskRequest{
+		Name: name,
 	}
-	if id == "_nil" {
-		spec := &model.TaskSpec{
-			Version: task.LegacyTask,
-			Kind:    "serviceTask",
-			Metadata: &model.TaskMetadata{
-				Type:        taskName,
-				Short:       taskName + " unversioned service task.",
-				Description: taskName + " unversioned service task.",
-			},
-		}
-		return c.registerTask(ctx, spec, fn)
+	res := &model.DeprecateServiceTaskResponse{}
+	if err := api2.Call(ctx, c.txCon, messages.APIDeprecateServiceTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return c.clientErr(ctx, err)
 	}
-	c.SvcTasks[taskName] = fn
-	c.listenTasks[id] = struct{}{}
 	return nil
 }
 
-// RegisterTask registers a service task with a task spec.
 func (c *Client) RegisterTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
-	if spec.Version == task.LegacyTask {
-		return fmt.Errorf("system reserved task version: %w", errors.New("attempt to register system reserved word"))
-	}
-	return c.registerTask(ctx, spec, fn)
-}
-
-func (c *Client) registerTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
-	if spec.Version != task.LegacyTask {
-		if err := validation.ValidateTaskSpec(spec); err != nil {
-			return fmt.Errorf("task spec validation: %w", err)
-		}
-	}
-
 	id, err := c.registerServiceTask(ctx, spec)
 	if err != nil {
 		return fmt.Errorf("register service task: %w", err)
@@ -355,16 +327,7 @@ func (c *Client) listen(ctx context.Context) error {
 					log.Error("get job", err, slog.String("JobId", trackingID))
 					return false, fmt.Errorf("get service task job kv: %w", err)
 				}
-				// ** START LEGACY** //
-				if job.ExecuteVersion == "" {
-					// any tasks which are in flight during upgrade to this version must be injected with an ID.
-					v, err := c.getServiceTaskRoutingID(ctx, *job.Execute)
-					if err != nil {
-						return false, fmt.Errorf("failed to get routing ID")
-					}
-					job.ExecuteVersion = v
-				}
-				// ** END LEGACY ** //
+
 				svcFn, ok := c.SvcTasks[job.ExecuteVersion]
 
 				if !ok {
@@ -690,15 +653,6 @@ func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) (*mode
 		return nil, c.clientErr(ctx, err)
 	}
 	return res, nil
-}
-
-func (c *Client) getServiceTaskRoutingID(ctx context.Context, name string) (string, error) {
-	req := &model.GetServiceTaskRoutingIDRequest{Name: name}
-	res := &model.GetServiceTaskRoutingIDResponse{}
-	if err := api2.Call(ctx, c.txCon, messages.APIGetServiceTaskRoutingID, c.ExpectedCompatibleServerVersion, req, res); err != nil {
-		return "", c.clientErr(ctx, err)
-	}
-	return res.Id, nil
 }
 
 // GetUserTask fetches details for a user task based upon an ID obtained from, ListUserTasks

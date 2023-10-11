@@ -10,8 +10,6 @@ const (
 	ElementID = "el.id"
 	// ElementType is the key for the BPMN name for the element.
 	ElementType = "el.type"
-	// WorkflowInstanceID is the key for the unique identifier for the executing workflow instance.
-	WorkflowInstanceID = "wf.iid"
 	// ProcessInstanceID is the key for the unique identifier for the executing workflow instance.
 	ProcessInstanceID = "pi.id"
 	// WorkflowID is the key for the originating versioned workflow that started the instance.
@@ -28,8 +26,6 @@ const (
 	ParentInstanceElementID = "wf.parent.el.id"
 	// Execute is a key that is used for the execution command of a Job or workflow activity.
 	Execute = "wf.ex"
-	// MessageID is a key for a Workflow Message.
-	MessageID = "msg.id"
 	// Condition is a key for a business rule to evaluate.
 	Condition = "el.cond"
 	// State is a key for the description of the current execution state of a workflow instance.

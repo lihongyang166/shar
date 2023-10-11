@@ -376,15 +376,15 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 	// Check traversals from a reciprocated divergent gateway
 	if reciprocatedDivergentGateway {
 
-		keys := make([]string, 0, len(commit))
+		ks := make([]string, 0, len(commit))
 		for k := range commit {
-			keys = append(keys, k)
+			ks = append(ks, k)
 		}
 		if state.GatewayExpectations == nil {
 			state.GatewayExpectations = make(map[string]*model.GatewayExpectations)
 		}
 		state.GatewayExpectations[divergentGatewayReciprocalInstanceId] = &model.GatewayExpectations{
-			ExpectedPaths: keys,
+			ExpectedPaths: ks,
 		}
 	}
 

@@ -45,7 +45,7 @@ func TestSimpleAuthZ(t *testing.T) {
 	d := &testSimpleAuthHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple__legacy_test_SimpleProcess.yaml", d.integrationSimple)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

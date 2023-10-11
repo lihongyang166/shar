@@ -67,7 +67,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 				if embargo != 0 {
 					offset := time.Duration(int64(embargo) - time.Now().UnixNano())
 					if offset > 0 {
-						if err != m.NakWithDelay(offset) {
+						if err := m.NakWithDelay(offset); err != nil {
 							log.Warn("nak with delay")
 						}
 						continue

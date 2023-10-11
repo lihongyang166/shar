@@ -293,7 +293,7 @@ func (s *Integration) checkCleanKV() error {
 
 	keys, err := b.Keys()
 	if err != nil {
-		if err == nats.ErrNoKeysFound {
+		if errors.Is(err, nats.ErrNoKeysFound) {
 			return nil
 		}
 		return fmt.Errorf("checkCleanKV failed to get user task keys: %w", err)

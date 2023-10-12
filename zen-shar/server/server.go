@@ -5,8 +5,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "embed"
@@ -30,10 +33,17 @@ type zenOpts struct {
 	sharServerImageUrl  string
 	natsServerImageUrl  string
 	natsPersistHostPath string
+	natsServerAddress   string
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
 type ZenSharOptionApplyFn func(cfg *zenOpts)
+
+func WithNatsServerAddress(addr string) ZenSharOptionApplyFn {
+	return func(cfg *zenOpts) {
+		cfg.natsServerAddress = addr
+	}
+}
 
 // WithSharVersion artificially sets the reported server version.
 func WithSharVersion(ver string) ZenSharOptionApplyFn {
@@ -80,20 +90,30 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 	var nPort int
 
 	natsConfigFileLocation, natsConfigFile := writeNatsConfig()
+
 	if defaults.natsServerImageUrl != "" {
 		defaultNatsContainerPort := "4222"
 		cNsvr := inContainerNatsServer(defaults.natsServerImageUrl, defaultNatsContainerPort, natsConfigFileLocation, defaults.natsPersistHostPath)
 		nPort = cNsvr.exposedToHostPorts[defaultNatsContainerPort]
 		nsvr = cNsvr
 	} else {
-		v, e := rand.Int(rand.Reader, big.NewInt(500))
-		if e != nil {
-			panic("no crypto:" + e.Error())
+		if defaults.natsServerAddress == "" {
+			v, e := rand.Int(rand.Reader, big.NewInt(500))
+			if e != nil {
+				panic("no crypto:" + e.Error())
+			}
+			nPort = 4459 + int(v.Int64())
+		} else {
+			a, p, err := parseUriOrAddressPort(defaults.natsServerAddress)
+			if err != nil {
+				return nil, nil, err
+			}
+			nPort = p
+			nHost = a
 		}
-		natzPort := 4459 + int(v.Int64())
 
-		nsvr = inProcessNatsServer(natsConfigFile, nHost, natzPort)
-		nPort = natzPort
+		nsvr = inProcessNatsServer(natsConfigFile, nHost, nPort)
+		nsvr.Listen()
 	}
 
 	var ssvr Server
@@ -105,6 +125,26 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 
 	slog.Info("Setup completed", "nats port", nPort)
 	return ssvr, nsvr, nil
+}
+
+func parseUriOrAddressPort(address string) (string, int, error) {
+	var a string
+	var p int
+	if strings.Contains(address, "://") {
+		addr, err := url.Parse(address)
+		if err != nil {
+			return "", 0, fmt.Errorf("nats uri: %w", err)
+		}
+		address = addr.Host
+	}
+	addr, err := netip.ParseAddrPort(address)
+	if err != nil {
+		return "", 0, fmt.Errorf("parse address: %w", err)
+	}
+	a = addr.Addr().String()
+	p = int(addr.Port())
+
+	return a, p, nil
 }
 
 func writeNatsConfig() (string, string) {
@@ -122,8 +162,6 @@ func writeNatsConfig() (string, string) {
 
 func inProcessNatsServer(natsConfig string, natsHost string, natsPort int) *NatsServer {
 	n := &NatsServer{natsConfig: natsConfig, host: natsHost, port: natsPort}
-
-	n.Listen()
 	return n
 }
 

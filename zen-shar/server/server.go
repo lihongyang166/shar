@@ -39,6 +39,7 @@ type zenOpts struct {
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
 type ZenSharOptionApplyFn func(cfg *zenOpts)
 
+// WithNatsServerAddress provides a specific address for the NATS server.
 func WithNatsServerAddress(addr string) ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
 		cfg.natsServerAddress = addr

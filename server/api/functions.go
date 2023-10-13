@@ -411,6 +411,7 @@ func (s *SharServer) registerTask(ctx context.Context, req *model.RegisterTaskRe
 	}
 
 	uid, err := s.ns.PutTaskSpec(ctx, req.Spec)
+
 	if err != nil {
 		return nil, fmt.Errorf("register task spec: %w", err)
 	}
@@ -424,27 +425,21 @@ func (s *SharServer) deprecateServiceTask(ctx context.Context, req *model.Deprec
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 
-	// Get latest version UID
-	uid, err := s.ns.GetTaskSpecUID(ctx, req.Name)
+	usage, err := s.ns.GetTaskSpecUsage(ctx, []string{req.Name})
 	if err != nil {
-		return nil, fmt.Errorf("delete service task get spec UID: %w", err)
-	}
-
-	usage, err := s.ns.GetTaskSpecUsageByName(ctx, req.Name)
-	if err != nil {
-		return nil, fmt.Errorf("delete service task get initial task usage: %w", err)
+		return nil, fmt.Errorf("deprecate service task get initial task usage: %w", err)
 	}
 
 	if len(usage.ExecutingWorkflow)+len(usage.ExecutingProcessInstance) > 0 {
-		return &model.DeprecateServiceTaskResponse{Usage: usage}, errors2.ErrDeleteServiceTaskInUse
+		return &model.DeprecateServiceTaskResponse{Usage: usage, Success: false}, nil
 	}
 
 	// Deprecate the task to ensure it can't get launched.
-	err = s.ns.DeprecateTaskSpec(ctx, []string{uid})
+	err = s.ns.DeprecateTaskSpec(ctx, []string{req.Name})
 	if err != nil {
 		return nil, fmt.Errorf("delete service task get spec UID: %w", err)
 	}
-	return &model.DeprecateServiceTaskResponse{Usage: usage}, nil
+	return &model.DeprecateServiceTaskResponse{Usage: usage, Success: true}, nil
 }
 func (s *SharServer) getTaskSpec(ctx context.Context, req *model.GetTaskSpecRequest) (*model.GetTaskSpecResponse, error) {
 	ctx, err2 := s.authForNonWorkflow(ctx)
@@ -457,4 +452,30 @@ func (s *SharServer) getTaskSpec(ctx context.Context, req *model.GetTaskSpecRequ
 		return nil, fmt.Errorf("get task spec: %w", err)
 	}
 	return &model.GetTaskSpecResponse{Spec: spec}, nil
+}
+
+func (s *SharServer) getTaskSpecVersions(ctx context.Context, req *model.GetTaskSpecVersionsRequest) (*model.GetTaskSpecVersionsResult, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	vers, err := s.ns.GetTaskSpecVersions(ctx, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get task spec versions: %w", err)
+	}
+	return &model.GetTaskSpecVersionsResult{Versions: vers}, nil
+}
+
+func (s *SharServer) getTaskSpecUsage(ctx context.Context, req *model.GetTaskSpecUsageRequest) (*model.TaskSpecUsageReport, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	usage, err := s.ns.GetTaskSpecUsage(ctx, []string{req.Id})
+	if err != nil {
+		return nil, fmt.Errorf("get task spec versions: %w", err)
+	}
+	return usage, nil
 }

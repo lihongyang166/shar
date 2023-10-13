@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/task"
@@ -23,6 +25,7 @@ func (s *Nats) GetTaskSpecUID(ctx context.Context, name string) (string, error) 
 	return tskVer.Id[len(tskVer.Id)-1], nil
 }
 
+// GetTaskSpecVersions fetches the versions of a given task spec name
 func (s *Nats) GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error) {
 	tskVer := &model.TaskSpecVersions{}
 	if err := common.LoadObj(ctx, s.wfTaskSpecVer, name, tskVer); err != nil {
@@ -36,9 +39,13 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 
 	uid, err := task.CreateUID(spec)
 	if err != nil {
-		return "", fmt.Errorf("put task spec: hask task: %w", err)
+		return "", fmt.Errorf("put task spec: hash task: %w", err)
 	}
 	spec.Metadata.Uid = uid
+	if err := s.EnsureServiceTaskConsumer(uid); err != nil {
+		return "", fmt.Errorf("ensure consumer for service task %s:%w", uid, err)
+	}
+
 	if err := common.SaveObj(ctx, s.wfTaskSpec, spec.Metadata.Uid, spec); err != nil {
 		return "", fmt.Errorf("saving task spec: %w", err)
 	}
@@ -66,17 +73,18 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 // GetTaskSpecByUID fetches a task spec from the database.
 func (s *Nats) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error) {
 	spec := &model.TaskSpec{}
-	ks, _ := s.wfTaskSpec.Keys()
-	fmt.Println(ks)
 	if err := common.LoadObj(ctx, s.wfTaskSpec, uid, spec); err != nil {
 		return nil, fmt.Errorf("loading task spec: %w", err)
 	}
 	return spec, nil
 }
 
+// GetTaskSpecUsageByName produces a report of running and executable places where the task spec is in use.
 func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.TaskSpecUsageReport, error) {
 	taskSpecVersions, err := s.GetTaskSpecVersions(ctx, name)
-
+	if err != nil {
+		return nil, fmt.Errorf("get task spec versions: %w", err)
+	}
 	wfKeys, err := s.wf.Keys()
 	if err != nil {
 		return nil, fmt.Errorf("task spec usage by name get workflow version keys: %w", err)
@@ -125,6 +133,7 @@ func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.
 	}, nil
 }
 
+// GetExecutableWorkflowIds returns a list of all workflow Ids that contain executable processes
 func (s *Nats) GetExecutableWorkflowIds(ctx context.Context) ([]string, error) {
 	verKeys, err := s.wfVersion.Keys()
 	if err != nil {
@@ -142,17 +151,18 @@ func (s *Nats) GetExecutableWorkflowIds(ctx context.Context) ([]string, error) {
 	return res, nil
 }
 
+// GetTaskSpecUsage returns the usage report for a list of task specs.
 func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskSpecUsageReport, error) {
 
 	wfKeys, err := s.GetExecutableWorkflowIds(ctx)
-	if err != nil {
+	if !errors.Is(err, nats.ErrNoKeysFound) && err != nil {
 		return nil, fmt.Errorf("task spec usage get executasble workflows: %w", err)
 	}
 	rptWf := make(map[string]struct{})
 	rptPr := make(map[string]struct{})
 	for _, vk := range wfKeys {
 		wf := &model.Workflow{}
-		err := common.LoadObj(ctx, s.wfVersion, vk, wf)
+		err := common.LoadObj(ctx, s.wf, vk, wf)
 		if err != nil {
 			return nil, fmt.Errorf("task spec usage by name get workflow")
 		}
@@ -167,7 +177,7 @@ func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskS
 	}
 
 	piKeys, err := s.wfProcessInstance.Keys()
-	if err != nil {
+	if !errors.Is(err, nats.ErrNoKeysFound) && err != nil {
 		return nil, fmt.Errorf("task spec usage by name get process instance keys: %w", err)
 	}
 

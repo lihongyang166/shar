@@ -141,6 +141,7 @@ const (
 	APIDeprecateServiceTask     = "WORKFLOW.Api.DeprecateServiceTask"     // APIDeprecateServiceTask is the deprecate service task API subject.
 	APIListUserTaskIDs          = "WORKFLOW.Api.ListUserTaskIDs"          // APIListUserTaskIDs is the list user task IDs API subject.
 	APIGetUserTask              = "WORKFLOW.Api.GetUserTask"              // APIGetUserTask is the get user task API subject.
+	APIGetTaskSpecVersions      = "WORKFLOW.Api.GetTaskSpecVersions"      // APIGetTaskSpecVersions is the get task versions API subject.
 	APIHandleWorkflowError      = "WORKFLOW.Api.HandleWorkflowError"      // APIHandleWorkflowError is the handle workflow error API subject.
 	APIGetServerInstanceStats   = "WORKFLOW.Api.GetServerInstanceStats"   // APIGetServerInstanceStats is the get server instance status API subject.
 	APIRegisterTask             = "Workflow.Api.RegisterTask"             // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
@@ -150,6 +151,7 @@ const (
 	APIGetWorkflow              = "WORKFLOW.Api.GetWorkflow"              // APIGetWorkflow is the get workflow API message subject.
 	APIGetProcessHistory        = "WORKFLOW.Api.GetProcessHistory"        // APIGetProcessHistory is the get process history API message subject.
 	APIGetVersionInfo           = "WORKFLOW.API.GetVersionInfo"           // APIGetVersionInfo is the get server version information API message subject.
+	APIGetTaskSpecUsage         = "WORKFLOW.Api.GetTaskSpecUsage"         // APIGetTaskSpecUsage is the get task spec usage API message subject.
 )
 
 var (

@@ -122,6 +122,10 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 		return "", "", reterr
 	}
 
+	if err := c.ns.CheckProcessTaskDeprecation(ctx, wf, processName); err != nil {
+		return "", "", fmt.Errorf("check task deprecation: %w", err)
+	}
+
 	var executionId string
 
 	if parentpiID == "" {
@@ -550,7 +554,9 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			el.Version = &v
 		} else {
 			def, err := c.ns.GetTaskSpecByUID(ctx, *el.Version)
-			fmt.Println(def, err)
+			if err != nil {
+				return fmt.Errorf("get tsask spec by uid: %w", err)
+			}
 			if def.Behaviour != nil && def.Behaviour.Mock {
 				err := c.mockCompleteServiceTask(ctx, def, el, newState)
 				if err != nil {
@@ -867,7 +873,7 @@ func (c *Engine) startJob(ctx context.Context, subject string, job *model.Workfl
 
 		owners, err := c.evaluateOwners(ctx, el.Candidates, vx)
 		if err != nil {
-			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate owners: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job: evaluate owners: %w", err)}
 		}
 		groups, err := c.evaluateOwners(ctx, el.CandidateGroups, vx)
 		if err != nil {

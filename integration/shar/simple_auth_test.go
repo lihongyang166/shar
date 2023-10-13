@@ -99,7 +99,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 		},
 	}
 
-	tst.WithTrace = true
+	//tst.WithTrace = true
 	tst.Setup(t, testAuthZFn, testAuthNFn)
 	defer tst.Teardown()
 

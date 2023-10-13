@@ -21,6 +21,20 @@ type MockNatsService struct {
 	mock.Mock
 }
 
+// CheckProcessTaskDeprecation provides a mock function with given fields: ctx, _a1, processName
+func (_m *MockNatsService) CheckProcessTaskDeprecation(ctx context.Context, _a1 *model.Workflow, processName string) error {
+	ret := _m.Called(ctx, _a1, processName)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.Workflow, string) error); ok {
+		r0 = rf(ctx, _a1, processName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CloseUserTask provides a mock function with given fields: ctx, trackingID
 func (_m *MockNatsService) CloseUserTask(ctx context.Context, trackingID string) error {
 	ret := _m.Called(ctx, trackingID)
@@ -148,6 +162,20 @@ func (_m *MockNatsService) DestroyProcessInstance(ctx context.Context, state *mo
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState, *model.ProcessInstance, *model.Execution) error); ok {
 		r0 = rf(ctx, state, pi, wi)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// EnsureServiceTaskConsumer provides a mock function with given fields: uid
+func (_m *MockNatsService) EnsureServiceTaskConsumer(uid string) error {
+	ret := _m.Called(uid)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(uid)
 	} else {
 		r0 = ret.Error(0)
 	}

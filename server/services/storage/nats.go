@@ -322,13 +322,6 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 					return "", fmt.Errorf("task %s is not registered: %w", j.Execute, err)
 				}
 				j.Version = &id
-				jxCfg := &nats.ConsumerConfig{
-					Durable:       "ServiceTask_" + id,
-					Description:   "",
-					FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, "default") + "." + id,
-					AckPolicy:     nats.AckExplicitPolicy,
-					MemoryStorage: s.storageType == nats.MemoryStorage,
-				}
 
 				def, err := s.GetTaskSpecByUID(ctx, id)
 				if err != nil {
@@ -403,10 +396,9 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 					}
 				}
 
-				if err = ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
-					return "", fmt.Errorf("add service task consumer: %w", err)
+				if err := s.EnsureServiceTaskConsumer(id); err != nil {
+					return "", fmt.Errorf("ensure consumer for service task %s:%w", j.Execute, err)
 				}
-
 			}
 		}
 
@@ -480,6 +472,22 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 	go s.incrementWorkflowCount()
 
 	return wfID, nil
+}
+
+// EnsureServiceTaskConsumer creates or updates a service task consumer.
+func (s *Nats) EnsureServiceTaskConsumer(uid string) error {
+	jxCfg := &nats.ConsumerConfig{
+		Durable:       "ServiceTask_" + uid,
+		Description:   "",
+		FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, "default") + "." + uid,
+		AckPolicy:     nats.AckExplicitPolicy,
+		MemoryStorage: s.storageType == nats.MemoryStorage,
+	}
+
+	if err := ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
+		return fmt.Errorf("add service task consumer: %w", err)
+	}
+	return nil
 }
 
 // forEachStartElement finds all start elements for a given process and executes a function on the element.
@@ -1106,7 +1114,7 @@ func (s *Nats) OwnerID(name string) (string, error) {
 		name = "AnyUser"
 	}
 	nm, err := s.ownerID.Get(name)
-	if err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
+	if err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 		return "", fmt.Errorf("get owner id: %w", err)
 	}
 	if nm == nil {
@@ -1384,6 +1392,7 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 	return nil
 }
 
+// DeprecateTaskSpec deprecates one or more task specs by ID.
 func (s *Nats) DeprecateTaskSpec(ctx context.Context, uid []string) error {
 	for _, u := range uid {
 		ts := &model.TaskSpec{}
@@ -1407,4 +1416,21 @@ func (s *Nats) populateMetadata(wf *model.Workflow) {
 			}
 		}
 	}
+}
+
+// CheckProcessTaskDeprecation checks if all the tasks in a process have not been deprecated.
+func (s *Nats) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processName string) error {
+	pr := workflow.Process[processName]
+	for _, el := range pr.Elements {
+		if el.Type == element.ServiceTask {
+			st, err := s.GetTaskSpecByUID(ctx, *el.Version)
+			if err != nil {
+				return fmt.Errorf("get task spec by uid: %w", err)
+			}
+			if st.Behaviour != nil && st.Behaviour.Deprecated {
+				return fmt.Errorf("process %s contains deprecated task %s", processName, el.Execute)
+			}
+		}
+	}
+	return nil
 }

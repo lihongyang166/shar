@@ -208,9 +208,13 @@ func (c *Client) DeprecateTaskSpec(ctx context.Context, name string) error {
 	if err := api2.Call(ctx, c.txCon, messages.APIDeprecateServiceTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
+	if !res.Success {
+		return &ErrTaskInUse{Err: fmt.Errorf("attempt to deprectate a task in use"), Usage: res.Usage}
+	}
 	return nil
 }
 
+// RegisterTask registers a task spec with SHAR.
 func (c *Client) RegisterTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
 	id, err := c.registerServiceTask(ctx, spec)
 	if err != nil {
@@ -292,7 +296,6 @@ func (c *Client) listen(ctx context.Context) error {
 					cancel()
 					return
 				}
-				fmt.Println("Waiting...")
 				fnMx.Lock()
 				select {
 				case <-waitCancelSig:
@@ -473,6 +476,16 @@ func (c *Client) ListUserTaskIDs(ctx context.Context, owner string) (*model.User
 	return res, nil
 }
 
+// GetTaskSpecVersions returns all of the version IDs associated with the named task spec.
+func (c *Client) GetTaskSpecVersions(ctx context.Context, name string) ([]string, error) {
+	res := &model.GetTaskSpecVersionsResult{}
+	req := &model.GetTaskSpecVersionsRequest{Name: name}
+	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecVersions, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return res.Versions.Id, nil
+}
+
 // CompleteUserTask completes a task and sends the variables back to the workflow
 func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID string, newVars model.Vars) error {
 	ev, err := vars.Encode(ctx, newVars)
@@ -581,6 +594,18 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, e
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Definition, nil
+}
+
+// GetTaskSpecUsage returns a report outlining task spec usage in executable and executing workflows.
+func (c *Client) GetTaskSpecUsage(ctx context.Context, id string) (*model.TaskSpecUsageReport, error) {
+	req := &model.GetTaskSpecUsageRequest{
+		Id: id,
+	}
+	res := &model.TaskSpecUsageReport{}
+	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecUsage, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return res, nil
 }
 
 // CancelProcessInstance cancels a running Process Instance.

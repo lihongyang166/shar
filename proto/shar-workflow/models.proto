@@ -652,12 +652,25 @@ message GetTaskSpecResponse{
 
 // DeleteServiceTaskRequest contains the UID of a registered task.
 message DeprecateServiceTaskRequest{
-  string name = 1; // Spec - the task specification.
+  string name = 1; // Name of the task specification.
 }
 
 // DeleteServiceTaskResponse is the result of unregistering a task.
 message DeprecateServiceTaskResponse{
-    optional TaskSpecUsageReport usage = 1;
+  optional TaskSpecUsageReport usage = 1;
+  bool success = 2;
+}
+
+message GetTaskSpecVersionsRequest{
+  string name = 1; // Name of the task specification.
+}
+
+message GetTaskSpecVersionsResult{
+  TaskSpecVersions versions = 1;
+}
+
+message GetTaskSpecUsageRequest {
+  string id = 1;
 }
 
 message TaskSpecUsageReport{

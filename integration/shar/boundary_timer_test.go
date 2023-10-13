@@ -40,7 +40,7 @@ func TestBoundaryTimer(t *testing.T) {
 func TestBoundaryTimerTimeout(t *testing.T) {
 	tst := &support.Integration{}
 	tst.Cooldown = 60 * time.Second
-	tst.WithTrace = true
+	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 

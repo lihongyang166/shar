@@ -7,7 +7,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"gitlab.com/shar-workflow/shar/telemetry/server"
-	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"os"
 	"time"
@@ -48,7 +47,7 @@ func main() {
 
 	ctx := context.Background()
 
-	exp, err := exporterFor(ctx, cfg.TraceDataFormat, cfg)
+	exp, err := exporterFor(ctx, cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -62,18 +61,14 @@ func main() {
 }
 
 // nolint:ireturn
-func exporterFor(ctx context.Context, traceDataFormat string, cfg *config.Settings) (server.Exporter, error) {
-	switch traceDataFormat {
-	case config.Jaeger:
-		exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.JaegerURL)))
-		return exporter, fmt.Errorf("error constructing jaeger exporter: %w", err)
-	case config.Otlp:
-		opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(cfg.OTLPEndpoint)}
-		if !cfg.OTLPEndpointIsSecure {
-			opts = append(opts, otlptracehttp.WithInsecure())
-		}
-		exporter, err := otlptracehttp.New(ctx, opts...)
-		return exporter, fmt.Errorf("error constructing oltp exporter: %w", err)
+func exporterFor(ctx context.Context, cfg *config.Settings) (server.Exporter, error) {
+	opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(cfg.OTLPEndpoint)}
+	if !cfg.OTLPEndpointIsSecure {
+		opts = append(opts, otlptracehttp.WithInsecure())
 	}
-	return nil, fmt.Errorf("unknown trace data format %s", traceDataFormat)
+	exporter, err := otlptracehttp.New(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing oltp exporter: %w", err)
+	}
+	return exporter, nil
 }

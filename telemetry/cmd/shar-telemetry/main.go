@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"gitlab.com/shar-workflow/shar/telemetry/server"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"os"
 	"time"
 )
@@ -46,8 +47,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create the Jaeger exporter
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.JaegerURL)))
+	exp, err := exporterFor(ctx, cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -58,4 +58,17 @@ func main() {
 		panic(err)
 	}
 	time.Sleep(100 * time.Hour)
+}
+
+// nolint:ireturn
+func exporterFor(ctx context.Context, cfg *config.Settings) (server.Exporter, error) {
+	opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(cfg.OTLPEndpoint)}
+	if !cfg.OTLPEndpointIsSecure {
+		opts = append(opts, otlptracehttp.WithInsecure())
+	}
+	exporter, err := otlptracehttp.New(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing oltp exporter: %w", err)
+	}
+	return exporter, nil
 }

@@ -2,11 +2,9 @@ package intTest
 
 import (
 	"context"
-	"fmt"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	support "gitlab.com/shar-workflow/shar/integration-support"
-	"gitlab.com/shar-workflow/shar/model"
 	"os"
 	"testing"
 )
@@ -24,9 +22,6 @@ func TestRegisterOrphanServiceTask(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
-	err = cl.RegisterServiceTask(ctx, "UndefinedTask", orphanTask)
-	require.NoError(t, err)
-
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
@@ -34,10 +29,4 @@ func TestRegisterOrphanServiceTask(t *testing.T) {
 	require.ErrorContains(t, err, "task SimpleProcess is not registered")
 
 	tst.AssertCleanKV()
-}
-
-func orphanTask(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
-	fmt.Println("Hi")
-	fmt.Println("carried", vars["carried"])
-	return vars, nil
 }

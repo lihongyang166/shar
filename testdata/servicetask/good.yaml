@@ -1,7 +1,6 @@
 version: "1.0"
 kind: ServiceTask
 metadata:
-  uid: LookupAddressV1
   type: LookupAddress
   version: "0.1"
   short: Look up address

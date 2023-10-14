@@ -2,9 +2,6 @@ package ctxkey
 
 type sharContextKey string
 
-// WorkflowInstanceID - the context key for the workflow instance ID
-var WorkflowInstanceID = sharContextKey("WORKFLOW_INSTANCE_ID")
-
 // ExecutionID - the context key for the execution ID
 var ExecutionID = sharContextKey("EXECUTION_ID")
 

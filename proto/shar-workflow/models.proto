@@ -564,6 +564,7 @@ message TaskBehaviour {
   DefaultTaskRetry defaultRetry = 1; // Retry - the recommended retry behavior for the task, this could be overriden by a workflow.
   bool unsafe = 2; // Unsafe labels the task as non-idempotent.  Non-idempotent tasks are highly unrecommended.
   bool mock = 3; // Mock this task as it has no concrete implementation.
+  bool deprecated = 4; // Deprecated task.  Workflows can not be executed that include this task.
 }
 
 enum RetryStrategy {
@@ -647,4 +648,34 @@ message GetTaskSpecRequest{
 // GetTaskSpecResponse returns a task spec.
 message GetTaskSpecResponse{
   TaskSpec spec = 1; // Spec - the task specification.
+}
+
+// DeleteServiceTaskRequest contains the UID of a registered task.
+message DeprecateServiceTaskRequest{
+  string name = 1; // Name of the task specification.
+}
+
+// DeleteServiceTaskResponse is the result of unregistering a task.
+message DeprecateServiceTaskResponse{
+  optional TaskSpecUsageReport usage = 1;
+  bool success = 2;
+}
+
+message GetTaskSpecVersionsRequest{
+  string name = 1; // Name of the task specification.
+}
+
+message GetTaskSpecVersionsResult{
+  TaskSpecVersions versions = 1;
+}
+
+message GetTaskSpecUsageRequest {
+  string id = 1;
+}
+
+message TaskSpecUsageReport{
+  repeated string Workflow = 1;
+  repeated string Process = 2;
+  repeated string ExecutingWorkflow = 3;
+  repeated string ExecutingProcessInstance = 4;
 }

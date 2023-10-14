@@ -8,7 +8,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	network "github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	natting "github.com/docker/go-connections/nat"
 )
@@ -53,7 +53,7 @@ func runContainer(client *client.Client, imagename string, containername string,
 
 	// Define ports to be exposed (has to be same as hostconfig.portbindings.newport)
 	exposedPorts := map[natting.Port]struct{}{
-		newport: struct{}{},
+		newport: {},
 	}
 
 	// Configuration

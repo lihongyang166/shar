@@ -31,6 +31,9 @@ func TestLaunchWorkflow(t *testing.T) {
 	svc.On("RecordHistoryProcessStart", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowState")).
 		Return(nil)
 
+	svc.On("CheckProcessTaskDeprecation", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.Workflow"), "SimpleProcess").
+		Return(nil)
+
 	svc.On("GetLatestVersion", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("string")).
 		Once().
 		Return("test-workflow-id", nil)

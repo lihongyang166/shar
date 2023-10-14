@@ -17,7 +17,7 @@ import (
 
 func TestTimedStart(t *testing.T) {
 	tst := &support.Integration{}
-	tst.WithTrace = true
+	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/zen-shar/flag"
 	"gitlab.com/shar-workflow/shar/zen-shar/server"
@@ -13,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var sig = make(chan os.Signal, 10)
+var sig = make(chan os.Signal, 1)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -30,15 +29,19 @@ func run(cmd *cobra.Command, args []string) error {
 	// Capture SIGTERM and SIGINT
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 
+	opts := make([]server.ZenSharOptionApplyFn, 0)
+	if flag.Value.Server != "" {
+		opts = append(opts, server.WithNatsServerAddress(flag.Value.Server))
+	}
 	setupLogging()
-	ns, ss, err := server.GetServers(flag.Value.Concurrency, nil, nil)
+	ss, _, err := server.GetServers(flag.Value.Concurrency, nil, nil, opts...)
+
 	if err != nil {
 		panic(err)
 	}
 
 	<-sig
-	defer ss.Shutdown()
-	defer ns.Shutdown()
+	ss.Shutdown()
 	return nil
 }
 
@@ -52,9 +55,9 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&flag.Value.Server, flag.Server, flag.ServerShort, nats.DefaultURL, "sets the address of a NATS server")
-	rootCmd.PersistentFlags().StringVarP(&flag.Value.LogLevel, flag.LogLevel, flag.LogLevelShort, "error", "sets the logging level")
-	rootCmd.PersistentFlags().IntVarP(&flag.Value.Concurrency, flag.Concurrency, flag.ConcurrencyShort, 10, "sets the address of a NATS server")
+	rootCmd.PersistentFlags().StringVarP(&flag.Value.Server, flag.Server, flag.ServerShort, "", "sets the address of a NATS server")
+	rootCmd.PersistentFlags().StringVarP(&flag.Value.LogLevel, flag.LogLevel, flag.LogLevelShort, "info", "sets the logging level")
+	rootCmd.PersistentFlags().IntVarP(&flag.Value.Concurrency, flag.Concurrency, flag.ConcurrencyShort, 10, "sets the concurrent level of the shar listeners")
 }
 
 func setupLogging() {
@@ -64,12 +67,12 @@ func setupLogging() {
 	case "debug":
 		lev = slog.LevelDebug
 		addSource = true
-	case "info":
-		lev = slog.LevelInfo
 	case "warn":
 		lev = slog.LevelWarn
-	default:
+	case "error":
 		lev = slog.LevelError
+	default:
+		lev = slog.LevelInfo
 	}
 	logx.SetDefault(lev, addSource, "zen-shar")
 }

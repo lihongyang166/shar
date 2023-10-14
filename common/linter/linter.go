@@ -31,9 +31,9 @@ type Message struct {
 // Lint - executes the linter versus a workflow
 func Lint(wf *model.Workflow, warningsAsErrors bool) ([]Message, error) {
 	var err error
-	min := 0
+	mn := 0
 	if warningsAsErrors {
-		min = 1
+		mn = 1
 	}
 	m := make([]Message, 0)
 	// process level rules
@@ -54,7 +54,7 @@ func Lint(wf *model.Workflow, warningsAsErrors bool) ([]Message, error) {
 		}
 	}
 	for _, x := range m {
-		if int(x.Type) <= min {
+		if int(x.Type) <= mn {
 			err = fmt.Errorf("linter returned errors: %w", errors.ErrLint)
 		}
 	}

@@ -2,7 +2,6 @@ package parser
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"os"
@@ -11,7 +10,6 @@ import (
 
 //goland:noinspection GoNilness
 func TestParseWorkflowDuration(t *testing.T) {
-	fmt.Println(os.Getwd())
 	b, err := os.ReadFile("../../testdata/test-timer-parse-duration.bpmn")
 	require.NoError(t, err)
 	p, err := Parse("Test", bytes.NewBuffer(b))

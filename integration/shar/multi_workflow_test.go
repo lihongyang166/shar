@@ -18,9 +18,10 @@ import (
 //goland:noinspection GoNilness
 func TestMultiWorkflow(t *testing.T) {
 
-	tst := &support.Integration{Cooldown: 45 * time.Second}
+	tst := &support.Integration{}
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
+	tst.Cooldown = 120 * time.Second
 	defer tst.Teardown()
 	handlers := &testMultiworkflowMessagingHandlerDef{t: t, finished: make(chan struct{})}
 

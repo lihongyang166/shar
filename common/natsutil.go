@@ -278,7 +278,7 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 					}
 					offset := time.Duration(int64(e) - time.Now().UnixNano())
 					if offset > 0 {
-						if err != m.NakWithDelay(offset) {
+						if err := m.NakWithDelay(offset); err != nil {
 							log.Warn("nak with delay")
 						}
 						cancel()
@@ -372,16 +372,16 @@ func UnLock(kv nats.KeyValue, lockID string) error {
 	return nil
 }
 
-func largeObjlock(ctx context.Context, lockKV nats.KeyValue, key string) error {
+func largeObjLock(ctx context.Context, lockKV nats.KeyValue, key string) error {
 	for {
-		if cerr := ctx.Err(); cerr != nil {
-			switch cerr {
-			case context.DeadlineExceeded:
-				return fmt.Errorf("load large timeout: %w", cerr)
-			case context.Canceled:
-				return fmt.Errorf("load large cancelled: %w", cerr)
-			default:
-				return fmt.Errorf("load large: %w", cerr)
+		cErr := ctx.Err()
+		if cErr != nil {
+			if errors.Is(cErr, context.DeadlineExceeded) {
+				return fmt.Errorf("load large timeout: %w", cErr)
+			} else if errors.Is(cErr, context.Canceled) {
+				return fmt.Errorf("load large cancelled: %w", cErr)
+			} else {
+				return fmt.Errorf("load large: %w", cErr)
 			}
 		}
 
@@ -400,7 +400,7 @@ func largeObjlock(ctx context.Context, lockKV nats.KeyValue, key string) error {
 
 // LoadLarge load a large binary from the object store
 func LoadLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, key string, opt ...nats.GetObjectOpt) ([]byte, error) {
-	if err := largeObjlock(ctx, mutex, key); err != nil {
+	if err := largeObjLock(ctx, mutex, key); err != nil {
 		return nil, fmt.Errorf("load large locking: %w", err)
 	}
 	defer func() {
@@ -418,7 +418,7 @@ func LoadLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, ke
 // SaveLarge saves a large binary from the object store
 func SaveLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, key string, data []byte, opt ...nats.ObjectOpt) error {
 	opt = append(opt, nats.Context(ctx))
-	if err := largeObjlock(ctx, mutex, key); err != nil {
+	if err := largeObjLock(ctx, mutex, key); err != nil {
 		return fmt.Errorf("save large locking: %w", err)
 	}
 	defer func() {
@@ -484,7 +484,7 @@ func UpdateLargeObj[T proto.Message](ctx context.Context, ds nats.ObjectStore, m
 
 // DeleteLarge deletes a large binary from the object store
 func DeleteLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, k string) error {
-	if err := largeObjlock(ctx, mutex, k); err != nil {
+	if err := largeObjLock(ctx, mutex, k); err != nil {
 		return fmt.Errorf("delete large locking: %w", err)
 	}
 	defer func() {
@@ -492,7 +492,7 @@ func DeleteLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, 
 			slog.Error("load large unlocking", "error", err.Error())
 		}
 	}()
-	if err := ds.Delete(k); err != nil && err != nats.ErrNoObjectsFound && err != nats.ErrKeyNotFound {
+	if err := ds.Delete(k); err != nil && errors.Is(err, nats.ErrNoObjectsFound) && !errors.Is(err, nats.ErrKeyNotFound) {
 		return fmt.Errorf("delete large removing: %w", err)
 	}
 	return nil

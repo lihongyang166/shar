@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -126,12 +125,11 @@ func TestLargeObjUpdate(t *testing.T) {
 	rctx, cancel2 := context.WithTimeout(ctx, time.Second*1)
 	defer cancel2()
 	emptyTestThing := &model.Gateway{}
-	nw, err := common.UpdateLargeObj(rctx, ds, kv, "testKey", emptyTestThing, func(v *model.Gateway) (*model.Gateway, error) {
+	_, err = common.UpdateLargeObj(rctx, ds, kv, "testKey", emptyTestThing, func(v *model.Gateway) (*model.Gateway, error) {
 		v.MetExpectations["new"] = "newExpectation"
 		return v, nil
 	})
 	require.NoError(t, err)
-	fmt.Println(nw)
 	rctx, cancel3 := context.WithTimeout(ctx, time.Second*1)
 	defer cancel3()
 	newThing := &model.Gateway{}

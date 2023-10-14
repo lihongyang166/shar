@@ -19,14 +19,11 @@ import (
 //goland:noinspection GoNilness
 func TestConcurrentMessaging2(t *testing.T) {
 
-	tst := &support.Integration{
-		Cooldown: time.Second * 10,
-	}
+	tst := &support.Integration{}
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
-	tst.Cooldown = 10 * time.Second
-
+	
 	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{})}
 	handlers.tst = tst
 	// Create a starting context

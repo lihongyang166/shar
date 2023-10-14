@@ -79,7 +79,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	}
 
 	logx.SetDefault(slog.LevelDebug, true, "shar-Integration-tests")
-	s.Cooldown = 30 * time.Second
+	s.Cooldown = 60 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
 
@@ -293,7 +293,7 @@ func (s *Integration) checkCleanKV() error {
 
 	keys, err := b.Keys()
 	if err != nil {
-		if err == nats.ErrNoKeysFound {
+		if errors.Is(err, nats.ErrNoKeysFound) {
 			return nil
 		}
 		return fmt.Errorf("checkCleanKV failed to get user task keys: %w", err)

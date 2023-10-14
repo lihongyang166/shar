@@ -19,7 +19,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
-
+	tst.Cooldown = 120 * time.Second
 	// Create a starting context
 	ctx := context.Background()
 

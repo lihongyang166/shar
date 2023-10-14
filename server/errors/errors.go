@@ -38,13 +38,14 @@ var (
 	ErrApiAuthNFail                   = errors.New("authenticate API call")                                                                      // ErrApiAuthNFail - an attempt was made to call an API that failed an authentication check.
 	ErrLint                           = errors.New("linter returned errors")                                                                     // ErrLint - linter returned errors.
 	ErrGatewayInstanceNotFound        = errors.New("find gateway instance")                                                                      // ErrGatewayInstanceNotFound - failed to find gateway instance.
-	ErrProcessNotFound                = errors.New("process not found")                                                                          // ErrProcessNotFound - failed to find a process
+	ErrProcessNotFound                = errors.New("process not found")                                                                          // ErrProcessNotFound - failed to find process.
+	ErrDeprecateServiceTaskInUse      = errors.New("attempt to deprecate service task in use")                                                   // ErrDeprecateServiceTaskInUse - the service task is in use.
 )
 
 const TraceLevel = -41   // TraceLevel specifies a custom level for trace logging.
 const VerboseLevel = -51 // VerboseLevel specifies a custom level vor verbose logging.
 
-// ErrWorkflowFatal signifys that the workflow must terniate
+// ErrWorkflowFatal signifies that the workflow must terminate
 type ErrWorkflowFatal struct {
 	Err error
 }

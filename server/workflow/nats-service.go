@@ -12,53 +12,54 @@ import (
 
 // NatsService is the shar type responsible for interacting with NATS.
 type NatsService interface {
-	SaveState(ctx context.Context, id string, state *model.WorkflowState) error
-	PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error)
-	GetTaskSpecUID(ctx context.Context, name string) (string, error)
+	CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processName string) error
+	CloseUserTask(ctx context.Context, trackingID string) error
+	Conn() common.NatsConn
+	CreateExecution(ctx context.Context, wfInstance *model.Execution) (*model.Execution, error)
+	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
+	CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error)
+	DeleteJob(ctx context.Context, trackingID string) error
+	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.Execution) error
+	EnsureServiceTaskConsumer(uid string) error
+	GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error)
+	GetExecution(ctx context.Context, workflowInstanceID string) (*model.Execution, error)
+	GetGatewayInstance(ctx context.Context, gatewayInstanceID string) (*model.Gateway, error)
+	GetGatewayInstanceID(state *model.WorkflowState) (string, string, error)
+	GetJob(ctx context.Context, id string) (*model.WorkflowState, error)
+	GetLatestVersion(ctx context.Context, workflowName string) (string, error)
+	GetOldState(ctx context.Context, id string) (*model.WorkflowState, error)
+	GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error)
+	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
 	GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error)
-	SetTraversalProvider(provider services.TraversalFunc)
-	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResult, chan error)
-	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
+	GetTaskSpecUID(ctx context.Context, name string) (string, error)
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
 	GetWorkflowNameFor(ctx context.Context, processName string) (string, error)
 	GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error)
-	CreateExecution(ctx context.Context, wfInstance *model.Execution) (*model.Execution, error)
-	GetExecution(ctx context.Context, workflowInstanceID string) (*model.Execution, error)
-	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
-	GetServiceTaskRoutingKey(ctx context.Context, taskName string) (string, error)
-	GetLatestVersion(ctx context.Context, workflowName string) (string, error)
-	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
-	GetJob(ctx context.Context, id string) (*model.WorkflowState, error)
-	GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error)
-	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error)
 	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
-	StartProcessing(ctx context.Context) error
-	SetEventProcessor(processor services.EventProcessorFunc)
-	SetMessageProcessor(processor services.MessageProcessorFunc)
-	SetCompleteJobProcessor(processor services.CompleteJobProcessorFunc)
-	SetCompleteActivity(processor services.CompleteActivityFunc)
-	SetAbort(processor services.AbortFunc)
-	DeleteJob(ctx context.Context, trackingID string) error
-	SetCompleteActivityProcessor(processor services.CompleteActivityProcessorFunc)
-	SetLaunchFunc(processor services.LaunchFunc)
-	PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, ops ...storage.PublishOpt) error
-	PublishMessage(ctx context.Context, name string, key string, vars []byte) error
-	Conn() common.NatsConn
-	Shutdown()
-	CloseUserTask(ctx context.Context, trackingID string) error
+	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error)
+	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResult, chan error)
 	OwnerID(name string) (string, error)
 	OwnerName(id string) (string, error)
-	GetOldState(ctx context.Context, id string) (*model.WorkflowState, error)
-	CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error)
-	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
-	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.Execution) error
-	GetGatewayInstanceID(state *model.WorkflowState) (string, string, error)
-	GetGatewayInstance(ctx context.Context, gatewayInstanceID string) (*model.Gateway, error)
-	RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error
+	PublishMessage(ctx context.Context, name string, key string, vars []byte) error
+	PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, ops ...storage.PublishOpt) error
+	PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error)
+	RecordHistoryActivityComplete(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryActivityExecute(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryProcessAbort(ctx context.Context, state *model.WorkflowState) error
-	RecordHistoryActivityComplete(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryProcessComplete(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryProcessSpawn(ctx context.Context, state *model.WorkflowState, newProcessInstanceID string) error
-	GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error)
+	RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error
+	SaveState(ctx context.Context, id string, state *model.WorkflowState) error
+	SetAbort(processor services.AbortFunc)
+	SetCompleteActivity(processor services.CompleteActivityFunc)
+	SetCompleteActivityProcessor(processor services.CompleteActivityProcessorFunc)
+	SetCompleteJobProcessor(processor services.CompleteJobProcessorFunc)
+	SetEventProcessor(processor services.EventProcessorFunc)
+	SetLaunchFunc(processor services.LaunchFunc)
+	SetMessageProcessor(processor services.MessageProcessorFunc)
+	SetTraversalProvider(provider services.TraversalFunc)
+	Shutdown()
+	StartProcessing(ctx context.Context) error
+	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
+	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
 }

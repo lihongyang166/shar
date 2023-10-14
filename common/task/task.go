@@ -7,9 +7,6 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 )
 
-// LegacyTask is a magic string indicating a legacy task - one that does not support task versioining.
-const LegacyTask = "__LEGACY__"
-
 // CreateUID creates a hash task UID given a task spec
 func CreateUID(spec *model.TaskSpec) (string, error) {
 	h := sha256.New()

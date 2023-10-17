@@ -25,3 +25,15 @@ type concurrency struct {
 func (o concurrency) configure(client *Client) {
 	client.concurrency = o.val
 }
+
+// WithNoRecovery disables panic recovery for debugging.
+func WithNoRecovery(n int) noRecovery { //nolint
+	return noRecovery{}
+}
+
+type noRecovery struct {
+}
+
+func (o noRecovery) configure(client *Client) {
+	client.noRecovery = true
+}

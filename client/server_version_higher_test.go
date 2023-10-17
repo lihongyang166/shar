@@ -18,7 +18,7 @@ func TestHigherServerVersion(t *testing.T) {
 	go ss.Listen()
 	forcedVersion, err := version2.NewVersion("v1.0.100")
 	require.NoError(t, err)
-	cl := New(forceVersion{ver: forcedVersion})
+	cl := New(forceVersion{ver: forcedVersion, compatVer: forcedVersion})
 	ctx := context.Background()
 	err = cl.Dial(ctx, natsURL)
 	require.Error(t, err)

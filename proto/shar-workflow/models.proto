@@ -490,6 +490,7 @@ message GetServiceTaskRoutingIDResponse {
 
 message GetVersionInfoRequest {
   string clientVersion = 1;
+  string compatibleVersion = 2;
 }
 
 message GetVersionInfoResponse {

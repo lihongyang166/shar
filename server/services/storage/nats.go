@@ -1320,10 +1320,9 @@ func (s *Nats) CreateProcessInstance(ctx context.Context, executionId string, pa
 	pi := &model.ProcessInstance{
 		ProcessInstanceId: id,
 		ProcessName:       processName,
-		//WorkflowInstanceId: workflowInstanceID,
-		ParentProcessId: &parentProcessID,
-		ParentElementId: &parentElementID,
-		ExecutionId:     executionId,
+		ParentProcessId:   &parentProcessID,
+		ParentElementId:   &parentElementID,
+		ExecutionId:       executionId,
 	}
 
 	wfi, err := s.GetExecution(ctx, executionId)
@@ -1397,6 +1396,9 @@ func (s *Nats) DeprecateTaskSpec(ctx context.Context, uid []string) error {
 	for _, u := range uid {
 		ts := &model.TaskSpec{}
 		err := common.UpdateObj(ctx, s.wfTaskSpec, u, ts, func(v *model.TaskSpec) (*model.TaskSpec, error) {
+			if v.Behaviour == nil {
+				v.Behaviour = &model.TaskBehaviour{}
+			}
 			v.Behaviour.Deprecated = true
 			return v, nil
 		})

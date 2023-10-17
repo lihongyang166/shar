@@ -172,7 +172,7 @@ func (s *SharServer) Listen() error {
 func listen[T proto.Message, U proto.Message](con common.NatsConn, panicRecovery bool, subList *sync.Map, subject string, req T, fn func(ctx context.Context, req T) (U, error)) error {
 	sub, err := con.QueueSubscribe(subject, subject, func(msg *nats.Msg) {
 		if msg.Subject != messages.APIGetVersionInfo {
-			callerVersion, err := version2.NewVersion(msg.Header.Get(header.NatsVersionHeader))
+			callerVersion, err := version2.NewVersion(msg.Header.Get(header.NatsCompatHeader))
 			if err != nil {
 				errorResponse(msg, codes.PermissionDenied, "version: client version invalid")
 				return

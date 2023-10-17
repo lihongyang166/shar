@@ -17,17 +17,18 @@ func TestHigherClientVersion(t *testing.T) {
 	go ss.Listen()
 	forcedVersion, err := version2.NewVersion("v99.0.0")
 	require.NoError(t, err)
-	cl := New(forceVersion{ver: forcedVersion})
+	cl := New(forceVersion{ver: forcedVersion, compatVer: forcedVersion})
 	ctx := context.Background()
 	err = cl.Dial(ctx, natsURL)
 	require.Error(t, err)
 }
 
 type forceVersion struct {
-	ver *version2.Version
+	ver       *version2.Version
+	compatVer *version2.Version
 }
 
 func (o forceVersion) configure(client *Client) {
 	client.version = o.ver
-	client.ExpectedCompatibleServerVersion = o.ver
+	client.ExpectedCompatibleServerVersion = o.compatVer
 }

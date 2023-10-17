@@ -115,6 +115,7 @@ type Client struct {
 	ExpectedCompatibleServerVersion *version.Version
 	ExpectedServerVersion           *version.Version
 	version                         *version.Version
+	noRecovery                      bool
 }
 
 // Option represents a configuration changer for the client.
@@ -129,15 +130,16 @@ func New(option ...Option) *Client {
 		panic(err)
 	}
 	client := &Client{
-		storageType:      nats.FileStorage,
-		SvcTasks:         make(map[string]ServiceFn),
-		MsgSender:        make(map[string]SenderFn),
-		listenTasks:      make(map[string]struct{}),
-		msgListenTasks:   make(map[string]struct{}),
-		proCompleteTasks: make(map[string]ProcessTerminateFn),
-		ns:               "default",
-		concurrency:      10,
-		version:          ver,
+		storageType:                     nats.FileStorage,
+		SvcTasks:                        make(map[string]ServiceFn),
+		MsgSender:                       make(map[string]SenderFn),
+		listenTasks:                     make(map[string]struct{}),
+		msgListenTasks:                  make(map[string]struct{}),
+		proCompleteTasks:                make(map[string]ProcessTerminateFn),
+		ns:                              "default",
+		concurrency:                     10,
+		version:                         ver,
+		ExpectedCompatibleServerVersion: upgrader.GetCompatibleVersion(),
 	}
 	for _, i := range option {
 		i.configure(client)
@@ -343,12 +345,14 @@ func (c *Client) listen(ctx context.Context) error {
 					return false, fmt.Errorf("decode service task job variables: %w", err)
 				}
 				newVars, err := func() (v model.Vars, e error) {
-					defer func() {
-						if r := recover(); r != nil {
-							v = model.Vars{}
-							e = &errors2.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error))}
-						}
-					}()
+					if !c.noRecovery {
+						defer func() {
+							if r := recover(); r != nil {
+								v = model.Vars{}
+								e = &errors2.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error))}
+							}
+						}()
+					}
 					fnMx.Lock()
 					pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
 					v, e = svcFn(pidCtx, &jobClient{cl: c, trackingID: trackingID}, dv)
@@ -765,7 +769,8 @@ func (c *Client) GetJob(ctx context.Context, id string) (*model.WorkflowState, e
 // GetServerVersion returns the current server version
 func (c *Client) GetServerVersion(ctx context.Context) (*version.Version, error) {
 	req := &model.GetVersionInfoRequest{
-		ClientVersion: c.version.String(),
+		ClientVersion:     c.version.String(),
+		CompatibleVersion: c.ExpectedCompatibleServerVersion.String(),
 	}
 	res := &model.GetVersionInfoResponse{}
 	if err := api2.Call(ctx, c.con, messages.APIGetVersionInfo, c.ExpectedCompatibleServerVersion, req, res); err != nil {
@@ -781,13 +786,12 @@ func (c *Client) GetServerVersion(ctx context.Context) (*version.Version, error)
 		return nil, fmt.Errorf("get server version info: %w", err)
 	}
 	c.ExpectedServerVersion = sv
-	c.ExpectedCompatibleServerVersion = cv
 
 	if !res.Connect {
 		return sv, fmt.Errorf("incompatible client version: client must be " + cv.String())
 	}
 
-	ok, cv2 := upgrader.IsCompatible(sv)
+	ok, cv2 := upgrader.IsCompatible(cv)
 	if !ok {
 		return sv, fmt.Errorf("incompatible server version: " + sv.String() + " server must be " + cv2.String())
 	}

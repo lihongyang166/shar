@@ -40,22 +40,28 @@ func init() {
 	nver = len(list)
 }
 
-// IsCompatible returns true if the server version is compatible with a client expected compatible version.
+// IsCompatible returns true if the server compatible version is compatible with a client expected compatible version.
 func IsCompatible(v *version.Version) (bool, *version.Version) {
-	var minVersion *version.Version
-	lastv := nver - 1
-	for i := 0; i < len(versions); i++ {
-		test := versions[lastv-i]
-		if minVersion == nil || test.GreaterThan(v) {
-			minVersion = test
-		} else if test.LessThan(v) {
-			break
-		}
-	}
+	minVersion := GetCompatibleVersion()
 	if minVersion == nil {
 		minVersion = v
 	}
 	return minVersion.Equal(v), minVersion
+}
+
+// GetCompatibleVersion gets the lowest compatible version number for this package
+func GetCompatibleVersion() *version.Version {
+	var minVersion *version.Version
+	lastv := nver - 1
+	for i := 0; i < len(versions); i++ {
+		test := versions[lastv-i]
+		if minVersion == nil || test.GreaterThan(minVersion) {
+			minVersion = test
+		} else if test.LessThan(minVersion) {
+			break
+		}
+	}
+	return minVersion
 }
 
 // Patch cycles through all available upgrades and applies them in order.  Only the upgrades greater than the deployed version will be executed.

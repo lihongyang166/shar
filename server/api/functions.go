@@ -388,7 +388,13 @@ func (s *SharServer) versionInfo(ctx context.Context, req *model.GetVersionInfoR
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	v, err := version.NewVersion(req.ClientVersion)
+
+	// For clients that can't supply the compatible version
+	if req.CompatibleVersion == "" {
+		return nil, fmt.Errorf("client version too old, please upgrade to " + version2.Version)
+	}
+
+	v, err := version.NewVersion(req.CompatibleVersion)
 	if err != nil {
 		return nil, fmt.Errorf("parsing client version '%s': %w", req.ClientVersion, err)
 	}

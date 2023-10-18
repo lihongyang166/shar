@@ -27,7 +27,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	err := shar.SendMessage(ctx, args[0], flag.Value.CorrelationKey, model.Vars{})
+	err := shar.SendMessage(ctx, args[0], flag.Value.CorrelationKey, model.Vars{}, executionId, elementId)
 	if err != nil {
 		return fmt.Errorf("send message failed: %w", err)
 	}

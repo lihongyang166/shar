@@ -67,7 +67,7 @@ func (c *jobClient) Log(ctx context.Context, severity messages.WorkflowLogLevel,
 type MessageClient interface {
 	LogClient
 	// SendMessage sends a Workflow Message
-	SendMessage(ctx context.Context, name string, key any, vars model.Vars) error
+	SendMessage(ctx context.Context, name string, key any, vars model.Vars, executionId string, elementId string) error
 }
 
 type messageClient struct {
@@ -77,8 +77,8 @@ type messageClient struct {
 }
 
 // SendMessage sends a Workflow Message into the SHAR engine
-func (c *messageClient) SendMessage(ctx context.Context, name string, key any, vars model.Vars) error {
-	return c.cl.SendMessage(ctx, name, key, vars)
+func (c *messageClient) SendMessage(ctx context.Context, name string, key any, vars model.Vars, executionId string, elementId string) error {
+	return c.cl.SendMessage(ctx, name, key, vars, executionId, elementId)
 }
 
 // Log logs to the span related to this jobClient instance.
@@ -93,7 +93,7 @@ type ServiceFn func(ctx context.Context, client JobClient, vars model.Vars) (mod
 type ProcessTerminateFn func(ctx context.Context, vars model.Vars, wfError *model.Error, endState model.CancellationState)
 
 // SenderFn provides the signature for functions that can act as Workflow Message senders.
-type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars) error
+type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars, executionId string, elementId string) error
 
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and interating with the API
 type Client struct {
@@ -408,6 +408,8 @@ func (c *Client) listen(ctx context.Context) error {
 
 			case element.MessageIntermediateThrowEvent:
 				trackingID := common.TrackingID(ut.Id).ID()
+				// TODO why do we save the job on the publish side only to retreive it again here?
+				// isn't the proto message the same???
 				job, err := c.GetJob(ctx, trackingID)
 				if err != nil {
 					log.Error("get send message task", err, slog.String("JobId", common.TrackingID(ut.Id).ID()))
@@ -425,7 +427,8 @@ func (c *Client) listen(ctx context.Context) error {
 				}
 				ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
 				pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
-				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv); err != nil {
+
+				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv, job.ExecutionId, job.ElementId); err != nil {
 					log.Warn("nats listener", err)
 					return false, err
 				}
@@ -699,7 +702,7 @@ func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID strin
 }
 
 // SendMessage sends a Workflow Message to a specific workflow instance
-func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars model.Vars) error {
+func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars model.Vars, executionId string, elementId string) error {
 	var skey string
 	switch key.(type) {
 	case string:
@@ -711,7 +714,7 @@ func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars mo
 	if err != nil {
 		return fmt.Errorf("encode variables for send message: %w", err)
 	}
-	req := &model.SendMessageRequest{Name: name, CorrelationKey: skey, Vars: b}
+	req := &model.SendMessageRequest{Name: name, CorrelationKey: skey, Vars: b, ExecutionId: executionId, ElementId: elementId}
 	res := &emptypb.Empty{}
 	if err := api2.Call(ctx, c.txCon, messages.APISendMessage, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)

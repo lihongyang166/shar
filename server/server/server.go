@@ -165,6 +165,7 @@ func (s *Server) createServices(natsURL string, ephemeral bool, allowOrphanServi
 		slog.Error("connect to NATS", err, slog.String("url", natsURL))
 		panic(err)
 	}
+	//TODO why do we need a separate txConn?
 	txConn, err := nats.Connect(natsURL)
 	if err != nil {
 		slog.Error("connect to NATS", err, slog.String("url", natsURL))

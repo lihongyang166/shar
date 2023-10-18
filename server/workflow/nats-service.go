@@ -30,6 +30,7 @@ type NatsService interface {
 	GetOldState(ctx context.Context, id string) (*model.WorkflowState, error)
 	GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error)
 	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
+	GetServiceTaskRoutingKey(ctx context.Context, taskName string) (string, error)
 	GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error)
 	GetTaskSpecUID(ctx context.Context, name string) (string, error)
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
@@ -40,7 +41,7 @@ type NatsService interface {
 	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResult, chan error)
 	OwnerID(name string) (string, error)
 	OwnerName(id string) (string, error)
-	PublishMessage(ctx context.Context, name string, key string, vars []byte) error
+	PublishMessage(ctx context.Context, name string, key string, vars []byte, executionId string, elementId string) error
 	PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, ops ...storage.PublishOpt) error
 	PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error)
 	RecordHistoryActivityComplete(ctx context.Context, state *model.WorkflowState) error

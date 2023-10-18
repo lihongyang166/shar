@@ -92,11 +92,22 @@ func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobCl
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars) error {
+func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars, executionId string, elementId string) error {
 	if err := client.Log(ctx, messages.LogDebug, -1, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
-	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
+
+	//TODO can we pass the key here? can we make it a uuid? and use that as the key in the msgTx|RxBucket???
+	// the receiver will need to somehow have the same key to match against the msgTx|RxBucket
+	// and ideally the key should be globally unique to the sender/receiver pair
+	// can we make the order id a uuid to facilitate the message matching internally???
+	// or can it perhaps be a composite of the execution id/order-id
+	// (seeing as the exec id is a uuid) ??? this won't work as we need to know exec id ahead of time...
+
+	//might need to include the execution id and the el here so that we can look up the exchange address for
+	//this particular message flow...
+
+	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}, "", ""); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil

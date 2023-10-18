@@ -677,7 +677,7 @@ func (_m *MockNatsService) OwnerName(id string) (string, error) {
 }
 
 // PublishMessage provides a mock function with given fields: ctx, name, key, vars
-func (_m *MockNatsService) PublishMessage(ctx context.Context, name string, key string, vars []byte) error {
+func (_m *MockNatsService) PublishMessage(ctx context.Context, name string, key string, vars []byte, executionId string, elementId string) error {
 	ret := _m.Called(ctx, name, key, vars)
 
 	var r0 error

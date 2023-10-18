@@ -3,7 +3,7 @@ option go_package = "gitlab.com/shar-workflow/shar/model";
 
 //import "google/protobuf/timestamp.proto";
 //import "google/protobuf/duration.proto";
-//import "google/protobuf/any.proto";
+//import "google/protobu f/any.proto";
 
 // Workflow describes a number of processes that interact together.  It also contains all messages and errors used by the processes.
 message Workflow {
@@ -261,6 +261,14 @@ message Execution {
   string workflowId = 2; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 5; // WorkflowName - name of this workflow to avoid lookups.
   repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this workflow instance.
+  map<string, string> exchanges = 7; // Exchanges contains the uuid identifying distinct message flows in a particular execution
+  // TODO maybe this can have key entries for the source and target (but the value, the uuid is the same)
+  // so we'd have something like
+  // SendMessage: uuid1
+  // ReceiveMessage: uuid1
+  // Event_083990e: uuid1
+  // Event_15by2t8: uuid2
+  // Event_014x3ar: uuid2
 }
 
 message ProcessInstance {
@@ -279,6 +287,8 @@ message MessageInstance {
   string name = 1; // MessageId - the unique messageId for the message.
   string correlationKey = 2; // CorrelationKey - a receiving key to correlate this message to.
   bytes vars = 3; // Vars - A go binary encoded map[string]interface{} of variables.
+  string executionId = 4; // ExecutionId - of the execution this messages is a part of
+  string elementId = 5; // ElementId of the element in a process sending a message
 }
 
 enum RecipientType {
@@ -392,6 +402,8 @@ message SendMessageRequest {
   string name = 1;
   string correlationKey = 2;
   bytes vars = 3;
+  string executionId = 4;
+  string elementId = 5;
 }
 
 message WorkflowInstanceComplete {
@@ -680,4 +692,20 @@ message TaskSpecUsageReport{
   repeated string Process = 2;
   repeated string ExecutingWorkflow = 3;
   repeated string ExecutingProcessInstance = 4;
+}
+
+// Sender is the sender side of a BPMN message. It contains a byte array of vars destined for the receiver
+message Sender {
+  bytes vars = 1; // Vars - A go binary encoded map[string]interface{} of variables.
+}
+
+// Receiver is the receiver side of a BPMN message. It contains a reference to the job which receivers the vars from the sender
+message Receiver {
+  string  id = 1; // Id - a uuid identifying the job associated with the receiver
+}
+
+message Exchange {
+  Sender sender = 1; // Sender - the sender side of the exchange
+  Receiver receiver = 2; // Receiver - the receiver side of the exchange
+  // TODO supporting multiple receivers
 }

@@ -72,6 +72,7 @@ type Nats struct {
 	wfLock                         nats.KeyValue
 	wfMsgTypes                     nats.KeyValue
 	wfProcess                      nats.KeyValue
+	wfMessages                     nats.KeyValue
 }
 
 // WorkflowStats obtains the running counts for the engine
@@ -167,6 +168,7 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	kvs[messages.KvTaskSpec] = &ms.wfTaskSpec
 	kvs[messages.KvTaskSpecVersions] = &ms.wfTaskSpecVer
 	kvs[messages.KvProcess] = &ms.wfProcess
+	kvs[messages.KvMessages] = &ms.wfMessages
 
 	ks := make([]string, 0, len(kvs))
 	for k := range kvs {
@@ -556,10 +558,28 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	log.Info("creating execution", slog.String(keys.ExecutionID, executionID))
 	execution.ExecutionId = executionID
 	execution.ProcessInstanceId = []string{}
+	wf, err := s.GetWorkflow(ctx, execution.WorkflowId)
+
+	execution.Exchanges = map[string]string{}
+	for _, messageFlow := range wf.Collaboration.MessageFlow {
+		sender := messageFlow.Sender
+		receiver := messageFlow.Recipient
+		_, hasSender := execution.Exchanges[sender]
+		_, hasReceiver := execution.Exchanges[receiver]
+		addr := ksuid.New().String()
+
+		if !hasSender {
+			execution.Exchanges[sender] = addr
+		}
+
+		if !hasReceiver {
+			execution.Exchanges[receiver] = addr
+		}
+	}
+
 	if err := common.SaveObj(ctx, s.wfExecution, executionID, execution); err != nil {
 		return nil, fmt.Errorf("save execution object to KV: %w", err)
 	}
-	wf, err := s.GetWorkflow(ctx, execution.WorkflowId)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow object from KV: %w", err)
 	}
@@ -568,6 +588,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 			return nil, fmt.Errorf("ensuring bucket '%s':%w", m.Name, err)
 		}
 	}
+
 	s.incrementWorkflowStarted()
 	return execution, nil
 }

@@ -200,6 +200,12 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 	var launchProcesses []*model.Process
 	if partOfCollaboration {
 		launchProcesses = collabProcesses
+		// TODO can we at this stage:
+		// know whether or not we are dealing with msgs
+		// if we are, find out what message interactions there are for this workflow (there might be many)
+		// initialise mailbox_addr for each message exchange pair
+		// perhaps add this to the vrs so that the mailbox_addrs flow through the relevant msg steps???
+
 	} else {
 		pr, ok := wf.Process[processName]
 		if !ok {
@@ -604,6 +610,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		}
 		msgState := common.CopyWorkflowState(newState)
 		msgState.Condition = &wf.Messages[ix].Execute
+
 		if err := c.startJob(ctx, messages.WorkflowJobSendMessageExecute+"."+pi.WorkflowName+"_"+el.Execute, newState, el, traversal.Vars); err != nil {
 			return c.engineErr(ctx, "start message job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}

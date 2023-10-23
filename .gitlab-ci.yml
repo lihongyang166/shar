@@ -110,8 +110,7 @@ package_container_stage:
     - docker buildx create --use
     - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/server:latest --push --target server .
     - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/telemetry:latest --push --target telemetry .
-    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/server:$VER.$CI_VERSION --push --target server .
-    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/telemetry:$VER.$CI_VERSION --push --target telemetry .
+
 package_binary_stage:
   # Ref: https://www.docker.com/blog/multi-arch-build-what-about-gitlab-ci/
   #  can update from this image to get later buildx version if test works;

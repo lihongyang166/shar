@@ -171,6 +171,11 @@ func (s *Nats) processMessages(ctx context.Context) error {
 //  },
 //}
 
+func printErr(e error) error {
+	slog.Info("")
+	return nil
+}
+
 func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 	// Unpack the message Instance
 	instance := &model.MessageInstance{}
@@ -204,6 +209,7 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 		if err3 != nil {
 			return false, fmt.Errorf("error serialising sender message %w", err3)
 		}
+		//use optimistic locking capabilities on create/update to ensure no lost writes...
 		_, createErr := s.wfMessages.Create(exchangeAddr, marshal)
 
 		if errors2.Is(createErr, nats.ErrKeyExists) {

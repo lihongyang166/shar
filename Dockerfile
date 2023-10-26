@@ -40,8 +40,8 @@ RUN ls model/gitlab.com/shar-workflow/shar/model && \
     rm -rf model/gitlab.com
 
 # Platform specific binary builds:
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'main.ServerVersion=$BINARY_VERSION' -X 'main.CommitHash=$COMMIT_HASH' -X 'main.BuildDate=$(date)'" -o build/server ./server/cmd/shar/main.go
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'main.ServerVersion=$BINARY_VERSION' -X 'main.CommitHash=$COMMIT_HASH' -X 'main.BuildDate=$(date)'" -o build/telemetry ./telemetry/cmd/shar-telemetry/main.go
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'main.ServerVersion=$BINARY_VERSION' -X 'main.CommitHash=$COMMIT_HASH' -X 'main.BuildDate=$(date)'" -o build/server/server ./server/cmd/shar/main.go
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'main.ServerVersion=$BINARY_VERSION' -X 'main.CommitHash=$COMMIT_HASH' -X 'main.BuildDate=$(date)'" -o build/telemetry/telemetry ./telemetry/cmd/shar-telemetry/main.go
 
 # Secure containerisation:
 FROM --platform=$BUILDPLATFORM gcr.io/distroless/static:nonroot as server

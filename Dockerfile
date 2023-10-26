@@ -53,4 +53,3 @@ FROM --platform=$BUILDPLATFORM gcr.io/distroless/static:nonroot as telemetry
 WORKDIR /app
 COPY --from=build-stage /work/build/telemetry .
 ENTRYPOINT ["/app/shar-telemetry"]
- 

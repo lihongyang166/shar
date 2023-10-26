@@ -47,9 +47,9 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'main.
 FROM --platform=$BUILDPLATFORM gcr.io/distroless/static:nonroot as server
 WORKDIR /app
 COPY --from=build-stage /work/build/server .
-ENTRYPOINT ["/app/shar"]
+ENTRYPOINT ["/app/server"]
 
 FROM --platform=$BUILDPLATFORM gcr.io/distroless/static:nonroot as telemetry
 WORKDIR /app
 COPY --from=build-stage /work/build/telemetry .
-ENTRYPOINT ["/app/shar-telemetry"]
+ENTRYPOINT ["/app/telemetry"]

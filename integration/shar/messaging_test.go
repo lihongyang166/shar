@@ -107,7 +107,7 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client
 	//might need to include the execution id and the el here so that we can look up the exchange address for
 	//this particular message flow...
 
-	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}, "", ""); err != nil {
+	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}, executionId, elementId); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil

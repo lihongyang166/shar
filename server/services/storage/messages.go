@@ -171,11 +171,6 @@ func (s *Nats) processMessages(ctx context.Context) error {
 //  },
 //}
 
-func printErr(e error) error {
-	slog.Info("")
-	return nil
-}
-
 func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 	// Unpack the message Instance
 	instance := &model.MessageInstance{}
@@ -183,76 +178,112 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 		return false, fmt.Errorf("unmarshal message proto: %w", err)
 	}
 
-	// get the execution so we can find the exchange addr
-	// lookup the exchange addr by the elementId
-
-	// set the sender on the addr entry val
-	//	==> does nats KV have facility to do this atomically? or should we just use wfLock?
-	//  ==> maybe we could use Create()/Update() which provides optimistic locking???
-	//  ==> i don't expect too much contention as process senders and receivers are unlikely to arrive
-	//      very close to each other in terms of time very often...
-
-	// if receiver is present, continue that processes execution, else finish and wait for receiver
-
 	execution, err3 := s.GetExecution(ctx, instance.ExecutionId)
 	if err3 != nil {
 		return false, fmt.Errorf("no execution found for execution id: %s %w", instance.ExecutionId, err3)
 	}
 
-	if exchangeAddr, ok := execution.Exchanges[instance.ElementId]; !ok {
-		return false, fmt.Errorf("no exchange found for element id: %s", instance.ElementId)
-	} else {
-		sender := &model.Sender{Vars: instance.Vars}
-		exchange := &model.Exchange{Sender: sender}
+	elementId := instance.ElementId
 
-		marshal, err3 := proto.Marshal(exchange)
+	sender := &model.Sender{Vars: instance.Vars, CorrelationKey: instance.CorrelationKey}
+	exchange := &model.Exchange{Sender: sender}
+
+	setPartyFn := func(exch *model.Exchange) (*model.Exchange, error) {
+		exch.Sender = sender
+		return exch, nil
+	}
+
+	if err2 := s.handleExchangeMessage(ctx, "sender", setPartyFn, execution, elementId, exchange); err2 != nil {
+		return false, err2
+	}
+
+	//###########################################################################
+	//if msgs, err := s.js.KeyValue(msgTxBucket(ctx, instance.Name)); err != nil {
+	//	return false, fmt.Errorf("process message getting message keys: %w", err)
+	//} else {
+	//	if err := common.Save(ctx, msgs, ksuid.New().String(), msg.Data); err != nil {
+	//		return false, fmt.Errorf("process message saving message: %w", err)
+	//	}
+	//}
+	//
+	//_, err := s.iterateRxMessages(ctx, instance.Name, instance.CorrelationKey, func(k string, recipient *model.MessageRecipient) (bool, error) {
+	//	if instance.CorrelationKey == recipient.CorrelationKey {
+	//		// TODO I think this results in 2 loops iterating from the sender (Tx) and receiver (Rx) side when in reality
+	//		// the match has already occurred since this if condition is entered...
+	//		// The end result is ultimately a call to the deliverMessageToJobRecipient function which results in a call to
+	//		// the Workflow.State.Job.Complete.AwaitMessage subject...
+	//
+	//		if delivered, err := s.deliverMessageToJobRecipient(ctx, recipient, instance.Name); err != nil {
+	//			return false, err
+	//		} else if delivered {
+	//			return true, nil
+	//		}
+	//	}
+	//	return false, nil
+	//})
+	//if err != nil {
+	//	slog.Warn("process message delivering message: " + err.Error())
+	//}
+	return true, nil
+}
+
+func (s *Nats) handleExchangeMessage(ctx context.Context, party string, setPartyFn func(exch *model.Exchange) (*model.Exchange, error), execution *model.Execution, elementId string, exchange *model.Exchange) error {
+	if exchangeAddr, ok := execution.Exchanges[elementId]; !ok {
+		return fmt.Errorf("no exchange found for element id: %s", elementId)
+	} else {
+		exchangeProto, err3 := proto.Marshal(exchange)
 		if err3 != nil {
-			return false, fmt.Errorf("error serialising sender message %w", err3)
+			return fmt.Errorf("error serialising "+party+" message %w", err3)
 		}
 		//use optimistic locking capabilities on create/update to ensure no lost writes...
-		_, createErr := s.wfMessages.Create(exchangeAddr, marshal)
+		_, createErr := s.wfMessages.Create(exchangeAddr, exchangeProto)
 
 		if errors2.Is(createErr, nats.ErrKeyExists) {
-			err3 := common.UpdateObj(ctx, s.wfMessages, exchangeAddr, &model.Exchange{}, func(exch *model.Exchange) (*model.Exchange, error) {
-				exch.Sender = sender
-				return exch, nil
-			})
+			err3 := common.UpdateObj(ctx, s.wfMessages, exchangeAddr, &model.Exchange{}, setPartyFn)
 			if err3 != nil {
-				return false, fmt.Errorf("failed to update exchange with sender: %w", err3)
+				return fmt.Errorf("failed to update exchange with %s: %w", party, err3)
 			}
 		} else if createErr != nil {
-			return false, fmt.Errorf("error creating message exchange: %w", createErr)
+			return fmt.Errorf("error creating message exchange: %w", createErr)
+		}
+
+		updatedExchange := &model.Exchange{}
+		if err3 = common.LoadObj(ctx, s.wfMessages, exchangeAddr, updatedExchange); err3 != nil {
+			return fmt.Errorf("failed to retrieve exchange: %w", err3)
+		} else if err3 = s.attemptMessageDelivery(ctx, exchangeAddr, updatedExchange); err3 != nil {
+			return fmt.Errorf("failed attempted delivery: %w", err3)
 		}
 	}
-	//###########################################################################
+	return nil
+}
 
-	if msgs, err := s.js.KeyValue(msgTxBucket(ctx, instance.Name)); err != nil {
-		return false, fmt.Errorf("process message getting message keys: %w", err)
-	} else {
-		if err := common.Save(ctx, msgs, ksuid.New().String(), msg.Data); err != nil {
-			return false, fmt.Errorf("process message saving message: %w", err)
+func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, exchange *model.Exchange) error {
+	if exchange.Sender != nil && exchange.Receiver != nil && exchange.Sender.CorrelationKey == exchange.Receiver.CorrelationKey {
+
+		job, err := s.GetJob(ctx, exchange.Receiver.Id)
+		if errors2.Is(err, nats.ErrKeyNotFound) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		job.Vars = exchange.Sender.Vars
+		if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+			return fmt.Errorf("publishing complete message job: %w", err)
+		}
+
+		// TODO if there are multiple receivers the logic would need to be something like
+		//   - remove Receiver entry from map of receivers in Exchange
+		//   - if there are no longer any receivers but there is a sender, delete the Exchange,
+		//     else update
+
+		err = s.wfMessages.Delete(exchangeAddr)
+		if err != nil {
+			return fmt.Errorf("error deleting exchange %w", err)
 		}
 	}
 
-	_, err := s.iterateRxMessages(ctx, instance.Name, instance.CorrelationKey, func(k string, recipient *model.MessageRecipient) (bool, error) {
-		if instance.CorrelationKey == recipient.CorrelationKey {
-			// TODO I think this results in 2 loops iterating from the sender (Tx) and receiver (Rx) side when in reality
-			// the match has already occurred since this if condition is entered...
-			// The end result is ultimately a call to the deliverMessageToJobRecipient function which results in a call to
-			// the Workflow.State.Job.Complete.AwaitMessage subject...
-
-			if delivered, err := s.deliverMessageToJobRecipient(ctx, recipient, instance.Name); err != nil {
-				return false, err
-			} else if delivered {
-				return true, nil
-			}
-		}
-		return false, nil
-	})
-	if err != nil {
-		slog.Warn("process message delivering message: " + err.Error())
-	}
-	return true, nil
+	return nil
 }
 
 func (s *Nats) deliverMessageToJobRecipient(ctx context.Context, recipient *model.MessageRecipient, msgName string) (bool, error) {
@@ -287,11 +318,12 @@ func (s *Nats) deliverMessageToJob(ctx context.Context, jobID string, instance *
 		return err
 	}
 
-	//TODO this seems to be the critical bit for messages - the exchange of vars from the sender to the receiver
+	// TODO this seems to be the critical bit for messages - the exchange of vars from the sender to the receiver
 	job.Vars = instance.Vars
 	if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
 		return fmt.Errorf("publising complete message job: %w", err)
 	}
+
 	rx, err := s.js.KeyValue(msgRxBucket(ctx, instance.Name))
 	if err != nil {
 		return fmt.Errorf("obtaining message recipient kv: %w", err)
@@ -299,8 +331,10 @@ func (s *Nats) deliverMessageToJob(ctx context.Context, jobID string, instance *
 	if err := common.Delete(rx, jobID); err != nil {
 		return fmt.Errorf("updating message subscriptions: %w", err)
 	}
+
 	return nil
 }
+
 func (s *Nats) processAwaitMessageExecute(ctx context.Context) error {
 	if err := common.Process(ctx, s.js, "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.awaitMessageProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
@@ -314,7 +348,9 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 	if err := proto.Unmarshal(msg.Data, job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
-	if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+
+	_, execution, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
+	if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
 		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
 		return true, err
@@ -327,7 +363,6 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err)}
 	} else if err != nil {
 		return false, fmt.Errorf("get message element: %w", err)
-
 	}
 
 	vrs, err := vars.Decode(ctx, job.Vars)
@@ -338,23 +373,42 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 	if err != nil {
 		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluating message correlation expression: %w", err)}
 	}
+
 	res := fmt.Sprintf("%+v", resAny)
-	recipient := &model.MessageRecipient{
-		Type:           model.RecipientType_job,
-		Id:             common.TrackingID(job.Id).ID(),
-		CorrelationKey: res,
+	//recipient := &model.MessageRecipient{
+	//	Type:           model.RecipientType_job,
+	//	Id:             common.TrackingID(job.Id).ID(),
+	//	CorrelationKey: res,
+	//}
+	//rx, err := s.js.KeyValue(msgRxBucket(ctx, el.Msg))
+	//if err != nil {
+	//	return false, fmt.Errorf("obtaining message recipient kv: %w", err)
+	//}
+	////TODO the receieve side msg is keyed by the job id in wf.job
+	//if err := common.SaveObj(ctx, rx, common.TrackingID(job.Id).ID(), recipient); err != nil {
+	//	return false, fmt.Errorf("update the workflow message subscriptions during await message: %w", err)
+	//}
+	//if _, err := s.deliverMessageToJobRecipient(ctx, recipient, el.Msg); err != nil {
+	//	return false, fmt.Errorf("attempting delivery: %w", err)
+	//}
+
+	//########################################################################################
+
+	elementId := job.ElementId
+	receiver := &model.Receiver{Id: common.TrackingID(job.Id).ID(), CorrelationKey: res}
+	exchange := &model.Exchange{Receiver: receiver}
+
+	setPartyFn := func(exch *model.Exchange) (*model.Exchange, error) {
+		exch.Receiver = receiver
+		return exch, nil
 	}
-	rx, err := s.js.KeyValue(msgRxBucket(ctx, el.Msg))
-	if err != nil {
-		return false, fmt.Errorf("obtaining message recipient kv: %w", err)
+
+	if err2 := s.handleExchangeMessage(ctx, "receiver", setPartyFn, execution, elementId, exchange); err2 != nil {
+		return false, fmt.Errorf("failed to handle receiver message: %w", err2)
 	}
-	//TODO the receieve side msg is keyed by the job id in wf.job
-	if err := common.SaveObj(ctx, rx, common.TrackingID(job.Id).ID(), recipient); err != nil {
-		return false, fmt.Errorf("update the workflow message subscriptions during await message: %w", err)
-	}
-	if _, err := s.deliverMessageToJobRecipient(ctx, recipient, el.Msg); err != nil {
-		return false, fmt.Errorf("attempting delivery: %w", err)
-	}
+
+	//########################################################################################
+
 	return true, nil
 }
 

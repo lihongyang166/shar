@@ -24,7 +24,11 @@ const (
 	// JsonOutput is the flag name for machine readable json responses.
 	JsonOutput = "json"
 	// JsonOutputShort is the short flag name for machine readable json responses.
-	JsonOutputShort = "j"
+	JsonOutputShort  = "j"
+	ExecutionId      = "executionId"
+	ExecutionIdShort = "e"
+	ElementId        = "elementId"
+	ElementIdShort   = "m"
 )
 
 // Set is the set of flags associated with the CLI.
@@ -35,6 +39,8 @@ type Set struct {
 	DebugTrace     bool
 	Vars           []string
 	Json           bool
+	ExecutionId    string
+	ElementId      string
 }
 
 // Value contains the values of the SHAR CLI flags.

@@ -261,7 +261,7 @@ message Execution {
   string workflowId = 2; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 5; // WorkflowName - name of this workflow to avoid lookups.
   repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this workflow instance.
-  map<string, string> exchanges = 7; // Exchanges contains the uuid identifying distinct message flows in a particular execution
+  map<string, string> MessageMailboxAddresses = 7; // MessageMailboxAddresses maps Sender/Receivers to the uuid for their unique mailbox address in a particular execution
   // TODO maybe this can have key entries for the source and target (but the value, the uuid is the same)
   // so we'd have something like
   // SendMessage: uuid1

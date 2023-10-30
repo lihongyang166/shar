@@ -228,7 +228,7 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 }
 
 func (s *Nats) handleExchangeMessage(ctx context.Context, party string, setPartyFn func(exch *model.Exchange) (*model.Exchange, error), execution *model.Execution, elementId string, exchange *model.Exchange) error {
-	if exchangeAddr, ok := execution.Exchanges[elementId]; !ok {
+	if exchangeAddr, ok := execution.MessageMailboxAddresses[elementId]; !ok {
 		return fmt.Errorf("no exchange found for element id: %s", elementId)
 	} else {
 		exchangeProto, err3 := proto.Marshal(exchange)

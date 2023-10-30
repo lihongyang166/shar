@@ -560,20 +560,20 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	execution.ProcessInstanceId = []string{}
 	wf, err := s.GetWorkflow(ctx, execution.WorkflowId)
 
-	execution.Exchanges = map[string]string{}
+	execution.MessageMailboxAddresses = map[string]string{}
 	for _, messageFlow := range wf.Collaboration.MessageFlow {
 		sender := messageFlow.Sender
 		receiver := messageFlow.Recipient
-		_, hasSender := execution.Exchanges[sender]
-		_, hasReceiver := execution.Exchanges[receiver]
+		_, hasSender := execution.MessageMailboxAddresses[sender]
+		_, hasReceiver := execution.MessageMailboxAddresses[receiver]
 		addr := ksuid.New().String()
 
 		if !hasSender {
-			execution.Exchanges[sender] = addr
+			execution.MessageMailboxAddresses[sender] = addr
 		}
 
 		if !hasReceiver {
-			execution.Exchanges[receiver] = addr
+			execution.MessageMailboxAddresses[receiver] = addr
 		}
 	}
 

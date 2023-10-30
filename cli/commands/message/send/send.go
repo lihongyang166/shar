@@ -15,7 +15,7 @@ var Cmd = &cobra.Command{
 	Short: "Sends a workflow message",
 	Long:  ``,
 	RunE:  run,
-	Args:  cobra.MatchAll(cobra.ExactArgs(2), cobra.OnlyValidArgs),
+	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -27,6 +27,8 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
+	executionId := flag.Value.ExecutionId
+	elementId := flag.Value.ElementId
 	err := shar.SendMessage(ctx, args[0], flag.Value.CorrelationKey, model.Vars{}, executionId, elementId)
 	if err != nil {
 		return fmt.Errorf("send message failed: %w", err)
@@ -36,4 +38,6 @@ func run(cmd *cobra.Command, args []string) error {
 
 func init() {
 	Cmd.Flags().StringVarP(&flag.Value.CorrelationKey, flag.CorrelationKey, flag.CorrelationKeyShort, "", "a correlation key for the message")
+	Cmd.Flags().StringVarP(&flag.Value.ExecutionId, flag.ExecutionId, flag.ExecutionIdShort, "", "the execution id this message is associated with")
+	Cmd.Flags().StringVarP(&flag.Value.ElementId, flag.ElementId, flag.ElementIdShort, "", "the element id this message is sent from")
 }

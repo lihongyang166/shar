@@ -209,17 +209,17 @@ func (_m *MockNatsService) GetElement(ctx context.Context, state *model.Workflow
 	return r0, r1
 }
 
-// GetExecution provides a mock function with given fields: ctx, workflowInstanceID
-func (_m *MockNatsService) GetExecution(ctx context.Context, workflowInstanceID string) (*model.Execution, error) {
-	ret := _m.Called(ctx, workflowInstanceID)
+// GetExecution provides a mock function with given fields: ctx, executionID
+func (_m *MockNatsService) GetExecution(ctx context.Context, executionID string) (*model.Execution, error) {
+	ret := _m.Called(ctx, executionID)
 
 	var r0 *model.Execution
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.Execution, error)); ok {
-		return rf(ctx, workflowInstanceID)
+		return rf(ctx, executionID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) *model.Execution); ok {
-		r0 = rf(ctx, workflowInstanceID)
+		r0 = rf(ctx, executionID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.Execution)
@@ -227,7 +227,7 @@ func (_m *MockNatsService) GetExecution(ctx context.Context, workflowInstanceID 
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, workflowInstanceID)
+		r1 = rf(ctx, executionID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -676,13 +676,13 @@ func (_m *MockNatsService) OwnerName(id string) (string, error) {
 	return r0, r1
 }
 
-// PublishMessage provides a mock function with given fields: ctx, name, key, vars
+// PublishMessage provides a mock function with given fields: ctx, name, key, vars, executionId, elementId
 func (_m *MockNatsService) PublishMessage(ctx context.Context, name string, key string, vars []byte, executionId string, elementId string) error {
-	ret := _m.Called(ctx, name, key, vars)
+	ret := _m.Called(ctx, name, key, vars, executionId, elementId)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte) error); ok {
-		r0 = rf(ctx, name, key, vars)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte, string, string) error); ok {
+		r0 = rf(ctx, name, key, vars, executionId, elementId)
 	} else {
 		r0 = ret.Error(0)
 	}

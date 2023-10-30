@@ -193,7 +193,7 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 		return exch, nil
 	}
 
-	if err2 := s.handleExchangeMessage(ctx, "sender", setPartyFn, execution, elementId, exchange); err2 != nil {
+	if err2 := s.handleMessageExchange(ctx, "sender", setPartyFn, execution, elementId, exchange); err2 != nil {
 		return false, err2
 	}
 
@@ -227,7 +227,7 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 	return true, nil
 }
 
-func (s *Nats) handleExchangeMessage(ctx context.Context, party string, setPartyFn func(exch *model.Exchange) (*model.Exchange, error), execution *model.Execution, elementId string, exchange *model.Exchange) error {
+func (s *Nats) handleMessageExchange(ctx context.Context, party string, setPartyFn func(exch *model.Exchange) (*model.Exchange, error), execution *model.Execution, elementId string, exchange *model.Exchange) error {
 	if exchangeAddr, ok := execution.MessageMailboxAddresses[elementId]; !ok {
 		return fmt.Errorf("no exchange found for element id: %s", elementId)
 	} else {
@@ -403,7 +403,7 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 		return exch, nil
 	}
 
-	if err2 := s.handleExchangeMessage(ctx, "receiver", setPartyFn, execution, elementId, exchange); err2 != nil {
+	if err2 := s.handleMessageExchange(ctx, "receiver", setPartyFn, execution, elementId, exchange); err2 != nil {
 		return false, fmt.Errorf("failed to handle receiver message: %w", err2)
 	}
 

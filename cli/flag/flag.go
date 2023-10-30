@@ -24,11 +24,15 @@ const (
 	// JsonOutput is the flag name for machine readable json responses.
 	JsonOutput = "json"
 	// JsonOutputShort is the short flag name for machine readable json responses.
-	JsonOutputShort  = "j"
-	ExecutionId      = "executionId"
+	JsonOutputShort = "j"
+	// ExecutionId is the flag name for the executionId
+	ExecutionId = "executionId"
+	// ExecutionIdShort is the short flag name for the executionId
 	ExecutionIdShort = "e"
-	ElementId        = "elementId"
-	ElementIdShort   = "m"
+	// ElementId is the flag name for the elementId
+	ElementId = "elementId"
+	// ElementIdShort is the short flag name for the elementId
+	ElementIdShort = "m"
 )
 
 // Set is the set of flags associated with the CLI.

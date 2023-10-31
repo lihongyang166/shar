@@ -20,6 +20,11 @@ import (
 	"time"
 )
 
+const (
+	senderParty   = "sender"
+	receiverParty = "receiver"
+)
+
 func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
 	for _, m := range wf.Messages {
 		if err := common.Save(ctx, s.wfMsgTypes, m.Name, []byte{}); err != nil {
@@ -193,7 +198,7 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 		return exch, nil
 	}
 
-	if err2 := s.handleMessageExchange(ctx, "sender", setPartyFn, execution, elementId, exchange); err2 != nil {
+	if err2 := s.handleMessageExchange(ctx, senderParty, setPartyFn, execution, elementId, exchange); err2 != nil {
 		return false, err2
 	}
 
@@ -250,17 +255,40 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 		updatedExchange := &model.Exchange{}
 		if err3 = common.LoadObj(ctx, s.wfMessages, exchangeAddr, updatedExchange); err3 != nil {
 			return fmt.Errorf("failed to retrieve exchange: %w", err3)
-		} else if err3 = s.attemptMessageDelivery(ctx, exchangeAddr, updatedExchange); err3 != nil {
+		} else if err3 = s.attemptMessageDelivery(ctx, exchangeAddr, updatedExchange, elementId, execution); err3 != nil {
 			return fmt.Errorf("failed attempted delivery: %w", err3)
 		}
 	}
 	return nil
 }
 
-func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, exchange *model.Exchange) error {
-	if exchange.Sender != nil && exchange.Receiver != nil && exchange.Sender.CorrelationKey == exchange.Receiver.CorrelationKey {
+func receiverCorrelationKey(receiver string, receivers map[string]*model.Receiver) string {
+	recvr, ok := receivers[receiver]
+	if ok {
+		return recvr.CorrelationKey
+	}
+	return "noCorrelationKey"
+}
 
-		job, err := s.GetJob(ctx, exchange.Receiver.Id)
+func allMessagesReceived(exchange *model.Exchange, expectedReceivers map[string]string) bool {
+	var allMessagesReceived bool
+	for receiver := range expectedReceivers {
+		_, ok := exchange.Receivers[receiver]
+		if ok {
+			allMessagesReceived = true
+		} else {
+			allMessagesReceived = false
+			break
+		}
+	}
+	return allMessagesReceived
+}
+
+func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, exchange *model.Exchange, receiverName string, execution *model.Execution) error {
+
+	if exchange.Sender != nil && exchange.Receivers != nil && exchange.Sender.CorrelationKey == receiverCorrelationKey(receiverName, exchange.Receivers) {
+
+		job, err := s.GetJob(ctx, exchange.Receivers[receiverName].Id)
 		if errors2.Is(err, nats.ErrKeyNotFound) {
 			return nil
 		} else if err != nil {
@@ -277,10 +305,24 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, 
 		//   - if there are no longer any receivers but there is a sender, delete the Exchange,
 		//     else update
 
-		err = s.wfMessages.Delete(exchangeAddr)
-		if err != nil {
-			return fmt.Errorf("error deleting exchange %w", err)
+		// ################################################################
+		// need the execution here to determine if we can delete the mailbox
+
+		//     BUT - how do I know all receivers have had their messages delivered?
+		//     I'd need to maintain some kind of history to see whether all receivers have
+		//     arrived, and have been delivered...
+		//     could we do this by maintaining some kind of count...or not delete the exchange
+		//     until all expected messages have been received???
+		//     Could we determine the state of all messages received by looking at the contents of the
+		//     receivers map and comparing it to an expected set we keep in the Execution???
+
+		if exchange.Sender != nil && allMessagesReceived(exchange, execution.ExpectedReceivers) {
+			err = s.wfMessages.Delete(exchangeAddr)
+			if err != nil {
+				return fmt.Errorf("error deleting exchange %w", err)
+			}
 		}
+
 	}
 
 	return nil
@@ -396,14 +438,20 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 
 	elementId := job.ElementId
 	receiver := &model.Receiver{Id: common.TrackingID(job.Id).ID(), CorrelationKey: res}
-	exchange := &model.Exchange{Receiver: receiver}
+	exchange := &model.Exchange{Receivers: map[string]*model.Receiver{elementId: receiver}}
+
+	slog.Info("###elementId:", "elementId", elementId)
 
 	setPartyFn := func(exch *model.Exchange) (*model.Exchange, error) {
-		exch.Receiver = receiver
+		if exch.Receivers == nil {
+			exch.Receivers = map[string]*model.Receiver{elementId: receiver}
+		} else {
+			exch.Receivers[elementId] = receiver
+		}
 		return exch, nil
 	}
 
-	if err2 := s.handleMessageExchange(ctx, "receiver", setPartyFn, execution, elementId, exchange); err2 != nil {
+	if err2 := s.handleMessageExchange(ctx, receiverParty, setPartyFn, execution, elementId, exchange); err2 != nil {
 		return false, fmt.Errorf("failed to handle receiver message: %w", err2)
 	}
 

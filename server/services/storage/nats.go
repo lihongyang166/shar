@@ -561,6 +561,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	wf, err := s.GetWorkflow(ctx, execution.WorkflowId)
 
 	execution.MessageMailboxAddresses = map[string]string{}
+	execution.ExpectedReceivers = map[string]string{}
 	for _, messageFlow := range wf.Collaboration.MessageFlow {
 		sender := messageFlow.Sender
 		receiver := messageFlow.Recipient
@@ -575,6 +576,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 		if !hasReceiver {
 			execution.MessageMailboxAddresses[receiver] = addr
 		}
+		execution.ExpectedReceivers[receiver] = receiver
 	}
 
 	if err := common.SaveObj(ctx, s.wfExecution, executionID, execution); err != nil {

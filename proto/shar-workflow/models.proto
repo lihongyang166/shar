@@ -150,6 +150,7 @@ message CatchError {
 // Targets defines a set of targets for transition and as to whether only the first match should be executed.
 message Targets {
   repeated Target target = 1; // Target - the target for a state transition.
+  int64 defaultTarget = 2; // DefaultTarget - the ordinal for a default target.
 }
 
 // WorkflowState describes a current executing state inside a workflow state machine.

@@ -416,20 +416,28 @@ func parseCoreValues(i *xmlquery.Node, el *model.Element) {
 }
 
 func parseFlowInOut(doc *xmlquery.Node, i *xmlquery.Node, el *model.Element) {
+	targets := &model.Targets{DefaultTarget: int64(-1)}
+	var def string
+	if i.Data == "exclusiveGateway" {
+		def = i.SelectAttr("default")
+	}
 	c2 := i.SelectElements("bpmn:outgoing")
 	elo := make([]*model.Target, 0, len(c2))
-	for _, c := range c2 {
+	for ord, c := range c2 {
 		sf := doc.SelectElement("//bpmn:sequenceFlow[@id=\"" + c.InnerText() + "\"]")
 		tg := doc.SelectElement("//*[@id=\"" + sf.SelectElement("@targetRef").InnerText() + "\"]")
-		elo = append(elo, &model.Target{
+		target := &model.Target{
 			Id:         sf.SelectElement("@id").InnerText(),
 			Target:     tg.SelectElement("@id").InnerText(),
 			Conditions: parseConditions(sf),
-		})
+		}
+		elo = append(elo, target)
+		if def == target.Id {
+			targets.DefaultTarget = int64(ord)
+		}
 	}
 	if len(elo) > 0 {
-		el.Outbound = &model.Targets{
-			Target: elo,
-		}
+		targets.Target = elo
+		el.Outbound = targets
 	}
 }

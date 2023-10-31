@@ -278,6 +278,8 @@ func hasAllReceivers(exchange *model.Exchange, expectedReceivers map[string]stri
 }
 
 func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, exchange *model.Exchange, receiverName string, execution *model.Execution, party string) error {
+	slog.Debug("attemptMessageDelivery", "exchange", exchange, "execution", execution)
+
 	if exchange.Sender != nil && exchange.Receivers != nil {
 		var receivers []*model.Receiver
 		if party == senderParty {

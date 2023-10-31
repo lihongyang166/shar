@@ -565,17 +565,19 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	for _, messageFlow := range wf.Collaboration.MessageFlow {
 		sender := messageFlow.Sender
 		receiver := messageFlow.Recipient
-		_, hasSender := execution.MessageMailboxAddresses[sender]
+		senderAddr, hasSender := execution.MessageMailboxAddresses[sender]
 		_, hasReceiver := execution.MessageMailboxAddresses[receiver]
 		addr := ksuid.New().String()
 
-		if !hasSender {
+		if !hasSender && !hasReceiver {
 			execution.MessageMailboxAddresses[sender] = addr
-		}
-
-		if !hasReceiver {
 			execution.MessageMailboxAddresses[receiver] = addr
 		}
+
+		if hasSender && !hasReceiver { // handle multiple receivers
+			execution.MessageMailboxAddresses[receiver] = senderAddr
+		}
+
 		execution.ExpectedReceivers[receiver] = receiver
 	}
 

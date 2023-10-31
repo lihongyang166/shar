@@ -152,7 +152,7 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 
 		switch i.Data {
 		// These are handled specially
-		case "sequenceFlow", "incoming", "outgoing", "extensionElements", "boundaryEvent":
+		case "sequenceFlow", "incoming", "outgoing", "extensionElements", "boundaryEvent", "documentation":
 			return nil
 		// Intermediate catch events need special processing
 		case "intermediateThrowEvent":

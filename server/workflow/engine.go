@@ -344,12 +344,14 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 	}
 	commit := make(map[string]string, len(outbound.Target))
 	// Traverse along all outbound edges
-	for _, t := range outbound.Target {
+	for ord, t := range outbound.Target {
+		if ord == int(outbound.DefaultTarget) {
+			continue
+		}
 		ws := proto.Clone(state).(*model.WorkflowState)
 		// Evaluate conditions
 		ok := true
 		for _, ex := range t.Conditions {
-
 			// TODO: Cache compilation.
 			exVars, err := vars.Decode(ctx, ws.Vars)
 			if err != nil {
@@ -369,6 +371,11 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 		if ok {
 			commit[t.Id] = t.Target
 		}
+	}
+
+	if len(commit) == 0 && outbound.DefaultTarget != -1 {
+		def := outbound.Target[outbound.DefaultTarget]
+		commit[def.Id] = def.Target
 	}
 
 	elem := el[state.ElementId]

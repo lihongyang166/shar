@@ -285,41 +285,28 @@ func allMessagesReceived(exchange *model.Exchange, expectedReceivers map[string]
 }
 
 func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, exchange *model.Exchange, receiverName string, execution *model.Execution) error {
+	if exchange.Sender != nil && exchange.Receivers != nil {
+		for _, recvr := range exchange.Receivers {
+			if exchange.Sender.CorrelationKey == recvr.CorrelationKey {
 
-	if exchange.Sender != nil && exchange.Receivers != nil && exchange.Sender.CorrelationKey == receiverCorrelationKey(receiverName, exchange.Receivers) {
+				job, err := s.GetJob(ctx, recvr.Id)
+				if errors2.Is(err, nats.ErrKeyNotFound) {
+					return nil
+				} else if err != nil {
+					return err
+				}
 
-		job, err := s.GetJob(ctx, exchange.Receivers[receiverName].Id)
-		if errors2.Is(err, nats.ErrKeyNotFound) {
-			return nil
-		} else if err != nil {
-			return err
-		}
+				job.Vars = exchange.Sender.Vars
+				if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+					return fmt.Errorf("publishing complete message job: %w", err)
+				}
 
-		job.Vars = exchange.Sender.Vars
-		if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
-			return fmt.Errorf("publishing complete message job: %w", err)
-		}
-
-		// TODO if there are multiple receivers the logic would need to be something like
-		//   - remove Receiver entry from map of receivers in Exchange
-		//   - if there are no longer any receivers but there is a sender, delete the Exchange,
-		//     else update
-
-		// ################################################################
-		// need the execution here to determine if we can delete the mailbox
-
-		//     BUT - how do I know all receivers have had their messages delivered?
-		//     I'd need to maintain some kind of history to see whether all receivers have
-		//     arrived, and have been delivered...
-		//     could we do this by maintaining some kind of count...or not delete the exchange
-		//     until all expected messages have been received???
-		//     Could we determine the state of all messages received by looking at the contents of the
-		//     receivers map and comparing it to an expected set we keep in the Execution???
-
-		if exchange.Sender != nil && allMessagesReceived(exchange, execution.ExpectedReceivers) {
-			err = s.wfMessages.Delete(exchangeAddr)
-			if err != nil {
-				return fmt.Errorf("error deleting exchange %w", err)
+				if exchange.Sender != nil && allMessagesReceived(exchange, execution.ExpectedReceivers) {
+					err = s.wfMessages.Delete(exchangeAddr)
+					if err != nil {
+						return fmt.Errorf("error deleting exchange %w", err)
+					}
+				}
 			}
 		}
 

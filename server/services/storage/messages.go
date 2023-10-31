@@ -15,6 +15,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"time"
@@ -234,7 +235,7 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 
 func (s *Nats) handleMessageExchange(ctx context.Context, party string, setPartyFn func(exch *model.Exchange) (*model.Exchange, error), execution *model.Execution, elementId string, exchange *model.Exchange) error {
 	if exchangeAddr, ok := execution.MessageMailboxAddresses[elementId]; !ok {
-		return fmt.Errorf("no exchange found for element id: %s", elementId)
+		return fmt.Errorf("no exchange found for sender|receiver element id: %s", elementId)
 	} else {
 		exchangeProto, err3 := proto.Marshal(exchange)
 		if err3 != nil {
@@ -255,22 +256,14 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 		updatedExchange := &model.Exchange{}
 		if err3 = common.LoadObj(ctx, s.wfMessages, exchangeAddr, updatedExchange); err3 != nil {
 			return fmt.Errorf("failed to retrieve exchange: %w", err3)
-		} else if err3 = s.attemptMessageDelivery(ctx, exchangeAddr, updatedExchange, elementId, execution); err3 != nil {
+		} else if err3 = s.attemptMessageDelivery(ctx, exchangeAddr, updatedExchange, elementId, execution, party); err3 != nil {
 			return fmt.Errorf("failed attempted delivery: %w", err3)
 		}
 	}
 	return nil
 }
 
-func receiverCorrelationKey(receiver string, receivers map[string]*model.Receiver) string {
-	recvr, ok := receivers[receiver]
-	if ok {
-		return recvr.CorrelationKey
-	}
-	return "noCorrelationKey"
-}
-
-func allMessagesReceived(exchange *model.Exchange, expectedReceivers map[string]string) bool {
+func hasAllReceivers(exchange *model.Exchange, expectedReceivers map[string]string) bool {
 	var allMessagesReceived bool
 	for receiver := range expectedReceivers {
 		_, ok := exchange.Receivers[receiver]
@@ -284,9 +277,16 @@ func allMessagesReceived(exchange *model.Exchange, expectedReceivers map[string]
 	return allMessagesReceived
 }
 
-func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, exchange *model.Exchange, receiverName string, execution *model.Execution) error {
+func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, exchange *model.Exchange, receiverName string, execution *model.Execution, party string) error {
 	if exchange.Sender != nil && exchange.Receivers != nil {
-		for _, recvr := range exchange.Receivers {
+		var receivers []*model.Receiver
+		if party == senderParty {
+			receivers = maps.Values(exchange.Receivers)
+		} else { // deliver only to the receiver that has just arrived
+			receivers = []*model.Receiver{exchange.Receivers[receiverName]}
+		}
+
+		for _, recvr := range receivers {
 			if exchange.Sender.CorrelationKey == recvr.CorrelationKey {
 
 				job, err := s.GetJob(ctx, recvr.Id)
@@ -301,12 +301,12 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, 
 					return fmt.Errorf("publishing complete message job: %w", err)
 				}
 
-				if exchange.Sender != nil && allMessagesReceived(exchange, execution.ExpectedReceivers) {
-					err = s.wfMessages.Delete(exchangeAddr)
-					if err != nil {
-						return fmt.Errorf("error deleting exchange %w", err)
-					}
-				}
+			}
+		}
+		if exchange.Sender != nil && hasAllReceivers(exchange, execution.ExpectedReceivers) {
+			err := s.wfMessages.Delete(exchangeAddr)
+			if err != nil {
+				return fmt.Errorf("error deleting exchange %w", err)
 			}
 		}
 
@@ -426,8 +426,6 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 	elementId := job.ElementId
 	receiver := &model.Receiver{Id: common.TrackingID(job.Id).ID(), CorrelationKey: res}
 	exchange := &model.Exchange{Receivers: map[string]*model.Receiver{elementId: receiver}}
-
-	slog.Info("###elementId:", "elementId", elementId)
 
 	setPartyFn := func(exch *model.Exchange) (*model.Exchange, error) {
 		if exch.Receivers == nil {

@@ -23,6 +23,8 @@ func TestSimpleTelemetry(t *testing.T) {
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
 
+	d := &testTelSimpleHandlerDef{t: t, finished: make(chan struct{})}
+
 	tel.On("ExportSpans", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("[]trace.ReadOnlySpan")).
 		Run(func(args mock.Arguments) {
 			sp := args.Get(1).([]trace.ReadOnlySpan)
@@ -37,8 +39,6 @@ func TestSimpleTelemetry(t *testing.T) {
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
-
-	d := &testTelSimpleHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
 	err = taskutil.RegisterTaskYamlFile(ctx, cl, "telemetry_simple_test_SimpleProcess.yaml", d.integrationSimple)
@@ -63,6 +63,7 @@ func TestSimpleTelemetry(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
+	time.Sleep(5 * time.Second)
 	tel.AssertExpectations(t)
 	tst.AssertCleanKV()
 }

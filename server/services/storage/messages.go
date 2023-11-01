@@ -146,37 +146,6 @@ func (s *Nats) processMessages(ctx context.Context) error {
 	return nil
 }
 
-// TODO Instead of having MessageInstance and MessageRecipient which are stored in a single KV (which are then confusingly
-// referenced by different msgRx or msgTx fns depending on which side we are processing)
-//
-// could we instead ...
-// * introduce the notion of a mailbox_address var that is mandatory (and the same) for processes that participate in
-//   a message workflow (the sender and receiver). Can this mailbox_addr be assigned on collaboration startup???
-// * This mailbox_address var would need to be a uuid and would serve the current purpose of the correlationKey ie a match key
-// * If we key the MsgTx|Rx_default kv, by the mailbox_address, we would not need to have different KV stores per message type
-//   as we currently do...each entry is unique across all message types
-// * If we key by a uuid, we could match based on key based lookup regardless of whether the sender or the receiver
-//   process executes first...
-//   an incomplete mailbox would wait for either side to turn up AND THEN continue with the call to deliverMessageToJobRecipient
-// * Could we use the watch functionality on a kv to implement the above behaviour? It would be something like
-//      if complete (both sender/receiver are present) mailbox
-//        deliverMessageToJobRecipient()
-// * Do we even need to use watch? We'd just need a function that handles a mailbox kv update which is triggered
-//   from either side i.e. sender side (processMessage) OR receiver side (processAwaitMessageExecute)
-//   the fn would check to see that both sender and receiver are populated and only then call deliverMessageToJobRecipient()
-//
-// the mailbox entry proto might look something like this
-//
-// mailbox {
-//  address: uuid,
-//  sender: {
-//    vars: []byte
-//  },
-//  receiver: {
-//    id: the job id associated with the receiver element/process (and the key of the wf.job for receiver)
-//  },
-//}
-
 func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 	// Unpack the message Instance
 	instance := &model.MessageInstance{}
@@ -214,11 +183,6 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 	//
 	//_, err := s.iterateRxMessages(ctx, instance.Name, instance.CorrelationKey, func(k string, recipient *model.MessageRecipient) (bool, error) {
 	//	if instance.CorrelationKey == recipient.CorrelationKey {
-	//		// TODO I think this results in 2 loops iterating from the sender (Tx) and receiver (Rx) side when in reality
-	//		// the match has already occurred since this if condition is entered...
-	//		// The end result is ultimately a call to the deliverMessageToJobRecipient function which results in a call to
-	//		// the Workflow.State.Job.Complete.AwaitMessage subject...
-	//
 	//		if delivered, err := s.deliverMessageToJobRecipient(ctx, recipient, instance.Name); err != nil {
 	//			return false, err
 	//		} else if delivered {
@@ -282,7 +246,7 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, 
 
 	if exchange.Sender != nil && exchange.Receivers != nil {
 		var receivers []*model.Receiver
-		if party == senderParty {
+		if party == senderParty { // deliver to all receivers
 			receivers = maps.Values(exchange.Receivers)
 		} else { // deliver only to the receiver that has just arrived
 			receivers = []*model.Receiver{exchange.Receivers[receiverName]}
@@ -349,7 +313,6 @@ func (s *Nats) deliverMessageToJob(ctx context.Context, jobID string, instance *
 		return err
 	}
 
-	// TODO this seems to be the critical bit for messages - the exchange of vars from the sender to the receiver
 	job.Vars = instance.Vars
 	if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
 		return fmt.Errorf("publising complete message job: %w", err)
@@ -415,7 +378,6 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 	//if err != nil {
 	//	return false, fmt.Errorf("obtaining message recipient kv: %w", err)
 	//}
-	////TODO the receieve side msg is keyed by the job id in wf.job
 	//if err := common.SaveObj(ctx, rx, common.TrackingID(job.Id).ID(), recipient); err != nil {
 	//	return false, fmt.Errorf("update the workflow message subscriptions during await message: %w", err)
 	//}
@@ -466,11 +428,6 @@ func (s *Nats) iterateRxMessages(ctx context.Context, name string, correlationKe
 		return false, fmt.Errorf("opening receive bucket: %w", err)
 	}
 
-	// TODO do we need to lock if this is is being processed by the common.Process/PullSubsribe?
-	// does pull subscribe guarantee only one shar svr instance will receive the msg at once?
-	// or is the locking more about the possibility of a recipient possible receiving multiple messages
-	// at once???
-
 	return lockedIterator(ctx, s, rx, correlationKey, "recipient", &model.MessageRecipient{}, fn)
 }
 
@@ -482,9 +439,6 @@ func lockedIterator[T correlatable](ctx context.Context, s *Nats, rx nats.KeyVal
 	return lockedIterate(ctx, s, rx, match, iteratorType, iterateValue, fn, keys)
 }
 
-// TODO I see we iterate over everything in order to find a match by the correlation key. What if we also maintain a separate KV
-// that is keyed by correlation id to enable fast lookup?
-// What is correlation key though? it seems like it is some kind of "address" matching senders to receivers?
 func lockedIterate[T correlatable](ctx context.Context, s *Nats, rx nats.KeyValue, match string, iteratorType string, iterateValue T, fn func(k string, r T) (bool, error), keys []string) (bool, error) {
 	for _, k := range keys {
 		if err := common.LoadObj(ctx, rx, k, iterateValue); err != nil {
@@ -500,7 +454,6 @@ func lockedIterate[T correlatable](ctx context.Context, s *Nats, rx nats.KeyValu
 			}
 			continue
 		} else if !lck {
-			// TODO we unlock if a lock already exists and maybe created by something else???
 			if err := common.UnLock(s.wfLock, k); err != nil {
 				slog.Warn("unlocking " + iteratorType + ": " + err.Error())
 			}

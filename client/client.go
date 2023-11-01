@@ -408,8 +408,6 @@ func (c *Client) listen(ctx context.Context) error {
 
 			case element.MessageIntermediateThrowEvent:
 				trackingID := common.TrackingID(ut.Id).ID()
-				// TODO why do we save the job on the publish side only to retreive it again here?
-				// isn't the proto message the same???
 				job, err := c.GetJob(ctx, trackingID)
 				if err != nil {
 					log.Error("get send message task", err, slog.String("JobId", common.TrackingID(ut.Id).ID()))

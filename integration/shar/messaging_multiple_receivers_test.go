@@ -17,9 +17,9 @@ import (
 )
 
 //goland:noinspection GoNilness
-func TestMessaging(t *testing.T) {
+func TestMessagingMultipleReceivers(t *testing.T) {
 	tst := &support.Integration{}
-	//tst.WithTrace = true
+	tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 
 	defer tst.Teardown()
@@ -27,7 +27,7 @@ func TestMessaging(t *testing.T) {
 	// Create a starting context
 	ctx := context.Background()
 
-	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
+	handlers := &testMessagingMultiReceiverHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
 	// Dial shar
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
@@ -39,9 +39,11 @@ func TestMessaging(t *testing.T) {
 	require.NoError(t, err)
 	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step3.yaml", handlers.step3)
+	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/message-workflow.bpmn")
+	b, err := os.ReadFile("../../testdata/message-multiple-receivers-workflow.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
 	require.NoError(t, err)
@@ -68,21 +70,21 @@ func TestMessaging(t *testing.T) {
 	tst.AssertCleanKV()
 }
 
-type testMessagingHandlerDef struct {
+type testMessagingMultiReceiverHandlerDef struct {
 	wg       sync.WaitGroup
 	tst      *support.Integration
 	finished chan struct{}
 	t        *testing.T
 }
 
-func (x *testMessagingHandlerDef) step1(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
+func (x *testMessagingMultiReceiverHandlerDef) step1(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, messages.LogInfo, -1, "Step 1", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, messages.LogInfo, -1, "Step 2", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
@@ -92,7 +94,15 @@ func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobCl
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars, executionId string, elementId string) error {
+func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+	if err := client.Log(ctx, messages.LogInfo, -1, "Step 3", nil); err != nil {
+		return nil, fmt.Errorf("log: %w", err)
+	}
+
+	return model.Vars{}, nil
+}
+
+func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars, executionId string, elementId string) error {
 	if err := client.Log(ctx, messages.LogDebug, -1, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
@@ -103,7 +113,7 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client
 	return nil
 }
 
-func (x *testMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (x *testMessagingMultiReceiverHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 
 	assert.Equal(x.t, "carried1value", vars["carried"])
 	assert.Equal(x.t, "carried2value", vars["carried2"])

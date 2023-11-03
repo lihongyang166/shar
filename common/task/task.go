@@ -39,6 +39,21 @@ func CreateUID(spec *model.TaskSpec) (string, error) {
 				}
 			}
 		}
+		if spec.Parameters.Output != nil {
+			for _, v := range spec.Parameters.Output {
+				vals = []string{
+					v.Type,
+					v.Name,
+					fmt.Sprint(v.Collection),
+				}
+				for _, v := range vals {
+					_, err := h.Write([]byte(v))
+					if err != nil {
+						return "", fmt.Errorf("getting task hash: %w", err)
+					}
+				}
+			}
+		}
 	}
 	return base62.StdEncoding.EncodeToString(h.Sum(nil)), nil
 }

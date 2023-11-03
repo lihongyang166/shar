@@ -485,3 +485,16 @@ func (s *SharServer) getTaskSpecUsage(ctx context.Context, req *model.GetTaskSpe
 	}
 	return usage, nil
 }
+
+func (s *SharServer) listTaskSpecUIDs(ctx context.Context, req *model.ListTaskSpecUIDsRequest) (*model.ListTaskSpecUIDsResult, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	uids, err := s.ns.ListTaskSpecUIDs(ctx, req.IncludeDeprecated)
+	if err != nil {
+		return nil, fmt.Errorf("list task spec uids: %w", err)
+	}
+	return &model.ListTaskSpecUIDsResult{Uid: uids}, nil
+}

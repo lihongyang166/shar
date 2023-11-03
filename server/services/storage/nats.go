@@ -1436,3 +1436,27 @@ func (s *Nats) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.
 	}
 	return nil
 }
+
+func (s *Nats) ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string, error) {
+	ret := make([]string, 0, 50)
+	vers, err := s.wfTaskSpecVer.Keys()
+	if err != nil {
+		return nil, fmt.Errorf("get task spec version keys: %w", err)
+	}
+	for _, v := range vers {
+		ver := &model.TaskSpecVersions{}
+		err := common.LoadObj(ctx, s.wfTaskSpecVer, v, ver)
+		if err != nil {
+			return nil, fmt.Errorf("get task spec version: %w", err)
+		}
+		latestVer := ver.Id[len(ver.Id)-1]
+		latest, err := s.GetTaskSpecByUID(ctx, latestVer)
+		if err != nil {
+			return nil, fmt.Errorf("get task spec: %w", err)
+		}
+		if deprecated || (latest.Behaviour != nil && !latest.Behaviour.Deprecated) {
+			ret = append(ret, latestVer)
+		}
+	}
+	return ret, nil
+}

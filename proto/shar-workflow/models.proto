@@ -676,8 +676,16 @@ message GetTaskSpecUsageRequest {
 }
 
 message TaskSpecUsageReport{
-  repeated string Workflow = 1;
-  repeated string Process = 2;
-  repeated string ExecutingWorkflow = 3;
-  repeated string ExecutingProcessInstance = 4;
+  repeated string workflow = 1;
+  repeated string process = 2;
+  repeated string executingWorkflow = 3;
+  repeated string executingProcessInstance = 4;
+}
+
+message ListTaskSpecUIDsRequest{
+  bool IncludeDeprecated = 1;
+}
+
+message ListTaskSpecUIDsResult {
+  repeated string uid = 1;
 }

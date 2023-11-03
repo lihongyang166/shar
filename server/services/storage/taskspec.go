@@ -51,17 +51,19 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 	}
 	vers := &model.TaskSpecVersions{}
 	if err := common.UpdateObj(ctx, s.wfTaskSpecVer, spec.Metadata.Type, vers, func(v *model.TaskSpecVersions) (*model.TaskSpecVersions, error) {
-		v.Id = append(v.Id, uid)
-		subj := messages.WorkflowSystemTaskCreate
-		if len(v.Id) == 0 {
-			subj = messages.WorkflowSystemTaskUpdate
-		}
-		b, err := proto.Marshal(spec)
-		if err != nil {
-			return nil, fmt.Errorf("marshal %s system message: %w", subj, err)
-		}
-		if err := s.conn.Publish(subj, b); err != nil {
-			return nil, fmt.Errorf("send %s system message: %w", subj, err)
+		if !slices.Contains(v.Id, uid) {
+			v.Id = append(v.Id, uid)
+			subj := messages.WorkflowSystemTaskCreate
+			if len(v.Id) == 0 {
+				subj = messages.WorkflowSystemTaskUpdate
+			}
+			b, err := proto.Marshal(spec)
+			if err != nil {
+				return nil, fmt.Errorf("marshal %s system message: %w", subj, err)
+			}
+			if err := s.conn.Publish(subj, b); err != nil {
+				return nil, fmt.Errorf("send %s system message: %w", subj, err)
+			}
 		}
 		return v, nil
 	}); err != nil {

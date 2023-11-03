@@ -152,6 +152,7 @@ const (
 	APIGetProcessHistory        = "WORKFLOW.Api.GetProcessHistory"        // APIGetProcessHistory is the get process history API message subject.
 	APIGetVersionInfo           = "WORKFLOW.API.GetVersionInfo"           // APIGetVersionInfo is the get server version information API message subject.
 	APIGetTaskSpecUsage         = "WORKFLOW.Api.GetTaskSpecUsage"         // APIGetTaskSpecUsage is the get task spec usage API message subject.
+	ApiListTaskSpecUIDs         = "WORKFLOW.Api.ListTaskSpecUIDs"         // ApiListTaskSpecUIDs is the list task spec UIDs API message subject.
 )
 
 var (

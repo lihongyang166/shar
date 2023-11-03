@@ -165,6 +165,10 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
 	}
 
+	if err := listen(con, s.panicRecovery, s.subs, messages.ApiListTaskSpecUIDs, &model.ListTaskSpecUIDsRequest{}, s.listTaskSpecUIDs); err != nil {
+		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+	}
+
 	slog.Info("shar api listener started")
 	return nil
 }

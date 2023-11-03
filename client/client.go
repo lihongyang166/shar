@@ -224,11 +224,13 @@ func (c *Client) RegisterTask(ctx context.Context, spec *model.TaskSpec, fn Serv
 	}
 	spec.Metadata.Uid = id
 
-	if _, ok := c.SvcTasks[id]; ok {
-		return fmt.Errorf("service task '%s' already registered: %w", spec.Metadata.Type, errors2.ErrServiceTaskAlreadyRegistered)
+	if fn != nil {
+		if _, ok := c.SvcTasks[id]; ok {
+			return fmt.Errorf("service task '%s' already registered: %w", spec.Metadata.Type, errors2.ErrServiceTaskAlreadyRegistered)
+		}
+		c.SvcTasks[id] = fn
+		c.listenTasks[id] = struct{}{}
 	}
-	c.SvcTasks[id] = fn
-	c.listenTasks[id] = struct{}{}
 	return nil
 }
 
@@ -821,4 +823,26 @@ func (c *Client) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskS
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Spec, nil
+}
+
+func (c *Client) ListTaskSpecs(ctx context.Context, includeDeprecated bool) ([]*model.TaskSpec, error) {
+	req := &model.ListTaskSpecUIDsRequest{
+		IncludeDeprecated: includeDeprecated,
+	}
+	res := &model.ListTaskSpecUIDsResult{}
+
+	if err := api2.Call(ctx, c.txCon, messages.ApiListTaskSpecUIDs, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+
+	ret := make([]*model.TaskSpec, 0, len(res.Uid))
+
+	for _, i := range res.Uid {
+		ts, err := c.GetTaskSpecByUID(ctx, i)
+		if err != nil {
+			return nil, fmt.Errorf("list task specs: get task spec '%s': %w", i, err)
+		}
+		ret = append(ret, ts)
+	}
+	return ret, nil
 }

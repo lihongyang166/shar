@@ -20,6 +20,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
+	maps2 "golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
@@ -292,7 +293,12 @@ func (s *Nats) validateUniqueProcessNameFor(wf *model.Workflow) error {
 func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
 	err := s.validateUniqueProcessNameFor(wf)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("process names are not unique: %w", err)
+	}
+
+	err = s.validateUniqueMessageNames(wf.Messages)
+	if err != nil {
+		return "", fmt.Errorf("message names are not globally unique: %w", err)
 	}
 
 	// Populate Metadata
@@ -1443,6 +1449,23 @@ func (s *Nats) populateMetadata(wf *model.Workflow) {
 			}
 		}
 	}
+}
+
+func (s *Nats) validateUniqueMessageNames(messageElements []*model.Element) error {
+	existingMessageTypes := map[string]struct{}{}
+	for _, msgType := range messageElements {
+		_, err := s.wfMsgTypes.Get(msgType.Name)
+		if err == nil {
+			existingMessageTypes[msgType.Name] = struct{}{}
+		}
+	}
+	existingMessages := strings.Join(maps2.Keys(existingMessageTypes), ",")
+
+	if len(existingMessageTypes) > 0 {
+		return fmt.Errorf(fmt.Sprintf("These messages already exist for other workflows: \"%s\"", existingMessages))
+	}
+
+	return nil
 }
 
 // CheckProcessTaskDeprecation checks if all the tasks in a process have not been deprecated.

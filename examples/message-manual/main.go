@@ -90,8 +90,8 @@ func step2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, 
 	return model.Vars{}, nil
 }
 
-func sendMessage(ctx context.Context, cl client.MessageClient, vars model.Vars, executionId string, elementId string) error {
-	if err := cl.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"success": 32768}, executionId, elementId); err != nil {
+func sendMessage(ctx context.Context, cl client.MessageClient, vars model.Vars) error {
+	if err := cl.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"success": 32768}); err != nil {
 		return fmt.Errorf("send continue message failed: %w", err)
 	}
 	return nil

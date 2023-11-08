@@ -676,13 +676,13 @@ func (_m *MockNatsService) OwnerName(id string) (string, error) {
 	return r0, r1
 }
 
-// PublishMessage provides a mock function with given fields: ctx, name, key, vars, executionId, elementId
-func (_m *MockNatsService) PublishMessage(ctx context.Context, name string, key string, vars []byte, executionId string, elementId string) error {
-	ret := _m.Called(ctx, name, key, vars, executionId, elementId)
+// PublishMessage provides a mock function with given fields: ctx, name, key, vars
+func (_m *MockNatsService) PublishMessage(ctx context.Context, name string, key string, vars []byte) error {
+	ret := _m.Called(ctx, name, key, vars)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte, string, string) error); ok {
-		r0 = rf(ctx, name, key, vars, executionId, elementId)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte) error); ok {
+		r0 = rf(ctx, name, key, vars)
 	} else {
 		r0 = ret.Error(0)
 	}

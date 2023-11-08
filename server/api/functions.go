@@ -66,7 +66,7 @@ func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*mode
 func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*emptypb.Empty, error) {
 	//TODO: how do we auth this?
 
-	if err := s.ns.PublishMessage(ctx, req.Name, req.CorrelationKey, req.Vars, req.ExecutionId, req.ElementId); err != nil {
+	if err := s.ns.PublishMessage(ctx, req.Name, req.CorrelationKey, req.Vars); err != nil {
 		return nil, fmt.Errorf("send message: %w", err)
 	}
 	return &emptypb.Empty{}, nil

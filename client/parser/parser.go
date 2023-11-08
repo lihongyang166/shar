@@ -32,8 +32,9 @@ func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
 
 	prXmls := doc.SelectElements("//bpmn:process")
 	wf := &model.Workflow{
-		Name:    name,
-		Process: make(map[string]*model.Process, len(prXmls)),
+		Name:             name,
+		Process:          make(map[string]*model.Process, len(prXmls)),
+		MessageReceivers: make(map[string]*model.MessageReceivers),
 	}
 	if collaboration := doc.SelectElements("//bpmn:collaboration"); len(collaboration) > 0 {
 		if err := parseCollaboration(wf, collaboration[0]); err != nil {
@@ -321,7 +322,11 @@ func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, 
 		if x := i.SelectElement("bpmn:messageEventDefinition/@messageRef"); x != nil {
 			ref := x.InnerText()
 			el.Type = element.MessageIntermediateCatchEvent
-			el.Msg = msgs[ref]
+			messageName := msgs[ref]
+			el.Msg = messageName
+
+			addReceiverForMessage(wf.MessageReceivers, messageName, el.Id)
+
 			c, err := getCorrelation(wf.Messages, el.Msg)
 			if err != nil {
 				return fmt.Errorf("get subscription correlation: %w", err)
@@ -347,6 +352,15 @@ func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, 
 		}
 	}
 	return nil
+}
+
+func addReceiverForMessage(messageReceivers map[string]*model.MessageReceivers, messageName string, receiverName string) {
+	receiversForMessage, ok := messageReceivers[messageName]
+	if !ok {
+		messageReceivers[messageName] = &model.MessageReceivers{MessageReceiverIds: []string{receiverName}}
+	} else {
+		receiversForMessage.MessageReceiverIds = append(receiversForMessage.MessageReceiverIds, receiverName)
+	}
 }
 
 func parseDuration(ref string) (string, error) {

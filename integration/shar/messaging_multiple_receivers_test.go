@@ -102,12 +102,12 @@ func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars, executionId string, elementId string) error {
+func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars) error {
 	if err := client.Log(ctx, messages.LogDebug, -1, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
 
-	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}, executionId, elementId); err != nil {
+	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil

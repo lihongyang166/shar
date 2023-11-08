@@ -18,6 +18,7 @@ import (
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
+	"strings"
 	"time"
 )
 
@@ -28,7 +29,20 @@ const (
 
 func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
 	for _, m := range wf.Messages {
-		if err := common.Save(ctx, s.wfMsgTypes, m.Name, []byte{}); err != nil {
+
+		receivers, ok := wf.MessageReceivers[m.Name]
+		var rcvrBytes []byte
+		if !ok {
+			rcvrBytes = []byte{}
+		} else {
+			var err error
+			rcvrBytes, err = proto.Marshal(receivers)
+			if err != nil {
+				return fmt.Errorf("failed serialising message receivers: %w", err)
+			}
+		}
+
+		if err := common.Save(ctx, s.wfMsgTypes, m.Name, rcvrBytes); err != nil {
 			return &errors.ErrWorkflowFatal{Err: err}
 		}
 		if err := common.EnsureBucket(s.js, s.storageType, msgTxBucket(ctx, m.Name), 0); err != nil {
@@ -110,13 +124,11 @@ func (s *Nats) messageKick(ctx context.Context) error {
 }
 
 // PublishMessage publishes a workflow message.
-func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars []byte, executionId string, elementId string) error {
+func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars []byte) error {
 	sharMsg := &model.MessageInstance{
 		Name:           name,
 		CorrelationKey: key,
 		Vars:           vars,
-		ExecutionId:    executionId,
-		ElementId:      elementId,
 	}
 	msg := nats.NewMsg(fmt.Sprintf(messages.WorkflowMessage, "default"))
 	b, err := proto.Marshal(sharMsg)
@@ -153,13 +165,6 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 		return false, fmt.Errorf("unmarshal message proto: %w", err)
 	}
 
-	execution, err3 := s.GetExecution(ctx, instance.ExecutionId)
-	if err3 != nil {
-		return false, fmt.Errorf("no execution found for execution id: %s %w", instance.ExecutionId, err3)
-	}
-
-	elementId := instance.ElementId
-
 	sender := &model.Sender{Vars: instance.Vars, CorrelationKey: instance.CorrelationKey}
 	exchange := &model.Exchange{Sender: sender}
 
@@ -168,7 +173,7 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 		return exch, nil
 	}
 
-	if err2 := s.handleMessageExchange(ctx, senderParty, setPartyFn, execution, elementId, exchange); err2 != nil {
+	if err2 := s.handleMessageExchange(ctx, senderParty, setPartyFn, "", exchange, instance.Name, instance.CorrelationKey); err2 != nil {
 		return false, err2
 	}
 
@@ -197,39 +202,46 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 	return true, nil
 }
 
-func (s *Nats) handleMessageExchange(ctx context.Context, party string, setPartyFn func(exch *model.Exchange) (*model.Exchange, error), execution *model.Execution, elementId string, exchange *model.Exchange) error {
-	if exchangeAddr, ok := execution.MessageMailboxAddresses[elementId]; !ok {
-		return fmt.Errorf("no exchange found for sender|receiver element id: %s", elementId)
-	} else {
-		exchangeProto, err3 := proto.Marshal(exchange)
-		if err3 != nil {
-			return fmt.Errorf("error serialising "+party+" message %w", err3)
-		}
-		//use optimistic locking capabilities on create/update to ensure no lost writes...
-		_, createErr := s.wfMessages.Create(exchangeAddr, exchangeProto)
+type setPartyFn func(exch *model.Exchange) (*model.Exchange, error)
 
-		if errors2.Is(createErr, nats.ErrKeyExists) {
-			err3 := common.UpdateObj(ctx, s.wfMessages, exchangeAddr, &model.Exchange{}, setPartyFn)
-			if err3 != nil {
-				return fmt.Errorf("failed to update exchange with %s: %w", party, err3)
-			}
-		} else if createErr != nil {
-			return fmt.Errorf("error creating message exchange: %w", createErr)
-		}
+func (s *Nats) handleMessageExchange(ctx context.Context, party string, setPartyFn setPartyFn, elementId string, exchange *model.Exchange, messageName string, correlationKey string) error {
+	messageKey := messageKeyFrom([]string{messageName, correlationKey})
 
-		updatedExchange := &model.Exchange{}
-		if err3 = common.LoadObj(ctx, s.wfMessages, exchangeAddr, updatedExchange); err3 != nil {
-			return fmt.Errorf("failed to retrieve exchange: %w", err3)
-		} else if err3 = s.attemptMessageDelivery(ctx, exchangeAddr, updatedExchange, elementId, execution, party); err3 != nil {
-			return fmt.Errorf("failed attempted delivery: %w", err3)
-		}
+	exchangeProto, err3 := proto.Marshal(exchange)
+	if err3 != nil {
+		return fmt.Errorf("error serialising "+party+" message %w", err3)
 	}
+	//use optimistic locking capabilities on create/update to ensure no lost writes...
+	_, createErr := s.wfMessages.Create(messageKey, exchangeProto)
+
+	if errors2.Is(createErr, nats.ErrKeyExists) {
+		err3 := common.UpdateObj(ctx, s.wfMessages, messageKey, &model.Exchange{}, setPartyFn)
+		if err3 != nil {
+			return fmt.Errorf("failed to update exchange with %s: %w", party, err3)
+		}
+	} else if createErr != nil {
+		return fmt.Errorf("error creating message exchange: %w", createErr)
+	}
+
+	updatedExchange := &model.Exchange{}
+	if err3 = common.LoadObj(ctx, s.wfMessages, messageKey, updatedExchange); err3 != nil {
+		return fmt.Errorf("failed to retrieve exchange: %w", err3)
+	} else if err3 = s.attemptMessageDelivery(ctx, updatedExchange, elementId, party, messageName, correlationKey); err3 != nil {
+		return fmt.Errorf("failed attempted delivery: %w", err3)
+	}
+	//}
 	return nil
 }
 
-func hasAllReceivers(exchange *model.Exchange, expectedReceivers map[string]string) bool {
+func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, messageName string) (bool, error) {
+	expectedMessageReceivers := &model.MessageReceivers{}
+	err := common.LoadObj(ctx, s.wfMsgTypes, messageName, expectedMessageReceivers)
+	if err != nil {
+		return false, fmt.Errorf("failed loading expected receivers: %w", err)
+	}
+
 	var allMessagesReceived bool
-	for receiver := range expectedReceivers {
+	for _, receiver := range expectedMessageReceivers.MessageReceiverIds {
 		_, ok := exchange.Receivers[receiver]
 		if ok {
 			allMessagesReceived = true
@@ -238,11 +250,11 @@ func hasAllReceivers(exchange *model.Exchange, expectedReceivers map[string]stri
 			break
 		}
 	}
-	return allMessagesReceived
+	return allMessagesReceived, nil
 }
 
-func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, exchange *model.Exchange, receiverName string, execution *model.Execution, party string) error {
-	slog.Debug("attemptMessageDelivery", "exchange", exchange, "execution", execution)
+func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Exchange, receiverName string, party string, messageName string, correlationKey string) error {
+	slog.Debug("attemptMessageDelivery", "exchange", exchange, "messageName", messageName, "correlationKey", correlationKey)
 
 	if exchange.Sender != nil && exchange.Receivers != nil {
 		var receivers []*model.Receiver
@@ -253,24 +265,26 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchangeAddr string, 
 		}
 
 		for _, recvr := range receivers {
-			if exchange.Sender.CorrelationKey == recvr.CorrelationKey {
+			job, err := s.GetJob(ctx, recvr.Id)
+			if errors2.Is(err, nats.ErrKeyNotFound) {
+				return nil
+			} else if err != nil {
+				return err
+			}
 
-				job, err := s.GetJob(ctx, recvr.Id)
-				if errors2.Is(err, nats.ErrKeyNotFound) {
-					return nil
-				} else if err != nil {
-					return err
-				}
-
-				job.Vars = exchange.Sender.Vars
-				if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
-					return fmt.Errorf("publishing complete message job: %w", err)
-				}
-
+			job.Vars = exchange.Sender.Vars
+			if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+				return fmt.Errorf("publishing complete message job: %w", err)
 			}
 		}
-		if exchange.Sender != nil && hasAllReceivers(exchange, execution.ExpectedReceivers) {
-			err := s.wfMessages.Delete(exchangeAddr)
+		hasAllReceivers, err := s.hasAllReceivers(ctx, exchange, messageName)
+		if err != nil {
+			return fmt.Errorf("failed has expected receivers: %w", err)
+		}
+
+		if exchange.Sender != nil && hasAllReceivers {
+			messageKey := messageKeyFrom([]string{messageName, correlationKey})
+			err := s.wfMessages.Delete(messageKey)
 			if err != nil {
 				return fmt.Errorf("error deleting exchange %w", err)
 			}
@@ -336,6 +350,10 @@ func (s *Nats) processAwaitMessageExecute(ctx context.Context) error {
 	return nil
 }
 
+func messageKeyFrom(keyElements []string) string {
+	return strings.Join(keyElements, "-")
+}
+
 // awaitMessageProcessor waits for WORKFLOW.*.State.Job.AwaitMessage.Execute job and executes a delivery
 func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 	job := &model.WorkflowState{}
@@ -343,7 +361,7 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
 
-	_, execution, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
+	_, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
 	if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
 		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
@@ -368,11 +386,11 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluating message correlation expression: %w", err)}
 	}
 
-	res := fmt.Sprintf("%+v", resAny)
+	correlationKey := fmt.Sprintf("%+v", resAny)
 	//recipient := &model.MessageRecipient{
 	//	Type:           model.RecipientType_job,
 	//	Id:             common.TrackingID(job.Id).ID(),
-	//	CorrelationKey: res,
+	//	CorrelationKey: correlationKey,
 	//}
 	//rx, err := s.js.KeyValue(msgRxBucket(ctx, el.Msg))
 	//if err != nil {
@@ -388,7 +406,7 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 	//########################################################################################
 
 	elementId := job.ElementId
-	receiver := &model.Receiver{Id: common.TrackingID(job.Id).ID(), CorrelationKey: res}
+	receiver := &model.Receiver{Id: common.TrackingID(job.Id).ID(), CorrelationKey: correlationKey}
 	exchange := &model.Exchange{Receivers: map[string]*model.Receiver{elementId: receiver}}
 
 	setPartyFn := func(exch *model.Exchange) (*model.Exchange, error) {
@@ -400,7 +418,8 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 		return exch, nil
 	}
 
-	if err2 := s.handleMessageExchange(ctx, receiverParty, setPartyFn, execution, elementId, exchange); err2 != nil {
+	messageName := el.Msg
+	if err2 := s.handleMessageExchange(ctx, receiverParty, setPartyFn, elementId, exchange, messageName, correlationKey); err2 != nil {
 		return false, fmt.Errorf("failed to handle receiver message: %w", err2)
 	}
 

@@ -77,9 +77,9 @@ func step2(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, err
 	return model.Vars{}, nil
 }
 
-func sendMessage(ctx context.Context, cmd client.MessageClient, vars model.Vars, executionId string, elementId string) error {
+func sendMessage(ctx context.Context, cmd client.MessageClient, vars model.Vars) error {
 	fmt.Println("Sending Message...")
-	return cmd.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}, executionId, elementId)
+	return cmd.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]})
 }
 
 func processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

@@ -566,27 +566,6 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	execution.ProcessInstanceId = []string{}
 	wf, err := s.GetWorkflow(ctx, execution.WorkflowId)
 
-	execution.MessageMailboxAddresses = map[string]string{}
-	execution.ExpectedReceivers = map[string]string{}
-	for _, messageFlow := range wf.Collaboration.MessageFlow {
-		sender := messageFlow.Sender
-		receiver := messageFlow.Recipient
-		senderAddr, hasSender := execution.MessageMailboxAddresses[sender]
-		_, hasReceiver := execution.MessageMailboxAddresses[receiver]
-		addr := ksuid.New().String()
-
-		if !hasSender && !hasReceiver {
-			execution.MessageMailboxAddresses[sender] = addr
-			execution.MessageMailboxAddresses[receiver] = addr
-		}
-
-		if hasSender && !hasReceiver { // handle multiple receivers
-			execution.MessageMailboxAddresses[receiver] = senderAddr
-		}
-
-		execution.ExpectedReceivers[receiver] = receiver
-	}
-
 	if err := common.SaveObj(ctx, s.wfExecution, executionID, execution); err != nil {
 		return nil, fmt.Errorf("save execution object to KV: %w", err)
 	}

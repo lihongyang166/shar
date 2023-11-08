@@ -1437,6 +1437,7 @@ func (s *Nats) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.
 	return nil
 }
 
+// ListTaskSpecUIDs lists UIDs of active (and optionally deprecated) tasks specs.
 func (s *Nats) ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string, error) {
 	ret := make([]string, 0, 50)
 	vers, err := s.wfTaskSpecVer.Keys()

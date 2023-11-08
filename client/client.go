@@ -825,6 +825,7 @@ func (c *Client) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskS
 	return res.Spec, nil
 }
 
+// ListTaskSpecs lists active and optionally deprecated task specs.
 func (c *Client) ListTaskSpecs(ctx context.Context, includeDeprecated bool) ([]*model.TaskSpec, error) {
 	req := &model.ListTaskSpecUIDsRequest{
 		IncludeDeprecated: includeDeprecated,

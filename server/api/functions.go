@@ -66,6 +66,11 @@ func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*mode
 func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*emptypb.Empty, error) {
 	//TODO: how do we auth this?
 
+	//TODO look to see if there is a message start event=>process mapping and if so, launch that Workflow/process
+
+	//what happens if there is no message start event => process and there is no correlation key?
+	//BPMN editor does not seem to allow receivers without correl keys...
+
 	if err := s.ns.PublishMessage(ctx, req.Name, req.CorrelationKey, req.Vars); err != nil {
 		return nil, fmt.Errorf("send message: %w", err)
 	}
@@ -128,7 +133,19 @@ func (s *SharServer) storeWorkflow(ctx context.Context, wf *model.Workflow) (*wr
 	return &wrapperspb.StringValue{Value: res}, nil
 }
 
-func (s *SharServer) launchWorkflow(ctx context.Context, req *model.LaunchWorkflowRequest) (*model.LaunchWorkflowResponse, error) {
+func (s *SharServer) getServiceTaskRoutingID(ctx context.Context, req *model.GetServiceTaskRoutingIDRequest) (*model.GetServiceTaskRoutingIDResponse, error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+	res, err := s.ns.GetServiceTaskRoutingKey(ctx, req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get service task routing id: %w", err)
+	}
+	return &model.GetServiceTaskRoutingIDResponse{Id: res}, nil
+}
+
+func (s *SharServer) launchProcess(ctx context.Context, req *model.LaunchWorkflowRequest) (*model.LaunchWorkflowResponse, error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.Name)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)

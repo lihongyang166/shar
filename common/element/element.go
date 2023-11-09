@@ -14,4 +14,5 @@ const (
 	TimedStartEvent               = "timedStartEvent"               // TimedStartEvent - the name of the time triggered start event type.
 	TimerIntermediateCatchEvent   = "timerIntermediateCatchEvent"   // TimerIntermediateCatchEvent - the name of the timer triggered element type.
 	UserTask                      = "userTask"                      // UserTask - the name of the user task element type.
+	MessageStartEvent             = "messageStartEvent"             // MessageStartEvent - the name of the message start event type.
 )

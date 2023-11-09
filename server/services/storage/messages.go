@@ -241,8 +241,8 @@ func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, me
 	}
 
 	var allMessagesReceived bool
-	for _, receiver := range expectedMessageReceivers.MessageReceiverIds {
-		_, ok := exchange.Receivers[receiver]
+	for _, receiver := range expectedMessageReceivers.MessageReceiver {
+		_, ok := exchange.Receivers[receiver.Id]
 		if ok {
 			allMessagesReceived = true
 		} else {

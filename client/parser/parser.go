@@ -159,7 +159,7 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 		case "intermediateThrowEvent":
 			parseIntermediateThrowEvent(i, el, wf, msgs)
 		case "startEvent":
-			if err := parseStartEvent(i, el); err != nil {
+			if err := parseStartEvent(i, el, msgs, pr.Name, wf); err != nil {
 				return fmt.Errorf("parse start events: %w", err)
 			}
 		case "exclusiveGateway":
@@ -203,7 +203,7 @@ func parseIntermediateThrowEvent(i *xmlquery.Node, el *model.Element, wf *model.
 	}
 }
 
-func parseStartEvent(n *xmlquery.Node, el *model.Element) error {
+func parseStartEvent(n *xmlquery.Node, el *model.Element, msgs map[string]string, processId string, wf *model.Workflow) error {
 	if def := n.SelectElement("bpmn:timerEventDefinition"); def != nil {
 		timeCycle := def.SelectElement("bpmn:timeCycle/text()")
 		timeDate := def.SelectElement("bpmn:timeDate/text()")
@@ -243,6 +243,12 @@ func parseStartEvent(n *xmlquery.Node, el *model.Element) error {
 		}
 		el.Timer = t
 		el.Type = element.TimedStartEvent
+	}
+	if def := n.SelectElement("bpmn:messageEventDefinition"); def != nil {
+		messageName := msgs[def.SelectAttr("messageRef")]
+		el.Msg = messageName
+		el.Type = element.MessageStartEvent
+		addReceiverForMessage(wf.MessageReceivers, messageName, &model.MessageReceiver{Id: n.SelectAttr("id"), ProcessIdToStart: processId})
 	}
 	return nil
 }
@@ -325,7 +331,7 @@ func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, 
 			messageName := msgs[ref]
 			el.Msg = messageName
 
-			addReceiverForMessage(wf.MessageReceivers, messageName, el.Id)
+			addReceiverForMessage(wf.MessageReceivers, messageName, &model.MessageReceiver{Id: el.Id})
 
 			c, err := getCorrelation(wf.Messages, el.Msg)
 			if err != nil {
@@ -354,12 +360,12 @@ func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, 
 	return nil
 }
 
-func addReceiverForMessage(messageReceivers map[string]*model.MessageReceivers, messageName string, receiverName string) {
+func addReceiverForMessage(messageReceivers map[string]*model.MessageReceivers, messageName string, messageReceiver *model.MessageReceiver) {
 	receiversForMessage, ok := messageReceivers[messageName]
 	if !ok {
-		messageReceivers[messageName] = &model.MessageReceivers{MessageReceiverIds: []string{receiverName}}
+		messageReceivers[messageName] = &model.MessageReceivers{MessageReceiver: []*model.MessageReceiver{messageReceiver}}
 	} else {
-		receiversForMessage.MessageReceiverIds = append(receiversForMessage.MessageReceiverIds, receiverName)
+		receiversForMessage.MessageReceiver = append(receiversForMessage.MessageReceiver, messageReceiver)
 	}
 }
 

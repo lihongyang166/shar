@@ -17,7 +17,12 @@ message Workflow {
 }
 
 message MessageReceivers {
-  repeated string messageReceiverIds = 1; //MessageReceiverIds is the id of the elemnt receiving/referencing a message
+  repeated MessageReceiver messageReceiver = 1; //MessageReceiver s are the elements receiving/referencing a message. They could be start events or intermedidate catch events
+}
+
+message MessageReceiver {
+  string id = 1;
+  string processIdToStart = 2;
 }
 
 message Collaboration {

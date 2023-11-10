@@ -127,7 +127,8 @@ func (suite *MessagingTestSuite) TestMessageStartEvent() {
 	}
 
 	//reg svc task
-	taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	err2 := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	require.NoError(t, err2)
 
 	err := cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
 	require.NoError(t, err)
@@ -139,7 +140,8 @@ func (suite *MessagingTestSuite) TestMessageStartEvent() {
 	require.NoError(t, err)
 
 	//send message
-	cl.SendMessage(ctx, "startDemoMsg", "", model.Vars{"customerID": 333})
+	err2 = cl.SendMessage(ctx, "startDemoMsg", "", model.Vars{"customerID": 333})
+	require.NoError(t, err2)
 
 	//listen for events from shar svr
 	go func() {

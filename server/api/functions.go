@@ -63,28 +63,26 @@ func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*mode
 	}
 }
 
-func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*emptypb.Empty, error) {
+func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*model.SendMessageResponse, error) {
 	//TODO: how do we auth this?
 	//especially now this could potentially launch a process
 
 	if req.CorrelationKey == "\"\"" {
-
-		//TODO handle different responses depending on what sendMessage does
-
 		if processId, err := s.ns.GetProcessIdFor(ctx, req.Name); err != nil {
 			return nil, fmt.Errorf("error retrieving process id for message name: %w", err)
 		} else {
-			_, _, err := s.engine.Launch(ctx, processId, req.Vars)
+			executionId, workflowId, err := s.engine.Launch(ctx, processId, req.Vars)
 			if err != nil {
 				return nil, fmt.Errorf("failed to launch process with message: %w", err)
 			}
+			return &model.SendMessageResponse{ExecutionId: executionId, WorkflowId: workflowId}, nil
 		}
 	} else {
 		if err := s.ns.PublishMessage(ctx, req.Name, req.CorrelationKey, req.Vars); err != nil {
 			return nil, fmt.Errorf("send message: %w", err)
 		}
 	}
-	return &emptypb.Empty{}, nil
+	return &model.SendMessageResponse{}, nil
 }
 
 func (s *SharServer) completeManualTask(ctx context.Context, req *model.CompleteManualTaskRequest) (*emptypb.Empty, error) {

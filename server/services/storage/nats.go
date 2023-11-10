@@ -1464,6 +1464,7 @@ func (s *Nats) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.
 	return nil
 }
 
+// GetProcessIdFor retrieves the processId that a begun by a message start event
 func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string) (string, error) {
 	messageReceivers := &model.MessageReceivers{}
 	err := common.LoadObj(ctx, s.wfMsgTypes, startEventMessageName, messageReceivers)

@@ -247,7 +247,7 @@ func parseStartEvent(n *xmlquery.Node, el *model.Element, msgs map[string]string
 	if def := n.SelectElement("bpmn:messageEventDefinition"); def != nil {
 		messageName := msgs[def.SelectAttr("messageRef")]
 		el.Msg = messageName
-		el.Type = element.MessageStartEvent
+		el.Type = element.StartEvent
 		addReceiverForMessage(wf.MessageReceivers, messageName, &model.MessageReceiver{Id: n.SelectAttr("id"), ProcessIdToStart: processId})
 	}
 	return nil

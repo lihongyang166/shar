@@ -26,10 +26,11 @@ func TestMessageStart(t *testing.T) {
 	wf, err := Parse("MessageStart", bytes.NewBuffer(b))
 	require.NoError(t, err)
 
-	processElements := wf.Process["Process_0w6dssp"].Elements
+	processIdWithMessageStartEvent := "Process_0w6dssp"
+	processElements := wf.Process[processIdWithMessageStartEvent].Elements
 
 	expectedMessageStartEventId := "StartEvent_1"
-	expectedType := element.MessageStartEvent
+	expectedType := element.StartEvent
 	expectedMessageName := "startDemoMsg"
 
 	require.True(t, slices.ContainsFunc(
@@ -48,7 +49,7 @@ func TestMessageStart(t *testing.T) {
 		startMessageMessageReceivers.MessageReceiver,
 		func(e *model.MessageReceiver) bool {
 			return e.Id == expectedMessageStartEventId &&
-				e.ProcessIdToStart == "Process_0w6dssp"
+				e.ProcessIdToStart == processIdWithMessageStartEvent
 		},
 	),
 		"message receiver did not have expected Id and ProcessIdToStart")

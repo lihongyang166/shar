@@ -404,6 +404,11 @@ message SendMessageRequest {
   bytes vars = 3;
 }
 
+message SendMessageResponse {
+  string executionId = 1;
+  string workflowId = 2;
+}
+
 message WorkflowInstanceComplete {
   string workflowName = 1;
   string workflowId = 2;

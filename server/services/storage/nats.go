@@ -1463,3 +1463,20 @@ func (s *Nats) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.
 	}
 	return nil
 }
+
+func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string) (string, error) {
+	messageReceivers := &model.MessageReceivers{}
+	err := common.LoadObj(ctx, s.wfMsgTypes, startEventMessageName, messageReceivers)
+
+	if errors2.Is(err, nats.ErrKeyNotFound) || messageReceivers.MessageReceiver == nil || len(messageReceivers.MessageReceiver) == 0 {
+		return "", fmt.Errorf("no message receivers for %q: %w", startEventMessageName, err)
+	}
+
+	for _, recvr := range messageReceivers.MessageReceiver {
+		if recvr.ProcessIdToStart != "" {
+			return recvr.ProcessIdToStart, nil
+		}
+	}
+
+	return "", fmt.Errorf("no message receivers for %q: %w", startEventMessageName, err)
+}

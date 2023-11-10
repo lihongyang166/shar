@@ -26,7 +26,7 @@ type MessagingTestSuite struct {
 
 func (suite *MessagingTestSuite) SetupTest() {
 	suite.integrationSupport = &support.Integration{}
-	//tst.WithTrace = true
+	suite.integrationSupport.WithTrace = true
 	suite.integrationSupport.Setup(suite.T(), nil, nil)
 	suite.ctx = context.Background()
 
@@ -115,6 +115,45 @@ func (suite *MessagingTestSuite) TestMessageNameGlobalUniqueness() {
 	tst.AssertCleanKV()
 }
 
+func (suite *MessagingTestSuite) TestMessageStartEvent() {
+	t := suite.T()
+	ctx := suite.ctx
+	cl := suite.client
+	tst := suite.integrationSupport
+
+	messageEventHandlers := messageStartEventWorkflowEventHandler{
+		completed: make(chan struct{}),
+		t:         t,
+	}
+
+	//reg svc task
+	taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+
+	err := cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
+	require.NoError(t, err)
+
+	//load bpmn
+	b, err := os.ReadFile("../../testdata/message-start-test.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	require.NoError(t, err)
+
+	//send message
+	cl.SendMessage(ctx, "startDemoMsg", "", model.Vars{"customerID": 333})
+
+	//listen for events from shar svr
+	go func() {
+		err := cl.Listen(ctx)
+		require.NoError(t, err)
+	}()
+
+	//wait for completion
+	support.WaitForChan(t, messageEventHandlers.completed, time.Second*10)
+
+	//assert empty KV
+	tst.AssertCleanKV()
+}
+
 type testMessagingHandlerDef struct {
 	wg       sync.WaitGroup
 	tst      *support.Integration
@@ -155,4 +194,24 @@ func (x *testMessagingHandlerDef) processEnd(ctx context.Context, vars model.Var
 	assert.Equal(x.t, "carried1value", vars["carried"])
 	assert.Equal(x.t, "carried2value", vars["carried2"])
 	close(x.finished)
+}
+
+type messageStartEventWorkflowEventHandler struct {
+	completed chan struct{}
+	t         *testing.T
+}
+
+func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+	if err := client.Log(ctx, messages.LogInfo, -1, "simpleServiceTaskHandler", nil); err != nil {
+		return nil, fmt.Errorf("failed logging: %w", err)
+	}
+	actualCustomerId := vars["customerID"]
+	assert.Equal(mse.t, 333, actualCustomerId)
+
+	return vars, nil
+}
+
+func (mse *messageStartEventWorkflowEventHandler) processEnd(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
+	assert.Equal(mse.t, 333, vars["customerID"])
+	close(mse.completed)
 }

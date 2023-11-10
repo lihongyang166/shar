@@ -65,14 +65,24 @@ func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*mode
 
 func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*emptypb.Empty, error) {
 	//TODO: how do we auth this?
+	//especially now this could potentially launch a process
 
-	//TODO look to see if there is a message start event=>process mapping and if so, launch that Workflow/process
+	if req.CorrelationKey == "\"\"" {
 
-	//what happens if there is no message start event => process and there is no correlation key?
-	//BPMN editor does not seem to allow receivers without correl keys...
+		//TODO handle different responses depending on what sendMessage does
 
-	if err := s.ns.PublishMessage(ctx, req.Name, req.CorrelationKey, req.Vars); err != nil {
-		return nil, fmt.Errorf("send message: %w", err)
+		if processId, err := s.ns.GetProcessIdFor(ctx, req.Name); err != nil {
+			return nil, fmt.Errorf("error retrieving process id for message name: %w", err)
+		} else {
+			_, _, err := s.engine.Launch(ctx, processId, req.Vars)
+			if err != nil {
+				return nil, fmt.Errorf("failed to launch process with message: %w", err)
+			}
+		}
+	} else {
+		if err := s.ns.PublishMessage(ctx, req.Name, req.CorrelationKey, req.Vars); err != nil {
+			return nil, fmt.Errorf("send message: %w", err)
+		}
 	}
 	return &emptypb.Empty{}, nil
 }

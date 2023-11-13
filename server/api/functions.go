@@ -65,20 +65,27 @@ func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*mode
 
 func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*model.SendMessageResponse, error) {
 	//TODO: how do we auth this?
-	//especially now this could potentially launch a process
 
+	messageName := req.Name
 	if req.CorrelationKey == "\"\"" {
-		if processId, err := s.ns.GetProcessIdFor(ctx, req.Name); err != nil {
+		if processId, err := s.ns.GetProcessIdFor(ctx, messageName); err != nil {
 			return nil, fmt.Errorf("error retrieving process id for message name: %w", err)
 		} else {
-			executionId, workflowId, err := s.engine.Launch(ctx, processId, req.Vars)
+			launchWorkflowRequest := &model.LaunchWorkflowRequest{
+				Name: processId,
+				Vars: req.Vars,
+			}
+			launchWorkflowResponse, err := s.launchProcess(ctx, launchWorkflowRequest)
+			executionId := launchWorkflowResponse.InstanceId
+			workflowId := launchWorkflowResponse.WorkflowId
+
 			if err != nil {
 				return nil, fmt.Errorf("failed to launch process with message: %w", err)
 			}
 			return &model.SendMessageResponse{ExecutionId: executionId, WorkflowId: workflowId}, nil
 		}
 	} else {
-		if err := s.ns.PublishMessage(ctx, req.Name, req.CorrelationKey, req.Vars); err != nil {
+		if err := s.ns.PublishMessage(ctx, messageName, req.CorrelationKey, req.Vars); err != nil {
 			return nil, fmt.Errorf("send message: %w", err)
 		}
 	}

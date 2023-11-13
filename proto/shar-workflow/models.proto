@@ -18,6 +18,7 @@ message Workflow {
 
 message MessageReceivers {
   repeated MessageReceiver messageReceiver = 1; //MessageReceiver s are the elements receiving/referencing a message. They could be start events or intermedidate catch events
+  string associatedWorkflowName = 2;
 }
 
 message MessageReceiver {

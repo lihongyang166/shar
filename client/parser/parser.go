@@ -248,7 +248,7 @@ func parseStartEvent(n *xmlquery.Node, el *model.Element, msgs map[string]string
 		messageName := msgs[def.SelectAttr("messageRef")]
 		el.Msg = messageName
 		el.Type = element.StartEvent
-		addReceiverForMessage(wf.MessageReceivers, messageName, &model.MessageReceiver{Id: n.SelectAttr("id"), ProcessIdToStart: processId})
+		addReceiverForMessage(wf.MessageReceivers, wf.Name, messageName, &model.MessageReceiver{Id: n.SelectAttr("id"), ProcessIdToStart: processId})
 	}
 	return nil
 }
@@ -331,7 +331,7 @@ func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, 
 			messageName := msgs[ref]
 			el.Msg = messageName
 
-			addReceiverForMessage(wf.MessageReceivers, messageName, &model.MessageReceiver{Id: el.Id})
+			addReceiverForMessage(wf.MessageReceivers, wf.Name, messageName, &model.MessageReceiver{Id: el.Id})
 
 			c, err := getCorrelation(wf.Messages, el.Msg)
 			if err != nil {
@@ -360,10 +360,10 @@ func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, 
 	return nil
 }
 
-func addReceiverForMessage(messageReceivers map[string]*model.MessageReceivers, messageName string, messageReceiver *model.MessageReceiver) {
+func addReceiverForMessage(messageReceivers map[string]*model.MessageReceivers, workflowName string, messageName string, messageReceiver *model.MessageReceiver) {
 	receiversForMessage, ok := messageReceivers[messageName]
 	if !ok {
-		messageReceivers[messageName] = &model.MessageReceivers{MessageReceiver: []*model.MessageReceiver{messageReceiver}}
+		messageReceivers[messageName] = &model.MessageReceivers{AssociatedWorkflowName: workflowName, MessageReceiver: []*model.MessageReceiver{messageReceiver}}
 	} else {
 		receiversForMessage.MessageReceiver = append(receiversForMessage.MessageReceiver, messageReceiver)
 	}

@@ -296,7 +296,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 		return "", fmt.Errorf("process names are not unique: %w", err)
 	}
 
-	err = s.validateUniqueMessageNames(wf.Messages)
+	err = s.validateUniqueMessageNames(ctx, wf)
 	if err != nil {
 		return "", fmt.Errorf("message names are not globally unique: %w", err)
 	}
@@ -1430,11 +1430,14 @@ func (s *Nats) populateMetadata(wf *model.Workflow) {
 	}
 }
 
-func (s *Nats) validateUniqueMessageNames(messageElements []*model.Element) error {
+func (s *Nats) validateUniqueMessageNames(ctx context.Context, wf *model.Workflow) error {
+
 	existingMessageTypes := map[string]struct{}{}
-	for _, msgType := range messageElements {
-		_, err := s.wfMsgTypes.Get(msgType.Name)
-		if err == nil {
+	for _, msgType := range wf.Messages {
+		messageReceivers := &model.MessageReceivers{}
+		err := common.LoadObj(ctx, s.wfMsgTypes, msgType.Name, messageReceivers)
+
+		if err == nil && messageReceivers.AssociatedWorkflowName != wf.Name {
 			existingMessageTypes[msgType.Name] = struct{}{}
 		}
 	}

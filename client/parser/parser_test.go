@@ -23,7 +23,8 @@ func TestParseWorkflowDuration(t *testing.T) {
 func TestMessageStart(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
-	wf, err := Parse("MessageStart", bytes.NewBuffer(b))
+	workflowName := "MessageStart"
+	wf, err := Parse(workflowName, bytes.NewBuffer(b))
 	require.NoError(t, err)
 
 	processIdWithMessageStartEvent := "Process_0w6dssp"
@@ -54,4 +55,5 @@ func TestMessageStart(t *testing.T) {
 	),
 		"message receiver did not have expected Id and ProcessIdToStart")
 
+	assert.Equal(t, workflowName, startMessageMessageReceivers.AssociatedWorkflowName)
 }

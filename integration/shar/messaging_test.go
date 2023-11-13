@@ -115,6 +115,35 @@ func (suite *MessagingTestSuite) TestMessageNameGlobalUniqueness() {
 	tst.AssertCleanKV()
 }
 
+func (suite *MessagingTestSuite) TestMessageNameGlobalUniquenessAcrossVersions() {
+	t := suite.T()
+	ctx := suite.ctx
+	cl := suite.client
+
+	messageEventHandlers := messageStartEventWorkflowEventHandler{
+		completed: make(chan struct{}),
+		t:         t,
+	}
+
+	//reg svc task
+	err2 := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	require.NoError(t, err2)
+
+	err := cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
+	require.NoError(t, err)
+
+	//load bpmn
+	b, err := os.ReadFile("../../testdata/message-start-test.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	require.NoError(t, err)
+
+	b, err = os.ReadFile("../../testdata/message-start-test-v2.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	require.NoError(t, err)
+}
+
 func (suite *MessagingTestSuite) TestMessageStartEvent() {
 	t := suite.T()
 	ctx := suite.ctx

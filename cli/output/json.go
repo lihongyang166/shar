@@ -22,18 +22,18 @@ func (c *Json) OutputStartWorkflowResult(executionID string, wfID string) {
 }
 
 // OutputWorkflow returns a CLI response
-func (c *Json) OutputWorkflow(res []*model.ListWorkflowResult) {
+func (c *Json) OutputWorkflow(res []*model.ListWorkflowResponse) {
 	outJson(struct {
-		Workflow []*model.ListWorkflowResult
+		Workflow []*model.ListWorkflowResponse
 	}{
 		Workflow: res,
 	})
 }
 
 // OutputListExecution returns a CLI response
-func (c *Json) OutputListExecution(res []*model.ListExecutionResult) {
+func (c *Json) OutputListExecution(res []*model.ListExecutionItem) {
 	outJson(struct {
-		Execution []*model.ListExecutionResult
+		Execution []*model.ListExecutionItem
 	}{
 		Execution: res,
 	})

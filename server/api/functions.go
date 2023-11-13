@@ -28,7 +28,7 @@ func (s *SharServer) getProcessInstanceStatus(ctx context.Context, req *model.Ge
 	return &model.GetProcessInstanceStatusResult{ProcessState: ps}, nil
 }
 
-func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.ListExecutionProcessesRequest) (*model.ListExecutionProcessesResult, error) {
+func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.ListExecutionProcessesRequest) (*model.ListExecutionProcessesResponse, error) {
 	ctx, instance, err2 := s.authFromExecutionID(ctx, req.Id)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -37,7 +37,7 @@ func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.List
 	if err != nil {
 		return nil, fmt.Errorf("get execution status: %w", err)
 	}
-	return &model.ListExecutionProcessesResult{ProcessInstanceId: res}, nil
+	return &model.ListExecutionProcessesResponse{ProcessInstanceId: res}, nil
 }
 
 func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*model.ListWorkflowsResponse, error) {
@@ -46,14 +46,14 @@ func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*mode
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 	res, errs := s.ns.ListWorkflows(ctx)
-	ret := make([]*model.ListWorkflowResult, 0)
+	ret := make([]*model.ListWorkflowResponse, 0)
 	for {
 		select {
 		case winf := <-res:
 			if winf == nil {
 				return &model.ListWorkflowsResponse{Result: ret}, nil
 			}
-			ret = append(ret, &model.ListWorkflowResult{
+			ret = append(ret, &model.ListWorkflowResponse{
 				Name:    winf.Name,
 				Version: winf.Version,
 			})
@@ -164,14 +164,14 @@ func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecution
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
 	wch, errs := s.ns.ListExecutions(ctx, req.WorkflowName)
-	ret := make([]*model.ListExecutionResult, 0)
+	ret := make([]*model.ListExecutionItem, 0)
 	for {
 		select {
 		case winf := <-wch:
 			if winf == nil {
 				return &model.ListExecutionResponse{Result: ret}, nil
 			}
-			ret = append(ret, &model.ListExecutionResult{
+			ret = append(ret, &model.ListExecutionItem{
 				Id:      winf.Id,
 				Version: winf.Version,
 			})
@@ -460,7 +460,7 @@ func (s *SharServer) getTaskSpec(ctx context.Context, req *model.GetTaskSpecRequ
 	return &model.GetTaskSpecResponse{Spec: spec}, nil
 }
 
-func (s *SharServer) getTaskSpecVersions(ctx context.Context, req *model.GetTaskSpecVersionsRequest) (*model.GetTaskSpecVersionsResult, error) {
+func (s *SharServer) getTaskSpecVersions(ctx context.Context, req *model.GetTaskSpecVersionsRequest) (*model.GetTaskSpecVersionsResponse, error) {
 	ctx, err2 := s.authForNonWorkflow(ctx)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -470,7 +470,7 @@ func (s *SharServer) getTaskSpecVersions(ctx context.Context, req *model.GetTask
 	if err != nil {
 		return nil, fmt.Errorf("get task spec versions: %w", err)
 	}
-	return &model.GetTaskSpecVersionsResult{Versions: vers}, nil
+	return &model.GetTaskSpecVersionsResponse{Versions: vers}, nil
 }
 
 func (s *SharServer) getTaskSpecUsage(ctx context.Context, req *model.GetTaskSpecUsageRequest) (*model.TaskSpecUsageReport, error) {
@@ -486,7 +486,7 @@ func (s *SharServer) getTaskSpecUsage(ctx context.Context, req *model.GetTaskSpe
 	return usage, nil
 }
 
-func (s *SharServer) listTaskSpecUIDs(ctx context.Context, req *model.ListTaskSpecUIDsRequest) (*model.ListTaskSpecUIDsResult, error) {
+func (s *SharServer) listTaskSpecUIDs(ctx context.Context, req *model.ListTaskSpecUIDsRequest) (*model.ListTaskSpecUIDsResponse, error) {
 	ctx, err2 := s.authForNonWorkflow(ctx)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -496,5 +496,5 @@ func (s *SharServer) listTaskSpecUIDs(ctx context.Context, req *model.ListTaskSp
 	if err != nil {
 		return nil, fmt.Errorf("list task spec uids: %w", err)
 	}
-	return &model.ListTaskSpecUIDsResult{Uid: uids}, nil
+	return &model.ListTaskSpecUIDsResponse{Uid: uids}, nil
 }

@@ -66,7 +66,7 @@ func TestCLI(t *testing.T) {
 	}
 	// List Workflows
 	wfs := &struct {
-		Workflow []*model.ListWorkflowResult
+		Workflow []*model.ListWorkflowResponse
 	}{}
 	sharExecf(t, wfs, "workflow list --server %s --json", tst.NatsURL)
 	assert.Equal(t, 1, len(wfs.Workflow))

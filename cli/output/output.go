@@ -10,10 +10,10 @@ import (
 type Method interface {
 	OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState)
 	OutputLoadResult(executionID string)
-	OutputListExecution(res []*model.ListExecutionResult)
+	OutputListExecution(res []*model.ListExecutionItem)
 	OutputCancelledProcessInstance(id string)
 	OutputUserTaskIDs(ut []*model.GetUserTaskResponse)
-	OutputWorkflow(res []*model.ListWorkflowResult)
+	OutputWorkflow(res []*model.ListWorkflowResponse)
 	OutputStartWorkflowResult(wfiID string, wfID string)
 }
 

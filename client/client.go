@@ -484,7 +484,7 @@ func (c *Client) ListUserTaskIDs(ctx context.Context, owner string) (*model.User
 
 // GetTaskSpecVersions returns all of the version IDs associated with the named task spec.
 func (c *Client) GetTaskSpecVersions(ctx context.Context, name string) ([]string, error) {
-	res := &model.GetTaskSpecVersionsResult{}
+	res := &model.GetTaskSpecVersionsResponse{}
 	req := &model.GetTaskSpecVersionsRequest{Name: name}
 	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecVersions, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
@@ -647,7 +647,7 @@ func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars mo
 }
 
 // ListExecution gets a list of running executions by workflow name.
-func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListExecutionResult, error) {
+func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListExecutionItem, error) {
 	req := &model.ListExecutionRequest{WorkflowName: name}
 	res := &model.ListExecutionResponse{}
 	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
@@ -657,7 +657,7 @@ func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListE
 }
 
 // ListWorkflows gets a list of launchable workflow in SHAR.
-func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResult, error) {
+func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResponse, error) {
 	req := &emptypb.Empty{}
 	res := &model.ListWorkflowsResponse{}
 	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, req, res); err != nil {
@@ -667,9 +667,9 @@ func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResult
 }
 
 // ListExecutionProcesses lists the current process IDs for an Execution.
-func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.ListExecutionProcessesResult, error) {
+func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.ListExecutionProcessesResponse, error) {
 	req := &model.ListExecutionProcessesRequest{Id: id}
-	res := &model.ListExecutionProcessesResult{}
+	res := &model.ListExecutionProcessesResponse{}
 	if err := api2.Call(ctx, c.txCon, messages.APIListExecutionProcesses, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -830,7 +830,7 @@ func (c *Client) ListTaskSpecs(ctx context.Context, includeDeprecated bool) ([]*
 	req := &model.ListTaskSpecUIDsRequest{
 		IncludeDeprecated: includeDeprecated,
 	}
-	res := &model.ListTaskSpecUIDsResult{}
+	res := &model.ListTaskSpecUIDsResponse{}
 
 	if err := api2.Call(ctx, c.txCon, messages.ApiListTaskSpecUIDs, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)

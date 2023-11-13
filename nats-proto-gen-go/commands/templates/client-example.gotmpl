@@ -1,0 +1,32 @@
+{{- /*gotype: gitlab.com/shar-workflow/nats-proto-gen-go/types.TemplateInput*/ -}}
+package main
+// TODO: WARNING  - this example code will be overwritten upon generation.  Copy elsewhere to modify.
+import (
+	"fmt"
+    "context"
+    "github.com/nats-io/nats.go"
+    {{.PackagePath}}
+	"{{.ModuleNamespace}}"
+)
+
+{{ range .Services}}
+{{- $serviceName := .Name}}
+func main() {
+    con, err := nats.Connect("nats://127.0.0.1:4222")
+    if err != nil {
+        panic(err)
+    }
+    api := {{$.OutputPackageName}}.New{{$serviceName}}Client(con, nil, nil)
+    ctx := context.Background()
+    {{- range .Methods}}
+
+    // Call {{.Name}}
+    req{{.Name}} := &{{$.TypePackage}}.{{.InParam.Typ}}{}
+    res{{.Name}}, err := api.{{.Name}}(ctx, req{{.Name}})
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(res{{.Name}})
+    {{- end }}
+}
+{{- end }}

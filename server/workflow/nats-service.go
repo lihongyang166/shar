@@ -1,6 +1,6 @@
 package workflow
 
-//go:generate mockery --name NatsService --outpkg workflow --filename service_mock_test.go --output . --structname MockNatsService
+//go:generate mockery
 
 import (
 	"context"
@@ -36,8 +36,8 @@ type NatsService interface {
 	GetWorkflowNameFor(ctx context.Context, processName string) (string, error)
 	GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error)
 	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
-	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error)
-	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResult, chan error)
+	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionItem, chan error)
+	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResponse, chan error)
 	OwnerID(name string) (string, error)
 	OwnerName(id string) (string, error)
 	PublishMessage(ctx context.Context, name string, key string, vars []byte) error

@@ -1,0 +1,37 @@
+{{- /*gotype: natsgen/types.TemplateInput*/ -}}
+package main
+// TODO: WARNING  - this example code will be overwritten upon generation.  Copy elsewhere to modify.
+import (
+    "context"
+    "github.com/nats-io/nats.go"
+    {{.PackagePath}}
+    "{{.ModuleNamespace}}"
+)
+
+{{- range .Services}}
+{{$serviceName := .Name}}
+{{- print "\n" }}
+type {{.Name}}API struct {
+
+}
+
+{{- range .Methods}}
+func (a {{$serviceName}}API) {{.Name}}(ctx context.Context, req *{{$.TypePackage}}.{{.InParam.Typ}}) (*{{$.TypePackage}}.{{.OutParam.Typ}}, error) {
+    //TODO: implement {{$serviceName}}:{{.Name}}
+    panic("implement {{$serviceName}}:{{.Name}}")
+}
+{{- end }}
+
+func main() {
+    con, err := nats.Connect("nats://127.0.0.1:4222")
+    if err != nil {
+        panic(err)
+    }
+    ag := {{$serviceName}}API{}
+    api := {{$.OutputPackageName}}.New{{$serviceName}}Server(ag, true)
+    if err := api.Listen(con,nil,nil); err != nil {
+		panic(err)
+    }
+	select {}
+}
+{{- end }}

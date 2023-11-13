@@ -11,6 +11,10 @@ configure:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/vektra/mockery/v2@v2.36.0
+	wget https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz
+	tar -zxvf nats-proto-gen-go-main.tar.gz
+	mv nats-proto-gen-go-main nats-proto-gen-go
+	cd nats-proto-gen-go/cmd/nats-proto-gen-go && go build && cp nats-proto-gen-go $(GOROOT)/bin/
 
 all: proto server tracing cli zen-shar
 
@@ -21,6 +25,7 @@ proto: .FORCE
 	mv model/gitlab.com/shar-workflow/shar/model/models.pb.go model/
 	@echo "\033[92mRemove proto working directories\033[0m"
 	rm -rf model/gitlab.com
+	nats-proto-gen-go proto/shar-workflow/models.proto --module-namespace="gitlab.com/shar-workflow/shar" --output-package="internal/natsrpc" --message-prefix "WORKFLOW.Api."
 server: .FORCE proto
 	@echo "\033[92mCopying files\033[0m"
 	mkdir -p build/server

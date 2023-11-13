@@ -82,8 +82,8 @@ func (s *Nats) WorkflowStats() *model.WorkflowStats {
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
-func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResult, chan error) {
-	res := make(chan *model.ListWorkflowResult, 100)
+func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResponse, chan error) {
+	res := make(chan *model.ListWorkflowResponse, 100)
 	errs := make(chan error, 1)
 	ks, err := s.wfVersion.Keys()
 	if errors2.Is(err, nats.ErrNoKeysFound) {
@@ -102,7 +102,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResul
 			if err != nil {
 				errs <- err
 			}
-			res <- &model.ListWorkflowResult{
+			res <- &model.ListWorkflowResponse{
 				Name:    k,
 				Version: v.Version[len(v.Version)-1].Number,
 			}
@@ -690,10 +690,10 @@ func (s *Nats) DeleteJob(_ context.Context, trackingID string) error {
 }
 
 // ListExecutions returns a list of running workflows and versions given a workflow Name
-func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionResult, chan error) {
+func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionItem, chan error) {
 	log := logx.FromContext(ctx)
 	errs := make(chan error, 1)
-	wch := make(chan *model.ListExecutionResult, 100)
+	wch := make(chan *model.ListExecutionItem, 100)
 
 	wfv := &model.WorkflowVersions{}
 	if err := common.LoadObj(ctx, s.wfVersion, workflowName, wfv); err != nil {
@@ -725,7 +725,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 					close(errs)
 					return
 				}
-				wch <- &model.ListExecutionResult{
+				wch <- &model.ListExecutionItem{
 					Id:      k,
 					Version: wv.Number,
 				}

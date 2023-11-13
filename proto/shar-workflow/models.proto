@@ -5,6 +5,81 @@ option go_package = "gitlab.com/shar-workflow/shar/model";
 //import "google/protobuf/duration.proto";
 //import "google/protobuf/any.proto";
 
+service Shar {
+  rpc StoreWorkflow (StoreWorkflowRequest) returns (StoreWorkflowResponse);
+  rpc CancelProcessInstance (CancelProcessInstanceRequest) returns (CancelProcessInstanceResponse);
+  rpc LaunchProcess (LaunchWorkflowRequest) returns (LaunchWorkflowResponse);
+  rpc ListWorkflows (ListWorkflowsRequest) returns (ListWorkflowsResponse);
+  rpc ListExecutionProcesses (ListExecutionProcessesRequest) returns (ListExecutionProcessesResponse);
+  rpc ListExecution (ListExecutionRequest) returns (ListExecutionResponse);
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+  rpc CompleteManualTask (CompleteManualTaskRequest) returns (CompleteManualTaskResponse);
+  rpc CompleteServiceTask (CompleteServiceTaskRequest) returns (CompleteServiceTaskResponse);
+  rpc CompleteUserTask (CompleteUserTaskRequest) returns (CompleteUserTaskResponse);
+  rpc ListUserTaskIDs (ListUserTasksRequest) returns (ListUserTasksResponse);
+  rpc GetUserTask (GetUserTaskRequest) returns (GetUserTaskResponse);
+  rpc HandleWorkflowError (HandleWorkflowErrorRequest) returns (HandleWorkflowErrorResponse);
+  rpc CompleteSendMessageTask (CompleteSendMessageRequest) returns (CompleteSendMessageResponse);
+  rpc GetWorkflowVersions (GetWorkflowVersionsRequest) returns (GetWorkflowVersionsResponse);
+  rpc GetWorkflow (GetWorkflowRequest) returns (GetWorkflowResponse);
+  rpc GetProcessInstanceStatus (GetProcessInstanceStatusRequest) returns (GetProcessInstanceStatusResponse);
+  rpc GetProcessHistory (GetProcessHistoryRequest) returns (GetProcessHistoryResponse);
+  rpc GetVersionInfo (GetVersionInfoRequest) returns (GetVersionInfoResponse);
+  rpc RegisterTask (RegisterTaskRequest) returns (RegisterTaskResponse);
+  rpc GetTaskSpec (GetTaskSpecRequest) returns (GetTaskSpecResponse);
+  rpc DeprecateServiceTask (DeprecateServiceTaskRequest) returns (DeprecateServiceTaskResponse);
+  rpc GetTaskSpecVersions (GetTaskSpecVersionsRequest) returns (GetTaskSpecVersionsResponse);
+  rpc GetTaskSpecUsage (GetTaskSpecUsageRequest) returns (GetTaskSpecUsageResponse);
+  rpc ListTaskSpecUIDs (ListTaskSpecUIDsRequest) returns (ListTaskSpecUIDsResponse);
+}
+
+message StoreWorkflowRequest {
+  string workflow = 1;
+}
+
+message StoreWorkflowResponse {
+
+}
+
+message CancelProcessInstanceResponse {
+
+}
+
+message ListWorkflowsRequest {
+
+}
+
+message SendMessageResponse {
+
+}
+
+message CompleteManualTaskResponse {
+
+}
+
+message CompleteServiceTaskResponse {
+
+}
+
+message CompleteUserTaskResponse {
+
+}
+
+message ListUserTasksResponse {
+
+}
+
+message CompleteSendMessageResponse {
+
+}
+message GetProcessInstanceStatusResponse {
+
+}
+
+message GetTaskSpecUsageResponse {
+
+}
+
 // Workflow describes a number of processes that interact together.  It also contains all messages and errors used by the processes.
 message Workflow {
   string name = 1; // Name defines the common name that describes the workflow.
@@ -344,8 +419,8 @@ message ListExecutionProcessesRequest {
   string id = 1;
 }
 
-message ListExecutionProcessesResult {
-  repeated string processInstanceId = 1; // ProcessInstance - process instances berlonging to this workflow instance.
+message ListExecutionProcessesResponse {
+  repeated string processInstanceId = 1; // ProcessInstance - process instances belonging to this workflow instance.
 }
 
 message GetProcessInstanceStatusRequest {
@@ -353,7 +428,7 @@ message GetProcessInstanceStatusRequest {
 }
 
 message GetProcessInstanceStatusResult {
-  repeated WorkflowState processState = 1; // ProcessInstance - process instances berlonging to this workflow instance.
+  repeated WorkflowState processState = 1; // ProcessInstance - process instances belonging to this workflow instance.
 }
 
 message ListExecutionRequest {
@@ -361,11 +436,11 @@ message ListExecutionRequest {
 }
 
 message ListExecutionResponse {
-  repeated ListExecutionResult result = 1;
+  repeated ListExecutionItem result = 1;
 }
 
 
-message ListExecutionResult {
+message ListExecutionItem {
   string id = 1;
   int32 version = 2;
 }
@@ -380,10 +455,10 @@ message WorkflowInstanceStatus {
 }
 
 message ListWorkflowsResponse {
-  repeated ListWorkflowResult result = 1;
+  repeated ListWorkflowResponse result = 1;
 }
 
-message ListWorkflowResult {
+message ListWorkflowResponse {
   string name = 1;
   int32 version = 2;
 }
@@ -667,7 +742,7 @@ message GetTaskSpecVersionsRequest{
   string name = 1; // Name of the task specification.
 }
 
-message GetTaskSpecVersionsResult{
+message GetTaskSpecVersionsResponse{
   TaskSpecVersions versions = 1;
 }
 
@@ -686,6 +761,6 @@ message ListTaskSpecUIDsRequest{
   bool IncludeDeprecated = 1;
 }
 
-message ListTaskSpecUIDsResult {
+message ListTaskSpecUIDsResponse {
   repeated string uid = 1;
 }

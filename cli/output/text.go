@@ -20,14 +20,14 @@ func (c *Text) OutputStartWorkflowResult(executionID string, wfID string) {
 }
 
 // OutputWorkflow returns a CLI response
-func (c *Text) OutputWorkflow(res []*model.ListWorkflowResult) {
+func (c *Text) OutputWorkflow(res []*model.ListWorkflowResponse) {
 	for _, v := range res {
 		fmt.Println(v.Name, v.Version)
 	}
 }
 
 // OutputListExecution returns a CLI response
-func (c *Text) OutputListExecution(res []*model.ListExecutionResult) {
+func (c *Text) OutputListExecution(res []*model.ListExecutionItem) {
 	for i, v := range res {
 		fmt.Println(i, ":", v.Id, "version", v.Version)
 	}

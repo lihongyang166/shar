@@ -99,6 +99,18 @@ func (s *Nats) messageKick(ctx context.Context) error {
 				if err != nil {
 					goto continueLoop
 				}
+
+				//TODO should we attempt delivery of just exchanges that have senders + all receivers?
+				//this should be easily identifiable and handles the case where the exchange has been
+				//"completed" but a server crash fails delivery to all receivers + deletion of exchange entry
+
+				//do we then need to be careful about contention on the delete?
+				//what if we are processing kick message and a "completed" exchange is only seen
+				//because a sender/receiver has arrived that has just "completed" the exchange
+				//there would be contention over the delete as the sender/receiver code would attempt delete
+				//should be issue a lock over the delete or even the call to attempt???
+				//attemptMessageDelivery(ctx context.Context, exchange *model.Exchange, receiverName string, party string, messageName string, correlationKey string)
+
 				for _, k := range msgTypes {
 					_, err := s.iterateRxMessages(ctx, k, "", func(k string, recipient *model.MessageRecipient) (bool, error) {
 						if delivered, err := s.deliverMessageToJobRecipient(ctx, recipient, k); err != nil {
@@ -273,9 +285,46 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Excha
 			}
 
 			job.Vars = exchange.Sender.Vars
-			if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
-				return fmt.Errorf("publishing complete message job: %w", err)
+			//TODO do we care that we may potentially publish twice???
+
+			completionChan := make(chan int)
+
+			go func() {
+				if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+					slog.Error("failed to publish", "err", err)
+				}
+				slog.Info("###published first", "job", job)
+				completionChan <- 1
+			}()
+			go func() {
+				//time.Sleep(time.Second * 1)
+				if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+					slog.Error("failed to publish", "err", err)
+				}
+				slog.Info("###published second", "job", job)
+				completionChan <- 1
+			}()
+
+			var i = 0
+		out:
+			for {
+				slog.Info("###waiting")
+				select {
+				case <-completionChan:
+					i = i + 1
+					slog.Info("###received")
+					if i == 2 {
+						break out
+					}
+				case <-time.After(time.Second * 2):
+					break out
+				}
 			}
+			slog.Info("###continuing")
+
+			//if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+			//	return fmt.Errorf("publishing complete message job: %w", err)
+			//}
 		}
 		hasAllReceivers, err := s.hasAllReceivers(ctx, exchange, messageName)
 		if err != nil {

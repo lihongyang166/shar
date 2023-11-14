@@ -337,16 +337,3 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 
 	return true, nil
 }
-
-type correlatable interface {
-	proto.Message
-	GetCorrelationKey() string
-}
-
-func msgTxBucket(ctx context.Context, name string) string {
-	return subj.NS("MsgTx_%s_", "default") + name
-}
-
-func msgRxBucket(ctx context.Context, name string) string {
-	return subj.NS("MsgTx_%s_", "default") + name
-}

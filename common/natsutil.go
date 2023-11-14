@@ -296,9 +296,6 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 						wfe := &workflow.Error{}
 						if !errors.As(err, wfe) {
 							if set.BackoffCalc != nil {
-								//TODO we ignore errors messages
-								// that are not workflow.Errors
-								// and do not have a BackoffCalc set???
 								executeLog.Error("processing error", err, "name", traceName)
 								err := set.BackoffCalc(executeCtx, msg[0])
 								if err != nil {

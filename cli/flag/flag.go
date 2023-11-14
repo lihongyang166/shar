@@ -35,8 +35,6 @@ type Set struct {
 	DebugTrace     bool
 	Vars           []string
 	Json           bool
-	ExecutionId    string
-	ElementId      string
 }
 
 // Value contains the values of the SHAR CLI flags.

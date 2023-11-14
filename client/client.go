@@ -21,6 +21,7 @@ import (
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	api2 "gitlab.com/shar-workflow/shar/internal/client/api"
+	"gitlab.com/shar-workflow/shar/internal/natsrpc"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -116,6 +117,7 @@ type Client struct {
 	ExpectedServerVersion           *version.Version
 	version                         *version.Version
 	noRecovery                      bool
+	shar                            natsrpc.SharClient
 }
 
 // Option represents a configuration changer for the client.
@@ -169,7 +171,7 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	c.txJS = txJS
 	c.con = n
 	c.txCon = txnc
-
+	c.shar = natsrpc.NewSharClient(c.con, nil, nil)
 	_, err = c.GetServerVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("server version: %w", err)

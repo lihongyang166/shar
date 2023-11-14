@@ -30,7 +30,6 @@ type NatsService interface {
 	GetOldState(ctx context.Context, id string) (*model.WorkflowState, error)
 	GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error)
 	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
-	GetServiceTaskRoutingKey(ctx context.Context, taskName string) (string, error)
 	GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error)
 	GetTaskSpecUID(ctx context.Context, name string) (string, error)
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)

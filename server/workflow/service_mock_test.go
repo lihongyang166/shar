@@ -209,17 +209,17 @@ func (_m *MockNatsService) GetElement(ctx context.Context, state *model.Workflow
 	return r0, r1
 }
 
-// GetExecution provides a mock function with given fields: ctx, executionID
-func (_m *MockNatsService) GetExecution(ctx context.Context, executionID string) (*model.Execution, error) {
-	ret := _m.Called(ctx, executionID)
+// GetExecution provides a mock function with given fields: ctx, workflowInstanceID
+func (_m *MockNatsService) GetExecution(ctx context.Context, workflowInstanceID string) (*model.Execution, error) {
+	ret := _m.Called(ctx, workflowInstanceID)
 
 	var r0 *model.Execution
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.Execution, error)); ok {
-		return rf(ctx, executionID)
+		return rf(ctx, workflowInstanceID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) *model.Execution); ok {
-		r0 = rf(ctx, executionID)
+		r0 = rf(ctx, workflowInstanceID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.Execution)
@@ -227,7 +227,7 @@ func (_m *MockNatsService) GetExecution(ctx context.Context, executionID string)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, executionID)
+		r1 = rf(ctx, workflowInstanceID)
 	} else {
 		r1 = ret.Error(1)
 	}

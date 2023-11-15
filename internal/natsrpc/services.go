@@ -6,6 +6,7 @@ import (
     "gitlab.com/shar-workflow/shar/model"
 )
 
+// Shar represents all of the API methods on the service.
 type Shar interface {
 	StoreWorkflow(ctx context.Context, req *model.StoreWorkflowRequest) (*model.StoreWorkflowResponse, error)
 	CancelProcessInstance(ctx context.Context, req *model.CancelProcessInstanceRequest) (*model.CancelProcessInstanceResponse, error)

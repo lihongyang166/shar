@@ -9,11 +9,14 @@ import (
     "fmt"
 )
 
+// SharServer - The Shar server.
 type SharServer struct {
     server Shar
     panicRecovery bool
     subs          *sync.Map
 }
+
+// NewSharServer creates a new Shar server.
 func NewSharServer(server Shar, panicRecovery bool) *SharServer {
     s := &SharServer{
 		server: server,
@@ -23,6 +26,7 @@ func NewSharServer(server Shar, panicRecovery bool) *SharServer {
 	return s
 }
 
+// Listen starts listening for incoming API requests.
 func (s *SharServer) Listen(con *nats.Conn, middleware []core.Handler, errorHandler core.ErrorHandler) error {
     if errorHandler == nil {
         errorHandler = core.DefaultErrorHandler

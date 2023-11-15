@@ -8,6 +8,7 @@ import (
 )
 
 
+// SharAPI - an implementation of a Shar server.
 type SharAPI struct {
 
 }

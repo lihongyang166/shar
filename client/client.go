@@ -429,6 +429,7 @@ func (c *Client) listen(ctx context.Context) error {
 				}
 				ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
 				pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
+
 				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv); err != nil {
 					log.Warn("nats listener", err)
 					return false, err
@@ -716,7 +717,7 @@ func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars mo
 		return fmt.Errorf("encode variables for send message: %w", err)
 	}
 	req := &model.SendMessageRequest{Name: name, CorrelationKey: skey, Vars: b}
-	res := &emptypb.Empty{}
+	res := &model.SendMessageResponse{}
 	if err := api2.Call(ctx, c.txCon, messages.APISendMessage, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}

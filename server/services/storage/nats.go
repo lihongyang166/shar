@@ -20,6 +20,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
+	maps2 "golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
@@ -72,6 +73,7 @@ type Nats struct {
 	wfLock                         nats.KeyValue
 	wfMsgTypes                     nats.KeyValue
 	wfProcess                      nats.KeyValue
+	wfMessages                     nats.KeyValue
 }
 
 // WorkflowStats obtains the running counts for the engine
@@ -167,6 +169,7 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	kvs[messages.KvTaskSpec] = &ms.wfTaskSpec
 	kvs[messages.KvTaskSpecVersions] = &ms.wfTaskSpecVer
 	kvs[messages.KvProcess] = &ms.wfProcess
+	kvs[messages.KvMessages] = &ms.wfMessages
 
 	ks := make([]string, 0, len(kvs))
 	for k := range kvs {
@@ -290,7 +293,12 @@ func (s *Nats) validateUniqueProcessNameFor(wf *model.Workflow) error {
 func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
 	err := s.validateUniqueProcessNameFor(wf)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("process names are not unique: %w", err)
+	}
+
+	err = s.validateUniqueMessageNames(ctx, wf)
+	if err != nil {
+		return "", fmt.Errorf("message names are not globally unique: %w", err)
 	}
 
 	// Populate Metadata
@@ -556,10 +564,11 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	log.Info("creating execution", slog.String(keys.ExecutionID, executionID))
 	execution.ExecutionId = executionID
 	execution.ProcessInstanceId = []string{}
+	wf, err := s.GetWorkflow(ctx, execution.WorkflowId)
+
 	if err := common.SaveObj(ctx, s.wfExecution, executionID, execution); err != nil {
 		return nil, fmt.Errorf("save execution object to KV: %w", err)
 	}
-	wf, err := s.GetWorkflow(ctx, execution.WorkflowId)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow object from KV: %w", err)
 	}
@@ -568,6 +577,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 			return nil, fmt.Errorf("ensuring bucket '%s':%w", m.Name, err)
 		}
 	}
+
 	s.incrementWorkflowStarted()
 	return execution, nil
 }
@@ -1420,6 +1430,26 @@ func (s *Nats) populateMetadata(wf *model.Workflow) {
 	}
 }
 
+func (s *Nats) validateUniqueMessageNames(ctx context.Context, wf *model.Workflow) error {
+
+	existingMessageTypes := map[string]struct{}{}
+	for _, msgType := range wf.Messages {
+		messageReceivers := &model.MessageReceivers{}
+		err := common.LoadObj(ctx, s.wfMsgTypes, msgType.Name, messageReceivers)
+
+		if err == nil && messageReceivers.AssociatedWorkflowName != wf.Name {
+			existingMessageTypes[msgType.Name] = struct{}{}
+		}
+	}
+	existingMessages := strings.Join(maps2.Keys(existingMessageTypes), ",")
+
+	if len(existingMessageTypes) > 0 {
+		return fmt.Errorf(fmt.Sprintf("These messages already exist for other workflows: \"%s\"", existingMessages))
+	}
+
+	return nil
+}
+
 // CheckProcessTaskDeprecation checks if all the tasks in a process have not been deprecated.
 func (s *Nats) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processName string) error {
 	pr := workflow.Process[processName]
@@ -1460,4 +1490,22 @@ func (s *Nats) ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string,
 		}
 	}
 	return ret, nil
+}
+
+// GetProcessIdFor retrieves the processId that a begun by a message start event
+func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string) (string, error) {
+	messageReceivers := &model.MessageReceivers{}
+	err := common.LoadObj(ctx, s.wfMsgTypes, startEventMessageName, messageReceivers)
+
+	if errors2.Is(err, nats.ErrKeyNotFound) || messageReceivers.MessageReceiver == nil || len(messageReceivers.MessageReceiver) == 0 {
+		return "", fmt.Errorf("no message receivers for %q: %w", startEventMessageName, err)
+	}
+
+	for _, recvr := range messageReceivers.MessageReceiver {
+		if recvr.ProcessIdToStart != "" {
+			return recvr.ProcessIdToStart, nil
+		}
+	}
+
+	return "", fmt.Errorf("no message receivers for %q: %w", startEventMessageName, err)
 }

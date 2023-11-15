@@ -63,13 +63,33 @@ func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*mode
 	}
 }
 
-func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*emptypb.Empty, error) {
+func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*model.SendMessageResponse, error) {
 	//TODO: how do we auth this?
 
-	if err := s.ns.PublishMessage(ctx, req.Name, req.CorrelationKey, req.Vars); err != nil {
-		return nil, fmt.Errorf("send message: %w", err)
+	messageName := req.Name
+	if req.CorrelationKey == "\"\"" {
+		if processId, err := s.ns.GetProcessIdFor(ctx, messageName); err != nil {
+			return nil, fmt.Errorf("error retrieving process id for message name: %w", err)
+		} else {
+			launchWorkflowRequest := &model.LaunchWorkflowRequest{
+				Name: processId,
+				Vars: req.Vars,
+			}
+			launchWorkflowResponse, err := s.launchProcess(ctx, launchWorkflowRequest)
+			executionId := launchWorkflowResponse.InstanceId
+			workflowId := launchWorkflowResponse.WorkflowId
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to launch process with message: %w", err)
+			}
+			return &model.SendMessageResponse{ExecutionId: executionId, WorkflowId: workflowId}, nil
+		}
+	} else {
+		if err := s.ns.PublishMessage(ctx, messageName, req.CorrelationKey, req.Vars); err != nil {
+			return nil, fmt.Errorf("send message: %w", err)
+		}
 	}
-	return &emptypb.Empty{}, nil
+	return &model.SendMessageResponse{}, nil
 }
 
 func (s *SharServer) completeManualTask(ctx context.Context, req *model.CompleteManualTaskRequest) (*emptypb.Empty, error) {
@@ -128,7 +148,7 @@ func (s *SharServer) storeWorkflow(ctx context.Context, wf *model.Workflow) (*wr
 	return &wrapperspb.StringValue{Value: res}, nil
 }
 
-func (s *SharServer) launchWorkflow(ctx context.Context, req *model.LaunchWorkflowRequest) (*model.LaunchWorkflowResponse, error) {
+func (s *SharServer) launchProcess(ctx context.Context, req *model.LaunchWorkflowRequest) (*model.LaunchWorkflowResponse, error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.Name)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)

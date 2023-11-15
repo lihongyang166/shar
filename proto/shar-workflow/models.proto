@@ -3,7 +3,7 @@ option go_package = "gitlab.com/shar-workflow/shar/model";
 
 //import "google/protobuf/timestamp.proto";
 //import "google/protobuf/duration.proto";
-//import "google/protobuf/any.proto";
+//import "google/protobu f/any.proto";
 
 service Shar {
   rpc StoreWorkflow (StoreWorkflowRequest) returns (StoreWorkflowResponse);
@@ -49,10 +49,6 @@ message ListWorkflowsRequest {
 
 }
 
-message SendMessageResponse {
-
-}
-
 message CompleteManualTaskResponse {
 
 }
@@ -88,6 +84,17 @@ message Workflow {
   repeated Error errors = 4; // Errors define the errors used by the workflow.
   bytes gzipSource = 5; // Source for round tripping.
   Collaboration collaboration = 6; // Collaboration between processes.
+  map<string, MessageReceivers> messageReceivers = 7; //MessageReceivers are the activity ids that receive a given messgae
+}
+
+message MessageReceivers {
+  repeated MessageReceiver messageReceiver = 1; //MessageReceiver s are the elements receiving/referencing a message. They could be start events or intermedidate catch events
+  string associatedWorkflowName = 2;
+}
+
+message MessageReceiver {
+  string id = 1;
+  string processIdToStart = 2;
 }
 
 message Collaboration {
@@ -469,6 +476,11 @@ message SendMessageRequest {
   bytes vars = 3;
 }
 
+message SendMessageResponse {
+  string executionId = 1;
+  string workflowId = 2;
+}
+
 message WorkflowInstanceComplete {
   string workflowName = 1;
   string workflowId = 2;
@@ -763,4 +775,21 @@ message ListTaskSpecUIDsRequest{
 
 message ListTaskSpecUIDsResponse {
   repeated string uid = 1;
+}
+
+// Sender is the sender side of a BPMN message. It contains a byte array of vars destined for the receiver
+message Sender {
+  bytes vars = 1; // Vars - A go binary encoded map[string]interface{} of variables.
+  string correlationKey = 2; // CorrelationKey - the workflow message correlation key.
+}
+
+// Receiver is the receiver side of a BPMN message. It contains a reference to the job which receivers the vars from the sender
+message Receiver {
+  string  id = 1; // Id - a uuid identifying the job associated with the receiver
+  string correlationKey = 2; // CorrelationKey - the workflow message correlation key.
+}
+
+message Exchange {
+  Sender sender = 1; // Sender - the sender side of the exchange
+  map<string,Receiver> receivers = 2; // Receivers - the receiver sides of the exchange
 }

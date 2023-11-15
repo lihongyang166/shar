@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
@@ -16,26 +17,43 @@ import (
 	"time"
 )
 
+type MessagingTestSuite struct {
+	suite.Suite
+	integrationSupport *support.Integration
+	ctx                context.Context
+	client             *client.Client
+}
+
+func (suite *MessagingTestSuite) SetupTest() {
+	suite.integrationSupport = &support.Integration{}
+	suite.integrationSupport.WithTrace = true
+	suite.integrationSupport.Setup(suite.T(), nil, nil)
+	suite.ctx = context.Background()
+
+	suite.client = client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	err := suite.client.Dial(suite.ctx, suite.integrationSupport.NatsURL)
+	require.NoError(suite.T(), err)
+}
+
+func (suite *MessagingTestSuite) TearDownTest() {
+	suite.integrationSupport.Teardown()
+}
+
+func TestMessagingTestSuite(t *testing.T) {
+	suite.Run(t, new(MessagingTestSuite))
+}
+
 //goland:noinspection GoNilness
-func TestMessaging(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
-
-	defer tst.Teardown()
-
-	// Create a starting context
-	ctx := context.Background()
+func (suite *MessagingTestSuite) TestMessaging() {
+	t := suite.T()
+	tst := suite.integrationSupport
+	ctx := suite.ctx
+	cl := suite.client
 
 	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
-	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
-	err := cl.Dial(ctx, tst.NatsURL)
-	require.NoError(t, err)
-
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	err := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
 	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
@@ -68,6 +86,105 @@ func TestMessaging(t *testing.T) {
 	tst.AssertCleanKV()
 }
 
+func (suite *MessagingTestSuite) TestMessageNameGlobalUniqueness() {
+	t := suite.T()
+	ctx := suite.ctx
+	cl := suite.client
+	tst := suite.integrationSupport
+
+	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
+
+	// Register service tasks
+	err := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	require.NoError(t, err)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
+	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../testdata/message-workflow.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
+	require.NoError(t, err)
+
+	// try to load another bpmn with a message of the same name, should fail
+	b, err = os.ReadFile("../../testdata/message-workflow-duplicate-message.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessagingDupMessage", b)
+	require.ErrorContains(t, err, "These messages already exist for other workflows:")
+
+	tst.AssertCleanKV()
+}
+
+func (suite *MessagingTestSuite) TestMessageNameGlobalUniquenessAcrossVersions() {
+	t := suite.T()
+	ctx := suite.ctx
+	cl := suite.client
+
+	messageEventHandlers := messageStartEventWorkflowEventHandler{
+		completed: make(chan struct{}),
+		t:         t,
+	}
+
+	//reg svc task
+	err2 := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	require.NoError(t, err2)
+
+	err := cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
+	require.NoError(t, err)
+
+	//load bpmn
+	b, err := os.ReadFile("../../testdata/message-start-test.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	require.NoError(t, err)
+
+	b, err = os.ReadFile("../../testdata/message-start-test-v2.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	require.NoError(t, err)
+}
+
+func (suite *MessagingTestSuite) TestMessageStartEvent() {
+	t := suite.T()
+	ctx := suite.ctx
+	cl := suite.client
+	tst := suite.integrationSupport
+
+	messageEventHandlers := messageStartEventWorkflowEventHandler{
+		completed: make(chan struct{}),
+		t:         t,
+	}
+
+	//reg svc task
+	err2 := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	require.NoError(t, err2)
+
+	err := cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
+	require.NoError(t, err)
+
+	//load bpmn
+	b, err := os.ReadFile("../../testdata/message-start-test.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	require.NoError(t, err)
+
+	//send message
+	err2 = cl.SendMessage(ctx, "startDemoMsg", "", model.Vars{"customerID": 333})
+	require.NoError(t, err2)
+
+	//listen for events from shar svr
+	go func() {
+		err := cl.Listen(ctx)
+		require.NoError(t, err)
+	}()
+
+	//wait for completion
+	support.WaitForChan(t, messageEventHandlers.completed, time.Second*10)
+
+	//assert empty KV
+	tst.AssertCleanKV()
+}
+
 type testMessagingHandlerDef struct {
 	wg       sync.WaitGroup
 	tst      *support.Integration
@@ -96,6 +213,7 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client
 	if err := client.Log(ctx, messages.LogDebug, -1, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
+
 	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
@@ -107,4 +225,24 @@ func (x *testMessagingHandlerDef) processEnd(ctx context.Context, vars model.Var
 	assert.Equal(x.t, "carried1value", vars["carried"])
 	assert.Equal(x.t, "carried2value", vars["carried2"])
 	close(x.finished)
+}
+
+type messageStartEventWorkflowEventHandler struct {
+	completed chan struct{}
+	t         *testing.T
+}
+
+func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+	if err := client.Log(ctx, messages.LogInfo, -1, "simpleServiceTaskHandler", nil); err != nil {
+		return nil, fmt.Errorf("failed logging: %w", err)
+	}
+	actualCustomerId := vars["customerID"]
+	assert.Equal(mse.t, 333, actualCustomerId)
+
+	return vars, nil
+}
+
+func (mse *messageStartEventWorkflowEventHandler) processEnd(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
+	assert.Equal(mse.t, 333, vars["customerID"])
+	close(mse.completed)
 }

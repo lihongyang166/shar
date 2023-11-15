@@ -11,7 +11,7 @@ configure:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/vektra/mockery/v2@v2.36.0
-	wget https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz
+	curl -o ./nats-proto-gen-go-main.tar.gz https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz
 	tar -zxvf nats-proto-gen-go-main.tar.gz && rm nats-proto-gen-go-main.tar.gz
 	mv nats-proto-gen-go-main nats-proto-gen-go
 	cd nats-proto-gen-go/cmd/nats-proto-gen-go && go build && cp nats-proto-gen-go $(GOROOT)/bin/

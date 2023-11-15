@@ -15,7 +15,7 @@ var Cmd = &cobra.Command{
 	Short: "Sends a workflow message",
 	Long:  ``,
 	RunE:  run,
-	Args:  cobra.MatchAll(cobra.ExactArgs(2), cobra.OnlyValidArgs),
+	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 }
 
 func run(cmd *cobra.Command, args []string) error {

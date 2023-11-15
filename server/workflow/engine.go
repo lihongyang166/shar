@@ -200,6 +200,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 	var launchProcesses []*model.Process
 	if partOfCollaboration {
 		launchProcesses = collabProcesses
+
 	} else {
 		pr, ok := wf.Process[processName]
 		if !ok {
@@ -604,6 +605,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		}
 		msgState := common.CopyWorkflowState(newState)
 		msgState.Condition = &wf.Messages[ix].Execute
+
 		if err := c.startJob(ctx, messages.WorkflowJobSendMessageExecute+"."+pi.WorkflowName+"_"+el.Execute, newState, el, traversal.Vars); err != nil {
 			return c.engineErr(ctx, "start message job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}

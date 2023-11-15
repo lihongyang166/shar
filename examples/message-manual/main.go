@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
@@ -26,7 +25,8 @@ func main() {
 
 	// Dial shar
 	cl = client.New()
-	if err := cl.Dial(ctx, nats.DefaultURL); err != nil {
+
+	if err := cl.Dial(ctx, fmt.Sprintf("nats://%s", ns.GetEndPoint())); err != nil {
 		panic(err)
 	}
 
@@ -37,18 +37,23 @@ func main() {
 	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.step2.yaml", step2); err != nil {
 		panic(err)
 	}
+	workflowName := "MessageManualDemo"
 
-	// Load BPMN workflow
-	b, err := os.ReadFile("testdata/message-manual-workflow.bpmn")
-	if err != nil {
-		panic(err)
-	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "MessageManualDemo", b); err != nil {
-		panic(err)
+	if err := cl.RegisterMessageSender(ctx, workflowName, "continueMessage", sendMessage); err != nil {
+		panic(fmt.Errorf("failed to register message sender:  %w", err))
 	}
 
 	// Register a completion hook
 	if err := cl.RegisterProcessComplete("Process_03llwnm", processEnd); err != nil {
+		panic(err)
+	}
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../testdata/message-manual-workflow.bpmn")
+	if err != nil {
+		panic(err)
+	}
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, workflowName, b); err != nil {
 		panic(err)
 	}
 
@@ -76,9 +81,6 @@ func main() {
 func step1(ctx context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Step 1")
 	fmt.Println("Sending Message...")
-	if err := cl.SendMessage(ctx, "continueMessage", 57, model.Vars{"success": 32768}); err != nil {
-		return nil, fmt.Errorf("send continue message failed: %w", err)
-	}
 	return model.Vars{}, nil
 }
 
@@ -86,6 +88,13 @@ func step2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, 
 	fmt.Println("Step 2")
 	fmt.Println(vars["success"])
 	return model.Vars{}, nil
+}
+
+func sendMessage(ctx context.Context, cl client.MessageClient, vars model.Vars) error {
+	if err := cl.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"success": 32768}); err != nil {
+		return fmt.Errorf("send continue message failed: %w", err)
+	}
+	return nil
 }
 
 func processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

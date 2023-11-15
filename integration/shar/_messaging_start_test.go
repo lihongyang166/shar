@@ -52,7 +52,7 @@ func TestStartMessaging(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	err = cl.SendMessage(ctx, "startDemoMsg", nil, model.Vars{})
+	err = cl.SendMessage(ctx, "startDemoMsg", nil, model.Vars{}, executionId, elementId)
 	require.NoError(t, err)
 
 	support.WaitForChan(t, handlers.finished, 20*time.Second)

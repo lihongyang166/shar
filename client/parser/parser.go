@@ -32,8 +32,9 @@ func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
 
 	prXmls := doc.SelectElements("//bpmn:process")
 	wf := &model.Workflow{
-		Name:    name,
-		Process: make(map[string]*model.Process, len(prXmls)),
+		Name:             name,
+		Process:          make(map[string]*model.Process, len(prXmls)),
+		MessageReceivers: make(map[string]*model.MessageReceivers),
 	}
 	if collaboration := doc.SelectElements("//bpmn:collaboration"); len(collaboration) > 0 {
 		if err := parseCollaboration(wf, collaboration[0]); err != nil {
@@ -158,7 +159,7 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 		case "intermediateThrowEvent":
 			parseIntermediateThrowEvent(i, el, wf, msgs)
 		case "startEvent":
-			if err := parseStartEvent(i, el); err != nil {
+			if err := parseStartEvent(i, el, msgs, pr.Name, wf); err != nil {
 				return fmt.Errorf("parse start events: %w", err)
 			}
 		case "exclusiveGateway":
@@ -202,7 +203,7 @@ func parseIntermediateThrowEvent(i *xmlquery.Node, el *model.Element, wf *model.
 	}
 }
 
-func parseStartEvent(n *xmlquery.Node, el *model.Element) error {
+func parseStartEvent(n *xmlquery.Node, el *model.Element, msgs map[string]string, processId string, wf *model.Workflow) error {
 	if def := n.SelectElement("bpmn:timerEventDefinition"); def != nil {
 		timeCycle := def.SelectElement("bpmn:timeCycle/text()")
 		timeDate := def.SelectElement("bpmn:timeDate/text()")
@@ -242,6 +243,12 @@ func parseStartEvent(n *xmlquery.Node, el *model.Element) error {
 		}
 		el.Timer = t
 		el.Type = element.TimedStartEvent
+	}
+	if def := n.SelectElement("bpmn:messageEventDefinition"); def != nil {
+		messageName := msgs[def.SelectAttr("messageRef")]
+		el.Msg = messageName
+		el.Type = element.StartEvent
+		addReceiverForMessage(wf.MessageReceivers, wf.Name, messageName, &model.MessageReceiver{Id: n.SelectAttr("id"), ProcessIdToStart: processId})
 	}
 	return nil
 }
@@ -321,7 +328,11 @@ func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, 
 		if x := i.SelectElement("bpmn:messageEventDefinition/@messageRef"); x != nil {
 			ref := x.InnerText()
 			el.Type = element.MessageIntermediateCatchEvent
-			el.Msg = msgs[ref]
+			messageName := msgs[ref]
+			el.Msg = messageName
+
+			addReceiverForMessage(wf.MessageReceivers, wf.Name, messageName, &model.MessageReceiver{Id: el.Id})
+
 			c, err := getCorrelation(wf.Messages, el.Msg)
 			if err != nil {
 				return fmt.Errorf("get subscription correlation: %w", err)
@@ -347,6 +358,15 @@ func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, 
 		}
 	}
 	return nil
+}
+
+func addReceiverForMessage(messageReceivers map[string]*model.MessageReceivers, workflowName string, messageName string, messageReceiver *model.MessageReceiver) {
+	receiversForMessage, ok := messageReceivers[messageName]
+	if !ok {
+		messageReceivers[messageName] = &model.MessageReceivers{AssociatedWorkflowName: workflowName, MessageReceiver: []*model.MessageReceiver{messageReceiver}}
+	} else {
+		receiversForMessage.MessageReceiver = append(receiversForMessage.MessageReceiver, messageReceiver)
+	}
 }
 
 func parseDuration(ref string) (string, error) {

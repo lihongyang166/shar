@@ -15,20 +15,34 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
+	"strings"
 	"time"
+)
+
+const (
+	senderParty   = "sender"
+	receiverParty = "receiver"
 )
 
 func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
 	for _, m := range wf.Messages {
-		if err := common.Save(ctx, s.wfMsgTypes, m.Name, []byte{}); err != nil {
-			return &errors.ErrWorkflowFatal{Err: err}
+
+		receivers, ok := wf.MessageReceivers[m.Name]
+		var rcvrBytes []byte
+		if !ok {
+			rcvrBytes = []byte{}
+		} else {
+			var err error
+			rcvrBytes, err = proto.Marshal(receivers)
+			if err != nil {
+				return fmt.Errorf("failed serialising message receivers: %w", err)
+			}
 		}
-		if err := common.EnsureBucket(s.js, s.storageType, msgTxBucket(ctx, m.Name), 0); err != nil {
-			return &errors.ErrWorkflowFatal{Err: err}
-		}
-		if err := common.EnsureBucket(s.js, s.storageType, msgRxBucket(ctx, m.Name), 0); err != nil {
+
+		if err := common.Save(ctx, s.wfMsgTypes, m.Name, rcvrBytes); err != nil {
 			return &errors.ErrWorkflowFatal{Err: err}
 		}
 
@@ -75,19 +89,19 @@ func (s *Nats) messageKick(ctx context.Context) error {
 					continue
 				}
 				msg := msgs[0]
-				msgTypes, err := s.wfMsgTypes.Keys()
+				msgKeys, err := s.wfMessages.Keys()
 				if err != nil {
 					goto continueLoop
 				}
-				for _, k := range msgTypes {
-					_, err := s.iterateRxMessages(ctx, k, "", func(k string, recipient *model.MessageRecipient) (bool, error) {
-						if delivered, err := s.deliverMessageToJobRecipient(ctx, recipient, k); err != nil {
-							return false, err
-						} else if !delivered {
-							return false, err
-						}
-						return true, nil
-					})
+
+				for _, k := range msgKeys {
+					exchange := &model.Exchange{}
+					err := common.LoadObj(ctx, s.wfMessages, k, exchange)
+					if err != nil {
+						slog.Warn(err.Error())
+					}
+					correlationKey, messageName := elementsFrom(k)
+					err = s.attemptMessageDelivery(ctx, exchange, "", senderParty, messageName, correlationKey)
 					if err != nil {
 						slog.Warn(err.Error())
 					}
@@ -144,78 +158,129 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 	if err := proto.Unmarshal(msg.Data, instance); err != nil {
 		return false, fmt.Errorf("unmarshal message proto: %w", err)
 	}
-	if msgs, err := s.js.KeyValue(msgTxBucket(ctx, instance.Name)); err != nil {
-		return false, fmt.Errorf("process message getting message keys: %w", err)
-	} else {
-		if err := common.Save(ctx, msgs, ksuid.New().String(), msg.Data); err != nil {
-			return false, fmt.Errorf("process message saving message: %w", err)
-		}
+
+	sender := &model.Sender{Vars: instance.Vars, CorrelationKey: instance.CorrelationKey}
+	exchange := &model.Exchange{Sender: sender}
+
+	setPartyFn := func(exch *model.Exchange) (*model.Exchange, error) {
+		exch.Sender = sender
+		return exch, nil
 	}
-	_, err := s.iterateRxMessages(ctx, instance.Name, instance.CorrelationKey, func(k string, recipient *model.MessageRecipient) (bool, error) {
-		if instance.CorrelationKey == recipient.CorrelationKey {
-			if delivered, err := s.deliverMessageToJobRecipient(ctx, recipient, instance.Name); err != nil {
-				return false, err
-			} else if delivered {
-				return true, nil
-			}
-		}
-		return false, nil
-	})
-	if err != nil {
-		slog.Warn("process message delivering message: " + err.Error())
+
+	if err2 := s.handleMessageExchange(ctx, senderParty, setPartyFn, "", exchange, instance.Name, instance.CorrelationKey); err2 != nil {
+		return false, err2
 	}
+
 	return true, nil
 }
 
-func (s *Nats) deliverMessageToJobRecipient(ctx context.Context, recipient *model.MessageRecipient, msgName string) (bool, error) {
-	msgs, err := s.js.KeyValue(msgTxBucket(ctx, msgName))
-	if err != nil {
-		return false, fmt.Errorf("get message kv: %w", err)
-	}
-	return s.iterateTxMessages(
-		ctx,
-		msgName,
-		recipient.CorrelationKey,
-		func(k string, m *model.MessageInstance) (bool, error) {
-			if recipient.Type == model.RecipientType_job {
-				if err := s.deliverMessageToJob(ctx, recipient.Id, m); errors2.Is(err, errors.ErrJobNotFound) {
-					return false, err
-				} else if err != nil {
-					return false, err
-				}
-				if err := common.Delete(msgs, k); err != nil {
-					return false, fmt.Errorf("deleting message: %w", err)
-				}
-			}
-			return true, nil
-		})
-}
+type setPartyFn func(exch *model.Exchange) (*model.Exchange, error)
 
-func (s *Nats) deliverMessageToJob(ctx context.Context, jobID string, instance *model.MessageInstance) error {
-	job, err := s.GetJob(ctx, jobID)
-	if errors2.Is(err, nats.ErrKeyNotFound) {
-		return nil
-	} else if err != nil {
-		return err
+func (s *Nats) handleMessageExchange(ctx context.Context, party string, setPartyFn setPartyFn, elementId string, exchange *model.Exchange, messageName string, correlationKey string) error {
+	messageKey := messageKeyFrom([]string{messageName, correlationKey})
+
+	exchangeProto, err3 := proto.Marshal(exchange)
+	if err3 != nil {
+		return fmt.Errorf("error serialising "+party+" message %w", err3)
 	}
-	job.Vars = instance.Vars
-	if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
-		return fmt.Errorf("publising complete message job: %w", err)
+	//use optimistic locking capabilities on create/update to ensure no lost writes...
+	_, createErr := s.wfMessages.Create(messageKey, exchangeProto)
+
+	if errors2.Is(createErr, nats.ErrKeyExists) {
+		err3 := common.UpdateObj(ctx, s.wfMessages, messageKey, &model.Exchange{}, setPartyFn)
+		if err3 != nil {
+			return fmt.Errorf("failed to update exchange with %s: %w", party, err3)
+		}
+	} else if createErr != nil {
+		return fmt.Errorf("error creating message exchange: %w", createErr)
 	}
-	rx, err := s.js.KeyValue(msgRxBucket(ctx, instance.Name))
-	if err != nil {
-		return fmt.Errorf("obtaining message recipient kv: %w", err)
+
+	updatedExchange := &model.Exchange{}
+	if err3 = common.LoadObj(ctx, s.wfMessages, messageKey, updatedExchange); err3 != nil {
+		return fmt.Errorf("failed to retrieve exchange: %w", err3)
+	} else if err3 = s.attemptMessageDelivery(ctx, updatedExchange, elementId, party, messageName, correlationKey); err3 != nil {
+		return fmt.Errorf("failed attempted delivery: %w", err3)
 	}
-	if err := common.Delete(rx, jobID); err != nil {
-		return fmt.Errorf("updating message subscriptions: %w", err)
-	}
+	//}
 	return nil
 }
+
+func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, messageName string) (bool, error) {
+	expectedMessageReceivers := &model.MessageReceivers{}
+	err := common.LoadObj(ctx, s.wfMsgTypes, messageName, expectedMessageReceivers)
+	if err != nil {
+		return false, fmt.Errorf("failed loading expected receivers: %w", err)
+	}
+
+	var allMessagesReceived bool
+	for _, receiver := range expectedMessageReceivers.MessageReceiver {
+		_, ok := exchange.Receivers[receiver.Id]
+		if ok {
+			allMessagesReceived = true
+		} else {
+			allMessagesReceived = false
+			break
+		}
+	}
+	return allMessagesReceived, nil
+}
+
+func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Exchange, receiverName string, party string, messageName string, correlationKey string) error {
+	slog.Debug("attemptMessageDelivery", "exchange", exchange, "messageName", messageName, "correlationKey", correlationKey)
+
+	if exchange.Sender != nil && exchange.Receivers != nil {
+		var receivers []*model.Receiver
+		if party == senderParty { // deliver to all receivers
+			receivers = maps.Values(exchange.Receivers)
+		} else { // deliver only to the receiver that has just arrived
+			receivers = []*model.Receiver{exchange.Receivers[receiverName]}
+		}
+
+		for _, recvr := range receivers {
+			job, err := s.GetJob(ctx, recvr.Id)
+			if errors2.Is(err, nats.ErrKeyNotFound) {
+				return nil
+			} else if err != nil {
+				return err
+			}
+
+			job.Vars = exchange.Sender.Vars
+			if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+				return fmt.Errorf("publishing complete message job: %w", err)
+			}
+		}
+		hasAllReceivers, err := s.hasAllReceivers(ctx, exchange, messageName)
+		if err != nil {
+			return fmt.Errorf("failed has expected receivers: %w", err)
+		}
+
+		if exchange.Sender != nil && hasAllReceivers {
+			messageKey := messageKeyFrom([]string{messageName, correlationKey})
+			err := s.wfMessages.Delete(messageKey)
+			if err != nil {
+				return fmt.Errorf("error deleting exchange %w", err)
+			}
+		}
+
+	}
+
+	return nil
+}
+
 func (s *Nats) processAwaitMessageExecute(ctx context.Context) error {
 	if err := common.Process(ctx, s.js, "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.awaitMessageProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil
+}
+
+func messageKeyFrom(keyElements []string) string {
+	return strings.Join(keyElements, "-")
+}
+
+func elementsFrom(key string) (string, string) {
+	eles := strings.Split(key, "-")
+	return eles[0], eles[1]
 }
 
 // awaitMessageProcessor waits for WORKFLOW.*.State.Job.AwaitMessage.Execute job and executes a delivery
@@ -224,7 +289,9 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 	if err := proto.Unmarshal(msg.Data, job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
-	if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+
+	_, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
+	if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
 		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
 		return true, err
@@ -237,7 +304,6 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err)}
 	} else if err != nil {
 		return false, fmt.Errorf("get message element: %w", err)
-
 	}
 
 	vrs, err := vars.Decode(ctx, job.Vars)
@@ -248,97 +314,26 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 	if err != nil {
 		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluating message correlation expression: %w", err)}
 	}
-	res := fmt.Sprintf("%+v", resAny)
-	recipient := &model.MessageRecipient{
-		Type:           model.RecipientType_job,
-		Id:             common.TrackingID(job.Id).ID(),
-		CorrelationKey: res,
+
+	correlationKey := fmt.Sprintf("%+v", resAny)
+
+	elementId := job.ElementId
+	receiver := &model.Receiver{Id: common.TrackingID(job.Id).ID(), CorrelationKey: correlationKey}
+	exchange := &model.Exchange{Receivers: map[string]*model.Receiver{elementId: receiver}}
+
+	setPartyFn := func(exch *model.Exchange) (*model.Exchange, error) {
+		if exch.Receivers == nil {
+			exch.Receivers = map[string]*model.Receiver{elementId: receiver}
+		} else {
+			exch.Receivers[elementId] = receiver
+		}
+		return exch, nil
 	}
-	rx, err := s.js.KeyValue(msgRxBucket(ctx, el.Msg))
-	if err != nil {
-		return false, fmt.Errorf("obtaining message recipient kv: %w", err)
+
+	messageName := el.Msg
+	if err2 := s.handleMessageExchange(ctx, receiverParty, setPartyFn, elementId, exchange, messageName, correlationKey); err2 != nil {
+		return false, fmt.Errorf("failed to handle receiver message: %w", err2)
 	}
-	if err := common.SaveObj(ctx, rx, common.TrackingID(job.Id).ID(), recipient); err != nil {
-		return false, fmt.Errorf("update the workflow message subscriptions during await message: %w", err)
-	}
-	if _, err := s.deliverMessageToJobRecipient(ctx, recipient, el.Msg); err != nil {
-		return false, fmt.Errorf("attempting delivery: %w", err)
-	}
+
 	return true, nil
-}
-
-type correlatable interface {
-	proto.Message
-	GetCorrelationKey() string
-}
-
-func (s *Nats) iterateTxMessages(ctx context.Context, name string, correlationKey string, fn func(k string, m *model.MessageInstance) (bool, error)) (bool, error) {
-	tx, err := s.js.KeyValue(msgTxBucket(ctx, name))
-	if err != nil {
-		return false, fmt.Errorf("opening receive bucket: %w", err)
-	}
-	return lockedIterator(ctx, s, tx, correlationKey, "message", &model.MessageInstance{}, fn)
-}
-
-func (s *Nats) iterateRxMessages(ctx context.Context, name string, correlationKey string, fn func(k string, r *model.MessageRecipient) (bool, error)) (bool, error) {
-	rx, err := s.js.KeyValue(msgRxBucket(ctx, name))
-	if err != nil {
-		return false, fmt.Errorf("opening receive bucket: %w", err)
-	}
-	return lockedIterator(ctx, s, rx, correlationKey, "recipient", &model.MessageRecipient{}, fn)
-}
-
-func lockedIterator[T correlatable](ctx context.Context, s *Nats, rx nats.KeyValue, match string, iteratorType string, iterateValue T, fn func(k string, r T) (bool, error)) (bool, error) {
-	keys, err := rx.Keys()
-	if err != nil {
-		return false, fmt.Errorf("retrieving %s keys: %w", iteratorType, err)
-	}
-	return lockedIterate(ctx, s, rx, match, iteratorType, iterateValue, fn, keys)
-}
-
-func lockedIterate[T correlatable](ctx context.Context, s *Nats, rx nats.KeyValue, match string, iteratorType string, iterateValue T, fn func(k string, r T) (bool, error), keys []string) (bool, error) {
-	for _, k := range keys {
-		if err := common.LoadObj(ctx, rx, k, iterateValue); err != nil {
-			continue
-		}
-		if len(match) == 0 || iterateValue.GetCorrelationKey() != match {
-			continue
-		}
-		if lck, err := common.Lock(s.wfLock, k); err != nil {
-			slog.Error("%s iterator obtaining lock: %w", iteratorType, err)
-			if err := common.UnLock(s.wfLock, k); err != nil {
-				slog.Warn("unlocking " + iteratorType + ": " + err.Error())
-			}
-			continue
-		} else if !lck {
-			if err := common.UnLock(s.wfLock, k); err != nil {
-				slog.Warn("unlocking " + iteratorType + ": " + err.Error())
-			}
-			continue
-		}
-		if delivered, err := fn(k, iterateValue); err != nil {
-			slog.Warn("delivering to " + iteratorType + ": " + err.Error())
-			if err := common.UnLock(s.wfLock, k); err != nil {
-				slog.Warn("unlocking " + iteratorType + ": " + err.Error())
-			}
-			continue
-		} else if delivered {
-			if err := common.UnLock(s.wfLock, k); err != nil {
-				slog.Warn("unlocking " + iteratorType + ": " + err.Error())
-			}
-			return true, nil
-		}
-		if err := common.UnLock(s.wfLock, k); err != nil {
-			slog.Warn("unlocking " + iteratorType + ": " + err.Error())
-		}
-	}
-	return false, nil
-}
-
-func msgTxBucket(ctx context.Context, name string) string {
-	return subj.NS("MsgTx_%s_", "default") + name
-}
-
-func msgRxBucket(ctx context.Context, name string) string {
-	return subj.NS("MsgTx_%s_", "default") + name
 }

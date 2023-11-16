@@ -109,7 +109,7 @@ package_container_stage:
       when: never
     - if: "$CI_PIPELINE_IID"
   script:
-    - 'export REPO_DESCRIPTOR=$(( "$CI_COMMIT_BRANCH" == "release" ? "" : "dev/" ))'
+    - 'if [ $CI_COMMIT_BRANCH = "release" ]; then export REPO_DESCRIPTOR=""; else export REPO_DESCRIPTOR="dev/"; fi'
     - docker buildx create --use
     - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:latest --push --target server .
     - docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}telemetry:latest --push --target telemetry .
@@ -127,7 +127,7 @@ package_binary_stage:
       when: never
     - if: "$CI_PIPELINE_IID"
   script:
-    - 'export REPO_DESCRIPTOR=$(( "$CI_COMMIT_BRANCH" == "release" ? "" : "dev/" ))'
+    - 'if [ $CI_COMMIT_BRANCH = "release" ]; then export REPO_DESCRIPTOR=""; else export REPO_DESCRIPTOR="dev/"; fi'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file build/cli/shar "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/${REPO_DESCRIPTOR}shar/${VER}.${CI_VERSION}/shar-cli-linux-amd64"'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file build/zen-shar/zen-shar "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/${REPO_DESCRIPTOR}shar/${VER}.${CI_VERSION}/zen-shar-linux-amd64"'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file build/server/shar "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/${REPO_DESCRIPTOR}shar/${VER}.${CI_VERSION}/shar-server-linux-amd64"'

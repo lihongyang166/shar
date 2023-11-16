@@ -48,6 +48,7 @@ build_stage:
     - echo "package version" > common/version/version.go
     - echo "" >> common/version/version.go
     - echo "const Version = \"$tag\"" >> common/version/version.go
+    - make configure
     - make
   artifacts:
     paths:

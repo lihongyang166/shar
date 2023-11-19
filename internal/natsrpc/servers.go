@@ -106,5 +106,8 @@ func (s *SharServer) Listen(con *nats.Conn, middleware []core.Handler, errorHand
     if err := core.Listen(con, s.panicRecovery, s.subs, middleware, errorHandler, "WORKFLOW.Api.ListTaskSpecUIDs", &model.ListTaskSpecUIDsRequest{}, s.server.ListTaskSpecUIDs); err != nil {
         return fmt.Errorf("WORKFLOW.Api.ListTaskSpecUIDs: %w", err)
     }
+    if err := core.Listen(con, s.panicRecovery, s.subs, middleware, errorHandler, "WORKFLOW.Api.Heartbeat", &model.HeartbeatRequest{}, s.server.Heartbeat); err != nil {
+        return fmt.Errorf("WORKFLOW.Api.Heartbeat: %w", err)
+    }
     return nil
 }

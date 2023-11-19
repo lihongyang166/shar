@@ -191,6 +191,9 @@ func EnsureBuckets(js nats.JetStreamContext, storageType nats.StorageType, names
 		if i == messages.KvLock {
 			ttl = time.Second * 30
 		}
+		if i == messages.KvClients {
+			ttl = time.Millisecond * 1500
+		}
 		if err := EnsureBucket(js, storageType, i, ttl); err != nil {
 			return fmt.Errorf("ensure bucket: %w", err)
 		}

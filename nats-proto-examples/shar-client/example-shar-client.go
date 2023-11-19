@@ -216,4 +216,12 @@ func main() {
         panic(err)
     }
     fmt.Println(resListTaskSpecUIDs)
+
+    // Call Heartbeat
+    reqHeartbeat := &model.HeartbeatRequest{}
+    resHeartbeat, err := api.Heartbeat(ctx, reqHeartbeat)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(resHeartbeat)
 }

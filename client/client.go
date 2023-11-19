@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
+	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/client/api"
 	"gitlab.com/shar-workflow/shar/client/parser"
 	"gitlab.com/shar-workflow/shar/common"
@@ -30,14 +31,19 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 	"io"
 	"log/slog"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
+
+// HeartBeatInterval defines the time between client heartbeats.
+const HeartBeatInterval = 1 * time.Second
 
 type contextKey string
 
@@ -98,6 +104,8 @@ type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars) e
 
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and interating with the API
 type Client struct {
+	id                              string
+	host                            string
 	js                              nats.JetStreamContext
 	SvcTasks                        map[string]ServiceFn
 	con                             *nats.Conn
@@ -118,6 +126,12 @@ type Client struct {
 	version                         *version.Version
 	noRecovery                      bool
 	shar                            natsrpc.SharClient
+	closer                          chan struct{}
+	shutdownOnce                    sync.Once
+	sig                             chan os.Signal
+	processing                      int
+	processingMx                    sync.Mutex
+	noOSSig                         bool
 }
 
 // Option represents a configuration changer for the client.
@@ -131,7 +145,13 @@ func New(option ...Option) *Client {
 	if err != nil {
 		panic(err)
 	}
+	host, err := os.Hostname()
+	if err != nil {
+		panic(err)
+	}
 	client := &Client{
+		id:                              ksuid.New().String(),
+		host:                            host,
 		storageType:                     nats.FileStorage,
 		SvcTasks:                        make(map[string]ServiceFn),
 		MsgSender:                       make(map[string]SenderFn),
@@ -142,6 +162,8 @@ func New(option ...Option) *Client {
 		concurrency:                     10,
 		version:                         ver,
 		ExpectedCompatibleServerVersion: upgrader.GetCompatibleVersion(),
+		closer:                          make(chan struct{}),
+		sig:                             make(chan os.Signal),
 	}
 	for _, i := range option {
 		i.configure(client)
@@ -251,14 +273,17 @@ func (c *Client) Listen(ctx context.Context) error {
 	if err := c.listen(ctx); err != nil {
 		return c.clientErr(ctx, err)
 	}
+	c.listenTerm(ctx)
 	if err := c.listenProcessTerminate(ctx); err != nil {
+		return c.clientErr(ctx, err)
+	}
+	if err := c.startHeart(ctx); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
 }
 
 func (c *Client) listen(ctx context.Context) error {
-	closer := make(chan struct{}, 1)
 	tasks := make(map[string]string)
 	for i := range c.listenTasks {
 		tasks[i] = subj.NS(messages.WorkflowJobServiceTaskExecute+"."+i, c.ns)
@@ -273,7 +298,15 @@ func (c *Client) listen(ctx context.Context) error {
 			return fmt.Errorf("listen obtaining consumer info for %s: %w", cName, err)
 		}
 		ackTimeout := cInf.Config.AckWait
-		err = common.Process(ctx, c.js, "jobExecute", closer, v, cName, c.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+		err = common.Process(ctx, c.js, "jobExecute", c.closer, v, cName, c.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+			c.processingMx.Lock()
+			c.processing++
+			c.processingMx.Unlock()
+			defer func() {
+				c.processingMx.Lock()
+				c.processing--
+				c.processingMx.Unlock()
+			}()
 			// Check version compatibility of incoming call.
 			sharCompat := msg.Header.Get(header.NatsCompatHeader)
 			if sharCompat != "" {
@@ -553,11 +586,11 @@ func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b [
 	}
 	wf.GzipSource = compressed.Bytes()
 
-	res := &wrapperspb.StringValue{}
-	if err := api2.Call(ctx, c.txCon, messages.APIStoreWorkflow, c.ExpectedCompatibleServerVersion, wf, res); err != nil {
+	res := &model.StoreWorkflowResponse{}
+	if err := api2.Call(ctx, c.txCon, messages.APIStoreWorkflow, c.ExpectedCompatibleServerVersion, &model.StoreWorkflowRequest{Workflow: wf}, res); err != nil {
 		return "", c.clientErr(ctx, err)
 	}
-	return res.Value, nil
+	return res.WorkflowId, nil
 }
 
 // HasWorkflowDefinitionChanged - given a workflow name and a BPMN xml, return true if the resulting definition is different.
@@ -623,7 +656,7 @@ func (c *Client) CancelProcessInstance(ctx context.Context, executionID string) 
 }
 
 func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInstanceID string, wfe *model.Error) error {
-	res := &emptypb.Empty{}
+	res := &model.CancelProcessInstanceResponse{}
 	req := &model.CancelProcessInstanceRequest{
 		Id:    processInstanceID,
 		State: model.CancellationState_errored,
@@ -661,7 +694,7 @@ func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListE
 
 // ListWorkflows gets a list of launchable workflow in SHAR.
 func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResponse, error) {
-	req := &emptypb.Empty{}
+	req := &model.ListWorkflowsRequest{}
 	res := &model.ListWorkflowsResponse{}
 	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
@@ -732,16 +765,6 @@ func (c *Client) clientErr(_ context.Context, err error) error {
 func (c *Client) RegisterProcessComplete(processId string, fn ProcessTerminateFn) error {
 	c.proCompleteTasks[processId] = fn
 	return nil
-}
-
-// GetServerInstanceStats is an unsupported function to obtain server metrics
-func (c *Client) GetServerInstanceStats(ctx context.Context) (*model.WorkflowStats, error) {
-	req := &emptypb.Empty{}
-	res := &model.WorkflowStats{}
-	if err := api2.Call(ctx, c.txCon, messages.APIGetServerInstanceStats, c.ExpectedCompatibleServerVersion, req, res); err != nil {
-		return nil, c.clientErr(ctx, err)
-	}
-	return res, nil
 }
 
 // GetProcessHistory gets the history for a process.
@@ -849,4 +872,62 @@ func (c *Client) ListTaskSpecs(ctx context.Context, includeDeprecated bool) ([]*
 		ret = append(ret, ts)
 	}
 	return ret, nil
+}
+
+func (c *Client) heartbeat(ctx context.Context) error {
+	req := &model.HeartbeatRequest{
+		Host: c.host,
+		Id:   c.id,
+		Time: time.Now().UnixMilli(),
+	}
+	res := &model.HeartbeatResponse{}
+	if err := api2.Call(ctx, c.txCon, messages.ApiHeartbeat, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return c.clientErr(ctx, err)
+	}
+	return nil
+}
+
+func (c *Client) startHeart(ctx context.Context) error {
+	go func() {
+		for {
+			if err := c.heartbeat(ctx); err != nil {
+				slog.Error("heartbeat", "error", err)
+			}
+			time.Sleep(HeartBeatInterval)
+		}
+	}()
+	return nil
+}
+
+// Shutdown stops message processing and waits for processing messages gracefully.
+func (c *Client) Shutdown() {
+	c.shutdownOnce.Do(func() {
+		close(c.closer)
+		for {
+			c.processingMx.Lock()
+			if c.processing == 0 {
+				c.processingMx.Unlock()
+				return
+			}
+			c.processingMx.Unlock()
+			time.Sleep(500 * time.Millisecond)
+		}
+	})
+}
+
+func (c *Client) listenTerm(ctx context.Context) {
+	if !c.noOSSig {
+		signal.Notify(c.sig, syscall.SIGTERM, syscall.SIGINT)
+		go func() {
+			for {
+				select {
+				case <-c.closer:
+					return
+				case <-c.sig:
+					c.Shutdown()
+					return
+				}
+			}
+		}()
+	}
 }

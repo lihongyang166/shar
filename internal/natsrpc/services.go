@@ -33,4 +33,5 @@ type Shar interface {
 	GetTaskSpecVersions(ctx context.Context, req *model.GetTaskSpecVersionsRequest) (*model.GetTaskSpecVersionsResponse, error)
 	GetTaskSpecUsage(ctx context.Context, req *model.GetTaskSpecUsageRequest) (*model.GetTaskSpecUsageResponse, error)
 	ListTaskSpecUIDs(ctx context.Context, req *model.ListTaskSpecUIDsRequest) (*model.ListTaskSpecUIDsResponse, error)
+	Heartbeat(ctx context.Context, req *model.HeartbeatRequest) (*model.HeartbeatResponse, error)
 }

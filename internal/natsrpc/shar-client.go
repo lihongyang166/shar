@@ -223,3 +223,11 @@ func (c *SharClient) ListTaskSpecUIDs(ctx context.Context, req *model.ListTaskSp
     }
 	return res, nil
 }
+// Heartbeat - The Heartbeat method.
+func (c *SharClient) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) (*model.HeartbeatResponse, error) {
+	res := &model.HeartbeatResponse{}
+    if err := core.Call(ctx, c.txConn, c.middleware, c.customErrorHandler, "WORKFLOW.Api.Heartbeat", req, res); err != nil {
+        return nil, fmt.Errorf("client call to WORKFLOW.Api.Heartbeat: %w", err)
+    }
+	return res, nil
+}

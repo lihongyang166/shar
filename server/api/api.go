@@ -23,7 +23,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/workflow"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // SharServer provides API endpoints for SHAR
@@ -78,7 +77,7 @@ func (s *SharServer) Shutdown() {
 func (s *SharServer) Listen() error {
 	con := s.ns.Conn()
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIStoreWorkflow, &model.Workflow{}, s.storeWorkflow); err != nil {
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIStoreWorkflow, &model.StoreWorkflowRequest{}, s.storeWorkflow); err != nil {
 		return fmt.Errorf("APIStoreWorkflow failed: %w", err)
 	}
 	if err := listen(con, s.panicRecovery, s.subs, messages.APICancelProcessInstance, &model.CancelProcessInstanceRequest{}, s.cancelProcessInstance); err != nil {
@@ -87,7 +86,7 @@ func (s *SharServer) Listen() error {
 	if err := listen(con, s.panicRecovery, s.subs, messages.APILaunchProcess, &model.LaunchWorkflowRequest{}, s.launchProcess); err != nil {
 		return fmt.Errorf("APILaunchProcess failed: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIListWorkflows, &emptypb.Empty{}, s.listWorkflows); err != nil {
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIListWorkflows, &model.ListWorkflowsRequest{}, s.listWorkflows); err != nil {
 		return fmt.Errorf("APIListWorkflows failed: %w", err)
 	}
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIListExecutionProcesses, &model.ListExecutionProcessesRequest{}, s.listExecutionProcesses); err != nil {
@@ -116,9 +115,6 @@ func (s *SharServer) Listen() error {
 	}
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIHandleWorkflowError, &model.HandleWorkflowErrorRequest{}, s.handleWorkflowError); err != nil {
 		return fmt.Errorf("APIHandleWorkflowError failed: %w", err)
-	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetServerInstanceStats, &emptypb.Empty{}, s.getServerInstanceStats); err != nil {
-		return fmt.Errorf("APIGetServerInstanceStats failed: %w", err)
 	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APICompleteSendMessageTask, &model.CompleteSendMessageRequest{}, s.completeSendMessageTask); err != nil {
@@ -166,6 +162,10 @@ func (s *SharServer) Listen() error {
 	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.ApiListTaskSpecUIDs, &model.ListTaskSpecUIDsRequest{}, s.listTaskSpecUIDs); err != nil {
+		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.ApiHeartbeat, &model.HeartbeatRequest{}, s.heartbeat); err != nil {
 		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
 	}
 

@@ -1225,6 +1225,49 @@ func (_c *MockNatsService_GetWorkflowVersions_Call) RunAndReturn(run func(contex
 	return _c
 }
 
+// Heartbeat provides a mock function with given fields: ctx, request
+func (_m *MockNatsService) Heartbeat(ctx context.Context, request *model.HeartbeatRequest) error {
+	ret := _m.Called(ctx, request)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.HeartbeatRequest) error); ok {
+		r0 = rf(ctx, request)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockNatsService_Heartbeat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Heartbeat'
+type MockNatsService_Heartbeat_Call struct {
+	*mock.Call
+}
+
+// Heartbeat is a helper method to define mock.On call
+//   - ctx context.Context
+//   - request *model.HeartbeatRequest
+func (_e *MockNatsService_Expecter) Heartbeat(ctx interface{}, request interface{}) *MockNatsService_Heartbeat_Call {
+	return &MockNatsService_Heartbeat_Call{Call: _e.mock.On("Heartbeat", ctx, request)}
+}
+
+func (_c *MockNatsService_Heartbeat_Call) Run(run func(ctx context.Context, request *model.HeartbeatRequest)) *MockNatsService_Heartbeat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.HeartbeatRequest))
+	})
+	return _c
+}
+
+func (_c *MockNatsService_Heartbeat_Call) Return(_a0 error) *MockNatsService_Heartbeat_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockNatsService_Heartbeat_Call) RunAndReturn(run func(context.Context, *model.HeartbeatRequest) error) *MockNatsService_Heartbeat_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListExecutionProcesses provides a mock function with given fields: ctx, id
 func (_m *MockNatsService) ListExecutionProcesses(ctx context.Context, id string) ([]string, error) {
 	ret := _m.Called(ctx, id)

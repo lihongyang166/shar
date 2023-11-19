@@ -27,7 +27,6 @@ import (
 	"maps"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -61,8 +60,6 @@ type Nats struct {
 	wfGateway                      nats.KeyValue
 	conn                           common.NatsConn
 	txConn                         common.NatsConn
-	workflowStats                  *model.WorkflowStats
-	statsMx                        sync.Mutex
 	wfName                         nats.KeyValue
 	wfHistory                      nats.KeyValue
 	publishTimeout                 time.Duration
@@ -74,13 +71,7 @@ type Nats struct {
 	wfMsgTypes                     nats.KeyValue
 	wfProcess                      nats.KeyValue
 	wfMessages                     nats.KeyValue
-}
-
-// WorkflowStats obtains the running counts for the engine
-func (s *Nats) WorkflowStats() *model.WorkflowStats {
-	s.statsMx.Lock()
-	defer s.statsMx.Unlock()
-	return s.workflowStats
+	wfClients                      nats.KeyValue
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
@@ -137,7 +128,6 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 		concurrency:             concurrency,
 		storageType:             storageType,
 		closing:                 make(chan struct{}),
-		workflowStats:           &model.WorkflowStats{},
 		publishTimeout:          time.Second * 30,
 		allowOrphanServiceTasks: allowOrphanServiceTasks,
 	}
@@ -170,6 +160,7 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	kvs[messages.KvTaskSpecVersions] = &ms.wfTaskSpecVer
 	kvs[messages.KvProcess] = &ms.wfProcess
 	kvs[messages.KvMessages] = &ms.wfMessages
+	kvs[messages.KvClients] = &ms.wfClients
 
 	ks := make([]string, 0, len(kvs))
 	for k := range kvs {
@@ -477,8 +468,6 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 		}
 	}
 
-	go s.incrementWorkflowCount()
-
 	return wfID, nil
 }
 
@@ -578,7 +567,6 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 		}
 	}
 
-	s.incrementWorkflowStarted()
 	return execution, nil
 }
 
@@ -635,7 +623,6 @@ func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.Workflo
 	if err := s.deleteExecution(ctx, tState); err != nil {
 		return fmt.Errorf("delete workflow state whilst destroying execution: %w", err)
 	}
-	s.incrementWorkflowCompleted()
 	return nil
 }
 
@@ -1149,24 +1136,6 @@ func (s *Nats) OwnerName(id string) (string, error) {
 	return string(nm.Value()), nil
 }
 
-func (s *Nats) incrementWorkflowCount() {
-	s.statsMx.Lock()
-	s.workflowStats.Workflows++
-	s.statsMx.Unlock()
-}
-
-func (s *Nats) incrementWorkflowCompleted() {
-	s.statsMx.Lock()
-	s.workflowStats.InstancesComplete++
-	s.statsMx.Unlock()
-}
-
-func (s *Nats) incrementWorkflowStarted() {
-	s.statsMx.Lock()
-	s.workflowStats.InstancesStarted++
-	s.statsMx.Unlock()
-}
-
 // GetOldState gets a task state given its tracking ID.
 func (s *Nats) GetOldState(ctx context.Context, id string) (*model.WorkflowState, error) {
 	oldState := &model.WorkflowState{}
@@ -1508,4 +1477,12 @@ func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string
 	}
 
 	return "", fmt.Errorf("no message receivers for %q: %w", startEventMessageName, err)
+}
+
+// Heartbeat saves a client status to the client KV.
+func (s *Nats) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error {
+	if err := common.SaveObj(ctx, s.wfClients, req.Host+"-"+req.Id, req); err != nil {
+		return fmt.Errorf("heartbeat write to kv: %w", err)
+	}
+	return nil
 }

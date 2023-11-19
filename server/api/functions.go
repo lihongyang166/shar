@@ -16,8 +16,6 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func (s *SharServer) getProcessInstanceStatus(ctx context.Context, req *model.GetProcessInstanceStatusRequest) (*model.GetProcessInstanceStatusResult, error) {
@@ -40,7 +38,7 @@ func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.List
 	return &model.ListExecutionProcessesResponse{ProcessInstanceId: res}, nil
 }
 
-func (s *SharServer) listWorkflows(ctx context.Context, _ *emptypb.Empty) (*model.ListWorkflowsResponse, error) {
+func (s *SharServer) listWorkflows(ctx context.Context, _ *model.ListWorkflowsRequest) (*model.ListWorkflowsResponse, error) {
 	ctx, err2 := s.authForNonWorkflow(ctx)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -92,7 +90,7 @@ func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequ
 	return &model.SendMessageResponse{}, nil
 }
 
-func (s *SharServer) completeManualTask(ctx context.Context, req *model.CompleteManualTaskRequest) (*emptypb.Empty, error) {
+func (s *SharServer) completeManualTask(ctx context.Context, req *model.CompleteManualTaskRequest) (*model.CompleteManualTaskResponse, error) {
 	ctx, job, err2 := s.authFromJobID(ctx, req.TrackingId)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -100,10 +98,10 @@ func (s *SharServer) completeManualTask(ctx context.Context, req *model.Complete
 	if err := s.engine.CompleteManualTask(ctx, job, req.Vars); err != nil {
 		return nil, fmt.Errorf("complete manual task: %w", err)
 	}
-	return &emptypb.Empty{}, nil
+	return nil, nil
 }
 
-func (s *SharServer) completeServiceTask(ctx context.Context, req *model.CompleteServiceTaskRequest) (*emptypb.Empty, error) {
+func (s *SharServer) completeServiceTask(ctx context.Context, req *model.CompleteServiceTaskRequest) (*model.CompleteServiceTaskResponse, error) {
 	ctx, job, err2 := s.authFromJobID(ctx, req.TrackingId)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -111,10 +109,10 @@ func (s *SharServer) completeServiceTask(ctx context.Context, req *model.Complet
 	if err := s.engine.CompleteServiceTask(ctx, job, req.Vars); err != nil {
 		return nil, fmt.Errorf("complete service task: %w", err)
 	}
-	return &emptypb.Empty{}, nil
+	return nil, nil
 }
 
-func (s *SharServer) completeSendMessageTask(ctx context.Context, req *model.CompleteSendMessageRequest) (*emptypb.Empty, error) {
+func (s *SharServer) completeSendMessageTask(ctx context.Context, req *model.CompleteSendMessageRequest) (*model.CompleteSendMessageResponse, error) {
 	ctx, job, err2 := s.authFromJobID(ctx, req.TrackingId)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -122,30 +120,30 @@ func (s *SharServer) completeSendMessageTask(ctx context.Context, req *model.Com
 	if err := s.engine.CompleteSendMessageTask(ctx, job, req.Vars); err != nil {
 		return nil, fmt.Errorf("complete send message task: %w", err)
 	}
-	return &emptypb.Empty{}, nil
+	return nil, nil
 }
 
-func (s *SharServer) completeUserTask(ctx context.Context, req *model.CompleteUserTaskRequest) (*emptypb.Empty, error) {
+func (s *SharServer) completeUserTask(ctx context.Context, req *model.CompleteUserTaskRequest) (*model.CompleteUserTaskResponse, error) {
 	ctx, job, err2 := s.authFromJobID(ctx, req.TrackingId)
 	if err2 != nil {
-		return &emptypb.Empty{}, fmt.Errorf("authorize complete user task: %w", err2)
+		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
 	if err := s.engine.CompleteUserTask(ctx, job, req.Vars); err != nil {
 		return nil, fmt.Errorf("complete user task: %w", err)
 	}
-	return &emptypb.Empty{}, nil
+	return nil, nil
 }
 
-func (s *SharServer) storeWorkflow(ctx context.Context, wf *model.Workflow) (*wrapperspb.StringValue, error) {
-	ctx, err2 := s.authForNamedWorkflow(ctx, wf.Name)
+func (s *SharServer) storeWorkflow(ctx context.Context, wf *model.StoreWorkflowRequest) (*model.StoreWorkflowResponse, error) {
+	ctx, err2 := s.authForNamedWorkflow(ctx, wf.Workflow.Name)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	res, err := s.engine.LoadWorkflow(ctx, wf)
+	res, err := s.engine.LoadWorkflow(ctx, wf.Workflow)
 	if err != nil {
 		return nil, fmt.Errorf("store workflow: %w", err)
 	}
-	return &wrapperspb.StringValue{Value: res}, nil
+	return &model.StoreWorkflowResponse{WorkflowId: res}, nil
 }
 
 func (s *SharServer) launchProcess(ctx context.Context, req *model.LaunchWorkflowRequest) (*model.LaunchWorkflowResponse, error) {
@@ -160,7 +158,7 @@ func (s *SharServer) launchProcess(ctx context.Context, req *model.LaunchWorkflo
 	return &model.LaunchWorkflowResponse{WorkflowId: wfID, InstanceId: executionID}, nil
 }
 
-func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.CancelProcessInstanceRequest) (*emptypb.Empty, error) {
+func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.CancelProcessInstanceRequest) (*model.CancelProcessInstanceResponse, error) {
 	ctx, instance, err2 := s.authFromProcessInstanceID(ctx, req.Id)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -175,7 +173,7 @@ func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.Cance
 	if err != nil {
 		return nil, fmt.Errorf("cancel execution kv: %w", err)
 	}
-	return &emptypb.Empty{}, nil
+	return &model.CancelProcessInstanceResponse{}, nil
 }
 
 func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecutionRequest) (*model.ListExecutionResponse, error) {
@@ -358,15 +356,6 @@ func (s *SharServer) getUserTask(ctx context.Context, req *model.GetUserTaskRequ
 	}, nil
 }
 
-func (s *SharServer) getServerInstanceStats(ctx context.Context, _ *emptypb.Empty) (*model.WorkflowStats, error) {
-	ctx, err2 := s.authForNonWorkflow(ctx)
-	if err2 != nil {
-		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
-	}
-	ret := *s.ns.WorkflowStats()
-	return &ret, nil
-}
-
 func (s *SharServer) getWorkflowVersions(ctx context.Context, req *model.GetWorkflowVersionsRequest) (*model.GetWorkflowVersionsResponse, error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.Name)
 	if err2 != nil {
@@ -517,4 +506,11 @@ func (s *SharServer) listTaskSpecUIDs(ctx context.Context, req *model.ListTaskSp
 		return nil, fmt.Errorf("list task spec uids: %w", err)
 	}
 	return &model.ListTaskSpecUIDsResponse{Uid: uids}, nil
+}
+
+func (s *SharServer) heartbeat(ctx context.Context, req *model.HeartbeatRequest) (*model.HeartbeatResponse, error) {
+	if err := s.ns.Heartbeat(ctx, req); err != nil {
+		return nil, fmt.Errorf("heartbeat: %w", err)
+	}
+	return &model.HeartbeatResponse{}, nil
 }

@@ -137,6 +137,11 @@ func (a SharAPI) ListTaskSpecUIDs(ctx context.Context, req *model.ListTaskSpecUI
     //TODO: implement Shar:ListTaskSpecUIDs
     panic("implement Shar:ListTaskSpecUIDs")
 }
+// Heartbeat - The Heartbeat method.
+func (a SharAPI) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) (*model.HeartbeatResponse, error) {
+    //TODO: implement Shar:Heartbeat
+    panic("implement Shar:Heartbeat")
+}
 
 func main() {
     con, err := nats.Connect("nats://127.0.0.1:4222")

@@ -7,12 +7,14 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
+	"log/slog"
 )
 
 func (s *SharServer) authenticate(ctx context.Context) (context.Context, header.Values, error) {
 	val := ctx.Value(header.ContextKey).(header.Values)
 	res, authErr := s.apiAuthNFn(ctx, &model.ApiAuthenticationRequest{Headers: val})
 	if authErr != nil || !res.Authenticated {
+		slog.Debug("failed to authenticate", "values", val, "func", s.apiAuthNFn, "auth-err", authErr)
 		return context.Background(), header.Values{}, fmt.Errorf("authenticate: %w", errors2.ErrApiAuthNFail)
 	}
 	ctx = context.WithValue(ctx, ctxkey.SharUser, res.User)

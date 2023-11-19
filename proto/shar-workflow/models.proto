@@ -31,14 +31,15 @@ service Shar {
   rpc GetTaskSpecVersions (GetTaskSpecVersionsRequest) returns (GetTaskSpecVersionsResponse);
   rpc GetTaskSpecUsage (GetTaskSpecUsageRequest) returns (GetTaskSpecUsageResponse);
   rpc ListTaskSpecUIDs (ListTaskSpecUIDsRequest) returns (ListTaskSpecUIDsResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 }
 
 message StoreWorkflowRequest {
-  string workflow = 1;
+  Workflow workflow = 1;
 }
 
 message StoreWorkflowResponse {
-
+  string WorkflowId = 1;
 }
 
 message CancelProcessInstanceResponse {
@@ -73,6 +74,16 @@ message GetProcessInstanceStatusResponse {
 }
 
 message GetTaskSpecUsageResponse {
+
+}
+
+message HeartbeatRequest {
+  string Host = 1;
+  string id = 2;
+  int64 time = 3;
+}
+
+message HeartbeatResponse {
 
 }
 

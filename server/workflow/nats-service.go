@@ -35,6 +35,7 @@ type NatsService interface {
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
 	GetWorkflowNameFor(ctx context.Context, processName string) (string, error)
 	GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error)
+	Heartbeat(ctx context.Context, request *model.HeartbeatRequest) error
 	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
 	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionItem, chan error)
 	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResponse, chan error)

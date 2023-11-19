@@ -244,7 +244,8 @@ func (s *Integration) checkCleanKV() error {
 			"WORKFLOW_HISTORY",
 			"WORKFLOW_TSKSPEC",
 			"WORKFLOW_TSPECVER",
-			"WORKFLOW_PROCESS_MAPPING":
+			"WORKFLOW_PROCESS_MAPPING",
+			"WORKFLOW_CLIENTS":
 			//noop
 		default:
 			if len(keys) > 0 {

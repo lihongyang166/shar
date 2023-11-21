@@ -804,3 +804,7 @@ message Exchange {
   Sender sender = 1; // Sender - the sender side of the exchange
   map<string,Receiver> receivers = 2; // Receivers - the receiver sides of the exchange
 }
+
+message TelemetryClients {
+  int32 count = 1;
+}

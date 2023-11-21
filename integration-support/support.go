@@ -323,25 +323,6 @@ func (s *Integration) Teardown() {
 	if s.WithTrace {
 		s.traceSub.Close()
 	}
-	n, err := s.GetJetstream()
-	require.NoError(s.Test, err)
-
-	sub, err := n.PullSubscribe("WORKFLOW.>", "fin")
-	require.NoError(s.Test, err)
-	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		_, err := sub.Fetch(1, nats.Context(ctx))
-		if errors.Is(err, context.DeadlineExceeded) {
-			cancel()
-			break
-		}
-		if err != nil {
-			cancel()
-			s.Test.Fatal(err)
-		}
-
-		cancel()
-	}
 	s.Test.Log("TEARDOWN")
 	s.testSharServer.Shutdown()
 	s.testNatsServer.Shutdown()

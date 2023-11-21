@@ -1,6 +1,8 @@
 package messages
 
-import "gitlab.com/shar-workflow/shar/common/subj"
+import (
+	"gitlab.com/shar-workflow/shar/common/subj"
+)
 
 const (
 	WorkFlowJobAbortAll               = "WORKFLOW.%s.State.Job.Abort.*"               // WorkFlowJobAbortAll is the wildcard state message subject for all job abort messages.
@@ -57,10 +59,16 @@ const (
 	WorkflowSystemTaskUpdate   = "WORKFLOW.System.Task.Update"   // WorkflowSystemTaskUpdate is the task updated broadcast message.
 	WorkflowSystemProcessPause = "WORKFLOW.System.Process.Pause" // WorkflowSystemProcessPause is the process paused broadcast message.
 	WorkflowSystemProcessError = "WORKFLOW.System.Process.Error" // WorkflowSystemProcessError is the process error broadcast message.
+
 )
 
 const (
-	WorkflowMessageKick = "WORKFLOW.Message.Kick" // WorkflowMessageKick is the message subject for triggering delivery of missed messages.
+	WorkflowTelemetryTimer = "WORKFLOW.Message.Telemetry" // WorkflowTelemetryTimer is the message subject for triggering telemetry messages from the server.
+	WorkflowMessageKick    = "WORKFLOW.Message.Kick"      // WorkflowMessageKick is the message subject for triggering delivery of missed messages.
+)
+
+const (
+	WorkflowTelemetryClientCount = "WORKFLOW.Telemetry.Client.Count" // WorkflowTelemetryClientCount is the message subject for workflow client count telemetry.
 )
 
 // WorkflowLogLevel represents a subject suffox for logging levels
@@ -117,6 +125,8 @@ var AllMessages = []string{
 	subj.NS(WorkflowTraversalExecute, "*"),
 	subj.NS(WorkflowJobGatewayTaskActivate, "*"),
 	subj.NS(WorkflowJobGatewayTaskReEnter, "*"),
+	WorkflowTelemetryClientCount,
+	WorkflowTelemetryTimer,
 	WorkflowMessageKick,
 	"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>", // Dead letter functionality
 }
@@ -153,7 +163,7 @@ const (
 	APIGetVersionInfo           = "WORKFLOW.API.GetVersionInfo"           // APIGetVersionInfo is the get server version information API message subject.
 	APIGetTaskSpecUsage         = "WORKFLOW.Api.GetTaskSpecUsage"         // APIGetTaskSpecUsage is the get task spec usage API message subject.
 	ApiListTaskSpecUIDs         = "WORKFLOW.Api.ListTaskSpecUIDs"         // ApiListTaskSpecUIDs is the list task spec UIDs API message subject.
-	ApiHeartbeat                = "WORKFLOW.Api.Heartbeat"                // ApiHeartbeat is the heartbeat API message subject.
+	ApiHeartbeat                = "WORKFLOW.Api.Heartbeat"                // ApiHeartbeat // is the heartbeat API message subject.
 )
 
 var (

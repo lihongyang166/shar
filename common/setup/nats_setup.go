@@ -157,6 +157,15 @@ func init() {
 			MaxAckPending:   1,
 			MaxRequestBatch: 1,
 		},
+		{
+			Durable:         "TelemetryTimerConsumer",
+			Description:     "Server telemetry timer",
+			AckPolicy:       nats.AckExplicitPolicy,
+			AckWait:         1 * time.Second,
+			FilterSubject:   subj.NS(messages.WorkflowTelemetryTimer, "*"),
+			MaxAckPending:   1,
+			MaxRequestBatch: 1,
+		},
 	}
 	ConsumerDurableNames = make(map[string]struct{}, len(consumerConfig))
 	for _, v := range consumerConfig {

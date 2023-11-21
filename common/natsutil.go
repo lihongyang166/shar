@@ -224,10 +224,12 @@ func Process(ctx context.Context, js nats.JetStreamContext, traceName string, cl
 		i.Set(set)
 	}
 	log := logx.FromContext(ctx)
-	if !strings.HasPrefix(durable, "ServiceTask_") {
-		conInfo, err := js.ConsumerInfo("WORKFLOW", durable)
-		if conInfo.Config.Durable == "" || err != nil {
-			return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
+	if durable != "" {
+		if !strings.HasPrefix(durable, "ServiceTask_") {
+			conInfo, err := js.ConsumerInfo("WORKFLOW", durable)
+			if conInfo.Config.Durable == "" || err != nil {
+				return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
+			}
 		}
 	}
 	sub, err := js.PullSubscribe(subject, durable)
@@ -497,6 +499,30 @@ func DeleteLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, 
 	}()
 	if err := ds.Delete(k); err != nil && errors.Is(err, nats.ErrNoObjectsFound) && !errors.Is(err, nats.ErrKeyNotFound) {
 		return fmt.Errorf("delete large removing: %w", err)
+	}
+	return nil
+}
+
+// PublishOnce sets up a single message to be used as a timer.
+func PublishOnce(js nats.JetStreamContext, lockingKV nats.KeyValue, streamName string, consumerName string, msg *nats.Msg) error {
+	consumer, err := js.ConsumerInfo(streamName, consumerName)
+	if err != nil {
+		return fmt.Errorf("obtaining publish once consumer information: %w", err)
+	}
+	if int(consumer.NumPending)+consumer.NumAckPending+consumer.NumWaiting == 0 {
+		if lock, err := Lock(lockingKV, consumerName); err != nil {
+			return fmt.Errorf("obtaining lock for publish once consumer: %w", err)
+		} else if lock {
+			defer func() {
+				// clear the lock out of courtesy
+				if err := UnLock(lockingKV, consumerName); err != nil {
+					slog.Warn("releasing lock for publish once consumer")
+				}
+			}()
+			if _, err := js.PublishMsg(msg); err != nil {
+				return fmt.Errorf("starting publish once message: %w", err)
+			}
+		}
 	}
 	return nil
 }

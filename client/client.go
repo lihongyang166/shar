@@ -30,7 +30,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/vars"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
 	"log/slog"
 	"os"
@@ -39,6 +38,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"testing"
 	"time"
 )
 
@@ -534,7 +534,7 @@ func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID 
 	if err != nil {
 		return fmt.Errorf("decode variables for complete user task: %w", err)
 	}
-	res := &emptypb.Empty{}
+	res := &model.CompleteUserTaskResponse{}
 	req := &model.CompleteUserTaskRequest{Owner: owner, TrackingId: trackingID, Vars: ev}
 	if err := api2.Call(ctx, c.txCon, messages.APICompleteUserTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
@@ -547,7 +547,7 @@ func (c *Client) completeServiceTask(ctx context.Context, trackingID string, new
 	if err != nil {
 		return fmt.Errorf("decode variables for complete service task: %w", err)
 	}
-	res := &emptypb.Empty{}
+	res := &model.CompleteServiceTaskResponse{}
 	req := &model.CompleteServiceTaskRequest{TrackingId: trackingID, Vars: ev}
 	if err := api2.Call(ctx, c.txCon, messages.APICompleteServiceTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
@@ -560,7 +560,7 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 	if err != nil {
 		return fmt.Errorf("decode variables for complete send message: %w", err)
 	}
-	res := &emptypb.Empty{}
+	res := &model.CompleteSendMessageResponse{}
 	req := &model.CompleteSendMessageRequest{TrackingId: trackingID, Vars: ev}
 	if err := api2.Call(ctx, c.txCon, messages.APICompleteSendMessageTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
@@ -890,6 +890,12 @@ func (c *Client) heartbeat(ctx context.Context) error {
 func (c *Client) startHeart(ctx context.Context) error {
 	go func() {
 		for {
+			select {
+			case <-c.closer:
+				return
+			default:
+
+			}
 			if err := c.heartbeat(ctx); err != nil {
 				slog.Error("heartbeat", "error", err)
 			}
@@ -916,7 +922,7 @@ func (c *Client) Shutdown() {
 }
 
 func (c *Client) listenTerm(ctx context.Context) {
-	if !c.noOSSig {
+	if !testing.Testing() && !c.noOSSig {
 		signal.Notify(c.sig, syscall.SIGTERM, syscall.SIGINT)
 		go func() {
 			for {
@@ -925,7 +931,7 @@ func (c *Client) listenTerm(ctx context.Context) {
 					return
 				case <-c.sig:
 					c.Shutdown()
-					return
+					os.Exit(0)
 				}
 			}
 		}()

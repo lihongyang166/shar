@@ -71,14 +71,14 @@ func New(options ...Option) *Server {
 	return s
 }
 
-func noopAuthN(ctx context.Context, request *model.ApiAuthenticationRequest) (*model.ApiAuthenticationResponse, error) {
+func noopAuthN(_ context.Context, _ *model.ApiAuthenticationRequest) (*model.ApiAuthenticationResponse, error) {
 	return &model.ApiAuthenticationResponse{
 		User:          "anonymous",
 		Authenticated: true,
 	}, nil
 }
 
-func noopAuthZ(ctx context.Context, request *model.ApiAuthorizationRequest) (*model.ApiAuthorizationResponse, error) {
+func noopAuthZ(_ context.Context, _ *model.ApiAuthorizationRequest) (*model.ApiAuthorizationResponse, error) {
 	return &model.ApiAuthorizationResponse{
 		Authorized: true,
 	}, nil

@@ -178,26 +178,14 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 		*v = kv
 	}
 
-	kickConsumer, err := js.ConsumerInfo("WORKFLOW", "MessageKickConsumer")
-	if err != nil {
-		return nil, fmt.Errorf("obtaining message kick consumer information: %w", err)
-	}
-	if int(kickConsumer.NumPending)+kickConsumer.NumAckPending+kickConsumer.NumWaiting == 0 {
-		if lock, err := common.Lock(ms.wfLock, "MessageKick"); err != nil {
-			return nil, fmt.Errorf("obtaining lock for message kick consumer: %w", err)
-		} else if lock {
-			defer func() {
-				// clear the lock out of courtesy
-				if err := common.UnLock(ms.wfLock, "MessageKick"); err != nil {
-					slog.Warn("releasing lock for message kick consumer")
-				}
-			}()
-			if _, err := ms.js.Publish(messages.WorkflowMessageKick, []byte{}); err != nil {
-				return nil, fmt.Errorf("starting message kick timer: %w", err)
-			}
-		}
+	msg := nats.NewMsg(messages.WorkflowMessageKick)
+	if err := common.PublishOnce(js, ms.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
+		return nil, fmt.Errorf("ensure kick message: %w", err)
 	}
 
+	if err := ms.startTelemetry(ctx); err != nil {
+		return nil, fmt.Errorf("start telemetry: %w", err)
+	}
 	return ms, nil
 }
 

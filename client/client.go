@@ -52,7 +52,7 @@ const internalProcessInstanceId contextKey = "__INTERNAL_PIID"
 // LogClient represents a client which is capable of logging to the SHAR infrastructure.
 type LogClient interface {
 	// Log logs to the underlying SHAR infrastructure.
-	Log(ctx context.Context, severity messages.WorkflowLogLevel, code int32, message string, attrs map[string]string) error
+	Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error
 }
 
 // JobClient represents a client that is sent to all service tasks to facilitate logging.
@@ -66,8 +66,8 @@ type jobClient struct {
 }
 
 // Log logs to the span related to this jobClient instance.
-func (c *jobClient) Log(ctx context.Context, severity messages.WorkflowLogLevel, code int32, message string, attrs map[string]string) error {
-	return c.cl.clientLog(ctx, c.trackingID, severity, code, message, attrs)
+func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error {
+	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
 }
 
 // MessageClient represents a client which supports logging and sending Workflow Messages to the underlying SHAR instrastructure.
@@ -89,8 +89,8 @@ func (c *messageClient) SendMessage(ctx context.Context, name string, key any, v
 }
 
 // Log logs to the span related to this jobClient instance.
-func (c *messageClient) Log(ctx context.Context, severity messages.WorkflowLogLevel, code int32, message string, attrs map[string]string) error {
-	return c.cl.clientLog(ctx, c.trackingID, severity, code, message, attrs)
+func (c *messageClient) Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error {
+	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
 }
 
 // ServiceFn provides the signature for service task functions.
@@ -777,9 +777,21 @@ func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string
 	return res, nil
 }
 
-func (c *Client) clientLog(ctx context.Context, trackingID string, severity messages.WorkflowLogLevel, code int32, message string, attrs map[string]string) error {
-	if err := common.Log(ctx, c.txJS, trackingID, model.LogSource_logSourceJob, severity, code, message, attrs); err != nil {
-		return fmt.Errorf("client log: %w", err)
+func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Level, message string, attrs map[string]string) error {
+	k := common.KSuidTo128bit(trackingID)
+	req := &model.LogRequest{
+		Hostname:   c.host,
+		ClientId:   c.id,
+		TrackingId: k[:],
+		Level:      int32(level),
+		Time:       time.Now().UnixMicro(),
+		Source:     model.LogSource_logSourceClient,
+		Message:    message,
+		Attributes: attrs,
+	}
+	res := &model.LogResponse{}
+	if err := api2.Call(ctx, c.txCon, messages.APILog, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return c.clientErr(ctx, err)
 	}
 	return nil
 }
@@ -845,7 +857,7 @@ func (c *Client) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskS
 	}
 	res := &model.GetTaskSpecResponse{}
 
-	if err := api2.Call(ctx, c.txCon, messages.ApiGetTaskSpec, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpec, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Spec, nil
@@ -858,7 +870,7 @@ func (c *Client) ListTaskSpecs(ctx context.Context, includeDeprecated bool) ([]*
 	}
 	res := &model.ListTaskSpecUIDsResponse{}
 
-	if err := api2.Call(ctx, c.txCon, messages.ApiListTaskSpecUIDs, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIListTaskSpecUIDs, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 
@@ -881,7 +893,7 @@ func (c *Client) heartbeat(ctx context.Context) error {
 		Time: time.Now().UnixMilli(),
 	}
 	res := &model.HeartbeatResponse{}
-	if err := api2.Call(ctx, c.txCon, messages.ApiHeartbeat, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIHeartbeat, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil

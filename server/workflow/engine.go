@@ -176,7 +176,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 		}
 
 		// fire off the new workflow state
-		if err := c.ns.PublishWorkflowState(ctx, messages.ExecutionExecute, wiState); err != nil {
+		if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowExecutionExecute, wiState); err != nil {
 			reterr = c.engineErr(ctx, "publish workflow instance execute", err,
 				slog.String(keys.WorkflowName, workflowName),
 				slog.String(keys.WorkflowID, wfID),
@@ -311,7 +311,7 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 func (c *Engine) rollBackLaunch(ctx context.Context, e *model.Execution) {
 	log := logx.FromContext(ctx)
 	log.Info("rolling back workflow launch")
-	err := c.ns.PublishWorkflowState(ctx, messages.ExecutionAbort, &model.WorkflowState{
+	err := c.ns.PublishWorkflowState(ctx, messages.WorkflowExecutionAbort, &model.WorkflowState{
 		//Id:           []string{e.WorkflowInstanceId},
 		Id:           []string{e.ExecutionId},
 		ExecutionId:  e.ExecutionId,

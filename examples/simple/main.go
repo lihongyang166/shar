@@ -24,12 +24,13 @@ func main() {
 	}
 
 	// Register a service task
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.SimpleProcess.yaml", simpleProcess); err != nil {
+	fmt.Println(os.Getwd())
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/simple/task.SimpleProcess.yaml", simpleProcess); err != nil {
 		panic(err)
 	}
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("./testdata/simple-workflow.bpmn")
 	if err != nil {
 		panic(err)
 	}

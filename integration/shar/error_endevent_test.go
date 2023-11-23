@@ -9,7 +9,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"gitlab.com/shar-workflow/shar/server/messages"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
@@ -74,7 +74,7 @@ type testErrorEndEventHandlerDef struct {
 
 // A "Hello World" service task
 func (d *testErrorEndEventHandlerDef) mayFail3(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, messages.LogInfo, -1, "service task completed successfully", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "service task completed successfully", nil); err != nil {
 		return nil, fmt.Errorf("logging failed: %w", err)
 	}
 	return model.Vars{"success": true}, nil

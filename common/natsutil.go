@@ -25,6 +25,7 @@ type NatsConn interface {
 	JetStream(opts ...nats.JSOpt) (nats.JetStreamContext, error)
 	QueueSubscribe(subj string, queue string, cb nats.MsgHandler) (*nats.Subscription, error)
 	Publish(subj string, bytes []byte) error
+	PublishMsg(msg *nats.Msg) error
 }
 
 func updateKV(wf nats.KeyValue, k string, msg proto.Message, updateFn func(v []byte, msg proto.Message) ([]byte, error)) error {
@@ -523,6 +524,24 @@ func PublishOnce(js nats.JetStreamContext, lockingKV nats.KeyValue, streamName s
 				return fmt.Errorf("starting publish once message: %w", err)
 			}
 		}
+	}
+	return nil
+}
+
+func PublishObj(ctx context.Context, conn NatsConn, subject string, prot proto.Message, fn func(*nats.Msg) error) error {
+	msg := nats.NewMsg(subject)
+	b, err := proto.Marshal(prot)
+	if err != nil {
+		return fmt.Errorf("serialize proto: %w", err)
+	}
+	msg.Data = b
+	if fn != nil {
+		if err := fn(msg); err != nil {
+			return fmt.Errorf("middleware: %w", err)
+		}
+	}
+	if err = conn.PublishMsg(msg); err != nil {
+		return fmt.Errorf("publish message: %w", err)
 	}
 	return nil
 }

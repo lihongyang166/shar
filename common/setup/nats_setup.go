@@ -64,7 +64,7 @@ func init() {
 			AckPolicy:       nats.AckExplicitPolicy,
 			AckWait:         30 * time.Second,
 			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.ExecutionAll, "*"),
+			FilterSubject:   subj.NS(messages.WorkflowExecutionAll, "*"),
 			MaxRequestBatch: 1,
 		},
 		{
@@ -194,6 +194,22 @@ func EnsureWorkflowStream(ctx context.Context, nc common.NatsConn, js nats.JetSt
 			Name:          "WORKFLOW",
 			FilterSubject: "WORKFLOW.*.State.>",
 		}},
+	}); err != nil {
+		return fmt.Errorf("ensure workflow stream: %w", err)
+	}
+
+	if err := EnsureStream(ctx, nc, js, nats.StreamConfig{
+		Name:      "WORKFLOW-TELEMETRY",
+		Subjects:  []string{"WORKFLOW-TELEMETRY.>"},
+		Storage:   storageType,
+		Retention: nats.LimitsPolicy,
+		MaxAge:    mirrorAge,
+		Sources: []*nats.StreamSource{
+			{Name: "WORKFLOW", SubjectTransforms: []nats.SubjectTransformConfig{
+				{"WORKFLOW.*.State.*.*", "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}"},
+				{"WORKFLOW.*.State.*.*.*", "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}.{{wildcard(4)}}"},
+			}},
+		},
 	}); err != nil {
 		return fmt.Errorf("ensure workflow stream: %w", err)
 	}

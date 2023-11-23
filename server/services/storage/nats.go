@@ -985,7 +985,7 @@ func (s *Nats) Shutdown() {
 }
 
 func (s *Nats) processWorkflowEvents(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "workflowEvent", s.closing, subj.NS(messages.ExecutionAll, "*"), "WorkflowConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "workflowEvent", s.closing, subj.NS(messages.WorkflowExecutionAll, "*"), "WorkflowConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
@@ -1351,7 +1351,7 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 		return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
 	}
 	if len(e.ProcessInstanceId) == 0 {
-		if err := s.PublishWorkflowState(ctx, messages.ExecutionComplete, state); err != nil {
+		if err := s.PublishWorkflowState(ctx, messages.WorkflowExecutionComplete, state); err != nil {
 			return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
 		}
 	}
@@ -1471,6 +1471,13 @@ func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string
 func (s *Nats) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error {
 	if err := common.SaveObj(ctx, s.wfClients, req.Host+"-"+req.Id, req); err != nil {
 		return fmt.Errorf("heartbeat write to kv: %w", err)
+	}
+	return nil
+}
+
+func (s *Nats) Log(ctx context.Context, req *model.LogRequest) error {
+	if err := common.PublishObj(ctx, s.conn, messages.WorkflowTelemetryLog, req, nil); err != nil {
+		return fmt.Errorf("publish object: %w", err)
 	}
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"gitlab.com/shar-workflow/shar/server/messages"
+	"log/slog"
 	"os"
 	"sync"
 	"testing"
@@ -193,14 +193,15 @@ type testMessagingHandlerDef struct {
 }
 
 func (x *testMessagingHandlerDef) step1(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, messages.LogInfo, -1, "Step 1", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
+	client.Log(ctx, slog.LevelInfo, "A sample client log", map[string]string{"funFactor": "100"})
 	return model.Vars{}, nil
 }
 
 func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, messages.LogInfo, -1, "Step 2", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "Step 2", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
 	x.tst.Mx.Lock()
@@ -210,10 +211,10 @@ func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobCl
 }
 
 func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars) error {
-	if err := client.Log(ctx, messages.LogDebug, -1, "Sending Message...", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
-
+	client.Log(ctx, slog.LevelInfo, "A sample messaging log", map[string]string{"funFactor": "100"})
 	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
@@ -233,7 +234,7 @@ type messageStartEventWorkflowEventHandler struct {
 }
 
 func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, messages.LogInfo, -1, "simpleServiceTaskHandler", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "simpleServiceTaskHandler", nil); err != nil {
 		return nil, fmt.Errorf("failed logging: %w", err)
 	}
 	actualCustomerId := vars["customerID"]

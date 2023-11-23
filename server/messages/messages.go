@@ -2,6 +2,7 @@ package messages
 
 import (
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"strings"
 )
 
 const (
@@ -14,11 +15,11 @@ const (
 	WorkflowCommands                  = "WORKFLOW.%s.Command.>"                       // WorkflowCommands is the wildcard state message subject for all workflow commands.
 	WorkflowElementTimedExecute       = "WORKFLOW.%s.Timers.ElementExecute"           // WorkflowElementTimedExecute is the state message subject for a timed element execute operation.
 	WorkflowGeneralAbortAll           = "WORKFLOW.%s.State.*.Abort"                   // WorkflowGeneralAbortAll is the wildcard state message subject for all abort messages/.
-	ExecutionAbort                    = "WORKFLOW.%s.State.Workflow.Abort"            // ExecutionAbort is the state message subject for a workflow instace being aborted.
-	ExecutionAll                      = "WORKFLOW.%s.State.Workflow.>"                // ExecutionAll is the wildcard state message subject for all workflow state messages.
-	ExecutionComplete                 = "WORKFLOW.%s.State.Workflow.Complete"         // ExecutionComplete is the state message subject for completing a workfloe instance.
-	ExecutionExecute                  = "WORKFLOW.%s.State.Workflow.Execute"          // ExecutionExecute is the state message subject for executing a workflow instance.
-	ExecutionTerminated               = "WORKFLOW.%s.State.Workflow.Terminated"       // ExecutionTerminated is the state message subject for a workflow instance terminating.
+	WorkflowExecutionAbort            = "WORKFLOW.%s.State.Execution.Abort"           // WorkflowExecutionAbort is the state message subject for an execution instace being aborted.
+	WorkflowExecutionAll              = "WORKFLOW.%s.State.Execution.>"               // WorkflowExecutionAll is the wildcard state message subject for all execution state messages.
+	WorkflowExecutionComplete         = "WORKFLOW.%s.State.Execution.Complete"        // WorkflowExecutionComplete is the state message subject for completing an execution instance.
+	WorkflowExecutionExecute          = "WORKFLOW.%s.State.Execution.Execute"         // WorkflowExecutionExecute is the state message subject for executing an execution instance.
+	ExecutionTerminated               = "WORKFLOW.%s.State.Execution.Terminated"      // ExecutionTerminated is the state message subject for an execution instance terminating.
 	WorkflowJobAwaitMessageExecute    = "WORKFLOW.%s.State.Job.Execute.AwaitMessage"  // WorkflowJobAwaitMessageExecute is the state message subject for awaiting a message.
 	WorkflowJobAwaitMessageComplete   = "WORKFLOW.%s.State.Job.Complete.AwaitMessage" // WorkflowJobAwaitMessageComplete is the state message subject for completing awaiting a message.
 	WorkflowJobAwaitMessageAbort      = "WORKFLOW.%s.State.Job.Abort.AwaitMessage"    // WorkflowJobAwaitMessageAbort is the state message subject for aborting awaiting a message.
@@ -68,10 +69,11 @@ const (
 )
 
 const (
-	WorkflowTelemetryClientCount = "WORKFLOW.Telemetry.Client.Count" // WorkflowTelemetryClientCount is the message subject for workflow client count telemetry.
+	WorkflowTelemetryClientCount = "WORKFLOW-TELEMETRY.Client.Count" // WorkflowTelemetryClientCount is the message subject for workflow client count telemetry.
+	WorkflowTelemetryLog         = "WORKFLOW-TELEMETRY.Log"          //WorkflowTelemetryLog is the message subject for telemetry logging.
 )
 
-// WorkflowLogLevel represents a subject suffox for logging levels
+// WorkflowLogLevel represents a subject suffix for logging levels
 type WorkflowLogLevel string
 
 const (
@@ -106,7 +108,7 @@ var AllMessages = []string{
 	subj.NS(WorkflowActivityExecute, "*"),
 	subj.NS(WorkflowCommands, "*"),
 	subj.NS(WorkflowElementTimedExecute, "*"),
-	subj.NS(ExecutionAll, "*"),
+	subj.NS(WorkflowExecutionAll, "*"),
 	subj.NS(WorkflowJobAwaitMessageExecute, "*"),
 	subj.NS(WorkflowJobLaunchExecute, "*"),
 	subj.NS(WorkflowJobManualTaskExecute, "*"),
@@ -125,10 +127,43 @@ var AllMessages = []string{
 	subj.NS(WorkflowTraversalExecute, "*"),
 	subj.NS(WorkflowJobGatewayTaskActivate, "*"),
 	subj.NS(WorkflowJobGatewayTaskReEnter, "*"),
-	WorkflowTelemetryClientCount,
 	WorkflowTelemetryTimer,
 	WorkflowMessageKick,
 	"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>", // Dead letter functionality
+}
+
+var wfTelemetry = func(subj string) string {
+	return strings.Replace(subj, "WORKFLOW.%s.", "WORKFLOW-TELEMETRY.*.", -1)
+}
+
+var TelemetryMessages = []string{
+	// Execution
+	wfTelemetry(WorkflowExecutionExecute),
+	wfTelemetry(WorkflowProcessExecute),
+	wfTelemetry(WorkflowTraversalExecute),
+	wfTelemetry(WorkflowActivityExecute),
+	wfTelemetry(WorkflowJobServiceTaskExecute),
+	wfTelemetry(WorkflowJobServiceTaskExecuteWild),
+	wfTelemetry(WorkflowJobUserTaskExecute),
+	wfTelemetry(WorkflowJobManualTaskExecute),
+	wfTelemetry(WorkflowJobSendMessageExecute),
+	// Completion
+	wfTelemetry(WorkflowProcessComplete),
+	wfTelemetry(WorkflowTraversalComplete),
+	wfTelemetry(WorkflowActivityComplete),
+	wfTelemetry(WorkflowJobServiceTaskComplete),
+	wfTelemetry(WorkflowJobManualTaskComplete),
+	wfTelemetry(WorkflowJobUserTaskComplete),
+	wfTelemetry(WorkflowJobSendMessageComplete),
+	wfTelemetry(WorkflowExecutionComplete),
+
+	// Abort
+	wfTelemetry(WorkflowActivityAbort),
+	wfTelemetry(WorkflowExecutionAbort),
+	wfTelemetry(WorkflowProcessTerminated),
+	// Shar Telemetry Output
+	WorkflowTelemetryClientCount,
+	WorkflowTelemetryLog,
 }
 
 // WorkflowMessageFormat provides the template for sending workflow messages.
@@ -153,17 +188,17 @@ const (
 	APIGetUserTask              = "WORKFLOW.Api.GetUserTask"              // APIGetUserTask is the get user task API subject.
 	APIGetTaskSpecVersions      = "WORKFLOW.Api.GetTaskSpecVersions"      // APIGetTaskSpecVersions is the get task versions API subject.
 	APIHandleWorkflowError      = "WORKFLOW.Api.HandleWorkflowError"      // APIHandleWorkflowError is the handle workflow error API subject.
-	APIGetServerInstanceStats   = "WORKFLOW.Api.GetServerInstanceStats"   // APIGetServerInstanceStats is the get server instance status API subject.
 	APIRegisterTask             = "Workflow.Api.RegisterTask"             // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
 	APIGetProcessInstanceStatus = "WORKFLOW.Api.GetProcessInstanceStatus" // APIGetProcessInstanceStatus is the get process instance status API subject.
-	ApiGetTaskSpec              = "WORKFLOW.Api.GetTaskSpec"              // ApiGetTaskSpec is the get task spec API message subject.
+	APIGetTaskSpec              = "WORKFLOW.Api.GetTaskSpec"              // APIGetTaskSpec is the get task spec API message subject.
 	APIGetWorkflowVersions      = "WORKFLOW.Api.GetWorkflowVersions"      // APIGetWorkflowVersions is the get workflow versions API message subject.
 	APIGetWorkflow              = "WORKFLOW.Api.GetWorkflow"              // APIGetWorkflow is the get workflow API message subject.
 	APIGetProcessHistory        = "WORKFLOW.Api.GetProcessHistory"        // APIGetProcessHistory is the get process history API message subject.
 	APIGetVersionInfo           = "WORKFLOW.API.GetVersionInfo"           // APIGetVersionInfo is the get server version information API message subject.
 	APIGetTaskSpecUsage         = "WORKFLOW.Api.GetTaskSpecUsage"         // APIGetTaskSpecUsage is the get task spec usage API message subject.
-	ApiListTaskSpecUIDs         = "WORKFLOW.Api.ListTaskSpecUIDs"         // ApiListTaskSpecUIDs is the list task spec UIDs API message subject.
-	ApiHeartbeat                = "WORKFLOW.Api.Heartbeat"                // ApiHeartbeat // is the heartbeat API message subject.
+	APIListTaskSpecUIDs         = "WORKFLOW.Api.ListTaskSpecUIDs"         // APIListTaskSpecUIDs is the list task spec UIDs API message subject.
+	APIHeartbeat                = "WORKFLOW.Api.Heartbeat"                // APIHeartbeat // is the heartbeat API message subject.
+	APILog                      = "WORKFLOW.Api.Log"                      // ApiLog // is the client logging message subject.
 )
 
 var (

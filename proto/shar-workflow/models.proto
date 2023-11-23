@@ -32,6 +32,7 @@ service Shar {
   rpc GetTaskSpecUsage (GetTaskSpecUsageRequest) returns (GetTaskSpecUsageResponse);
   rpc ListTaskSpecUIDs (ListTaskSpecUIDsRequest) returns (ListTaskSpecUIDsResponse);
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc Log(LogRequest) returns (LogResponse);
 }
 
 message StoreWorkflowRequest {
@@ -622,6 +623,7 @@ enum LogSource {
   logSourceWorkflow = 2;
   logSourceClient = 3;
   logSourceJob = 4;
+  logSourceTelemetry = 5;
 }
 
 message TaskSpecVersions {
@@ -807,4 +809,19 @@ message Exchange {
 
 message TelemetryClients {
   int32 count = 1;
+}
+
+message LogRequest {
+  string hostname = 1;
+  string clientId = 2;
+  bytes trackingId = 3;
+  int32 level = 4;
+  int64 time = 5;
+  LogSource source = 6;
+  string message = 7;
+  map<string, string> attributes = 8;
+}
+
+message LogResponse {
+
 }

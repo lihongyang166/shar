@@ -3,6 +3,8 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"github.com/nats-io/nats.go"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
@@ -15,7 +17,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 )
 
-func TestSimple(t *testing.T) {
+func TestTelemetryStream(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true
 
@@ -31,7 +33,7 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register a service task
-	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{})}
+	d := &testTelemetryStreamDef{t: t, finished: make(chan struct{})}
 
 	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
@@ -41,6 +43,15 @@ func TestSimple(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
+
+	js, err := tst.GetJetstream()
+	require.NoError(t, err)
+	sub, err := js.Subscribe("WORKFLOW-TELEMETRY.>", func(msg *nats.Msg) {
+		fmt.Println(msg.Subject)
+		msg.Ack()
+	})
+	require.NoError(t, err)
+	defer sub.Drain()
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
@@ -57,19 +68,20 @@ func TestSimple(t *testing.T) {
 	tst.AssertCleanKV()
 }
 
-type testSimpleHandlerDef struct {
+type testTelemetryStreamDef struct {
 	t        *testing.T
 	finished chan struct{}
 }
 
-func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testTelemetryStreamDef) integrationSimple(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
+	client.Log(ctx, slog.LevelInfo, "Info message logged from client: integration simple", map[string]string{"value1": "good"})
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))
 	vars["Success"] = true
 	return vars, nil
 }
 
-func (d *testSimpleHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (d *testTelemetryStreamDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	close(d.finished)
 }

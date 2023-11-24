@@ -78,7 +78,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		t.Skip("NATS_PERSIST only usable with containerised nats")
 	}
 
-	logx.SetDefault(slog.LevelDebug, true, "shar-Integration-tests")
+	logx.SetDefault("otel", slog.LevelDebug, true, "shar-Integration-tests")
 	s.Cooldown = 60 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})

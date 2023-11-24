@@ -26,7 +26,15 @@ func main() {
 	default:
 		lev = slog.LevelError
 	}
-	logx.SetDefault(lev, addSource, "shar")
+
+	shutdonwFn := logx.SetDefault(cfg.LogHandler, lev, addSource, "shar")
+	defer func() {
+		er := shutdonwFn()
+		if er != nil {
+			slog.Warn("error during logging shutdown", slog.Any("error", er))
+		}
+	}()
+
 	if err != nil {
 		panic(err)
 	}

@@ -59,7 +59,7 @@ func TestConcurrentMessaging(t *testing.T) {
 	}()
 
 	handlers.instComplete = make(map[string]struct{})
-	n := 100
+	n := 500
 	tm := time.Now()
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {

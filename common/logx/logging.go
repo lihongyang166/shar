@@ -3,8 +3,16 @@ package logx
 import (
 	"context"
 	"fmt"
+	"github.com/agoda-com/opentelemetry-go/otelslog"
+	"github.com/agoda-com/opentelemetry-logs-go/exporters/otlp/otlplogs"
+	sdk "github.com/agoda-com/opentelemetry-logs-go/sdk/logs"
 	"github.com/go-logr/logr"
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
 	"log/slog"
 	"os"
 )
@@ -33,15 +41,91 @@ func Err(ctx context.Context, message string, err error, atts ...any) error {
 	return fmt.Errorf(message+" %s : %w", fmt.Sprint(atts...), err)
 }
 
-// SetDefault sets the default logger for an application.  This should be done in tha application's main.go before and call to slog to prevent race conditions.
-func SetDefault(level slog.Level, addSource bool, ecosystem string) {
-	o := &slog.HandlerOptions{
-		AddSource:   addSource,
-		Level:       level,
-		ReplaceAttr: nil,
+func newResource() *resource.Resource {
+	hostName, _ := os.Hostname()
+	return resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceName("shar-server"),
+		semconv.ServiceVersion("1.0.0"),
+		semconv.HostName(hostName),
+	)
+}
+
+type LoggingSpan struct {
+	trace.Span
+	IsRecordin    bool
+	SpanCtx       trace.SpanContext
+	TracerProvidr trace.TracerProvider
+}
+
+func (ls *LoggingSpan) End(_ ...trace.SpanEndOption) {
+
+}
+
+func (ls *LoggingSpan) AddEvent(_ string, _ ...trace.EventOption) {
+
+}
+
+func (ls *LoggingSpan) IsRecording() bool {
+	return ls.IsRecordin
+}
+
+func (ls *LoggingSpan) RecordError(_ error, _ ...trace.EventOption) {
+
+}
+
+func (ls *LoggingSpan) SpanContext() trace.SpanContext {
+	return ls.SpanCtx
+}
+
+func (ls *LoggingSpan) SetStatus(_ codes.Code, _ string) {
+
+}
+
+func (ls *LoggingSpan) SetName(_ string) {
+
+}
+
+func (ls *LoggingSpan) SetAttributes(_ ...attribute.KeyValue) {
+
+}
+
+func (ls *LoggingSpan) TracerProvider() trace.TracerProvider {
+	return ls.TracerProvidr
+}
+
+func SetDefault(handler string, level slog.Level, addSource bool, ecosystem string) func() error {
+	var h slog.Handler
+	var shutdownFn func() error
+
+	switch handler {
+	case "otel":
+		ctx := context.Background()
+
+		// configure opentelemetry logger provider
+		logExporter, _ := otlplogs.NewExporter(ctx)
+		loggerProvider := sdk.NewLoggerProvider(
+			sdk.WithBatcher(logExporter),
+			sdk.WithResource(newResource()),
+		)
+		// gracefully shutdown logger to flush accumulated signals before program finish
+		shutdownFn = func() error { return loggerProvider.Shutdown(ctx) }
+
+		h = otelslog.NewOtelHandler(loggerProvider, &otelslog.HandlerOptions{})
+
+	default:
+		o := &slog.HandlerOptions{
+			AddSource:   addSource,
+			Level:       level,
+			ReplaceAttr: nil,
+		}
+		h = slog.NewTextHandler(os.Stdout, o)
+		shutdownFn = func() error { return nil } //noop for shutting down text handler
 	}
-	h := slog.NewTextHandler(os.Stdout, o)
+
 	slog.SetDefault(slog.New(h).With(slog.String(EcoSystemLoggingKey, ecosystem)))
+
+	return shutdownFn
 }
 
 // NatsMessageLoggingEntrypoint returns a new logger and a context containing the logger for use when a new NATS message arrives.

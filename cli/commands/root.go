@@ -67,5 +67,5 @@ func init() {
 	} else {
 		output.Current = &output.Json{}
 	}
-	logx.SetDefault(lev, addSource, "shar-cli")
+	logx.SetDefault("", lev, addSource, "shar-cli")
 }

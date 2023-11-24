@@ -74,5 +74,5 @@ func setupLogging() {
 	default:
 		lev = slog.LevelInfo
 	}
-	logx.SetDefault(lev, addSource, "zen-shar")
+	logx.SetDefault("text", lev, addSource, "zen-shar")
 }

@@ -39,6 +39,7 @@ type Server struct {
 	SharVersion             *version.Version
 	natsUrl                 string
 	grpcPort                int
+	conn                    *nats.Conn
 }
 
 // New creates a new SHAR server.
@@ -118,8 +119,7 @@ func (s *Server) Listen() {
 		// Create private health server
 		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 	}
-
-	ns := s.createServices(s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
+	ns := s.createServices(s.conn, s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
 	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator)
 	if err != nil {
 		panic(err)
@@ -159,12 +159,8 @@ func (s *Server) GetEndPoint() string {
 	return "TODO" //can we discover the grpc endpoint listen address??
 }
 
-func (s *Server) createServices(natsURL string, ephemeral bool, allowOrphanServiceTasks bool) *storage.Nats {
-	conn, err := nats.Connect(natsURL)
-	if err != nil {
-		slog.Error("connect to NATS", err, slog.String("url", natsURL))
-		panic(err)
-	}
+func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool, allowOrphanServiceTasks bool) *storage.Nats {
+
 	//TODO why do we need a separate txConn?
 	txConn, err := nats.Connect(natsURL)
 	if err != nil {

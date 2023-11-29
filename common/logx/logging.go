@@ -94,9 +94,13 @@ func (ls *LoggingSpan) TracerProvider() trace.TracerProvider {
 	return ls.TracerProvidr
 }
 
-func SetDefault(handler string, level slog.Level, addSource bool, ecosystem string) func() error {
+func SetDefault(handler string, level slog.Level, addSource bool, ecosystem string, conn *nats.Conn) func() error {
 	var h slog.Handler
 	var shutdownFn func() error
+
+	//TODO is it worth introducing a handler factory here???
+	//it would avoid a growing list of params being passed in to this function
+	//unnecessarily
 
 	switch handler {
 	case "otel":

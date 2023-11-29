@@ -20,7 +20,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
-	"go.opentelemetry.io/otel/trace"
 	maps2 "golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
@@ -540,26 +539,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	executionID := ksuid.New().String()
 	log := logx.FromContext(ctx)
 
-	//################## log w context eg
-	traceIdStr := ksuid.New().String()
-	traceID := common.KSuidTo128bit(traceIdStr)
-	spanIdStr := ksuid.New().String()
-	spanID := common.KSuidTo64bit(spanIdStr)
-	ls := &logx.LoggingSpan{
-		IsRecordin: true,
-		SpanCtx: trace.NewSpanContext(trace.SpanContextConfig{
-			TraceID:    traceID,
-			SpanID:     spanID,
-			TraceFlags: 0,
-			TraceState: trace.TraceState{},
-			Remote:     false,
-		}),
-	}
-	spanCtx := trace.ContextWithSpan(ctx, ls)
-	//##################
-
-	log.InfoContext(spanCtx, "creating execution", slog.String(keys.ExecutionID, executionID))
-	//log.Info("creating execution", slog.String(keys.ExecutionID, executionID))
+	log.Info("creating execution", slog.String(keys.ExecutionID, executionID))
 
 	execution.ExecutionId = executionID
 	execution.ProcessInstanceId = []string{}

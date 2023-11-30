@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/nats-io/nats.go"
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/server/config"
 	"gitlab.com/shar-workflow/shar/server/server"
@@ -34,13 +35,15 @@ func main() {
 		panic(err)
 	}
 
-	shutdownFn := logx.SetDefault(cfg.LogHandler, lev, addSource, "shar", conn)
-	defer func() {
-		er := shutdownFn()
-		if er != nil {
-			slog.Warn("error during logging shutdown", slog.Any("error", er))
-		}
-	}()
+	var handler slog.Handler
+	switch cfg.LogHandler {
+	case "shar-handler":
+		handler = common.NewSharHandler(common.HandlerOptions{Level: lev}, &common.NatsLogPublisher{Conn: conn})
+	default:
+		handler = common.NewTextHandler(lev, addSource)
+	}
+
+	logx.SetDefault("shar", handler)
 
 	if err != nil {
 		panic(err)

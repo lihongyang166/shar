@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/common"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -78,7 +79,6 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		t.Skip("NATS_PERSIST only usable with containerised nats")
 	}
 
-	logx.SetDefault("text", slog.LevelDebug, true, "shar-Integration-tests", nil)
 	s.Cooldown = 60 * time.Second
 	s.Test = t
 	s.FinalVars = make(map[string]interface{})
@@ -91,6 +91,22 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	}
 
 	ss, ns, err := zensvr.GetServers(20, authZFn, authNFn, zensvrOptions...)
+
+	level := slog.LevelDebug
+
+	addSource := true
+	h := common.NewTextHandler(level, addSource)
+
+	//conn, err := nats.Connect(ns.GetEndPoint())
+	//if err != nil {
+	//	panic(err)
+	//}
+	//h := common.NewSharHandler(common.HandlerOptions{Level: level}, &common.NatsLogPublisher{
+	//	Conn: conn,
+	//})
+
+	logx.SetDefault("shar-Integration-tests", h)
+
 	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
 
 	if err != nil {

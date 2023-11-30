@@ -112,6 +112,9 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 
 	// get the last version of the workflow
 	wf, err := c.ns.GetWorkflow(ctx, wfID)
+
+	ctx = logx.ContextWithWf(ctx, wf) //can this just add attrs to the logger of this context???
+
 	if err != nil {
 		reterr = c.engineErr(ctx, "get workflow", err,
 			slog.String(keys.ParentInstanceElementID, parentElID),

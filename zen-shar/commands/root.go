@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/zen-shar/flag"
 	"gitlab.com/shar-workflow/shar/zen-shar/server"
@@ -74,5 +75,6 @@ func setupLogging() {
 	default:
 		lev = slog.LevelInfo
 	}
-	logx.SetDefault("text", lev, addSource, "zen-shar", nil)
+	hndler := common.NewTextHandler(lev, addSource)
+	logx.SetDefault("zen-shar", hndler)
 }

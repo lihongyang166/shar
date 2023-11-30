@@ -1,10 +1,9 @@
-package handler
+package common
 
 import (
 	"context"
 	"fmt"
 	"github.com/nats-io/nats.go"
-	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"log/slog"
@@ -18,11 +17,11 @@ type LogPublisher interface {
 }
 
 type NatsLogPublisher struct {
-	conn *nats.Conn
+	Conn *nats.Conn
 }
 
 func (nlp *NatsLogPublisher) Publish(ctx context.Context, lr *model.LogRequest) error {
-	if err := common.PublishObj(ctx, nlp.conn, messages.WorkflowTelemetryLog, lr, nil); err != nil {
+	if err := PublishObj(ctx, nlp.Conn, messages.WorkflowTelemetryLog, lr, nil); err != nil {
 		return fmt.Errorf("publish object: %w", err)
 	}
 	return nil

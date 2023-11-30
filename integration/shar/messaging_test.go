@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -10,8 +11,10 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
+	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -26,7 +29,7 @@ type MessagingTestSuite struct {
 
 func (suite *MessagingTestSuite) SetupTest() {
 	suite.integrationSupport = &support.Integration{}
-	suite.integrationSupport.WithTrace = true
+	suite.integrationSupport.WithTrace = false
 	suite.integrationSupport.Setup(suite.T(), nil, nil)
 	suite.ctx = context.Background()
 
@@ -75,6 +78,20 @@ func (suite *MessagingTestSuite) TestMessaging() {
 		t.Fatal(err)
 		return
 	}
+
+	js, err := tst.GetJetstream()
+	require.NoError(t, err)
+	sub, err := js.Subscribe("WORKFLOW-TELEMETRY.>", func(msg *nats.Msg) {
+		if strings.HasPrefix(msg.Subject, "WORKFLOW-TELEMETRY.Log") {
+			lr := &model.LogRequest{}
+			_ = proto.Unmarshal(msg.Data, lr)
+			fmt.Println(fmt.Sprintf("###log is %+v", lr))
+		}
+
+		msg.Ack()
+	})
+	require.NoError(t, err)
+	defer sub.Drain()
 
 	// Listen for service tasks
 	go func() {

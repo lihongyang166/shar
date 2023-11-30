@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/model"
+	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"log/slog"
 	"os"
@@ -48,12 +50,6 @@ func (sh *SharHandler) Enabled(_ context.Context, level slog.Level) bool {
 }
 
 func (sh *SharHandler) Handle(ctx context.Context, r slog.Record) error {
-	//this needs to take in a r
-	//inspect whether wf state is in ctx
-	//extract wf state vals
-	//set them as logging attrs
-	//set any attrs directly on the slog.Record into the attrs
-
 	attr := map[string]string{}
 	r.Attrs(func(a slog.Attr) bool {
 		attr[a.Key] = a.Value.String()
@@ -121,11 +117,6 @@ func (sh *SharHandler) WithGroup(name string) slog.Handler {
 
 }
 
-//TODO
-// x 1) implement SharHandler
-// 2) place wf state into the ctx and call Info|Warn|Debug|Context()
-// 3) so that wf state vals are made available to the LogRequest msg sent to nats
-
 func NewSharHandler(opts HandlerOptions, logPublisher LogPublisher) slog.Handler {
 	var err error
 	hostName, err = os.Hostname()
@@ -135,4 +126,16 @@ func NewSharHandler(opts HandlerOptions, logPublisher LogPublisher) slog.Handler
 
 	sharHandler := &SharHandler{opts: opts, logPublisher: logPublisher}
 	return sharHandler
+}
+
+func ContextLoggerWithWfState(ctx context.Context, state *model.WorkflowState) (context.Context, *slog.Logger) {
+	logger := logx.FromContext(ctx).
+		With(wfStatePrefix(keys.ExecutionID), state.ExecutionId).
+		With(wfStatePrefix(keys.TrackingID), TrackingID(state.Id).ID()).
+		With(wfStatePrefix(keys.ParentTrackingID), TrackingID(state.Id).ParentID())
+	return logx.NewContext(ctx, logger), logger
+}
+
+func wfStatePrefix(keyName string) string {
+	return fmt.Sprintf("%s%s", logx.WfStateLoggingKeyPrefix, keyName)
 }

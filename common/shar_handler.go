@@ -42,11 +42,10 @@ type SharHandler struct {
 
 func (sh *SharHandler) Enabled(_ context.Context, level slog.Level) bool {
 	minLevel := slog.LevelInfo
-	if sh.opts.Level == nil {
-		return minLevel.Level() <= level
+	if sh.opts.Level != nil {
+		minLevel = sh.opts.Level.Level()
 	}
-
-	return sh.opts.Level.Level() <= level
+	return level >= minLevel
 }
 
 func (sh *SharHandler) Handle(ctx context.Context, r slog.Record) error {

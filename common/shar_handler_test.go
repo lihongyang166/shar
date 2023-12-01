@@ -42,11 +42,11 @@ func TestSharHandlerSuite(t *testing.T) {
 }
 
 func (shs *SharHandlerSuite) TestSharHandlerEnabled() {
-	sharHandlerOptions := HandlerOptions{Level: slog.LevelInfo}
+	sharHandlerOptions := HandlerOptions{Level: slog.LevelDebug}
 	sharHandler := NewSharHandler(sharHandlerOptions, nil)
 
 	ctx := context.Background()
-	isEnabled := sharHandler.Enabled(ctx, slog.LevelInfo)
+	isEnabled := sharHandler.Enabled(ctx, slog.LevelDebug)
 
 	assert.Equal(shs.T(), isEnabled, true)
 }
@@ -114,20 +114,3 @@ func (shs *SharHandlerSuite) TestSharHandlerHandleWithAttrsAndGroups() {
 
 	shs.mlp.AssertExpectations(shs.T())
 }
-
-func (shs *SharHandlerSuite) TestSharHandlerHandleWithWorkflowStateFromContext() {
-	shs.T().Fatal("implement attr setting from workflowstate from context")
-}
-
-//func (shs *SharHandlerSuite) TestSharHandlerWithAttrs() {
-//
-//	attrs := []slog.Attr{}
-//	shs.sharHandler.WithAttrs(attrs)
-//
-//	shs.T().Fatal("implement with Attrs")
-//}
-//
-//func (shs *SharHandlerSuite) TestSharHandlerWithGroup() {
-//	shs.T().Fatal("implement With Group")
-//
-//}

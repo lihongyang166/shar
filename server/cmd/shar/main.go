@@ -8,6 +8,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/server"
 	"log"
 	"log/slog"
+	"strings"
 )
 
 func main() {
@@ -35,15 +36,22 @@ func main() {
 		panic(err)
 	}
 
-	var handler slog.Handler
-	switch cfg.LogHandler {
-	case "shar-handler":
-		handler = common.NewSharHandler(common.HandlerOptions{Level: lev}, &common.NatsLogPublisher{Conn: conn})
-	default:
-		handler = common.NewTextHandler(lev, addSource)
+	handlerFactoryFns := map[string](func() slog.Handler){
+		"text": func() slog.Handler {
+			return common.NewTextHandler(lev, addSource)
+		},
+		"shar-handler": func() slog.Handler {
+			return common.NewSharHandler(common.HandlerOptions{Level: lev}, &common.NatsLogPublisher{Conn: conn})
+		},
 	}
 
-	logx.SetDefault("shar", handler)
+	cfgHandlers := strings.Split(cfg.LogHandler, ",")
+	handlers := []slog.Handler{}
+	for _, h := range cfgHandlers {
+		handlers = append(handlers, handlerFactoryFns[h]())
+	}
+
+	logx.SetDefault("shar", common.NewMultiHandler(handlers, common.HandlerOptions{Level: lev}))
 
 	if err != nil {
 		panic(err)

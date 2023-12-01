@@ -84,7 +84,10 @@ func (suite *MessagingTestSuite) TestMessaging() {
 	sub, err := js.Subscribe("WORKFLOW-TELEMETRY.>", func(msg *nats.Msg) {
 		if strings.HasPrefix(msg.Subject, "WORKFLOW-TELEMETRY.Log") {
 			lr := &model.LogRequest{}
-			_ = proto.Unmarshal(msg.Data, lr)
+			err = proto.Unmarshal(msg.Data, lr)
+			if err != nil {
+				fmt.Println(fmt.Sprintf("###err %s", err))
+			}
 			fmt.Println(fmt.Sprintf("###log is %+v", lr))
 		}
 

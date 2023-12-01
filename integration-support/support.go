@@ -95,17 +95,21 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	level := slog.LevelDebug
 
 	addSource := true
-	h := common.NewTextHandler(level, addSource)
+	textHandler := common.NewTextHandler(level, addSource)
 
 	//conn, err := nats.Connect(ns.GetEndPoint())
 	//if err != nil {
 	//	panic(err)
 	//}
-	//h := common.NewSharHandler(common.HandlerOptions{Level: level}, &common.NatsLogPublisher{
+	//sharHandler := common.NewSharHandler(common.HandlerOptions{Level: level}, &common.NatsLogPublisher{
 	//	Conn: conn,
 	//})
 
-	logx.SetDefault("shar-Integration-tests", h)
+	multiHandler := common.NewMultiHandler([]slog.Handler{textHandler /*sharHandler*/}, common.HandlerOptions{
+		Level: level,
+	})
+
+	logx.SetDefault("shar-Integration-tests", multiHandler)
 
 	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
 

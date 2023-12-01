@@ -3,11 +3,13 @@ package server
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -31,6 +33,11 @@ const (
 	id          = 1
 )
 
+// NatsConfig holds the current configuration of the SHAR Telemetry Server
+//
+//go:embed nats-config.yaml
+var NatsConfig string
+
 // Server is the shar server type responsible for hosting the telemetry server.
 type Server struct {
 	js     nats.JetStreamContext
@@ -41,7 +48,7 @@ type Server struct {
 }
 
 // New creates a new telemetry server.
-func New(ctx context.Context, js nats.JetStreamContext, exp Exporter) *Server {
+func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageType nats.StorageType, exp Exporter) *Server {
 	// Define our resource
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
@@ -50,18 +57,7 @@ func New(ctx context.Context, js nats.JetStreamContext, exp Exporter) *Server {
 		attribute.Int64("ID", id),
 	)
 
-	if err := common.EnsureBuckets(js, nats.FileStorage, []string{"WORKFLOW_TRACE"}); err != nil {
-		panic(err)
-	}
-
-	if err := ensureConsumer(js, "WORKFLOW-TELEMETRY", &nats.ConsumerConfig{
-		Durable:       "Tracing",
-		Description:   "Sequential Trace Consumer",
-		DeliverPolicy: nats.DeliverAllPolicy,
-		FilterSubject: "WORKFLOW-TELEMETRY.>",
-		AckPolicy:     nats.AckExplicitPolicy,
-		MaxAckPending: 1,
-	}); err != nil {
+	if err := setup.Nats(ctx, nc, js, storageType, NatsConfig, true); err != nil {
 		panic(err)
 	}
 
@@ -84,10 +80,10 @@ func (s *Server) Listen() error {
 	s.spanKV = kv
 	kv, err = s.js.KeyValue(messages.KvInstance)
 	if err != nil {
-		return fmt.Errorf("listen failed to attach to instance key value database: %w", err)
+		return fmt.Errorf("listen failed to attach to instance key value database, is SHAR running on this cluster?: %w", err)
 	}
 	s.wfi = kv
-	err = common.Process(ctx, s.js, "telemetry", closer, "WORKFLOW-TELEMETRY.>", "Tracing", 1, s.workflowTrace)
+	err = common.Process(ctx, s.js, "WORKFLOW-TELEMETRY", "telemetry", closer, "WORKFLOW-TELEMETRY.>", "Tracing", 1, s.workflowTrace)
 	if err != nil {
 		return fmt.Errorf("listen failed to start telemetry handler: %w", err)
 	}
@@ -291,22 +287,6 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 	if err != nil {
 		id := common.TrackingID(oldState.Id).ID()
 		log.Warn("delete the cached span", err, slog.String(keys.TrackingID, id))
-	}
-	return nil
-}
-
-// EnsureConsumer sets up a new NATS consumer if one does not already exist.
-func ensureConsumer(js nats.JetStreamContext, streamName string, consumerConfig *nats.ConsumerConfig) error {
-	if _, err := js.ConsumerInfo(streamName, consumerConfig.Durable); errors.Is(err, nats.ErrConsumerNotFound) {
-		if _, err := js.AddConsumer(streamName, consumerConfig); err != nil {
-			panic(err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("get consumer info: %w", err)
-	} else {
-		if _, err := js.UpdateConsumer(streamName, consumerConfig); err != nil {
-			return fmt.Errorf("update consumer: %w", err)
-		}
 	}
 	return nil
 }

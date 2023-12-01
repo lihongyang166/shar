@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	errors2 "errors"
 	"fmt"
 	"github.com/nats-io/nats.go"
@@ -29,6 +30,11 @@ import (
 	"strings"
 	"time"
 )
+
+// NatsConfig holds the current nats configuration for SHAR.
+//
+//go:embed nats-config.yaml
+var NatsConfig string
 
 // Nats contains the engine functions that communicate with NATS.
 type Nats struct {
@@ -132,7 +138,7 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 		allowOrphanServiceTasks: allowOrphanServiceTasks,
 	}
 	ctx := context.Background()
-	if err := setup.EnsureWorkflowStream(ctx, conn, js, storageType, true); err != nil {
+	if err := setup.Nats(ctx, conn, js, storageType, NatsConfig, true); err != nil {
 		return nil, fmt.Errorf("set up nats queue insfrastructure: %w", err)
 	}
 
@@ -161,14 +167,6 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	kvs[messages.KvProcess] = &ms.wfProcess
 	kvs[messages.KvMessages] = &ms.wfMessages
 	kvs[messages.KvClients] = &ms.wfClients
-
-	ks := make([]string, 0, len(kvs))
-	for k := range kvs {
-		ks = append(ks, k)
-	}
-	if err := common.EnsureBuckets(js, storageType, ks); err != nil {
-		return nil, fmt.Errorf("ensure the KV buckets: %w", err)
-	}
 
 	for k, v := range kvs {
 		kv, err := js.KeyValue(k)
@@ -550,11 +548,14 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 		return nil, fmt.Errorf("get workflow object from KV: %w", err)
 	}
 	for _, m := range wf.Messages {
-		if err := common.EnsureBucket(s.js, s.storageType, subj.NS("MsgTx_%s_", "default")+m.Name, 0); err != nil {
+		if err := setup.EnsureBucket(s.js, &nats.KeyValueConfig{
+			Bucket:      subj.NS("MsgTx_%s_", "default") + m.Name,
+			Description: "Message transmit for " + m.Name,
+			Storage:     s.storageType,
+		}); err != nil {
 			return nil, fmt.Errorf("ensuring bucket '%s':%w", m.Name, err)
 		}
 	}
-
 	return execution, nil
 }
 
@@ -833,7 +834,7 @@ func (s *Nats) GetElement(ctx context.Context, state *model.WorkflowState) (*mod
 }
 
 func (s *Nats) processTraversals(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "traversal", s.closing, subj.NS(messages.WorkflowTraversalExecute, "*"), "Traversal", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "traversal", s.closing, subj.NS(messages.WorkflowTraversalExecute, "*"), "Traversal", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var traversal model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &traversal); err != nil {
 			return false, fmt.Errorf("unmarshal traversal proto: %w", err)
@@ -895,7 +896,7 @@ func (s *Nats) hasValidExecution(ctx context.Context, executionId string) (*mode
 }
 
 func (s *Nats) processTracking(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.track)
+	err := common.Process(ctx, s.js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.track)
 	if err != nil {
 		return fmt.Errorf("tracking processor: %w", err)
 	}
@@ -903,7 +904,7 @@ func (s *Nats) processTracking(ctx context.Context) error {
 }
 
 func (s *Nats) processCompletedJobs(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "completedJob", s.closing, subj.NS(messages.WorkFlowJobCompleteAll, "*"), "JobCompleteConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "completedJob", s.closing, subj.NS(messages.WorkFlowJobCompleteAll, "*"), "JobCompleteConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed job state: %w", err)
@@ -985,7 +986,7 @@ func (s *Nats) Shutdown() {
 }
 
 func (s *Nats) processWorkflowEvents(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "workflowEvent", s.closing, subj.NS(messages.WorkflowExecutionAll, "*"), "WorkflowConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "workflowEvent", s.closing, subj.NS(messages.WorkflowExecutionAll, "*"), "WorkflowConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
@@ -1011,7 +1012,7 @@ func (s *Nats) processWorkflowEvents(ctx context.Context) error {
 }
 
 func (s *Nats) processActivities(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "activity", s.closing, subj.NS(messages.WorkflowActivityAll, "*"), "ActivityConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "activity", s.closing, subj.NS(messages.WorkflowActivityAll, "*"), "ActivityConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var activity model.WorkflowState
 		switch {
 		case strings.HasSuffix(msg.Subject, ".State.Activity.Execute"):
@@ -1137,7 +1138,7 @@ func (s *Nats) GetOldState(ctx context.Context, id string) (*model.WorkflowState
 }
 
 func (s *Nats) processLaunch(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "launch", s.closing, subj.NS(messages.WorkflowJobLaunchExecute, "*"), "LaunchConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "launch", s.closing, subj.NS(messages.WorkflowJobLaunchExecute, "*"), "LaunchConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("unmarshal during process launch: %w", err)
@@ -1161,7 +1162,7 @@ func (s *Nats) processLaunch(ctx context.Context) error {
 }
 
 func (s *Nats) processJobAbort(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "abort", s.closing, subj.NS(messages.WorkFlowJobAbortAll, "*"), "JobAbortConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkFlowJobAbortAll, "*"), "JobAbortConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var state model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &state); err != nil {
 			return false, fmt.Errorf("job abort consumer failed to unmarshal state: %w", err)
@@ -1191,7 +1192,7 @@ func (s *Nats) processJobAbort(ctx context.Context) error {
 }
 
 func (s *Nats) processProcessComplete(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "processComplete", s.closing, subj.NS(messages.WorkflowProcessComplete, "*"), "ProcessCompleteConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "processComplete", s.closing, subj.NS(messages.WorkflowProcessComplete, "*"), "ProcessCompleteConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var state model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
@@ -1218,7 +1219,7 @@ func (s *Nats) processProcessComplete(ctx context.Context) error {
 }
 
 func (s *Nats) processGeneralAbort(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var state model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
@@ -1475,6 +1476,7 @@ func (s *Nats) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error
 	return nil
 }
 
+// Log publishes client logs to the SHAR server
 func (s *Nats) Log(ctx context.Context, req *model.LogRequest) error {
 	if err := common.PublishObj(ctx, s.conn, messages.WorkflowTelemetryLog, req, nil); err != nil {
 		return fmt.Errorf("publish object: %w", err)

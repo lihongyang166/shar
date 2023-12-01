@@ -196,7 +196,9 @@ func (x *testMessagingHandlerDef) step1(ctx context.Context, client client.JobCl
 	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
-	client.Log(ctx, slog.LevelInfo, "A sample client log", map[string]string{"funFactor": "100"})
+	if err := client.Log(ctx, slog.LevelInfo, "A sample client log", map[string]string{"funFactor": "100"}); err != nil {
+		return nil, fmt.Errorf("log: %w", err)
+	}
 	return model.Vars{}, nil
 }
 
@@ -214,7 +216,9 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client
 	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
-	client.Log(ctx, slog.LevelInfo, "A sample messaging log", map[string]string{"funFactor": "100"})
+	if err := client.Log(ctx, slog.LevelInfo, "A sample messaging log", map[string]string{"funFactor": "100"}); err != nil {
+		return fmt.Errorf("log: %w", err)
+	}
 	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}

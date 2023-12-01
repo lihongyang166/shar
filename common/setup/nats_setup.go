@@ -2,230 +2,63 @@ package setup
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-yaml"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
-	"gitlab.com/shar-workflow/shar/common/subj"
 	sharVersion "gitlab.com/shar-workflow/shar/common/version"
-	"gitlab.com/shar-workflow/shar/server/messages"
 	"regexp"
-	"time"
 )
 
-var consumerConfig []*nats.ConsumerConfig
-
-// ConsumerDurableNames is a list of all consumers used by the engine
-var ConsumerDurableNames map[string]struct{}
-
-func init() {
-	consumerConfig = []*nats.ConsumerConfig{
-		{
-			Durable:         "JobAbortConsumer",
-			Description:     "Abort job message queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkFlowJobAbortAll, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "GeneralAbortConsumer",
-			Description:     "Abort workflow instance and activity message queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkflowGeneralAbortAll, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "LaunchConsumer",
-			Description:     "Sub workflow launch message queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkflowJobLaunchExecute, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "Message",
-			Description:     "Intra-workflow message queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkflowMessage, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "WorkflowConsumer",
-			Description:     "Workflow processing queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkflowExecutionAll, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "ProcessCompleteConsumer",
-			Description:     "Process complete processing queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkflowProcessComplete, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "JobCompleteConsumer",
-			Description:     "Job complete processing queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkFlowJobCompleteAll, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "ActivityConsumer",
-			Description:     "Activity complete processing queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkflowActivityAll, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "Traversal",
-			Description:     "Traversal processing queue",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			MaxAckPending:   65535,
-			FilterSubject:   subj.NS(messages.WorkflowTraversalExecute, "*"),
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "Tracking",
-			Description:     "Tracking queue for sequential processing",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			FilterSubject:   "WORKFLOW.>",
-			MaxAckPending:   1,
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "GatewayExecuteConsumer",
-			Description:     "Tracking queue for gateway execution",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			FilterSubject:   subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"),
-			MaxAckPending:   65535,
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "GatewayActivateConsumer",
-			Description:     "Tracking queue for gateway activation",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			FilterSubject:   subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"),
-			MaxAckPending:   1,
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "GatewayReEnterConsumer",
-			Description:     "Tracking queue for gateway activation",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			FilterSubject:   subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"),
-			MaxAckPending:   65535,
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "AwaitMessageConsumer",
-			Description:     "Tracking queue for gateway activation",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         30 * time.Second,
-			FilterSubject:   subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"),
-			MaxAckPending:   65535,
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "MessageKickConsumer",
-			Description:     "Message processing consumer timer",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         120 * time.Second,
-			FilterSubject:   subj.NS(messages.WorkflowMessageKick, "*"),
-			MaxAckPending:   1,
-			MaxRequestBatch: 1,
-		},
-		{
-			Durable:         "TelemetryTimerConsumer",
-			Description:     "Server telemetry timer",
-			AckPolicy:       nats.AckExplicitPolicy,
-			AckWait:         1 * time.Second,
-			FilterSubject:   subj.NS(messages.WorkflowTelemetryTimer, "*"),
-			MaxAckPending:   1,
-			MaxRequestBatch: 1,
-		},
-	}
-	ConsumerDurableNames = make(map[string]struct{}, len(consumerConfig))
-	for _, v := range consumerConfig {
-		ConsumerDurableNames[v.Durable] = struct{}{}
-	}
+// NatsConfig is the SHAR NATS configuration format
+type NatsConfig struct {
+	Streams  []NatsStream   `json:"streams"`
+	KeyValue []NatsKeyValue `json:"buckets"`
 }
 
-// EnsureWorkflowStream ensures that the workflow stream exists
-func EnsureWorkflowStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, storageType nats.StorageType, update bool) error {
-	mirrorAge := 36 * time.Hour
-	if err := EnsureStream(ctx, nc, js, nats.StreamConfig{
-		Name:      "WORKFLOW",
-		Subjects:  messages.AllMessages,
-		Storage:   storageType,
-		Retention: nats.InterestPolicy,
-	}); err != nil {
-		return fmt.Errorf("ensure workflow stream: %w", err)
+// NatsKeyValue holds information about a NATS Key-Value store (bucket)
+type NatsKeyValue struct {
+	Config nats.KeyValueConfig `json:"nats-config"`
+}
+
+// NatsConsumer holds information about a NATS Consumer
+type NatsConsumer struct {
+	Config nats.ConsumerConfig `json:"nats-config"`
+}
+
+// NatsStream holds information about a NATS Stream
+type NatsStream struct {
+	Config    nats.StreamConfig `json:"nats-config"`
+	Consumers []NatsConsumer    `json:"nats-consumers"`
+}
+
+// Nats sets up nats server objects.
+func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, storageType nats.StorageType, config string, update bool) error {
+
+	cfg := &NatsConfig{}
+	if err := yaml.Unmarshal([]byte(config), cfg); err != nil {
+		return fmt.Errorf("parse nats-config.yaml: %w", err)
 	}
 
-	if err := EnsureStream(ctx, nc, js, nats.StreamConfig{
-		Name:      "WORKFLOW-MIRROR",
-		Storage:   storageType,
-		Retention: nats.LimitsPolicy,
-		MaxAge:    mirrorAge,
-		Sources: []*nats.StreamSource{{
-			Name:          "WORKFLOW",
-			FilterSubject: "WORKFLOW.*.State.>",
-		}},
-	}); err != nil {
-		return fmt.Errorf("ensure workflow stream: %w", err)
+	for _, stream := range cfg.Streams {
+		stream.Config.Storage = storageType
+		if err := EnsureStream(ctx, nc, js, stream.Config); err != nil {
+			return fmt.Errorf("ensure stream: %w", err)
+		}
+		for _, consumer := range stream.Consumers {
+			consumer.Config.MemoryStorage = storageType == nats.MemoryStorage
+			if err := EnsureConsumer(js, stream.Config.Name, consumer.Config, update); err != nil {
+				return fmt.Errorf("ensure consumer: %w", err)
+			}
+		}
 	}
-
-	if err := EnsureStream(ctx, nc, js, nats.StreamConfig{
-		Name:      "WORKFLOW-TELEMETRY",
-		Subjects:  []string{"WORKFLOW-TELEMETRY.>"},
-		Storage:   storageType,
-		Retention: nats.LimitsPolicy,
-		MaxAge:    mirrorAge,
-		Sources: []*nats.StreamSource{
-			{Name: "WORKFLOW", SubjectTransforms: []nats.SubjectTransformConfig{
-				{"WORKFLOW.*.State.*.*", "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}"},
-				{"WORKFLOW.*.State.*.*.*", "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}.{{wildcard(4)}}"},
-			}},
-		},
-	}); err != nil {
-		return fmt.Errorf("ensure workflow stream: %w", err)
-	}
-
-	if err := EnsureConsumer(js, "WORKFLOW", nats.ConsumerConfig{
-		Durable:       "UndeliveredMsgConsumer",
-		Description:   "Undeliverable workflow message queue.  Messages should be looked up in the WORKFLOW-MIRROR stream to avoid disappointment.",
-		FilterSubject: "$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>",
-		MemoryStorage: storageType == nats.MemoryStorage,
-	}, update); err != nil {
-		return fmt.Errorf("ensure consumer during ensure workflow stream: %w", err)
-	}
-
-	for _, ccfg := range consumerConfig {
-		if err := EnsureConsumer(js, "WORKFLOW", *ccfg, update); err != nil {
-			return fmt.Errorf("ensure consumer during ensure workflow stream: %w", err)
+	for i := range cfg.KeyValue {
+		if err := EnsureBucket(js, &cfg.KeyValue[i].Config); err != nil {
+			return fmt.Errorf("ensure key-value: %w", err)
 		}
 	}
 	return nil
@@ -279,6 +112,18 @@ func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamCont
 				return fmt.Errorf("ensure stream updating stream configuration: %w", err)
 			}
 		}
+	}
+	return nil
+}
+
+// EnsureBucket creates a bucket if it does not exist
+func EnsureBucket(js nats.JetStreamContext, cfg *nats.KeyValueConfig) error {
+	if _, err := js.KeyValue(cfg.Bucket); errors.Is(err, nats.ErrBucketNotFound) {
+		if _, err := js.CreateKeyValue(cfg); err != nil {
+			return fmt.Errorf("ensure buckets: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("obtain bucket: %w", err)
 	}
 	return nil
 }

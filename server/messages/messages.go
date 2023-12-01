@@ -2,7 +2,6 @@ package messages
 
 import (
 	"gitlab.com/shar-workflow/shar/common/subj"
-	"strings"
 )
 
 const (
@@ -132,40 +131,6 @@ var AllMessages = []string{
 	"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>", // Dead letter functionality
 }
 
-var wfTelemetry = func(subj string) string {
-	return strings.Replace(subj, "WORKFLOW.%s.", "WORKFLOW-TELEMETRY.*.", -1)
-}
-
-var TelemetryMessages = []string{
-	// Execution
-	wfTelemetry(WorkflowExecutionExecute),
-	wfTelemetry(WorkflowProcessExecute),
-	wfTelemetry(WorkflowTraversalExecute),
-	wfTelemetry(WorkflowActivityExecute),
-	wfTelemetry(WorkflowJobServiceTaskExecute),
-	wfTelemetry(WorkflowJobServiceTaskExecuteWild),
-	wfTelemetry(WorkflowJobUserTaskExecute),
-	wfTelemetry(WorkflowJobManualTaskExecute),
-	wfTelemetry(WorkflowJobSendMessageExecute),
-	// Completion
-	wfTelemetry(WorkflowProcessComplete),
-	wfTelemetry(WorkflowTraversalComplete),
-	wfTelemetry(WorkflowActivityComplete),
-	wfTelemetry(WorkflowJobServiceTaskComplete),
-	wfTelemetry(WorkflowJobManualTaskComplete),
-	wfTelemetry(WorkflowJobUserTaskComplete),
-	wfTelemetry(WorkflowJobSendMessageComplete),
-	wfTelemetry(WorkflowExecutionComplete),
-
-	// Abort
-	wfTelemetry(WorkflowActivityAbort),
-	wfTelemetry(WorkflowExecutionAbort),
-	wfTelemetry(WorkflowProcessTerminated),
-	// Shar Telemetry Output
-	WorkflowTelemetryClientCount,
-	WorkflowTelemetryLog,
-}
-
 // WorkflowMessageFormat provides the template for sending workflow messages.
 var WorkflowMessageFormat = "WORKFLOW.%s.Message.%s"
 
@@ -198,7 +163,7 @@ const (
 	APIGetTaskSpecUsage         = "WORKFLOW.Api.GetTaskSpecUsage"         // APIGetTaskSpecUsage is the get task spec usage API message subject.
 	APIListTaskSpecUIDs         = "WORKFLOW.Api.ListTaskSpecUIDs"         // APIListTaskSpecUIDs is the list task spec UIDs API message subject.
 	APIHeartbeat                = "WORKFLOW.Api.Heartbeat"                // APIHeartbeat // is the heartbeat API message subject.
-	APILog                      = "WORKFLOW.Api.Log"                      // ApiLog // is the client logging message subject.
+	APILog                      = "WORKFLOW.Api.Log"                      // APILog // is the client logging message subject.
 )
 
 var (

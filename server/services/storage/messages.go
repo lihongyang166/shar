@@ -145,7 +145,7 @@ func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars
 }
 
 func (s *Nats) processMessages(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.processMessage)
+	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.processMessage)
 	if err != nil {
 		return fmt.Errorf("start message processor: %w", err)
 	}
@@ -268,7 +268,7 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Excha
 }
 
 func (s *Nats) processAwaitMessageExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.js, "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.awaitMessageProcessor); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.awaitMessageProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil

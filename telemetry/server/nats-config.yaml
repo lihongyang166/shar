@@ -1,0 +1,35 @@
+streams:
+  - nats-config:
+      name: WORKFLOW-TELEMETRY
+      subjects:
+        - WORKFLOW-TELEMETRY.>
+      retention: 1
+      max_consumers: 0
+      max_msgs: 0
+      max_bytes: 0
+      discard: 0
+      max_age: 0s
+      max_msgs_per_subject: 0
+      storage: 0
+      num_replicas: 0
+      sources:
+        - name: WORKFLOW
+          filter_subject: WORKFLOW.*.State.>
+      compression: 0
+      allow_direct: false
+      mirror_direct: false
+    nats-consumers:
+      - nats-config:
+          durable_name: Tracing
+          description: Sequential trace consumer.
+          deliver_policy: 0
+          ack_policy: 2
+          ack_wait: 1s
+          filter_subject: WORKFLOW-TELEMETRY.>
+          replay_policy: 0
+          num_replicas: 0
+          max_ack_pending: 1
+buckets:
+  - nats-config:
+      bucket: WORKFLOW_TRACKING
+      description: ""

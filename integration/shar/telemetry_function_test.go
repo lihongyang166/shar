@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"gitlab.com/shar-workflow/shar/common/setup"
+	"gitlab.com/shar-workflow/shar/telemetry/server"
 	"log/slog"
 	"os"
 	"testing"
@@ -27,9 +29,17 @@ func TestTelemetryStream(t *testing.T) {
 	// Create a starting context
 	ctx := context.Background()
 
+	telCfg := server.NatsConfig
+	nc, err := tst.GetNats()
+	require.NoError(t, err)
+	js, err := tst.GetJetstream()
+	require.NoError(t, err)
+	err = setup.Nats(ctx, nc, js, nats.MemoryStorage, telCfg, true)
+	require.NoError(t, err)
+
 	// Dial shar
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
-	err := cl.Dial(ctx, tst.NatsURL)
+	err = cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
 	// Register a service task
@@ -44,14 +54,17 @@ func TestTelemetryStream(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	js, err := tst.GetJetstream()
-	require.NoError(t, err)
 	sub, err := js.Subscribe("WORKFLOW-TELEMETRY.>", func(msg *nats.Msg) {
-		fmt.Println(msg.Subject)
-		msg.Ack()
+		if err := msg.Ack(); err != nil {
+			panic("couldn't ack message: " + err.Error())
+		}
 	})
 	require.NoError(t, err)
-	defer sub.Drain()
+	defer func() {
+		if err := sub.Drain(); err != nil {
+			panic("couldn't drain: " + err.Error())
+		}
+	}()
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
@@ -75,7 +88,9 @@ type testTelemetryStreamDef struct {
 
 func (d *testTelemetryStreamDef) integrationSimple(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	client.Log(ctx, slog.LevelInfo, "Info message logged from client: integration simple", map[string]string{"value1": "good"})
+	if err := client.Log(ctx, slog.LevelInfo, "Info message logged from client: integration simple", map[string]string{"value1": "good"}); err != nil {
+		return nil, fmt.Errorf("log: %w", err)
+	}
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))
 	vars["Success"] = true

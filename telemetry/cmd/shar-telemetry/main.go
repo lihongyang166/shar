@@ -34,7 +34,7 @@ func main() {
 
 	if len(os.Args) > 1 && os.Args[1] == "--remove" {
 		// Attempt both in case one failed last time, and deal with errors after
-		err1 := js.DeleteConsumer("WORKFLOW", "Tracing")
+		err1 := js.DeleteConsumer("WORKFLOW-TELEMETRY", "Tracing")
 		err2 := js.DeleteKeyValue(messages.KvTracking)
 		if err1 != nil {
 			panic(err1)
@@ -53,7 +53,7 @@ func main() {
 	}
 
 	// Start the server
-	svr := server.New(ctx, js, exp)
+	svr := server.New(ctx, nc, js, nats.FileStorage, exp)
 	if err := svr.Listen(); err != nil {
 		panic(err)
 	}

@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -20,7 +21,7 @@ func (mdh1 *MockDelegateHandler1) Enabled(ctx context.Context, level slog.Level)
 
 func (mdh1 *MockDelegateHandler1) Handle(ctx context.Context, r slog.Record) error {
 	called := mdh1.Called(ctx, r)
-	return called.Error(0)
+	return fmt.Errorf("Handle err: %w", called.Error(0))
 }
 
 func (mdh1 *MockDelegateHandler1) WithAttrs(attrs []slog.Attr) slog.Handler {
@@ -44,7 +45,7 @@ func (mdh2 *MockDelegateHandler2) Enabled(ctx context.Context, level slog.Level)
 
 func (mdh2 *MockDelegateHandler2) Handle(ctx context.Context, r slog.Record) error {
 	called := mdh2.Called(ctx, r)
-	return called.Error(0)
+	return fmt.Errorf("Handle err: %w", called.Error(0))
 }
 
 func (mdh2 *MockDelegateHandler2) WithAttrs(attrs []slog.Attr) slog.Handler {
@@ -68,9 +69,7 @@ func (mhts *MultiHandlerTestSuite) SetupTest() {
 	h1 := new(MockDelegateHandler1)
 	h2 := new(MockDelegateHandler2)
 
-	mh := NewMultiHandler([]slog.Handler{h1, h2}, HandlerOptions{
-		Level: slog.LevelInfo,
-	})
+	mh := NewMultiHandler([]slog.Handler{h1, h2})
 
 	mhts.multiHandler = mh
 	mhts.handler1 = h1
@@ -123,7 +122,7 @@ func (mhts *MultiHandlerTestSuite) TestHandleDelegatesToHandlersOnlyIfEnabled() 
 	mhts.handler2.On("Handle", ctx, record).Return(nil)
 	mhts.handler2.On("Enabled", ctx, record.Level).Return(false)
 
-	mhts.multiHandler.Handle(ctx, record)
+	_ = mhts.multiHandler.Handle(ctx, record)
 
 	mhts.handler1.AssertCalled(mhts.T(), "Handle", ctx, record)
 	mhts.handler2.AssertNotCalled(mhts.T(), "Handle", ctx, record)

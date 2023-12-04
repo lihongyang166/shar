@@ -33,6 +33,7 @@ func Err(ctx context.Context, message string, err error, atts ...any) error {
 	return fmt.Errorf(message+" %s : %w", fmt.Sprint(atts...), err)
 }
 
+// SetDefault sets the default slog handler
 func SetDefault(ecosystem string, hndlr slog.Handler) {
 	slog.SetDefault(slog.New(hndlr).With(slog.String(EcoSystemLoggingKey, ecosystem)))
 }

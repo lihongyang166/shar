@@ -86,15 +86,23 @@ func (suite *MessagingTestSuite) TestMessaging() {
 			lr := &model.LogRequest{}
 			err = proto.Unmarshal(msg.Data, lr)
 			if err != nil {
-				fmt.Println(fmt.Sprintf("###err %s", err))
+				fmt.Printf("###err %s", err)
 			}
-			fmt.Println(fmt.Sprintf("###log is %+v", lr))
+			fmt.Printf("###log is %+v", lr)
 		}
 
-		msg.Ack()
+		err = msg.Ack()
+		if err != nil {
+			slog.Warn("error acking message:", "err", err.Error())
+		}
 	})
 	require.NoError(t, err)
-	defer sub.Drain()
+	defer func() {
+		err = sub.Drain()
+		if err != nil {
+			slog.Warn("error draining subscription:", "err", err.Error())
+		}
+	}()
 
 	// Listen for service tasks
 	go func() {
@@ -216,7 +224,9 @@ func (x *testMessagingHandlerDef) step1(ctx context.Context, client client.JobCl
 	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
-	client.Log(ctx, slog.LevelInfo, "A sample client log", map[string]string{"funFactor": "100"})
+	if err := client.Log(ctx, slog.LevelInfo, "A sample client log", map[string]string{"funFactor": "100"}); err != nil {
+		return nil, fmt.Errorf("log: %w", err)
+	}
 	return model.Vars{}, nil
 }
 
@@ -234,7 +244,9 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client
 	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
-	client.Log(ctx, slog.LevelInfo, "A sample messaging log", map[string]string{"funFactor": "100"})
+	if err := client.Log(ctx, slog.LevelInfo, "A sample messaging log", map[string]string{"funFactor": "100"}); err != nil {
+		return fmt.Errorf("log err: %w", err)
+	}
 	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}

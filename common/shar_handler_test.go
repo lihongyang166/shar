@@ -18,7 +18,7 @@ type MockedLogPublisher struct {
 
 func (lp *MockedLogPublisher) Publish(ctx context.Context, lr *model.LogRequest) error {
 	args := lp.Called(ctx, lr)
-	return args.Error(0)
+	return fmt.Errorf("pub err: %w", args.Error(0))
 }
 
 type SharHandlerSuite struct {
@@ -110,7 +110,7 @@ func (shs *SharHandlerSuite) TestSharHandlerHandleWithAttrsAndGroups() {
 
 	record.AddAttrs(slog.String(k0, v0))
 
-	handler.Handle(ctx, record)
+	_ = handler.Handle(ctx, record)
 
 	shs.mlp.AssertExpectations(shs.T())
 }

@@ -1477,6 +1477,7 @@ func (s *Nats) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error
 	return nil
 }
 
+// Log publishes LogRequest to WorkflowTelemetry Logs subject
 func (s *Nats) Log(ctx context.Context, req *model.LogRequest) error {
 	if err := common.PublishObj(ctx, s.conn, messages.WorkflowTelemetryLog, req, nil); err != nil {
 		return fmt.Errorf("publish object: %w", err)

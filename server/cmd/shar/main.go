@@ -51,7 +51,7 @@ func main() {
 		handlers = append(handlers, handlerFactoryFns[h]())
 	}
 
-	logx.SetDefault("shar", common.NewMultiHandler(handlers, common.HandlerOptions{Level: lev}))
+	logx.SetDefault("shar", common.NewMultiHandler(handlers))
 
 	if err != nil {
 		panic(err)

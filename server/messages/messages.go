@@ -198,7 +198,7 @@ const (
 	APIGetTaskSpecUsage         = "WORKFLOW.Api.GetTaskSpecUsage"         // APIGetTaskSpecUsage is the get task spec usage API message subject.
 	APIListTaskSpecUIDs         = "WORKFLOW.Api.ListTaskSpecUIDs"         // APIListTaskSpecUIDs is the list task spec UIDs API message subject.
 	APIHeartbeat                = "WORKFLOW.Api.Heartbeat"                // APIHeartbeat // is the heartbeat API message subject.
-	APILog                      = "WORKFLOW.Api.Log"                      // ApiLog // is the client logging message subject.
+	APILog                      = "WORKFLOW.Api.Log"                      // APILog // is the client logging message subject.
 )
 
 var (

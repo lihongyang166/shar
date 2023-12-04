@@ -528,6 +528,7 @@ func PublishOnce(js nats.JetStreamContext, lockingKV nats.KeyValue, streamName s
 	return nil
 }
 
+// PublishObj publishes a proto message to the given subject
 func PublishObj(ctx context.Context, conn NatsConn, subject string, prot proto.Message, fn func(*nats.Msg) error) error {
 	msg := nats.NewMsg(subject)
 	b, err := proto.Marshal(prot)

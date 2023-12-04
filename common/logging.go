@@ -49,6 +49,7 @@ func newResource() *resource.Resource {
 	)
 }
 
+// NewOtelHandler constructs and initialises an otel handler for log exports
 func NewOtelHandler() (slog.Handler, func() error) {
 	ctx := context.Background()
 
@@ -59,11 +60,14 @@ func NewOtelHandler() (slog.Handler, func() error) {
 		sdk.WithResource(newResource()),
 	)
 	// gracefully shutdown logger to flush accumulated signals before program finish
-	shutdownFn := func() error { return loggerProvider.Shutdown(ctx) }
+	shutdownFn := func() error {
+		return fmt.Errorf("error shutting down loggerProvider: %w", loggerProvider.Shutdown(ctx))
+	}
 
 	return otelslog.NewOtelHandler(loggerProvider, &otelslog.HandlerOptions{}), shutdownFn
 }
 
+// NewTextHandler initialises a text handler writing to stdout for slog
 func NewTextHandler(level slog.Level, addSource bool) slog.Handler {
 	o := &slog.HandlerOptions{
 		AddSource:   addSource,

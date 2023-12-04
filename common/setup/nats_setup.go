@@ -206,8 +206,8 @@ func EnsureWorkflowStream(ctx context.Context, nc common.NatsConn, js nats.JetSt
 		MaxAge:    mirrorAge,
 		Sources: []*nats.StreamSource{
 			{Name: "WORKFLOW", SubjectTransforms: []nats.SubjectTransformConfig{
-				{"WORKFLOW.*.State.*.*", "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}"},
-				{"WORKFLOW.*.State.*.*.*", "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}.{{wildcard(4)}}"},
+				{Source: "WORKFLOW.*.State.*.*", Destination: "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}"},
+				{Source: "WORKFLOW.*.State.*.*.*", Destination: "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}.{{wildcard(4)}}"},
 			}},
 		},
 	}); err != nil {

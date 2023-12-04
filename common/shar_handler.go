@@ -14,14 +14,17 @@ import (
 
 var hostName string
 
+// LogPublisher is an interface defining the ability to send a LogRequest to a destination
 type LogPublisher interface {
 	Publish(ctx context.Context, lr *model.LogRequest) error
 }
 
+// NatsLogPublisher is an impl of LogPublisher sending a LogRequest to a destination nats subject
 type NatsLogPublisher struct {
 	Conn *nats.Conn
 }
 
+// Publish writes a LogRequest to a Nats subject
 func (nlp *NatsLogPublisher) Publish(ctx context.Context, lr *model.LogRequest) error {
 	if err := PublishObj(ctx, nlp.Conn, messages.WorkflowTelemetryLog, lr, nil); err != nil {
 		return fmt.Errorf("publish object: %w", err)
@@ -29,10 +32,12 @@ func (nlp *NatsLogPublisher) Publish(ctx context.Context, lr *model.LogRequest) 
 	return nil
 }
 
+// HandlerOptions provides an ability to configure a shar slog handler
 type HandlerOptions struct {
 	Level slog.Leveler
 }
 
+// SharHandler is an implementation of a shar specific slog.Handler
 type SharHandler struct {
 	opts         HandlerOptions
 	logPublisher LogPublisher
@@ -40,6 +45,7 @@ type SharHandler struct {
 	attrs        []slog.Attr
 }
 
+// Enabled determine whether or not a log message is written based on log level
 func (sh *SharHandler) Enabled(_ context.Context, level slog.Level) bool {
 	minLevel := slog.LevelInfo
 	if sh.opts.Level != nil {
@@ -48,6 +54,7 @@ func (sh *SharHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= minLevel
 }
 
+// Handle will accept an slog.Record, transform to a LogRequest and publish it to nats subject
 func (sh *SharHandler) Handle(ctx context.Context, r slog.Record) error {
 	attr := map[string]string{}
 	r.Attrs(func(a slog.Attr) bool {
@@ -72,7 +79,7 @@ func (sh *SharHandler) Handle(ctx context.Context, r slog.Record) error {
 
 	err := sh.logPublisher.Publish(ctx, lr)
 	if err != nil {
-		return err
+		return fmt.Errorf("error publishing log: %w", err)
 	}
 
 	return nil
@@ -85,6 +92,7 @@ func withGroupPrefix(groupPrefix string, attr slog.Attr) slog.Attr {
 	return attr
 }
 
+// WithAttrs will append the given attrs slice to any existing attrs stored in the handler and return a new handler instance
 func (sh *SharHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	for i, attr := range attrs {
 		attrs[i] = withGroupPrefix(sh.groupPrefix, attr)
@@ -98,6 +106,7 @@ func (sh *SharHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	}
 }
 
+// WithGroup will append the given groupt name to any existing group names stored in the handler and return a new handler instance
 func (sh *SharHandler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return sh
@@ -116,6 +125,7 @@ func (sh *SharHandler) WithGroup(name string) slog.Handler {
 
 }
 
+// NewSharHandler will return a new instance of a SharHandler
 func NewSharHandler(opts HandlerOptions, logPublisher LogPublisher) slog.Handler {
 	var err error
 	hostName, err = os.Hostname()
@@ -127,6 +137,7 @@ func NewSharHandler(opts HandlerOptions, logPublisher LogPublisher) slog.Handler
 	return sharHandler
 }
 
+// ContextLoggerWithWfState will populate a context with relevant fields from a WorkflowState model
 func ContextLoggerWithWfState(ctx context.Context, state *model.WorkflowState) (context.Context, *slog.Logger) {
 	logger := logx.FromContext(ctx).
 		With(wfStatePrefix(keys.ExecutionID), state.ExecutionId).

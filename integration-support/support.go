@@ -105,9 +105,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	//	Conn: conn,
 	//})
 
-	multiHandler := common.NewMultiHandler([]slog.Handler{textHandler /*sharHandler*/}, common.HandlerOptions{
-		Level: level,
-	})
+	multiHandler := common.NewMultiHandler([]slog.Handler{textHandler /*sharHandler*/})
 
 	logx.SetDefault("shar-Integration-tests", multiHandler)
 

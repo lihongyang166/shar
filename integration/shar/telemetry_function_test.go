@@ -48,10 +48,12 @@ func TestTelemetryStream(t *testing.T) {
 	require.NoError(t, err)
 	sub, err := js.Subscribe("WORKFLOW-TELEMETRY.>", func(msg *nats.Msg) {
 		fmt.Println(msg.Subject)
-		msg.Ack()
+		_ = msg.Ack()
 	})
 	require.NoError(t, err)
-	defer sub.Drain()
+	defer func() {
+		_ = sub.Drain()
+	}()
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
@@ -75,7 +77,7 @@ type testTelemetryStreamDef struct {
 
 func (d *testTelemetryStreamDef) integrationSimple(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	client.Log(ctx, slog.LevelInfo, "Info message logged from client: integration simple", map[string]string{"value1": "good"})
+	_ = client.Log(ctx, slog.LevelInfo, "Info message logged from client: integration simple", map[string]string{"value1": "good"})
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))
 	vars["Success"] = true

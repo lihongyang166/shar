@@ -46,18 +46,18 @@ func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, sto
 
 	for _, stream := range cfg.Streams {
 		stream.Config.Storage = storageType
-		if err := EnsureStream(ctx, nc, js, stream.Config); err != nil {
+		if err := EnsureStream(ctx, nc, js, stream.Config, storageType); err != nil {
 			return fmt.Errorf("ensure stream: %w", err)
 		}
 		for _, consumer := range stream.Consumers {
 			consumer.Config.MemoryStorage = storageType == nats.MemoryStorage
-			if err := EnsureConsumer(js, stream.Config.Name, consumer.Config, update); err != nil {
+			if err := EnsureConsumer(js, stream.Config.Name, consumer.Config, update, storageType); err != nil {
 				return fmt.Errorf("ensure consumer: %w", err)
 			}
 		}
 	}
 	for i := range cfg.KeyValue {
-		if err := EnsureBucket(js, &cfg.KeyValue[i].Config); err != nil {
+		if err := EnsureBucket(js, &cfg.KeyValue[i].Config, storageType); err != nil {
 			return fmt.Errorf("ensure key-value: %w", err)
 		}
 	}
@@ -65,9 +65,13 @@ func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, sto
 }
 
 // EnsureConsumer creates a new consumer appending the current semantic version number to the description.  If the consumer exists and has a previous version, it upgrader it.
-func EnsureConsumer(js nats.JetStreamContext, streamName string, consumerConfig nats.ConsumerConfig, update bool) error {
+func EnsureConsumer(js nats.JetStreamContext, streamName string, consumerConfig nats.ConsumerConfig, update bool, storageType nats.StorageType) error {
+	consumerConfig.MemoryStorage = storageType == nats.MemoryStorage
 	if ci, err := js.ConsumerInfo(streamName, consumerConfig.Durable); errors.Is(err, nats.ErrConsumerNotFound) {
-		consumerConfig.Description += " " + sharVersion.Version
+		if consumerConfig.Metadata == nil {
+			consumerConfig.Metadata = make(map[string]string)
+		}
+		consumerConfig.Metadata["shar_version"] = sharVersion.Version
 		if _, err := js.AddConsumer(streamName, &consumerConfig); err != nil {
 			return fmt.Errorf("cannot ensure consumer '%s' with subject '%s' : %w", consumerConfig.Name, consumerConfig.FilterSubject, err)
 		}
@@ -77,8 +81,11 @@ func EnsureConsumer(js nats.JetStreamContext, streamName string, consumerConfig 
 		if !update {
 			return nil
 		}
-		if ok := requiresUpgrade(ci.Config.Description, sharVersion.Version); ok {
-			consumerConfig.Description += " " + sharVersion.Version
+		if ok := requiresUpgrade(ci.Config.Metadata["shar_version"], sharVersion.Version); ok {
+			if consumerConfig.Metadata == nil {
+				consumerConfig.Metadata = make(map[string]string)
+			}
+			consumerConfig.Metadata["shar_version"] = sharVersion.Version
 			_, err := js.UpdateConsumer(streamName, &consumerConfig)
 			if err != nil {
 				return fmt.Errorf("ensure stream couldn't update the consumer configuration for %s: %w", consumerConfig.Name, err)
@@ -89,16 +96,20 @@ func EnsureConsumer(js nats.JetStreamContext, streamName string, consumerConfig 
 }
 
 // EnsureStream creates a new stream appending the current semantic version number to the description.  If the stream exists and has a previous version, it upgrader it.
-func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, streamConfig nats.StreamConfig) error {
+func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, streamConfig nats.StreamConfig, storageType nats.StorageType) error {
+	streamConfig.Storage = storageType
 	if si, err := js.StreamInfo(streamConfig.Name); errors.Is(err, nats.ErrStreamNotFound) {
-		streamConfig.Description += " " + sharVersion.Version
+		if streamConfig.Metadata == nil {
+			streamConfig.Metadata = make(map[string]string)
+		}
+		streamConfig.Metadata["shar_version"] = sharVersion.Version
 		if _, err := js.AddStream(&streamConfig); err != nil {
 			return fmt.Errorf("add stream: %w", err)
 		}
 	} else if err != nil {
 		return fmt.Errorf("ensure stream: %w", err)
 	} else {
-		if ok := requiresUpgrade(si.Config.Description, sharVersion.Version); ok {
+		if ok := requiresUpgrade(si.Config.Metadata["shar_version"], sharVersion.Version); ok {
 			existingVer := upgradeExpr.FindString(si.Config.Description)
 			if existingVer == "" {
 				existingVer = sharVersion.Version
@@ -106,7 +117,10 @@ func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamCont
 			if err := upgrader.Patch(ctx, existingVer, nc, js); err != nil {
 				return fmt.Errorf("ensure stream: %w", err)
 			}
-			streamConfig.Description += " " + sharVersion.Version
+			if streamConfig.Metadata == nil {
+				streamConfig.Metadata = make(map[string]string)
+			}
+			streamConfig.Metadata["shar_version"] = sharVersion.Version
 			_, err := js.UpdateStream(&streamConfig)
 			if err != nil {
 				return fmt.Errorf("ensure stream updating stream configuration: %w", err)
@@ -117,7 +131,8 @@ func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamCont
 }
 
 // EnsureBucket creates a bucket if it does not exist
-func EnsureBucket(js nats.JetStreamContext, cfg *nats.KeyValueConfig) error {
+func EnsureBucket(js nats.JetStreamContext, cfg *nats.KeyValueConfig, storageType nats.StorageType) error {
+	cfg.Storage = storageType
 	if _, err := js.KeyValue(cfg.Bucket); errors.Is(err, nats.ErrBucketNotFound) {
 		if _, err := js.CreateKeyValue(cfg); err != nil {
 			return fmt.Errorf("ensure buckets: %w", err)

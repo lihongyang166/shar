@@ -551,8 +551,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 		if err := setup.EnsureBucket(s.js, &nats.KeyValueConfig{
 			Bucket:      subj.NS("MsgTx_%s_", "default") + m.Name,
 			Description: "Message transmit for " + m.Name,
-			Storage:     s.storageType,
-		}); err != nil {
+		}, s.storageType); err != nil {
 			return nil, fmt.Errorf("ensuring bucket '%s':%w", m.Name, err)
 		}
 	}

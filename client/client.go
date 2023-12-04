@@ -218,7 +218,7 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 		MaxAckPending:   65535,
 		MaxRequestBatch: 1,
 	}
-	if err := setup.EnsureConsumer(js, "WORKFLOW", *cdef, false); err != nil {
+	if err := setup.EnsureConsumer(js, "WORKFLOW", *cdef, false, c.storageType); err != nil {
 		return fmt.Errorf("setting up end event queue")
 	}
 

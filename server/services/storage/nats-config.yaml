@@ -36,17 +36,7 @@ streams:
         - WORKFLOW.Message.Kick
         - $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>
       retention: 1
-      max_consumers: 0
-      max_msgs: 0
-      max_bytes: 0
-      discard: 0
-      max_age: 0s
-      max_msgs_per_subject: 0
       storage: 1
-      num_replicas: 0
-      compression: 0
-      allow_direct: false
-      mirror_direct: false
     nats-consumers:
       - nats-config:
           durable_name: JobAbortConsumer
@@ -55,184 +45,134 @@ streams:
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Abort.*
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: GeneralAbortConsumer
           description: Abort workflow instance and activity message queue
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.*.Abort
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: LaunchConsumer
           description: Sub workflow launch message queue
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Execute.Launch
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: Message
           description: Intra-workflow message queue
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.Message
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: WorkflowConsumer
           description: Workflow processing queue
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Execution.>
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: ProcessCompleteConsumer
           description: Process complete processing queue
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Process.Complete
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: JobCompleteConsumer
           description: Job complete processing queue
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Complete.*
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: ActivityConsumer
           description: Activity complete processing queue
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Activity.>
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: Traversal
           description: Traversal processing queue
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Traversal.Execute
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: Tracking
           description: Tracking queue for sequential processing
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.>
-          replay_policy: 0
           max_ack_pending: 1
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: GatewayExecuteConsumer
           description: Tracking queue for gateway execution
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Execute.Gateway
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: GatewayActivateConsumer
           description: Tracking queue for gateway activation
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Activate.Gateway
-          replay_policy: 0
           max_ack_pending: 1
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: GatewayReEnterConsumer
           description: Tracking queue for gateway activation
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.ReEnter.Gateway
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: AwaitMessageConsumer
           description: Tracking queue for gateway activation
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Execute.AwaitMessage
-          replay_policy: 0
           max_ack_pending: 65535
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: MessageKickConsumer
           description: Message processing consumer timer
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 2m0s
           filter_subject: WORKFLOW.Message.Kick
-          replay_policy: 0
           max_ack_pending: 1
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: TelemetryTimerConsumer
           description: Server telemetry timer
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 1s
           filter_subject: WORKFLOW.Message.Telemetry
-          replay_policy: 0
           max_ack_pending: 1
           max_batch: 1
-          num_replicas: 0
       - nats-config:
           durable_name: UndeliveredMsgConsumer
           description: Undeliverable workflow message queue.  Messages should be looked up in the WORKFLOW-MIRROR stream to avoid disappointment.
-          deliver_policy: 0
           ack_policy: 2
           ack_wait: 1s
           filter_subject: $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>
-          replay_policy: 0
-          num_replicas: 0
   - nats-config:
       name: WORKFLOW-MIRROR
       retention: 0

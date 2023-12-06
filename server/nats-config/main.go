@@ -228,8 +228,8 @@ func main() {
 		Streams: []setup.NatsStream{
 			{
 				Config: nats.StreamConfig{
-					Name:      "WORKFLOW-TELEMETRY",
-					Subjects:  []string{"WORKFLOW-TELEMETRY.>"},
+					Name:      "WORKFLOW_TELEMETRY",
+					Subjects:  []string{"WORKFLOW_TELEMETRY.>"},
 					Retention: nats.InterestPolicy,
 					Sources: []*nats.StreamSource{
 						{Name: "WORKFLOW", FilterSubject: "WORKFLOW.*.State.>"},

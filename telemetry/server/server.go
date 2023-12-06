@@ -68,7 +68,7 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 	}
 }
 
-// Listen starts the telemtry server.
+// Listen starts the telemetry server.
 func (s *Server) Listen() error {
 	ctx := context.Background()
 	closer := make(chan struct{})
@@ -83,7 +83,7 @@ func (s *Server) Listen() error {
 		return fmt.Errorf("listen failed to attach to instance key value database, is SHAR running on this cluster?: %w", err)
 	}
 	s.wfi = kv
-	err = common.Process(ctx, s.js, "WORKFLOW-TELEMETRY", "telemetry", closer, "WORKFLOW-TELEMETRY.>", "Tracing", 1, s.workflowTrace)
+	err = common.Process(ctx, s.js, "WORKFLOW_TELEMETRY", "telemetry", closer, "WORKFLOW.*.State.>", "Tracing", 1, s.workflowTrace)
 	if err != nil {
 		return fmt.Errorf("listen failed to start telemetry handler: %w", err)
 	}
@@ -116,6 +116,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 		strings.HasSuffix(msg.Subject, ".State.Job.Execute.ManualTask"),
 		strings.Contains(msg.Subject, ".State.Job.Execute.SendMessage"):
 		if err := s.spanStart(ctx, state); err != nil {
+			slog.Error("span start: %w", slog.String(keys.ElementType, state.ElementType))
 			return true, nil
 		}
 	case strings.HasSuffix(msg.Subject, ".State.Traversal.Complete"):
@@ -128,6 +129,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 					slog.String(keys.ExecutionID, state.ExecutionId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
+					slog.String(keys.ElementType, state.ElementType),
 				)
 				return true, err
 			}
@@ -143,10 +145,11 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
-				log.Error("saving Job.Complete operation abandoned", err,
+				log.Error("span end", err,
 					slog.String(keys.ExecutionID, state.ExecutionId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
+					slog.String(keys.ElementType, state.ElementType),
 				)
 				return true, err
 			}

@@ -70,7 +70,7 @@ func (s *sharSpan) Links() []tracesdk.Link {
 	return s.SpanLinks
 }
 
-// Events returns all the events that occurred within in the spans
+// Events returns all the events that occurred within in the spans.
 // lifetime.
 func (s *sharSpan) Events() []tracesdk.Event {
 	return s.SpanEvents

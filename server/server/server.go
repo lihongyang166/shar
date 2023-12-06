@@ -162,13 +162,13 @@ func (s *Server) GetEndPoint() string {
 func (s *Server) createServices(natsURL string, ephemeral bool, allowOrphanServiceTasks bool) *storage.Nats {
 	conn, err := nats.Connect(natsURL)
 	if err != nil {
-		slog.Error("connect to NATS", err, slog.String("url", natsURL))
+		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsURL))
 		panic(err)
 	}
 	//TODO why do we need a separate txConn?
 	txConn, err := nats.Connect(natsURL)
 	if err != nil {
-		slog.Error("connect to NATS", err, slog.String("url", natsURL))
+		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsURL))
 		panic(err)
 	}
 
@@ -186,7 +186,7 @@ func (s *Server) createServices(natsURL string, ephemeral bool, allowOrphanServi
 	}
 	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks)
 	if err != nil {
-		slog.Error("create NATS KV store", err)
+		slog.Error("create NATS KV store", slog.String("error", err.Error()))
 		panic(err)
 	}
 	return ns

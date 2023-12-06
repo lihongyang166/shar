@@ -68,8 +68,8 @@ const (
 )
 
 const (
-	WorkflowTelemetryClientCount = "WORKFLOW-TELEMETRY.Client.Count" // WorkflowTelemetryClientCount is the message subject for workflow client count telemetry.
-	WorkflowTelemetryLog         = "WORKFLOW-TELEMETRY.Log"          //WorkflowTelemetryLog is the message subject for telemetry logging.
+	WorkflowTelemetryClientCount = "WORKFLOW_TELEMETRY.Client.Count" // WorkflowTelemetryClientCount is the message subject for workflow client count telemetry.
+	WorkflowTelemetryLog         = "WORKFLOW_TELEMETRY.Log"          //WorkflowTelemetryLog is the message subject for telemetry logging.
 )
 
 // WorkflowLogLevel represents a subject suffix for logging levels

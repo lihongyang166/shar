@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
+	"go.opentelemetry.io/otel/sdk/trace"
 	"os"
 	"strconv"
 	"sync"
@@ -18,9 +20,15 @@ import (
 
 //goland:noinspection GoNilness
 func TestConcurrentMessaging(t *testing.T) {
-
-	tst := &support.Integration{}
+	tel := &MockTelemetry{}
+	tst := &support.Integration{WithTelemetry: tel}
 	//tst.WithTrace = true
+
+	tel.On("ExportSpans", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("[]trace.ReadOnlySpan")).
+		Run(func(args mock.Arguments) {
+			_ = args.Get(1).([]trace.ReadOnlySpan)
+		}).
+		Return(nil)
 
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
@@ -59,7 +67,7 @@ func TestConcurrentMessaging(t *testing.T) {
 	}()
 
 	handlers.instComplete = make(map[string]struct{})
-	n := 100
+	n := 300
 	tm := time.Now()
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
@@ -72,6 +80,7 @@ func TestConcurrentMessaging(t *testing.T) {
 				handlers.mx.Unlock()
 			}
 		}(inst)
+		time.Sleep(1200 * time.Millisecond)
 	}
 
 	support.WaitForExpectedCompletions(t, n, handlers.finished, 60*time.Second)
@@ -80,6 +89,7 @@ func TestConcurrentMessaging(t *testing.T) {
 	tst.AssertCleanKV()
 	assert.Equal(t, n, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
+
 }
 
 type testConcurrentMessagingHandlerDef struct {

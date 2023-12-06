@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"os"
 	"path/filepath"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/common/authn"
@@ -124,7 +124,13 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		require.NoError(t, err)
 		js, err := n.JetStream()
 		require.NoError(t, err)
+		_, err = server2.SetupMetrics(ctx, "shar-telemetry-processor-integration-test")
+		if err != nil {
+			slog.Error("###failed to init metrics", "err", err.Error())
+		}
+
 		s.testTelemetry = server2.New(ctx, n, js, nats.MemoryStorage, s.WithTelemetry)
+
 		err = s.testTelemetry.Listen()
 		require.NoError(t, err)
 	}

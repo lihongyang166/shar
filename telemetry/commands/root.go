@@ -66,6 +66,12 @@ var RootCmd = &cobra.Command{
 
 		ctx := context.Background()
 
+		mp, err := server.SetupMetrics(ctx, "shar-telemetry-processor")
+		if err != nil {
+			panic(err)
+		}
+		defer mp.Shutdown(ctx)
+
 		exp, err := exporterFor(ctx, cfg)
 		if err != nil {
 			panic(err)

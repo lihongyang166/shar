@@ -4,17 +4,13 @@ metadata:
   type: TimedOut
   version: "0.1"
   description: A test task
-  estimatedmaxduration: 2343255
+  estimatedMaxDuration: 2343255
 behaviour:
-  defaultretry:
+  defaultRetry:
     number: 30
     strategy: 30000
-    initmilli: 30000
-    intervalmilli: 10000
-    maxmilli: 120000
-    defaultexceeded:
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
       action: 3
-  unsafe: false
-  mock: false
-parameters:
-events:

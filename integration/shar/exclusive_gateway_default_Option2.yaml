@@ -6,18 +6,15 @@ metadata:
   short: Sample simple process
   description: An example process for integration tests
   labels:
-    - test
-    - simple
-  estimatedmaxduration: 2343255
+  - test
+  - simple
+  estimatedMaxDuration: 2343255
 behaviour:
-  defaultretry:
+  defaultRetry:
     number: 30
     strategy: 30000
-    initmilli: 30000
-    intervalmilli: 10000
-    maxmilli: 120000
-    defaultexceeded:
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
       action: 3
-  unsafe: false
-  mock: false
-parameters:

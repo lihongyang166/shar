@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"github.com/nats-io/nats.go"
 	"math/big"
 	"net/netip"
 	"net/url"
@@ -181,12 +182,20 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 }
 
 func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int) *sharsvr.Server {
+	natsUrl := fmt.Sprintf("%s:%d", natsHost, natsPort)
+	conn, err := nats.Connect(natsUrl)
+	if err != nil {
+		slog.Error("connect to NATS", err, slog.String("url", natsUrl))
+		panic(err)
+	}
+
 	options := []sharsvr.Option{
 		sharsvr.EphemeralStorage(),
 		sharsvr.PanicRecovery(false),
 		sharsvr.Concurrency(sharConcurrency),
 		sharsvr.WithNoHealthServer(),
-		sharsvr.NatsUrl(fmt.Sprintf("%s:%d", natsHost, natsPort)),
+		sharsvr.NatsUrl(natsUrl),
+		sharsvr.NatsConn(conn),
 		sharsvr.GrpcPort(0),
 	}
 	if apiAuth != nil {

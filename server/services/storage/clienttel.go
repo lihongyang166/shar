@@ -10,39 +10,65 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
+	"time"
 )
 
 func (s *Nats) processTelemetryTimer(ctx context.Context) error {
-	if err := common.Process(ctx, s.js, "server_telemetry_trigger", s.closing, messages.WorkflowTelemetryTimer, "", 1, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
-		select {
-		case <-s.closing:
-			return true, nil
-		case <-ctx.Done():
-			return true, nil
-		default:
-		}
-		clientKeys, err := s.wfClients.Keys(nats.Context(ctx))
-		if errors.Is(err, nats.ErrNoKeysFound) {
-			return false, nil
-		}
-		if err != nil {
-			slog.Error("get client KV keys", "error", err)
-			return false, fmt.Errorf("get client KV keys: %w", err)
-		}
-		body := &model.TelemetryClients{Count: int32(len(clientKeys))}
-		b, err := proto.Marshal(body)
-		if err != nil {
-			slog.Error("marshal client telemetry", "error", err)
-			return false, fmt.Errorf("marshal client telemetry: %w", err)
-		}
-
-		if _, err := s.js.Publish(messages.WorkflowTelemetryClientCount, b); err != nil {
-			slog.Error("publish client telemetry", "error", err)
-		}
-		return false, nil
-	}); err != nil {
-		return fmt.Errorf("start server telemetry processing: %w", err)
+	sub, err := s.js.PullSubscribe(messages.WorkflowTelemetryTimer, "server_telemetry_trigger")
+	if err != nil {
+		return fmt.Errorf("creating message kick subscription: %w", err)
 	}
+	go func() {
+		for {
+			select {
+			case <-s.closing:
+				return
+			default:
+				var telmsg *nats.Msg
+				pctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+				msgs, err := sub.Fetch(1, nats.Context(pctx))
+				if err != nil || len(msgs) == 0 {
+					slog.Warn("pulling kick message")
+					cancel()
+					time.Sleep(20 * time.Second)
+					continue
+				}
+				msg := msgs[0]
+				clientKeys, err := s.wfClients.Keys(nats.Context(ctx))
+				var (
+					b    []byte
+					body *model.TelemetryClients
+				)
+				if errors.Is(err, nats.ErrNoKeysFound) {
+					goto continueLoop
+				}
+
+				if errors.Is(err, nats.ErrNoKeysFound) {
+					clientKeys = []string{}
+				} else if err != nil {
+					slog.Error("get client KV keys", "error", err)
+					goto continueLoop
+				}
+
+				body = &model.TelemetryClients{Count: int32(len(clientKeys))}
+				b, err = proto.Marshal(body)
+				if err != nil {
+					slog.Error("marshal client telemetry", "error", err)
+					goto continueLoop
+				}
+				telmsg = nats.NewMsg(messages.WorkflowTelemetryClientCount)
+				telmsg.Data = b
+				if err := s.conn.PublishMsg(telmsg); err != nil {
+					slog.Error("publish client telemetry", "error", err)
+				}
+			continueLoop:
+				if err := msg.NakWithDelay(time.Second * 1); err != nil {
+					slog.Warn("message nak: " + err.Error())
+				}
+				cancel()
+			}
+		}
+	}()
 	return nil
 }
 

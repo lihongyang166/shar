@@ -2,6 +2,7 @@ package server
 
 import (
 	version2 "github.com/hashicorp/go-version"
+	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/authn"
 	"gitlab.com/shar-workflow/shar/common/authz"
 )
@@ -114,6 +115,17 @@ type natsUrlOption struct{ value string }
 
 func (o natsUrlOption) configure(server *Server) {
 	server.natsUrl = o.value
+}
+
+// NatsConn specifies the nats Conn to use
+func NatsConn(conn *nats.Conn) natsConnOption { //nolint
+	return natsConnOption{value: conn}
+}
+
+type natsConnOption struct{ value *nats.Conn }
+
+func (o natsConnOption) configure(server *Server) {
+	server.conn = o.value
 }
 
 // GrpcPort specifies the port healthcheck is listening on

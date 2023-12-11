@@ -62,10 +62,6 @@ func run(cmd *cobra.Command, args []string) error {
 			panic(err)
 		}
 
-		if err := common.EnsureBuckets(js, nats.FileStorage, []string{"WORKFLOW_DEBUG"}); err != nil {
-			panic(err)
-		}
-
 		if err := EnsureConsumer(js, "WORKFLOW", &nats.ConsumerConfig{
 			Durable:       "Tracing",
 			Description:   "Sequential Trace Consumer",
@@ -80,7 +76,7 @@ func run(cmd *cobra.Command, args []string) error {
 		closer := make(chan struct{})
 		workflowMessages := make(chan *nats.Msg)
 
-		err = common.Process(ctx, js, "trace", closer, subj.NS(messages.WorkflowStateAll, "*"), "Tracing", 1, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+		err = common.Process(ctx, js, "WORKFLOW_TELEMETRY", "trace", closer, subj.NS(messages.WorkflowStateAll, "*"), "Tracing", 1, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 			workflowMessages <- msg
 			return true, nil
 		})

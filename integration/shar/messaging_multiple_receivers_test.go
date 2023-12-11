@@ -9,7 +9,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"gitlab.com/shar-workflow/shar/server/messages"
+	"log/slog"
 	"os"
 	"sync"
 	"testing"
@@ -78,14 +78,14 @@ type testMessagingMultiReceiverHandlerDef struct {
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) step1(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, messages.LogInfo, -1, "Step 1", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
 	return model.Vars{}, nil
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, messages.LogInfo, -1, "Step 2", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "Step 2", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
 	x.tst.Mx.Lock()
@@ -95,7 +95,7 @@ func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, messages.LogInfo, -1, "Step 3", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "Step 3", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
 
@@ -103,7 +103,7 @@ func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars) error {
-	if err := client.Log(ctx, messages.LogDebug, -1, "Sending Message...", nil); err != nil {
+	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
 

@@ -231,3 +231,11 @@ func (c *SharClient) Heartbeat(ctx context.Context, req *model.HeartbeatRequest)
     }
 	return res, nil
 }
+// Log - The Log method.
+func (c *SharClient) Log(ctx context.Context, req *model.LogRequest) (*model.LogResponse, error) {
+	res := &model.LogResponse{}
+    if err := core.Call(ctx, c.txConn, c.middleware, c.customErrorHandler, "WORKFLOW.Api.Log", req, res); err != nil {
+        return nil, fmt.Errorf("client call to WORKFLOW.Api.Log: %w", err)
+    }
+	return res, nil
+}

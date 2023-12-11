@@ -82,7 +82,7 @@ func TestLaunchWorkflow(t *testing.T) {
 		}).
 		Return(nil)
 
-	svc.On("PublishWorkflowState", mock.AnythingOfType("*context.valueCtx"), "WORKFLOW.%s.State.Workflow.Execute", mock.AnythingOfType("*model.WorkflowState")).
+	svc.On("PublishWorkflowState", mock.AnythingOfType("*context.valueCtx"), "WORKFLOW.%s.State.Execution.Execute", mock.AnythingOfType("*model.WorkflowState")).
 		Once().
 		Run(func(args mock.Arguments) {
 			assert.Equal(t, args[2].(*model.WorkflowState).WorkflowId, "test-workflow-id")

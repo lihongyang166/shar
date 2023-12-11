@@ -224,4 +224,12 @@ func main() {
         panic(err)
     }
     fmt.Println(resHeartbeat)
+
+    // Call Log
+    reqLog := &model.LogRequest{}
+    resLog, err := api.Log(ctx, reqLog)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(resLog)
 }

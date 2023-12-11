@@ -142,6 +142,11 @@ func (a SharAPI) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) (*m
     //TODO: implement Shar:Heartbeat
     panic("implement Shar:Heartbeat")
 }
+// Log - The Log method.
+func (a SharAPI) Log(ctx context.Context, req *model.LogRequest) (*model.LogResponse, error) {
+    //TODO: implement Shar:Log
+    panic("implement Shar:Log")
+}
 
 func main() {
     con, err := nats.Connect("nats://127.0.0.1:4222")

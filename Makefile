@@ -11,6 +11,7 @@ configure:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/vektra/mockery/v2@v2.36.0
+	go install gotest.tools/gotestsum@latest
 	curl -o ./nats-proto-gen-go-main.tar.gz https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz
 	tar -zxvf nats-proto-gen-go-main.tar.gz && rm nats-proto-gen-go-main.tar.gz
 	mv nats-proto-gen-go-main nats-proto-gen-go
@@ -71,7 +72,7 @@ test: configure generated-code proto server tracing examples .FORCE
 	@echo "\033[92mCleaning test cache\033[0m"
 	go clean -testcache
 	@echo "\033[92mRunning tests\033[0m"
-	CGO_ENABLED=0 go test -v ./...
+	CGO_ENABLED=0 gotestsum --junitfile report.xml --format testname
 race: proto server tracing .FORCE
 	@echo "\033[92mCleaning test cache\033[0m"
 	go clean -testcache

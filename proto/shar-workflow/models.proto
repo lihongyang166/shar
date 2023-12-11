@@ -659,7 +659,7 @@ message TaskParameters {
 
 message TaskEvents {
   repeated Error error = 1; // Error workflow events that can be returned from the task.
-  repeated Message Message = 2; // Message workflow events that can be returned from the task.
+  repeated Message message = 2; // Message workflow events that can be returned from the task.
 }
 
 message TaskBehaviour {

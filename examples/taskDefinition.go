@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/goccy/go-yaml"
 	"gitlab.com/shar-workflow/shar/model"
-	"gopkg.in/yaml.v3"
 )
 
 func main() {

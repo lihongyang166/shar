@@ -6,79 +6,53 @@ metadata:
   short: Look up address
   description: Looks up a postal address from a PAF API
   labels:
-    - address
-    - postcode
-  estimatedmaxduration: 2343255
+  - address
+  - postcode
+  estimatedMaxDuration: 2343255
 behaviour:
-  defaultretry:
+  defaultRetry:
     number: 30
     strategy: 30000
-    initmilli: 30000
-    intervalmilli: 10000
-    maxmilli: 120000
-    defaultexceeded:
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
       action: 3
-  unsafe: false
-  mock: false
 parameters:
-  parametergroup:
-    - name: address1
-      short: Address parameters
-      description: Address parameters
+  parameterGroup:
+  - name: address1
+    short: Address parameters
+    description: Address parameters
   input:
-    - name: number
-      short: House
-      description: House number
-      type: int
-      customtypeextension: null
-      collection: false
-      group: address1
-      extensiondata:
-        name1: value1
-      mandatory: true
-      validateexpr: param["number"] matches "[0-9]*"
-      example: ""
-    - name: postcode
-      short: Postal code
-      description: UK postal code
-      type: string
-      customtypeextension: null
-      collection: false
-      group: address1
-      extensiondata: {}
-      mandatory: false
-      validateexpr: ""
-      example: ""
+  - name: number
+    short: House
+    description: House number
+    type: int
+    group: address1
+    extensionData:
+      name1: value1
+    mandatory: true
+    validateExpr: param["number"] matches "[0-9]*"
+  - name: postcode
+    short: Postal code
+    description: UK postal code
+    type: string
+    group: address1
   output:
-    - name: streetName
-      short: Street Name
-      description: Street or road name
-      type: string
-      customtypeextension: null
-      collection: false
-      group: null
-      extensiondata: {}
-      mandatory: false
-      validateexpr: ""
-      example: ""
-    - name: county
-      short: County
-      description: Administrative county
-      type: string
-      customtypeextension: null
-      collection: false
-      group: null
-      extensiondata: {}
-      mandatory: false
-      validateexpr: ""
-      example: ""
+  - name: streetName
+    short: Street Name
+    description: Street or road name
+    type: string
+  - name: county
+    short: County
+    description: Administrative county
+    type: string
 events:
   error:
-    - id: ""
-      name: ServiceDown
-      code: "500"
+  - name: ServiceDown
+    code: "500"
   message:
-    - name: BlacklistedPostcode
-      correlationkey: =postcode
-      short: "Message fired if a blacklisted postcode is enetered"
-      description: "Attempting to use a postcode which is blacklisted will send a management alert"
+  - name: BlacklistedPostcode
+    correlationKey: =postcode
+    short: Message fired if a blacklisted postcode is enetered
+    description: Attempting to use a postcode which is blacklisted will send a management alert

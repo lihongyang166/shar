@@ -3,9 +3,9 @@ package taskutil
 import (
 	"context"
 	"fmt"
+	"github.com/goccy/go-yaml"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/model"
-	"gopkg.in/yaml.v3"
 	"os"
 )
 

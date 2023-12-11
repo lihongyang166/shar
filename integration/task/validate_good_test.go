@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/common/validation"
 	"gitlab.com/shar-workflow/shar/model"
-	"gopkg.in/yaml.v3"
 	"os"
 	"testing"
 )

@@ -2,7 +2,7 @@ package validation
 
 import (
 	"fmt"
-	"github.com/antonmedv/expr"
+	"github.com/expr-lang/expr"
 	"gitlab.com/shar-workflow/shar/model"
 	"strings"
 )

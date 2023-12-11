@@ -3,9 +3,9 @@ package expression
 import (
 	"context"
 	"fmt"
-	"github.com/antonmedv/expr"
-	"github.com/antonmedv/expr/ast"
-	"github.com/antonmedv/expr/parser"
+	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/ast"
+	"github.com/expr-lang/expr/parser"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"strings"

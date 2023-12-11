@@ -1,16 +1,18 @@
 package commands
 
 import (
+	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	show_nats_config "gitlab.com/shar-workflow/shar/server/commands/show-nats-config"
 	"gitlab.com/shar-workflow/shar/server/config"
 	"gitlab.com/shar-workflow/shar/server/flags"
 	"gitlab.com/shar-workflow/shar/server/server"
-	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"log"
 	"log/slog"
 	"os"
+	"strings"
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -39,20 +41,33 @@ var RootCmd = &cobra.Command{
 			lev = slog.LevelError
 		}
 
-		if flags.Value.NatsConfig != "" {
-			b, err := os.ReadFile(flags.Value.NatsConfig)
-			if err != nil {
-				slog.Error("read nats configuration file", slog.String("error", err.Error()))
-				os.Exit(1)
-			}
-			storage.NatsConfig = string(b)
+		conn, err := nats.Connect(cfg.NatsURL)
+		if err != nil {
+			slog.Error("connect to NATS", err, slog.String("url", cfg.NatsURL))
+			panic(err)
 		}
 
-		logx.SetDefault(lev, addSource, "shar")
+		handlerFactoryFns := map[string](func() slog.Handler){
+			"text": func() slog.Handler {
+				return common.NewTextHandler(lev, addSource)
+			},
+			"shar-handler": func() slog.Handler {
+				return common.NewSharHandler(common.HandlerOptions{Level: lev}, &common.NatsLogPublisher{Conn: conn})
+			},
+		}
+
+		cfgHandlers := strings.Split(cfg.LogHandler, ",")
+		handlers := []slog.Handler{}
+		for _, h := range cfgHandlers {
+			handlers = append(handlers, handlerFactoryFns[h]())
+		}
+
+		logx.SetDefault("shar", common.NewMultiHandler(handlers))
+
 		if err != nil {
 			panic(err)
 		}
-		svr := server.New(server.Concurrency(cfg.Concurrency), server.NatsUrl(cfg.NatsURL), server.GrpcPort(cfg.Port))
+		svr := server.New(server.Concurrency(cfg.Concurrency), server.NatsConn(conn), server.NatsUrl(cfg.NatsURL), server.GrpcPort(cfg.Port))
 		svr.Listen()
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {

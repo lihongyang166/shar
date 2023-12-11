@@ -112,6 +112,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 
 	// get the last version of the workflow
 	wf, err := c.ns.GetWorkflow(ctx, wfID)
+
 	if err != nil {
 		reterr = c.engineErr(ctx, "get workflow", err,
 			slog.String(keys.ParentInstanceElementID, parentElID),
@@ -174,6 +175,9 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 			Vars:         vrs,
 			Id:           []string{executionId},
 		}
+
+		ctx, log = common.ContextLoggerWithWfState(ctx, wiState)
+		log.Debug("just after adding wfState details to log ctx")
 
 		// fire off the new workflow state
 		if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowExecutionExecute, wiState); err != nil {
@@ -276,6 +280,10 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 				ProcessName:       prName,
 				ProcessInstanceId: pi.ProcessInstanceId,
 			}
+
+			ctx, log := common.ContextLoggerWithWfState(ctx, exec)
+			log.Debug("just prior to publishing start msg")
+
 			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, "default"), exec); err != nil {
 				return fmt.Errorf("publish workflow timed process execute: %w", err)
 			}

@@ -26,7 +26,7 @@ type MessagingTestSuite struct {
 
 func (suite *MessagingTestSuite) SetupTest() {
 	suite.integrationSupport = &support.Integration{}
-	suite.integrationSupport.WithTrace = true
+	suite.integrationSupport.WithTrace = false
 	suite.integrationSupport.Setup(suite.T(), nil, nil)
 	suite.ctx = context.Background()
 
@@ -217,7 +217,7 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client
 		return fmt.Errorf("log: %w", err)
 	}
 	if err := client.Log(ctx, slog.LevelInfo, "A sample messaging log", map[string]string{"funFactor": "100"}); err != nil {
-		return fmt.Errorf("log: %w", err)
+		return fmt.Errorf("log err: %w", err)
 	}
 	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)

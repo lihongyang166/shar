@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
+	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"math/big"
@@ -180,6 +181,39 @@ func UpdateObjIsNew[T proto.Message](ctx context.Context, wf nats.KeyValue, k st
 func Delete(kv nats.KeyValue, key string) error {
 	if err := kv.Delete(key); err != nil {
 		return fmt.Errorf("delete key: %w", err)
+	}
+	return nil
+}
+
+// EnsureBuckets ensures that a list of key value stores exist
+func EnsureBuckets(js nats.JetStreamContext, storageType nats.StorageType, names []string) error {
+	for _, i := range names {
+		var ttl time.Duration
+		if i == messages.KvLock {
+			ttl = time.Second * 30
+		}
+		if i == messages.KvClients {
+			ttl = time.Millisecond * 1500
+		}
+		if err := EnsureBucket(js, storageType, i, ttl); err != nil {
+			return fmt.Errorf("ensure bucket: %w", err)
+		}
+	}
+	return nil
+}
+
+// EnsureBucket creates a bucket if it does not exist
+func EnsureBucket(js nats.JetStreamContext, storageType nats.StorageType, name string, ttl time.Duration) error {
+	if _, err := js.KeyValue(name); errors.Is(err, nats.ErrBucketNotFound) {
+		if _, err := js.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket:  name,
+			Storage: storageType,
+			TTL:     ttl,
+		}); err != nil {
+			return fmt.Errorf("ensure buckets: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("obtain bucket: %w", err)
 	}
 	return nil
 }

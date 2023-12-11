@@ -3,12 +3,13 @@ package server
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
-	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -32,6 +33,11 @@ const (
 	id          = 1
 )
 
+// NatsConfig holds the current configuration of the SHAR Telemetry Server
+//
+//go:embed nats-config.yaml
+var NatsConfig string
+
 // Server is the shar server type responsible for hosting the telemetry server.
 type Server struct {
 	js     nats.JetStreamContext
@@ -42,7 +48,7 @@ type Server struct {
 }
 
 // New creates a new telemetry server.
-func New(ctx context.Context, js nats.JetStreamContext, exp Exporter) *Server {
+func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageType nats.StorageType, exp Exporter) *Server {
 	// Define our resource
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
@@ -51,18 +57,7 @@ func New(ctx context.Context, js nats.JetStreamContext, exp Exporter) *Server {
 		attribute.Int64("ID", id),
 	)
 
-	if err := common.EnsureBuckets(js, nats.FileStorage, []string{"WORKFLOW_TRACE"}); err != nil {
-		panic(err)
-	}
-
-	if err := ensureConsumer(js, "WORKFLOW", &nats.ConsumerConfig{
-		Durable:       "Tracing",
-		Description:   "Sequential Trace Consumer",
-		DeliverPolicy: nats.DeliverAllPolicy,
-		FilterSubject: subj.NS(messages.WorkflowStateAll, "*"),
-		AckPolicy:     nats.AckExplicitPolicy,
-		MaxAckPending: 1,
-	}); err != nil {
+	if err := setup.Nats(ctx, nc, js, storageType, NatsConfig, true); err != nil {
 		panic(err)
 	}
 
@@ -73,7 +68,7 @@ func New(ctx context.Context, js nats.JetStreamContext, exp Exporter) *Server {
 	}
 }
 
-// Listen starts the telemtry server.
+// Listen starts the telemetry server.
 func (s *Server) Listen() error {
 	ctx := context.Background()
 	closer := make(chan struct{})
@@ -85,10 +80,10 @@ func (s *Server) Listen() error {
 	s.spanKV = kv
 	kv, err = s.js.KeyValue(messages.KvInstance)
 	if err != nil {
-		return fmt.Errorf("listen failed to attach to instance key value database: %w", err)
+		return fmt.Errorf("listen failed to attach to instance key value database, is SHAR running on this cluster?: %w", err)
 	}
 	s.wfi = kv
-	err = common.Process(ctx, s.js, "telemetry", closer, subj.NS(messages.WorkflowStateAll, "*"), "Tracing", 1, s.workflowTrace)
+	err = common.Process(ctx, s.js, "WORKFLOW_TELEMETRY", "telemetry", closer, "WORKFLOW.*.State.>", "Tracing", 1, s.workflowTrace)
 	if err != nil {
 		return fmt.Errorf("listen failed to start telemetry handler: %w", err)
 	}
@@ -102,23 +97,27 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	if done {
 		return done, err2
 	}
-
 	switch {
-	case strings.HasSuffix(msg.Subject, ".State.Workflow.Execute"):
-		if err := s.saveSpan(ctx, "Workflow Execute", state, state); err != nil {
-			return false, nil
+	case strings.HasSuffix(msg.Subject, ".State.Execution.Execute"):
+		if err := s.saveSpan(ctx, "Execution Start", state, state); err != nil {
+			return true, nil
+		}
+	case strings.HasSuffix(msg.Subject, ".State.Process.Execute"):
+		if err := s.saveSpan(ctx, "Process Start", state, state); err != nil {
+			return true, nil
 		}
 	case strings.HasSuffix(msg.Subject, ".State.Traversal.Execute"):
 	case strings.HasSuffix(msg.Subject, ".State.Activity.Execute"):
 		if err := s.spanStart(ctx, state); err != nil {
-			return false, nil
+			return true, nil
 		}
 	case strings.Contains(msg.Subject, ".State.Job.Execute.ServiceTask"),
 		strings.HasSuffix(msg.Subject, ".State.Job.Execute.UserTask"),
 		strings.HasSuffix(msg.Subject, ".State.Job.Execute.ManualTask"),
 		strings.Contains(msg.Subject, ".State.Job.Execute.SendMessage"):
 		if err := s.spanStart(ctx, state); err != nil {
-			return false, nil
+			slog.Error("span start: %w", slog.String(keys.ElementType, state.ElementType))
+			return true, nil
 		}
 	case strings.HasSuffix(msg.Subject, ".State.Traversal.Complete"):
 	case strings.HasSuffix(msg.Subject, ".State.Activity.Complete"),
@@ -130,12 +129,15 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 					slog.String(keys.ExecutionID, state.ExecutionId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
+					slog.String(keys.ElementType, state.ElementType),
 				)
 				return true, err
 			}
-			return false, nil
+			return true, nil
 		}
 	case strings.Contains(msg.Subject, ".State.Job.Complete.ServiceTask"),
+		strings.Contains(msg.Subject, ".State.Execution.Complete"),
+		strings.Contains(msg.Subject, ".State.Process.Terminated"),
 		strings.Contains(msg.Subject, ".State.Job.Abort.ServiceTask"),
 		strings.Contains(msg.Subject, ".State.Job.Complete.UserTask"),
 		strings.Contains(msg.Subject, ".State.Job.Complete.ManualTask"),
@@ -143,20 +145,21 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
-				log.Error("saving Job.Complete operation abandoned", err,
+				log.Error("span end", err,
 					slog.String(keys.ExecutionID, state.ExecutionId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
+					slog.String(keys.ElementType, state.ElementType),
 				)
 				return true, err
 			}
-			return false, nil
+			return true, nil
 		}
 	case strings.Contains(msg.Subject, ".State.Job.Complete.SendMessage"):
 	case strings.Contains(msg.Subject, ".State.Log."):
 
-	//case strings.HasSuffix(msg.Subject, ".State.Workflow.Complete"):
-	//case strings.HasSuffix(msg.Subject, ".State.Workflow.Terminated"):
+	//case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
+	//case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
 	default:
 
 	}
@@ -204,7 +207,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 	state.ElementType = oldState.ElementType
 	state.State = oldState.State
 	if err := s.saveSpan(ctx, name, &oldState, state); err != nil {
-		log.Error("record span:", err, slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()))
+		log.Error("record span:", "error", err, slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()))
 		return fmt.Errorf("save span failed: %w", err)
 	}
 	return nil
@@ -229,7 +232,6 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 		keys.ElementID:   &oldState.ElementId,
 		keys.ElementType: &oldState.ElementType,
 		keys.WorkflowID:  &oldState.WorkflowId,
-		//keys.ExecutionID: &oldState.WorkflowInstanceId,
 		keys.ExecutionID: &oldState.ExecutionId,
 		keys.Condition:   oldState.Condition,
 		keys.Execute:     oldState.Execute,
@@ -288,18 +290,6 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 	if err != nil {
 		id := common.TrackingID(oldState.Id).ID()
 		log.Warn("delete the cached span", err, slog.String(keys.TrackingID, id))
-	}
-	return nil
-}
-
-// EnsureConsumer sets up a new NATS consumer if one does not already exist.
-func ensureConsumer(js nats.JetStreamContext, streamName string, consumerConfig *nats.ConsumerConfig) error {
-	if _, err := js.ConsumerInfo(streamName, consumerConfig.Durable); errors.Is(err, nats.ErrConsumerNotFound) {
-		if _, err := js.AddConsumer(streamName, consumerConfig); err != nil {
-			panic(err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("ensure consumer failed to get consumer info: %w", err)
 	}
 	return nil
 }

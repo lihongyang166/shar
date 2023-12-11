@@ -9,6 +9,7 @@ import (
 type Settings struct {
 	Port          int    `env:"SHAR_PORT" envDefault:"50000"`
 	NatsURL       string `env:"NATS_URL" envDefault:"nats://127.0.0.1:4222"`
+	LogHandler    string `env:"SHAR_LOG_HANDLER" envDefault:"text"`
 	LogLevel      string `env:"SHAR_LOG_LEVEL" envDefault:"debug"`
 	PanicRecovery bool   `env:"SHAR_PANIC_RECOVERY" envDefault:"true"`
 	Concurrency   int    `env:"SHAR_CONCURRENCY" envDefault:"10"`

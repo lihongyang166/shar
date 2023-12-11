@@ -3,19 +3,22 @@ module gitlab.com/shar-workflow/shar
 go 1.21
 
 require (
+	github.com/agoda-com/opentelemetry-go/otelslog v0.1.0
+	github.com/agoda-com/opentelemetry-logs-go v0.4.3
 	github.com/antchfx/xmlquery v1.3.18
-	github.com/antonmedv/expr v1.15.4
+	github.com/antonmedv/expr v1.15.5
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/go-logr/logr v1.3.0
+	github.com/goccy/go-yaml v1.11.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/hashicorp/go-version v1.6.0
-	github.com/nats-io/nats-server/v2 v2.10.5
+	github.com/nats-io/nats-server/v2 v2.10.6
 	github.com/nats-io/nats.go v1.31.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
-	github.com/pterm/pterm v0.12.70
+	github.com/pterm/pterm v0.12.71
 	github.com/relvacode/iso8601 v1.3.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/cobra v1.8.0
@@ -259,6 +262,7 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.4.0 // indirect
 	golang.org/x/tools v0.15.0 // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/genproto v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect

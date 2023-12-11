@@ -514,3 +514,10 @@ func (s *SharServer) heartbeat(ctx context.Context, req *model.HeartbeatRequest)
 	}
 	return &model.HeartbeatResponse{}, nil
 }
+
+func (s *SharServer) log(ctx context.Context, req *model.LogRequest) (*model.LogResponse, error) {
+	if err := s.ns.Log(ctx, req); err != nil {
+		return nil, fmt.Errorf("log: %w", err)
+	}
+	return &model.LogResponse{}, nil
+}

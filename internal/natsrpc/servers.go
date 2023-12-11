@@ -109,5 +109,8 @@ func (s *SharServer) Listen(con *nats.Conn, middleware []core.Handler, errorHand
     if err := core.Listen(con, s.panicRecovery, s.subs, middleware, errorHandler, "WORKFLOW.Api.Heartbeat", &model.HeartbeatRequest{}, s.server.Heartbeat); err != nil {
         return fmt.Errorf("WORKFLOW.Api.Heartbeat: %w", err)
     }
+    if err := core.Listen(con, s.panicRecovery, s.subs, middleware, errorHandler, "WORKFLOW.Api.Log", &model.LogRequest{}, s.server.Log); err != nil {
+        return fmt.Errorf("WORKFLOW.Api.Log: %w", err)
+    }
     return nil
 }

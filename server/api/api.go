@@ -145,28 +145,32 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("APIRegisterTask failed: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.ApiGetTaskSpec, &model.GetTaskSpecRequest{}, s.getTaskSpec); err != nil {
-		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetTaskSpec, &model.GetTaskSpecRequest{}, s.getTaskSpec); err != nil {
+		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
 	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIDeprecateServiceTask, &model.DeprecateServiceTaskRequest{}, s.deprecateServiceTask); err != nil {
-		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
 	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetTaskSpecVersions, &model.GetTaskSpecVersionsRequest{}, s.getTaskSpecVersions); err != nil {
-		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
 	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetTaskSpecUsage, &model.GetTaskSpecUsageRequest{}, s.getTaskSpecUsage); err != nil {
-		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.ApiListTaskSpecUIDs, &model.ListTaskSpecUIDsRequest{}, s.listTaskSpecUIDs); err != nil {
-		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIListTaskSpecUIDs, &model.ListTaskSpecUIDsRequest{}, s.listTaskSpecUIDs); err != nil {
+		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.ApiHeartbeat, &model.HeartbeatRequest{}, s.heartbeat); err != nil {
-		return fmt.Errorf("ApiGetTaskSpec failed: %w", err)
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIHeartbeat, &model.HeartbeatRequest{}, s.heartbeat); err != nil {
+		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.APILog, &model.LogRequest{}, s.log); err != nil {
+		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
 	}
 
 	slog.Info("shar api listener started")

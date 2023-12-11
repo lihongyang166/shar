@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/cli/commands/workflow"
 	"gitlab.com/shar-workflow/shar/cli/flag"
 	"gitlab.com/shar-workflow/shar/cli/output"
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"log/slog"
 	"os"
@@ -67,5 +68,6 @@ func init() {
 	} else {
 		output.Current = &output.Json{}
 	}
-	logx.SetDefault(lev, addSource, "shar-cli")
+	hndler := common.NewTextHandler(lev, addSource)
+	logx.SetDefault("shar-cli", hndler)
 }

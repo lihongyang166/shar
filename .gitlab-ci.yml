@@ -62,6 +62,10 @@ test_stage:
     - if: "$CI_PIPELINE_IID"
   script:
     - make test
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
 tag_stage:
   stage: tag
   rules:

@@ -9,3 +9,6 @@ packages:
   gitlab.com/shar-workflow/shar/server/workflow:
     workflow:
       recursive: True
+  gitlab.com/shar-workflow/shar/telemetry/server:
+    Exporter:
+      recursive: True

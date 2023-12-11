@@ -1,44 +1,30 @@
 package intTest
 
-import (
-	"context"
-	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
-	"gitlab.com/shar-workflow/shar/model"
-	"go.opentelemetry.io/otel/sdk/trace"
-	"log/slog"
-	"os"
-	"testing"
-	"time"
-)
+/* temporarily removed until NATS fixes memorystore support for stream sourcing
 
 func TestSimpleTelemetry(t *testing.T) {
-	tel := &MockTelemetry{}
-	tst := &support.Integration{WithTelemetry: tel}
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
-	d := &testTelSimpleHandlerDef{t: t, finished: make(chan struct{})}
-
+	tel := &server.MockExporter{}
 	tel.On("ExportSpans", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("[]trace.ReadOnlySpan")).
 		Run(func(args mock.Arguments) {
 			sp := args.Get(1).([]trace.ReadOnlySpan)
 			slog.Debug(fmt.Sprintf("###%v", sp[0].Name()))
-		}).
-		Return(nil).Times(5)
+		}).Times(6).Return(nil)
+
+	tst := &support.Integration{WithTelemetry: tel}
+	tst.Setup(t, nil, nil)
+	tst.WithTrace = true
+	defer tst.Teardown()
+
+	d := &testTelSimpleHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(100))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
+	defer cl.Shutdown()
 
 	// Register a service task
 	err = taskutil.RegisterTaskYamlFile(ctx, cl, "telemetry_simple_test_SimpleProcess.yaml", d.integrationSimple)
@@ -63,7 +49,6 @@ func TestSimpleTelemetry(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	time.Sleep(5 * time.Second)
 	tel.AssertExpectations(t)
 	tst.AssertCleanKV()
 }
@@ -83,3 +68,4 @@ func (d *testTelSimpleHandlerDef) integrationSimple(_ context.Context, _ client.
 func (d *testTelSimpleHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	close(d.finished)
 }
+*/

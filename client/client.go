@@ -218,7 +218,7 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 		MaxAckPending:   65535,
 		MaxRequestBatch: 1,
 	}
-	if err := setup.EnsureConsumer(js, "WORKFLOW", *cdef, false); err != nil {
+	if err := setup.EnsureConsumer(js, "WORKFLOW", *cdef, false, c.storageType); err != nil {
 		return fmt.Errorf("setting up end event queue")
 	}
 
@@ -298,7 +298,7 @@ func (c *Client) listen(ctx context.Context) error {
 			return fmt.Errorf("listen obtaining consumer info for %s: %w", cName, err)
 		}
 		ackTimeout := cInf.Config.AckWait
-		err = common.Process(ctx, c.js, "jobExecute", c.closer, v, cName, c.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+		err = common.Process(ctx, c.js, "WORKFLOW", "jobExecute", c.closer, v, cName, c.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 			c.processingMx.Lock()
 			c.processing++
 			c.processingMx.Unlock()
@@ -486,7 +486,7 @@ func (c *Client) listen(ctx context.Context) error {
 
 func (c *Client) listenProcessTerminate(ctx context.Context) error {
 	closer := make(chan struct{}, 1)
-	err := common.Process(ctx, c.js, "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, c.js, "WORKFLOW", "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		st := &model.WorkflowState{}
 		if err := proto.Unmarshal(msg.Data, st); err != nil {
 			log.Error("proto unmarshal error", err)

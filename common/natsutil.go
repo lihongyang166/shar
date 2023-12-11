@@ -219,21 +219,22 @@ func EnsureBucket(js nats.JetStreamContext, storageType nats.StorageType, name s
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(ctx context.Context, js nats.JetStreamContext, traceName string, closer chan struct{}, subject string, durable string, concurrency int, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error), opts ...ProcessOption) error {
+func Process(ctx context.Context, js nats.JetStreamContext, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error), opts ...ProcessOption) error {
 	set := &ProcessOpts{}
 	for _, i := range opts {
 		i.Set(set)
 	}
 	log := logx.FromContext(ctx)
+
 	if durable != "" {
 		if !strings.HasPrefix(durable, "ServiceTask_") {
-			conInfo, err := js.ConsumerInfo("WORKFLOW", durable)
-			if conInfo.Config.Durable == "" || err != nil {
+			conInfo, err := js.ConsumerInfo(streamName, durable)
+			if err != nil || conInfo.Config.Durable == "" {
 				return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
 			}
 		}
 	}
-	sub, err := js.PullSubscribe(subject, durable)
+	sub, err := js.PullSubscribe(subject, durable, nats.BindStream(streamName))
 	if err != nil {
 		log.Error("process pull subscribe error", err, "subject", subject, "durable", durable)
 		return fmt.Errorf("process pull subscribe error subject:%s durable:%s: %w", subject, durable, err)
@@ -528,16 +529,16 @@ func PublishOnce(js nats.JetStreamContext, lockingKV nats.KeyValue, streamName s
 	return nil
 }
 
-// PublishObj publishes a proto message to the given subject
-func PublishObj(ctx context.Context, conn NatsConn, subject string, prot proto.Message, fn func(*nats.Msg) error) error {
+// PublishObj publishes a proto message to a subject.
+func PublishObj(ctx context.Context, conn NatsConn, subject string, prot proto.Message, middlewareFn func(*nats.Msg) error) error {
 	msg := nats.NewMsg(subject)
 	b, err := proto.Marshal(prot)
 	if err != nil {
 		return fmt.Errorf("serialize proto: %w", err)
 	}
 	msg.Data = b
-	if fn != nil {
-		if err := fn(msg); err != nil {
+	if middlewareFn != nil {
+		if err := middlewareFn(msg); err != nil {
 			return fmt.Errorf("middleware: %w", err)
 		}
 	}

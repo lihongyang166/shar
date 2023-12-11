@@ -124,7 +124,7 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		require.NoError(t, err)
 		js, err := n.JetStream()
 		require.NoError(t, err)
-		s.testTelemetry = server2.New(ctx, js, s.WithTelemetry)
+		s.testTelemetry = server2.New(ctx, n, js, nats.MemoryStorage, s.WithTelemetry)
 		err = s.testTelemetry.Listen()
 		require.NoError(t, err)
 	}

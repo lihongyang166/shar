@@ -24,6 +24,7 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 			case <-s.closing:
 				return
 			default:
+				var telmsg *nats.Msg
 				pctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 				msgs, err := sub.Fetch(1, nats.Context(pctx))
 				if err != nil || len(msgs) == 0 {
@@ -55,8 +56,9 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 					slog.Error("marshal client telemetry", "error", err)
 					goto continueLoop
 				}
-
-				if _, err := s.js.Publish(messages.WorkflowTelemetryClientCount, b); err != nil {
+				telmsg = nats.NewMsg(messages.WorkflowTelemetryClientCount)
+				telmsg.Data = b
+				if err := s.conn.PublishMsg(telmsg); err != nil {
 					slog.Error("publish client telemetry", "error", err)
 				}
 			continueLoop:

@@ -2,7 +2,6 @@ package messages
 
 import (
 	"gitlab.com/shar-workflow/shar/common/subj"
-	"strings"
 )
 
 const (
@@ -69,8 +68,8 @@ const (
 )
 
 const (
-	WorkflowTelemetryClientCount = "WORKFLOW-TELEMETRY.Client.Count" // WorkflowTelemetryClientCount is the message subject for workflow client count telemetry.
-	WorkflowTelemetryLog         = "WORKFLOW-TELEMETRY.Log"          //WorkflowTelemetryLog is the message subject for telemetry logging.
+	WorkflowTelemetryClientCount = "WORKFLOW_TELEMETRY.Client.Count" // WorkflowTelemetryClientCount is the message subject for workflow client count telemetry.
+	WorkflowTelemetryLog         = "WORKFLOW_TELEMETRY.Log"          //WorkflowTelemetryLog is the message subject for telemetry logging.
 )
 
 // WorkflowLogLevel represents a subject suffix for logging levels
@@ -130,40 +129,6 @@ var AllMessages = []string{
 	WorkflowTelemetryTimer,
 	WorkflowMessageKick,
 	"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>", // Dead letter functionality
-}
-
-var wfTelemetry = func(subj string) string {
-	return strings.Replace(subj, "WORKFLOW.%s.", "WORKFLOW-TELEMETRY.*.", -1)
-}
-
-var TelemetryMessages = []string{
-	// Execution
-	wfTelemetry(WorkflowExecutionExecute),
-	wfTelemetry(WorkflowProcessExecute),
-	wfTelemetry(WorkflowTraversalExecute),
-	wfTelemetry(WorkflowActivityExecute),
-	wfTelemetry(WorkflowJobServiceTaskExecute),
-	wfTelemetry(WorkflowJobServiceTaskExecuteWild),
-	wfTelemetry(WorkflowJobUserTaskExecute),
-	wfTelemetry(WorkflowJobManualTaskExecute),
-	wfTelemetry(WorkflowJobSendMessageExecute),
-	// Completion
-	wfTelemetry(WorkflowProcessComplete),
-	wfTelemetry(WorkflowTraversalComplete),
-	wfTelemetry(WorkflowActivityComplete),
-	wfTelemetry(WorkflowJobServiceTaskComplete),
-	wfTelemetry(WorkflowJobManualTaskComplete),
-	wfTelemetry(WorkflowJobUserTaskComplete),
-	wfTelemetry(WorkflowJobSendMessageComplete),
-	wfTelemetry(WorkflowExecutionComplete),
-
-	// Abort
-	wfTelemetry(WorkflowActivityAbort),
-	wfTelemetry(WorkflowExecutionAbort),
-	wfTelemetry(WorkflowProcessTerminated),
-	// Shar Telemetry Output
-	WorkflowTelemetryClientCount,
-	WorkflowTelemetryLog,
 }
 
 // WorkflowMessageFormat provides the template for sending workflow messages.

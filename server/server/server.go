@@ -119,6 +119,7 @@ func (s *Server) Listen() {
 		// Create private health server
 		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 	}
+
 	ns := s.createServices(s.conn, s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
 	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator)
 	if err != nil {
@@ -160,11 +161,10 @@ func (s *Server) GetEndPoint() string {
 }
 
 func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool, allowOrphanServiceTasks bool) *storage.Nats {
-
 	//TODO why do we need a separate txConn?
 	txConn, err := nats.Connect(natsURL)
 	if err != nil {
-		slog.Error("connect to NATS", err, slog.String("url", natsURL))
+		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsURL))
 		panic(err)
 	}
 
@@ -182,7 +182,7 @@ func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool,
 	}
 	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks)
 	if err != nil {
-		slog.Error("create NATS KV store", err)
+		slog.Error("create NATS KV store", slog.String("error", err.Error()))
 		panic(err)
 	}
 	return ns

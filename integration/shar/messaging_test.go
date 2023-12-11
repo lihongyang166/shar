@@ -3,7 +3,6 @@ package intTest
 import (
 	"context"
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -11,10 +10,8 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -78,31 +75,6 @@ func (suite *MessagingTestSuite) TestMessaging() {
 		t.Fatal(err)
 		return
 	}
-
-	js, err := tst.GetJetstream()
-	require.NoError(t, err)
-	sub, err := js.Subscribe("WORKFLOW-TELEMETRY.>", func(msg *nats.Msg) {
-		if strings.HasPrefix(msg.Subject, "WORKFLOW-TELEMETRY.Log") {
-			lr := &model.LogRequest{}
-			err = proto.Unmarshal(msg.Data, lr)
-			if err != nil {
-				fmt.Printf("###err %s", err)
-			}
-			fmt.Printf("###log is %+v", lr)
-		}
-
-		err = msg.Ack()
-		if err != nil {
-			slog.Warn("error acking message:", "err", err.Error())
-		}
-	})
-	require.NoError(t, err)
-	defer func() {
-		err = sub.Drain()
-		if err != nil {
-			slog.Warn("error draining subscription:", "err", err.Error())
-		}
-	}()
 
 	// Listen for service tasks
 	go func() {

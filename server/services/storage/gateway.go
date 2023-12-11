@@ -18,7 +18,7 @@ import (
 )
 
 func (s *Nats) processGatewayActivation(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed gateway activation state: %w", err)
@@ -63,10 +63,10 @@ func (s *Nats) processGatewayActivation(ctx context.Context) error {
 }
 
 func (s *Nats) processGatewayExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.js, "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.gatewayExecProcessor); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.gatewayExecProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
-	if err := common.Process(ctx, s.js, "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.gatewayExecProcessor); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.gatewayExecProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil

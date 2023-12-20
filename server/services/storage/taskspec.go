@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
+	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -42,7 +43,7 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 		return "", fmt.Errorf("put task spec: hash task: %w", err)
 	}
 	spec.Metadata.Uid = uid
-	if err := s.EnsureServiceTaskConsumer(uid); err != nil {
+	if err := s.EnsureServiceTaskConsumer(ctx, uid); err != nil {
 		return "", fmt.Errorf("ensure consumer for service task %s:%w", uid, err)
 	}
 
@@ -57,11 +58,14 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 			if len(v.Id) == 0 {
 				subj = messages.WorkflowSystemTaskUpdate
 			}
+			msg := nats.NewMsg(subj)
 			b, err := proto.Marshal(spec)
 			if err != nil {
 				return nil, fmt.Errorf("marshal %s system message: %w", subj, err)
 			}
-			if err := s.conn.Publish(subj, b); err != nil {
+			msg.Data = b
+			msg.Header.Set(header.SharNamespace, "*")
+			if err := s.conn.PublishMsg(msg); err != nil {
 				return nil, fmt.Errorf("send %s system message: %w", subj, err)
 			}
 		}

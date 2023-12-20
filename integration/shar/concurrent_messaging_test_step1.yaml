@@ -4,8 +4,8 @@ metadata:
   type: step1
   version: "0.1"
   description: A test task.
-  estimatedMaxDuration: 2343255
 behaviour:
+  estimatedMaxDuration: 2343255
   defaultRetry:
     number: 30
     strategy: 30000

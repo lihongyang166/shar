@@ -31,10 +31,10 @@ func main() {
 	}
 
 	// Register a service task
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.step1.yaml", step1); err != nil {
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/message-manual/task.step1.yaml", step1); err != nil {
 		panic(err)
 	}
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.step2.yaml", step2); err != nil {
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/message-manual/task.step2.yaml", step2); err != nil {
 		panic(err)
 	}
 	workflowName := "MessageManualDemo"
@@ -49,7 +49,7 @@ func main() {
 	}
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/message-manual-workflow.bpmn")
+	b, err := os.ReadFile("./testdata/message-manual-workflow.bpmn")
 	if err != nil {
 		panic(err)
 	}

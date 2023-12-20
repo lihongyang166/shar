@@ -647,7 +647,6 @@ message TaskMetadata {
   string short = 4; // Short description of the task.
   string description = 5; // Description - a long description of the task.
   repeated string labels = 6; // Labels - a comma seperated list of searchable tags for the task.
-  uint64 estimatedMaxDuration = 7; // EstimatedMaxDuration documents how long the task is expected to run for.
   map<string,string> extensionData = 8; // ExtensionData - a map of values that can be used by third party tools.
 }
 
@@ -664,6 +663,7 @@ message TaskEvents {
 
 message TaskBehaviour {
   DefaultTaskRetry defaultRetry = 1; // Retry - the recommended retry behavior for the task, this could be overriden by a workflow.
+  uint64 estimatedMaxDuration = 7; // EstimatedMaxDuration documents how long the task is expected to run for.
   bool unsafe = 2; // Unsafe labels the task as non-idempotent.  Non-idempotent tasks are highly unrecommended.
   bool mock = 3; // Mock this task as it has no concrete implementation.
   bool deprecated = 4; // Deprecated task.  Workflows can not be executed that include this task.

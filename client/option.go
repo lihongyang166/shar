@@ -57,3 +57,18 @@ type noOSSig struct {
 func (o noOSSig) configure(client *Client) {
 	client.noOSSig = true
 }
+
+// Experimental_WithNamespace **DANGER: EXPERIMENTAL FEATURE.  MAY CAUSE DATA LOSS OR CORRUPTION!!** applies a client namespace.
+//
+//goland:noinspection GoExportedFuncWithUnexportedType
+func Experimental_WithNamespace(name string) namespace { //nolint
+	return namespace{name: name}
+}
+
+type namespace struct {
+	name string
+}
+
+func (o namespace) configure(client *Client) {
+	client.ns = o.name
+}

@@ -23,13 +23,14 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 	if err := validVersion(td.Metadata.Version); err != nil {
 		return fmt.Errorf("task version is not valid: %w", err)
 	}
-	if td.Metadata.EstimatedMaxDuration == 0 {
-		return fmt.Errorf("task estimated duration not provided: %w", ErrServiceTaskDuration)
-	}
 
 	// Behaviour
 	if td.Behaviour == nil {
 		return fmt.Errorf("task behaviour section not found: %w", ErrServiceTaskNoMetadata)
+	}
+
+	if td.Behaviour.EstimatedMaxDuration == 0 {
+		return fmt.Errorf("task estimated duration not provided: %w", ErrServiceTaskDuration)
 	}
 
 	if td.Behaviour.DefaultRetry == nil {

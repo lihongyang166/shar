@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
@@ -74,6 +75,7 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 
 func (s *Nats) startTelemetry(ctx context.Context) error {
 	msg := nats.NewMsg(messages.WorkflowTelemetryTimer)
+	msg.Header.Set(header.SharNamespace, "*")
 	if err := common.PublishOnce(s.js, s.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
 		return fmt.Errorf("ensure telemetry timer message: %w", err)
 	}

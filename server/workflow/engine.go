@@ -284,7 +284,7 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 			ctx, log := common.ContextLoggerWithWfState(ctx, exec)
 			log.Debug("just prior to publishing start msg")
 
-			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, "default"), exec); err != nil {
+			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, subj.GetNS(ctx)), exec); err != nil {
 				return fmt.Errorf("publish workflow timed process execute: %w", err)
 			}
 			if err := c.ns.RecordHistoryProcessStart(ctx, exec); err != nil {
@@ -527,7 +527,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 				}
 				ut = dur.Shift(ut)
 			}
-			err = c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowElementTimedExecute, "default"), timerState, storage.WithEmbargo(int(ut.UnixNano())))
+			err = c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowElementTimedExecute, subj.GetNS(ctx)), timerState, storage.WithEmbargo(int(ut.UnixNano())))
 			if err != nil {
 				return fmt.Errorf("publish timed execute during activity start: %w", err)
 			}
@@ -618,7 +618,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			return c.engineErr(ctx, "start message job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
 	case element.CallActivity:
-		if err := c.startJob(ctx, subj.NS(messages.WorkflowJobLaunchExecute, "default"), newState, el, traversal.Vars); err != nil {
+		if err := c.startJob(ctx, subj.NS(messages.WorkflowJobLaunchExecute, subj.GetNS(ctx)), newState, el, traversal.Vars); err != nil {
 			return c.engineErr(ctx, "start message launch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
 		}
 	case element.MessageIntermediateCatchEvent:
@@ -655,10 +655,10 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			return errors.ErrFatalBadDuration
 		}
 		newState.Id = common.TrackingID(newState.Id).Push(ksuid.New().String())
-		if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobTimerTaskExecute, "default"), newState); err != nil {
+		if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobTimerTaskExecute, subj.GetNS(ctx)), newState); err != nil {
 			return fmt.Errorf("publish timer task execute job: %w", err)
 		}
-		if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobTimerTaskComplete, "default"), newState, storage.WithEmbargo(embargo)); err != nil {
+		if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobTimerTaskComplete, subj.GetNS(ctx)), newState, storage.WithEmbargo(embargo)); err != nil {
 			return fmt.Errorf("publish timer task execute complete: %w", err)
 		}
 	case element.EndEvent:
@@ -938,7 +938,7 @@ func (c *Engine) startJob(ctx context.Context, subject string, job *model.Workfl
 	// Single instance launch
 	if el.Iteration == nil {
 
-		if err := c.ns.PublishWorkflowState(ctx, subj.NS(subject, "default"), job, opts...); err != nil {
+		if err := c.ns.PublishWorkflowState(ctx, subj.NS(subject, subj.GetNS(ctx)), job, opts...); err != nil {
 			return fmt.Errorf("start job failed to publish: %w", err)
 		}
 		// finally tell the engine that the job is ready for a client
@@ -1021,7 +1021,7 @@ func (c *Engine) CompleteManualTask(ctx context.Context, job *model.WorkflowStat
 // CompleteServiceTask completes a workflow service task
 func (c *Engine) CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	if _, err := c.ns.GetOldState(ctx, common.TrackingID(job.Id).ParentID()); errors2.Is(err, errors.ErrStateNotFound) {
-		if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, "default"), job); err != nil {
+		if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
 			return fmt.Errorf("complete service task failed to publish workflow state: %w", err)
 		}
 		return nil

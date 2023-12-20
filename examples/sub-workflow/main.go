@@ -7,6 +7,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
+	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	"os"
 )
 
@@ -16,20 +17,22 @@ func main() {
 	// Create a starting context
 	ctx := context.Background()
 
+	t := tracer.Trace("127.0.0.1:4222")
+	defer t.Close()
 	// Dial shar
-	cl := client.New()
+	cl := client.New(client.Experimental_WithNamespace("testns"))
 	if err := cl.Dial(ctx, nats.DefaultURL); err != nil {
 		panic(err)
 	}
 
 	// Register the service tasks
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.BeforeCallingSubProcess.yaml", beforeCallingSubProcess); err != nil {
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.BeforeCallingSubProcess.yaml", beforeCallingSubProcess); err != nil {
 		panic(err)
 	}
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.DuringSubProcess.yaml", duringSubProcess); err != nil {
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.DuringSubProcess.yaml", duringSubProcess); err != nil {
 		panic(err)
 	}
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.AfterCallingSubProcess.yaml", afterCallingSubProcess); err != nil {
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.AfterCallingSubProcess.yaml", afterCallingSubProcess); err != nil {
 		panic(err)
 	}
 
@@ -44,12 +47,12 @@ func main() {
 	}
 
 	// Add a hook to watch for completion
-	if err := cl.RegisterProcessComplete("Process_03llwnm", processEnd); err != nil {
+	if err := cl.RegisterProcessComplete("WorkflowDemo", processEnd); err != nil {
 		panic(err)
 	}
 
 	// Launch the workflow
-	if _, _, err := cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{}); err != nil {
+	if _, _, err := cl.LaunchProcess(ctx, "WorkflowDemo", model.Vars{}); err != nil {
 		panic(err)
 	}
 	go func() {

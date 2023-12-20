@@ -54,9 +54,9 @@ func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) err
 		}
 
 		jxCfg := &nats.ConsumerConfig{
-			Durable:       "ServiceTask_" + wf.Name + "_" + m.Name,
+			Durable:       "ServiceTask_" + subj.GetNS(ctx) + "_" + wf.Name + "_" + m.Name,
 			Description:   "",
-			FilterSubject: subj.NS(messages.WorkflowJobSendMessageExecute, "default") + "." + wf.Name + "_" + m.Name,
+			FilterSubject: subj.NS(messages.WorkflowJobSendMessageExecute, subj.GetNS(ctx)) + "." + wf.Name + "_" + m.Name,
 			AckPolicy:     nats.AckExplicitPolicy,
 			MaxAckPending: 65536,
 		}
@@ -124,7 +124,7 @@ func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars
 		CorrelationKey: key,
 		Vars:           vars,
 	}
-	msg := nats.NewMsg(fmt.Sprintf(messages.WorkflowMessage, "default"))
+	msg := nats.NewMsg(fmt.Sprintf(messages.WorkflowMessage, subj.GetNS(ctx)))
 	b, err := proto.Marshal(sharMsg)
 	if err != nil {
 		return fmt.Errorf("marshal message for publishing: %w", err)
@@ -133,6 +133,7 @@ func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars
 	if err := header.FromCtxToMsgHeader(ctx, &msg.Header); err != nil {
 		return fmt.Errorf("add header to published workflow state: %w", err)
 	}
+	msg.Header.Set(header.SharNamespace, subj.GetNS(ctx))
 	pubCtx, cancel := context.WithTimeout(ctx, s.publishTimeout)
 	defer cancel()
 	id := ksuid.New().String()

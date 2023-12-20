@@ -17,7 +17,6 @@ func main() {
 	ss, ns, err := zensvr.GetServers(8, nil, nil)
 	defer ss.Shutdown()
 	defer ns.Shutdown()
-
 	// Create a starting context
 	ctx := context.Background()
 
@@ -37,10 +36,10 @@ func main() {
 	}
 
 	// Register a service task
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.step1.yaml", step1); err != nil {
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/messaging/task.step1.yaml", step1); err != nil {
 		panic(err)
 	}
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.step2.yaml", step2); err != nil {
+	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/messaging/task.step2.yaml", step2); err != nil {
 		panic(err)
 	}
 	if err := cl.RegisterMessageSender(ctx, "MessageDemo", "continueMessage", sendMessage); err != nil {

@@ -177,6 +177,7 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	}
 
 	msg := nats.NewMsg(messages.WorkflowMessageKick)
+	msg.Header.Set(header.SharNamespace, "default")
 	if err := common.PublishOnce(js, ms.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
 		return nil, fmt.Errorf("ensure kick message: %w", err)
 	}
@@ -381,7 +382,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 					}
 				}
 
-				if err := s.EnsureServiceTaskConsumer(id); err != nil {
+				if err := s.EnsureServiceTaskConsumer(ctx, id); err != nil {
 					return "", fmt.Errorf("ensure consumer for service task %s:%w", j.Execute, err)
 				}
 			}
@@ -441,7 +442,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 					WorkflowName: wf.Name,
 					ProcessName:  pr.Name,
 				}
-				if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, "default"), timer); err != nil {
+				if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, subj.GetNS(ctx)), timer); err != nil {
 					return fmt.Errorf("publish workflow timed execute: %w", err)
 				}
 				return nil
@@ -458,11 +459,12 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 }
 
 // EnsureServiceTaskConsumer creates or updates a service task consumer.
-func (s *Nats) EnsureServiceTaskConsumer(uid string) error {
+func (s *Nats) EnsureServiceTaskConsumer(ctx context.Context, uid string) error {
+	ns := subj.GetNS(ctx)
 	jxCfg := &nats.ConsumerConfig{
-		Durable:       "ServiceTask_" + uid,
+		Durable:       "ServiceTask_" + ns + "_" + uid,
 		Description:   "",
-		FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, "default") + "." + uid,
+		FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, subj.GetNS(ctx)) + "." + uid,
 		AckPolicy:     nats.AckExplicitPolicy,
 		MemoryStorage: s.storageType == nats.MemoryStorage,
 	}
@@ -549,7 +551,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	}
 	for _, m := range wf.Messages {
 		if err := setup.EnsureBucket(s.js, &nats.KeyValueConfig{
-			Bucket:      subj.NS("MsgTx_%s_", "default") + m.Name,
+			Bucket:      subj.NS("MsgTx_%s_", subj.GetNS(ctx)) + m.Name,
 			Description: "Message transmit for " + m.Name,
 		}, s.storageType); err != nil {
 			return nil, fmt.Errorf("ensuring bucket '%s':%w", m.Name, err)
@@ -788,8 +790,9 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 		i.Apply(c)
 	}
 	state.UnixTimeNano = time.Now().UnixNano()
-	msg := nats.NewMsg(subj.NS(stateName, "default"))
+	msg := nats.NewMsg(subj.NS(stateName, subj.GetNS(ctx)))
 	msg.Header.Set("embargo", strconv.Itoa(c.Embargo))
+	msg.Header.Set(header.SharNamespace, subj.GetNS(ctx))
 	b, err := proto.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("marshal proto during publish workflow state: %w", err)
@@ -809,7 +812,7 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 		log.Error("publish message", err, slog.String("nats.msg.id", c.ID), slog.Any("state", state), slog.String("subject", msg.Subject))
 		return fmt.Errorf("publish workflow state message: %w", err)
 	}
-	if stateName == subj.NS(messages.WorkflowJobUserTaskExecute, "default") {
+	if stateName == subj.NS(messages.WorkflowJobUserTaskExecute, subj.GetNS(ctx)) {
 		for _, i := range append(state.Owners, state.Groups...) {
 			if err := s.openUserTask(ctx, i, common.TrackingID(state.Id).ID()); err != nil {
 				return fmt.Errorf("open user task during publish workflow state: %w", err)
@@ -1260,7 +1263,7 @@ func (s *Nats) deleteJob(ctx context.Context, state *model.WorkflowState) error 
 	if activityState, err := s.GetOldState(ctx, common.TrackingID(state.Id).Pop().ID()); err != nil && !errors2.Is(err, errors.ErrStateNotFound) {
 		return fmt.Errorf("fetch old state during delete job: %w", err)
 	} else if err == nil {
-		if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, "default"), activityState); err != nil {
+		if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), activityState); err != nil {
 			return fmt.Errorf("publish activity abort during delete job: %w", err)
 		}
 	}

@@ -140,7 +140,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 						log.Error("traverse", err)
 						continue
 					}
-					if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, "default"), state); err != nil {
+					if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), state); err != nil {
 						if err != nil {
 							continue
 						}

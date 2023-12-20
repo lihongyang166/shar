@@ -19,6 +19,9 @@ const natsSharHeader = "Shar-Header"
 // NatsVersionHeader is the name of the header used to pass the SHAR client version.
 const NatsVersionHeader = "Shar-Version"
 
+// SharNamespace is the name of the header used to pass the client's declared namespace.
+const SharNamespace = "Shar-Namespace"
+
 // NatsCompatHeader is the name of the header used to pass the compatible version of SHAR.
 const NatsCompatHeader = "Shar-Compat"
 

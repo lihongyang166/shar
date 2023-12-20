@@ -16,3 +16,6 @@ var SharUser = sharContextKey("WF_USER")
 
 // APIFunc - the context key for the currently executing API function
 var APIFunc = sharContextKey("API_FN")
+
+// SharNamespace - the context key used to hold the active namespace.
+var SharNamespace = sharContextKey("SHAR_NAMESPACE")

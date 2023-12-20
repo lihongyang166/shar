@@ -8,8 +8,8 @@ metadata:
   labels:
   - address
   - postcode
-  estimatedMaxDuration: 2343255
 behaviour:
+  estimatedMaxDuration: 2343255
   defaultRetry:
     number: 30
     strategy: 30000

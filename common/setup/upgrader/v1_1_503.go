@@ -8,6 +8,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"time"
 )
 
 var ver = "1.1.503"
@@ -41,15 +42,16 @@ func v1_1_503(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext)
 			Version: "1.0",
 			Kind:    "Task",
 			Metadata: &model.TaskMetadata{
-				Uid:                  ks.String(),
-				Type:                 k,
-				Version:              "",
-				Short:                "",
-				Description:          "",
-				Labels:               nil,
-				EstimatedMaxDuration: 0,
+				Uid:         ks.String(),
+				Type:        k,
+				Version:     "",
+				Short:       "",
+				Description: "",
+				Labels:      nil,
 			},
-			Behaviour:  nil,
+			Behaviour: &model.TaskBehaviour{
+				EstimatedMaxDuration: uint64(5 * time.Second),
+			},
 			Parameters: nil,
 			Events:     nil,
 		}); err != nil {

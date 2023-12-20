@@ -12,15 +12,15 @@ func main() {
 		Version: "1.0",
 		Kind:    "ServiceTask",
 		Metadata: &model.TaskMetadata{
-			Uid:                  "LookupAddressV1",
-			Type:                 "LookupAddress",
-			Version:              "0.1",
-			Short:                "Look up address",
-			Description:          "Looks up a postal address from a PAF API",
-			Labels:               []string{"address", "postcode"},
-			EstimatedMaxDuration: 2343255,
+			Uid:         "LookupAddressV1",
+			Type:        "LookupAddress",
+			Version:     "0.1",
+			Short:       "Look up address",
+			Description: "Looks up a postal address from a PAF API",
+			Labels:      []string{"address", "postcode"},
 		},
 		Behaviour: &model.TaskBehaviour{
+			EstimatedMaxDuration: 2343255,
 			DefaultRetry: &model.DefaultTaskRetry{
 				Number:        30,
 				Strategy:      30000,

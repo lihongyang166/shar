@@ -20,7 +20,7 @@ type NatsService interface {
 	CreateProcessInstance(ctx context.Context, workflowInstanceID string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error)
 	DeleteJob(ctx context.Context, trackingID string) error
 	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, wi *model.Execution) error
-	EnsureServiceTaskConsumer(uid string) error
+	EnsureServiceTaskConsumer(ctx context.Context, uid string) error
 	GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error)
 	GetExecution(ctx context.Context, workflowInstanceID string) (*model.Execution, error)
 	GetGatewayInstance(ctx context.Context, gatewayInstanceID string) (*model.Gateway, error)

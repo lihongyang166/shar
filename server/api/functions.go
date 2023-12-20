@@ -11,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/validation"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
@@ -233,7 +234,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 	if !found {
 		werr := &errors2.ErrWorkflowFatal{Err: fmt.Errorf("workflow-fatal: can't handle error code %s as the workflow doesn't support it: %w", req.ErrorCode, errors2.ErrWorkflowErrorNotFound)}
 		// TODO: This always assumes service task.  Wrong!
-		if err := s.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, "default"), job); err != nil {
+		if err := s.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
 			return nil, fmt.Errorf("cencel job: %w", werr)
 		}
 
@@ -423,6 +424,10 @@ func (s *SharServer) registerTask(ctx context.Context, req *model.RegisterTaskRe
 	ctx, err2 := s.authForNonWorkflow(ctx)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+
+	if err := validation.ValidateTaskSpec(req.Spec); err != nil {
+		return nil, fmt.Errorf("validaet service task: %w", err)
 	}
 
 	uid, err := s.ns.PutTaskSpec(ctx, req.Spec)

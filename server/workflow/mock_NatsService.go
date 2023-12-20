@@ -415,13 +415,13 @@ func (_c *MockNatsService_DestroyProcessInstance_Call) RunAndReturn(run func(con
 	return _c
 }
 
-// EnsureServiceTaskConsumer provides a mock function with given fields: uid
-func (_m *MockNatsService) EnsureServiceTaskConsumer(uid string) error {
-	ret := _m.Called(uid)
+// EnsureServiceTaskConsumer provides a mock function with given fields: ctx, uid
+func (_m *MockNatsService) EnsureServiceTaskConsumer(ctx context.Context, uid string) error {
+	ret := _m.Called(ctx, uid)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(uid)
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, uid)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -435,14 +435,15 @@ type MockNatsService_EnsureServiceTaskConsumer_Call struct {
 }
 
 // EnsureServiceTaskConsumer is a helper method to define mock.On call
+//   - ctx context.Context
 //   - uid string
-func (_e *MockNatsService_Expecter) EnsureServiceTaskConsumer(uid interface{}) *MockNatsService_EnsureServiceTaskConsumer_Call {
-	return &MockNatsService_EnsureServiceTaskConsumer_Call{Call: _e.mock.On("EnsureServiceTaskConsumer", uid)}
+func (_e *MockNatsService_Expecter) EnsureServiceTaskConsumer(ctx interface{}, uid interface{}) *MockNatsService_EnsureServiceTaskConsumer_Call {
+	return &MockNatsService_EnsureServiceTaskConsumer_Call{Call: _e.mock.On("EnsureServiceTaskConsumer", ctx, uid)}
 }
 
-func (_c *MockNatsService_EnsureServiceTaskConsumer_Call) Run(run func(uid string)) *MockNatsService_EnsureServiceTaskConsumer_Call {
+func (_c *MockNatsService_EnsureServiceTaskConsumer_Call) Run(run func(ctx context.Context, uid string)) *MockNatsService_EnsureServiceTaskConsumer_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
+		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
@@ -452,7 +453,7 @@ func (_c *MockNatsService_EnsureServiceTaskConsumer_Call) Return(_a0 error) *Moc
 	return _c
 }
 
-func (_c *MockNatsService_EnsureServiceTaskConsumer_Call) RunAndReturn(run func(string) error) *MockNatsService_EnsureServiceTaskConsumer_Call {
+func (_c *MockNatsService_EnsureServiceTaskConsumer_Call) RunAndReturn(run func(context.Context, string) error) *MockNatsService_EnsureServiceTaskConsumer_Call {
 	_c.Call.Return(run)
 	return _c
 }

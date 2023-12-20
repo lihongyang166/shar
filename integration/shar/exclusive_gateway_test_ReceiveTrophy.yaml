@@ -4,8 +4,8 @@ metadata:
   type: ReceiveTrophy
   version: "0.1"
   short: A test task.
-  estimatedMaxDuration: 2343255
 behaviour:
+  estimatedMaxDuration: 2343255
   defaultRetry:
     number: 30
     strategy: 30000

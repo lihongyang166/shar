@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	version2 "github.com/hashicorp/go-version"
@@ -10,9 +11,11 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
+	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"log/slog"
+	"runtime"
 	"sync"
 
 	"github.com/nats-io/nats.go"
@@ -192,6 +195,7 @@ func listen[T proto.Message, U proto.Message](con common.NatsConn, panicRecovery
 			}
 		}
 		ctx, log := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", msg.Header)
+		ctx = subj.SetNS(ctx, msg.Header.Get(header.SharNamespace))
 		if err := callAPI(ctx, panicRecovery, req, msg, fn); err != nil {
 			log.Error("API call for "+subject+" failed", err)
 		}
@@ -239,6 +243,10 @@ func callAPI[T proto.Message, U proto.Message](ctx context.Context, panicRecover
 
 func recoverAPIpanic(msg *nats.Msg) {
 	if r := recover(); r != nil {
+		buf := make([]byte, 16384)
+		runtime.Stack(buf, false)
+		stack := buf[:bytes.IndexByte(buf, 0)]
+		fmt.Println(stack)
 		errorResponse(msg, codes.Internal, r)
 		slog.Info("recovered from ", r)
 	}

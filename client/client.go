@@ -231,6 +231,7 @@ func (c *Client) DeprecateTaskSpec(ctx context.Context, name string) error {
 		Name: name,
 	}
 	res := &model.DeprecateServiceTaskResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIDeprecateServiceTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -284,6 +285,7 @@ func (c *Client) Listen(ctx context.Context) error {
 }
 
 func (c *Client) listen(ctx context.Context) error {
+	ctx = context.WithValue(ctx, ctxkey.SharNamespace, c.ns)
 	tasks := make(map[string]string)
 	for i := range c.listenTasks {
 		tasks[i] = subj.NS(messages.WorkflowJobServiceTaskExecute+"."+i, c.ns)
@@ -292,7 +294,7 @@ func (c *Client) listen(ctx context.Context) error {
 		tasks[i] = subj.NS(messages.WorkflowJobSendMessageExecute+"."+i, c.ns)
 	}
 	for k, v := range tasks {
-		cName := "ServiceTask_" + k
+		cName := "ServiceTask_" + c.ns + "_" + k
 		cInf, err := c.js.ConsumerInfo("WORKFLOW", cName)
 		if err != nil {
 			return fmt.Errorf("listen obtaining consumer info for %s: %w", cName, err)
@@ -407,6 +409,7 @@ func (c *Client) listen(ctx context.Context) error {
 						}
 						res := &model.HandleWorkflowErrorResponse{}
 						req := &model.HandleWorkflowErrorRequest{TrackingId: trackingID, ErrorCode: wfe.Code, Vars: v}
+						ctx = subj.SetNS(ctx, c.ns)
 						if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowError, c.ExpectedCompatibleServerVersion, req, res); err2 != nil {
 							// TODO: This isn't right.  If this call fails it assumes it is handled!
 							reterr := fmt.Errorf("handle workflow error: %w", err2)
@@ -512,6 +515,7 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 func (c *Client) ListUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error) {
 	res := &model.UserTasks{}
 	req := &model.ListUserTasksRequest{Owner: owner}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIListUserTaskIDs, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -522,6 +526,7 @@ func (c *Client) ListUserTaskIDs(ctx context.Context, owner string) (*model.User
 func (c *Client) GetTaskSpecVersions(ctx context.Context, name string) ([]string, error) {
 	res := &model.GetTaskSpecVersionsResponse{}
 	req := &model.GetTaskSpecVersionsRequest{Name: name}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecVersions, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -536,6 +541,7 @@ func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID 
 	}
 	res := &model.CompleteUserTaskResponse{}
 	req := &model.CompleteUserTaskRequest{Owner: owner, TrackingId: trackingID, Vars: ev}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APICompleteUserTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -549,6 +555,7 @@ func (c *Client) completeServiceTask(ctx context.Context, trackingID string, new
 	}
 	res := &model.CompleteServiceTaskResponse{}
 	req := &model.CompleteServiceTaskRequest{TrackingId: trackingID, Vars: ev}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APICompleteServiceTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -562,6 +569,7 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 	}
 	res := &model.CompleteSendMessageResponse{}
 	req := &model.CompleteSendMessageRequest{TrackingId: trackingID, Vars: ev}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APICompleteSendMessageTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -587,6 +595,7 @@ func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b [
 	wf.GzipSource = compressed.Bytes()
 
 	res := &model.StoreWorkflowResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIStoreWorkflow, c.ExpectedCompatibleServerVersion, &model.StoreWorkflowRequest{Workflow: wf}, res); err != nil {
 		return "", c.clientErr(ctx, err)
 	}
@@ -620,6 +629,7 @@ func (c *Client) GetWorkflowVersions(ctx context.Context, name string) (*model.W
 		Name: name,
 	}
 	res := &model.GetWorkflowVersionsResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflowVersions, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -632,6 +642,7 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, e
 		Id: id,
 	}
 	res := &model.GetWorkflowResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflow, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -644,6 +655,7 @@ func (c *Client) GetTaskSpecUsage(ctx context.Context, id string) (*model.TaskSp
 		Id: id,
 	}
 	res := &model.TaskSpecUsageReport{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecUsage, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -662,6 +674,7 @@ func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInst
 		State: model.CancellationState_errored,
 		Error: wfe,
 	}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APICancelExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -676,6 +689,7 @@ func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars mo
 	}
 	req := &model.LaunchWorkflowRequest{Name: processName, Vars: ev}
 	res := &model.LaunchWorkflowResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return "", "", c.clientErr(ctx, err)
 	}
@@ -686,6 +700,7 @@ func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars mo
 func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListExecutionItem, error) {
 	req := &model.ListExecutionRequest{WorkflowName: name}
 	res := &model.ListExecutionResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -696,6 +711,7 @@ func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListE
 func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResponse, error) {
 	req := &model.ListWorkflowsRequest{}
 	res := &model.ListWorkflowsResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -706,6 +722,7 @@ func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowRespon
 func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.ListExecutionProcessesResponse, error) {
 	req := &model.ListExecutionProcessesRequest{Id: id}
 	res := &model.ListExecutionProcessesResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIListExecutionProcesses, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -716,6 +733,7 @@ func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.
 func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) (*model.GetProcessInstanceStatusResult, error) {
 	req := &model.GetProcessInstanceStatusRequest{Id: id}
 	res := &model.GetProcessInstanceStatusResult{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -726,6 +744,7 @@ func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) (*mode
 func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID string) (*model.GetUserTaskResponse, model.Vars, error) {
 	req := &model.GetUserTaskRequest{Owner: owner, TrackingId: trackingID}
 	res := &model.GetUserTaskResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetUserTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, nil, c.clientErr(ctx, err)
 	}
@@ -751,6 +770,7 @@ func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars mo
 	}
 	req := &model.SendMessageRequest{Name: name, CorrelationKey: skey, Vars: b}
 	res := &model.SendMessageResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APISendMessage, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -771,6 +791,7 @@ func (c *Client) RegisterProcessComplete(processId string, fn ProcessTerminateFn
 func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string) (*model.GetProcessHistoryResponse, error) {
 	req := &model.GetProcessHistoryRequest{Id: processInstanceId}
 	res := &model.GetProcessHistoryResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessHistory, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -790,6 +811,7 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 		Attributes: attrs,
 	}
 	res := &model.LogResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APILog, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -813,6 +835,7 @@ func (c *Client) GetServerVersion(ctx context.Context) (*version.Version, error)
 		CompatibleVersion: c.ExpectedCompatibleServerVersion.String(),
 	}
 	res := &model.GetVersionInfoResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.con, messages.APIGetVersionInfo, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, fmt.Errorf("get version info: %w", err)
 	}
@@ -843,7 +866,7 @@ func (c *Client) registerServiceTask(ctx context.Context, spec *model.TaskSpec) 
 		Spec: spec,
 	}
 	res := &model.RegisterTaskResponse{}
-
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIRegisterTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return "", c.clientErr(ctx, err)
 	}
@@ -856,7 +879,7 @@ func (c *Client) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskS
 		Uid: uid,
 	}
 	res := &model.GetTaskSpecResponse{}
-
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpec, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -869,7 +892,7 @@ func (c *Client) ListTaskSpecs(ctx context.Context, includeDeprecated bool) ([]*
 		IncludeDeprecated: includeDeprecated,
 	}
 	res := &model.ListTaskSpecUIDsResponse{}
-
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIListTaskSpecUIDs, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -893,6 +916,7 @@ func (c *Client) heartbeat(ctx context.Context) error {
 		Time: time.Now().UnixMilli(),
 	}
 	res := &model.HeartbeatResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIHeartbeat, c.ExpectedCompatibleServerVersion, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}

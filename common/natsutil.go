@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -266,6 +267,14 @@ func Process(ctx context.Context, js nats.JetStreamContext, streamName string, t
 				}
 				m := msg[0]
 				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Header)
+				if x := msg[0].Header.Get(header.SharNamespace); x == "" {
+					log.Error("message without namespace", slog.Any("subject", m.Subject))
+					if err := msg[0].Ack(); err != nil {
+						log.Error("processing failed to ack", err)
+					}
+					cancel()
+					continue
+				}
 				if err != nil {
 					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
 					if err := msg[0].Ack(); err != nil {
@@ -294,6 +303,7 @@ func Process(ctx context.Context, js nats.JetStreamContext, streamName string, t
 				}
 				executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Header)
 				executeCtx = header.Copy(ctx, executeCtx)
+				executeCtx = subj.SetNS(executeCtx, m.Header.Get(header.SharNamespace))
 				ack, err := fn(executeCtx, executeLog, msg[0])
 				if err != nil {
 					if errors2.IsWorkflowFatal(err) {

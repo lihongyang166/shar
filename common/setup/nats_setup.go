@@ -59,38 +59,6 @@ func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, sto
 	for i := range cfg.KeyValue {
 		if err := EnsureBucket(js, &cfg.KeyValue[i].Config, storageType); err != nil {
 			return fmt.Errorf("ensure key-value: %w", err)
-			//=======
-			//
-			//if err := EnsureStream(ctx, nc, js, nats.StreamConfig{
-			//	Name:      "WORKFLOW-TELEMETRY",
-			//	Subjects:  []string{"WORKFLOW-TELEMETRY.>"},
-			//	Storage:   storageType,
-			//	Retention: nats.LimitsPolicy,
-			//	MaxAge:    mirrorAge,
-			//	Sources: []*nats.StreamSource{
-			//		{Name: "WORKFLOW", SubjectTransforms: []nats.SubjectTransformConfig{
-			//			{Source: "WORKFLOW.*.State.*.*", Destination: "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}"},
-			//			{Source: "WORKFLOW.*.State.*.*.*", Destination: "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}.{{wildcard(4)}}"},
-			//			{Source: "WORKFLOW.*.State.*.*.*.*", Destination: "WORKFLOW-TELEMETRY.{{wildcard(1)}}.State.{{wildcard(2)}}.{{wildcard(3)}}.{{wildcard(4)}}.{{wildcard(5)}}"},
-			//		}},
-			//	},
-			//}); err != nil {
-			//	return fmt.Errorf("ensure workflow stream: %w", err)
-			//}
-			//
-			//if err := EnsureConsumer(js, "WORKFLOW", nats.ConsumerConfig{
-			//	Durable:       "UndeliveredMsgConsumer",
-			//	Description:   "Undeliverable workflow message queue.  Messages should be looked up in the WORKFLOW-MIRROR stream to avoid disappointment.",
-			//	FilterSubject: "$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>",
-			//	MemoryStorage: storageType == nats.MemoryStorage,
-			//}, update); err != nil {
-			//	return fmt.Errorf("ensure consumer during ensure workflow stream: %w", err)
-			//}
-			//
-			//for _, ccfg := range consumerConfig {
-			//	if err := EnsureConsumer(js, "WORKFLOW", *ccfg, update); err != nil {
-			//		return fmt.Errorf("ensure consumer during ensure workflow stream: %w", err)
-			//>>>>>>> d114176 (add service task subjects to subject transform config)
 		}
 	}
 	return nil

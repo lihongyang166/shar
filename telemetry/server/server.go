@@ -74,7 +74,7 @@ var startActions = []string{
 var endActions = []string{
 	StateTraversalComplete, StateActivityComplete, StateActivityAbort, StateJobCompleteServiceTask,
 	StateExecutionComplete, StateProcessTerminated, StateJobAbortServiceTask, StateJobCompleteUserTask,
-	StateJobCompleteManualTask,
+	StateJobCompleteManualTask, StateJobCompleteSendMessage,
 }
 
 var endStartActionMapping = map[string]string{
@@ -87,6 +87,7 @@ var endStartActionMapping = map[string]string{
 	StateJobAbortServiceTask:    StateJobExecuteServiceTask,
 	StateJobCompleteUserTask:    StateJobExecuteUserTask,
 	StateJobCompleteManualTask:  StateJobExecuteManualTask,
+	StateJobCompleteSendMessage: StateJobExecuteSendMessage,
 }
 
 // Server is the shar server type responsible for hosting the telemetry server.
@@ -214,7 +215,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 		strings.HasSuffix(msg.Subject, StateJobExecuteUserTask),
 		strings.HasSuffix(msg.Subject, StateJobExecuteManualTask),
 		strings.Contains(msg.Subject, StateJobExecuteSendMessage):
-		if err := s.spanStart(ctx, state, ""); err != nil {
+		if err := s.spanStart(ctx, state, msg.Subject); err != nil {
 			return true, nil
 		}
 	case strings.HasSuffix(msg.Subject, StateTraversalComplete):
@@ -241,7 +242,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 		strings.Contains(msg.Subject, StateJobCompleteManualTask),
 		strings.Contains(msg.Subject, StateJobCompleteSendMessage):
 
-		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state, ""); err != nil {
+		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state, msg.Subject); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("span end", err,

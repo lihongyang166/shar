@@ -14,12 +14,17 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
+	semconv2 "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
@@ -31,12 +36,57 @@ const (
 	service     = "shar"
 	environment = "production"
 	id          = 1
+
+	stateExecutionExecute      = ".State.Execution.Execute"
+	stateProcessExecute        = ".State.Process.Execute"
+	stateTraversalExecute      = ".State.Traversal.Execute"
+	stateActivityExecute       = ".State.Activity.Execute"
+	stateJobExecuteServiceTask = ".State.Job.Execute.ServiceTask"
+	stateJobExecuteUserTask    = ".State.Job.Execute.UserTask"
+	stateJobExecuteManualTask  = ".State.Job.Execute.ManualTask"
+	stateJobExecuteSendMessage = ".State.Job.Execute.SendMessage"
+
+	stateTraversalComplete      = ".State.Traversal.Complete"
+	stateActivityComplete       = ".State.Activity.Complete"
+	stateActivityAbort          = ".State.Activity.Abort"
+	stateJobCompleteServiceTask = ".State.Job.Complete.ServiceTask"
+	stateExecutionComplete      = ".State.Execution.Complete"
+	stateProcessTerminated      = ".State.Process.Terminated"
+	stateJobAbortServiceTask    = ".State.Job.Abort.ServiceTask"
+	stateJobCompleteUserTask    = ".State.Job.Complete.UserTask"
+	stateJobCompleteManualTask  = ".State.Job.Complete.ManualTask"
+	stateJobCompleteSendMessage = ".State.Job.Complete.SendMessage"
+	stateLog                    = ".State.Log."
 )
 
 // NatsConfig holds the current configuration of the SHAR Telemetry Server
 //
 //go:embed nats-config.yaml
 var NatsConfig string
+
+var startActions = []string{
+	stateExecutionExecute, stateProcessExecute, stateTraversalExecute, stateActivityExecute,
+	stateJobExecuteServiceTask, stateJobExecuteUserTask, stateJobExecuteManualTask, stateJobExecuteSendMessage,
+}
+
+var endActions = []string{
+	stateTraversalComplete, stateActivityComplete, stateActivityAbort, stateJobCompleteServiceTask,
+	stateExecutionComplete, stateProcessTerminated, stateJobAbortServiceTask, stateJobCompleteUserTask,
+	stateJobCompleteManualTask, stateJobCompleteSendMessage,
+}
+
+var endStartActionMapping = map[string]string{
+	stateTraversalComplete:      stateTraversalExecute,
+	stateActivityComplete:       stateActivityExecute,
+	stateActivityAbort:          stateActivityExecute,
+	stateJobCompleteServiceTask: stateJobExecuteServiceTask,
+	stateExecutionComplete:      stateExecutionExecute,
+	stateProcessTerminated:      stateProcessExecute,
+	stateJobAbortServiceTask:    stateJobExecuteServiceTask,
+	stateJobCompleteUserTask:    stateJobExecuteUserTask,
+	stateJobCompleteManualTask:  stateJobExecuteManualTask,
+	stateJobCompleteSendMessage: stateJobExecuteSendMessage,
+}
 
 // Server is the shar server type responsible for hosting the telemetry server.
 type Server struct {
@@ -45,6 +95,9 @@ type Server struct {
 	res    *resource.Resource
 	exp    Exporter
 	wfi    nats.KeyValue
+
+	wfStateCounter       metric.Int64Counter
+	wfStateUpDownCounter metric.Int64UpDownCounter
 }
 
 // New creates a new telemetry server.
@@ -61,10 +114,40 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 		panic(err)
 	}
 
+	wfStateCounter, err := otel.GetMeterProvider().
+		Meter(
+			"instrumentation/server",
+			metric.WithInstrumentationVersion("0.0.1"),
+		).
+		Int64Counter(
+			"workflow_state",
+			metric.WithDescription("how many workflow state messages have been received, tagged by subject"),
+		)
+
+	if err != nil {
+		slog.Error("err getting meter provider meter counter", "err", err.Error())
+	}
+
+	wfStateUpDownCounter, err := otel.GetMeterProvider().
+		Meter(
+			"instrumentation/server",
+			metric.WithInstrumentationVersion("0.0.1"),
+		).
+		Int64UpDownCounter(
+			"workflow_state_up_down",
+			metric.WithDescription("how many workflow state messages are active, tagged by action"),
+		)
+
+	if err != nil {
+		slog.Error("err getting meter provider meter up down counter", "err", err.Error())
+	}
+
 	return &Server{
-		js:  js,
-		res: res,
-		exp: exp,
+		js:                   js,
+		res:                  res,
+		exp:                  exp,
+		wfStateCounter:       wfStateCounter,
+		wfStateUpDownCounter: wfStateUpDownCounter,
 	}
 }
 
@@ -97,32 +180,38 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	if done {
 		return done, err2
 	}
+
 	switch {
-	case strings.HasSuffix(msg.Subject, ".State.Execution.Execute"):
+	case strings.HasSuffix(msg.Subject, stateExecutionExecute):
+		s.incrementActionCounter(ctx, stateExecutionExecute)
+		s.changeActionUpDownCounter(ctx, 1, stateExecutionExecute)
+
 		if err := s.saveSpan(ctx, "Execution Start", state, state); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, ".State.Process.Execute"):
+	case strings.HasSuffix(msg.Subject, stateProcessExecute):
+		s.incrementActionCounter(ctx, stateProcessExecute)
+		s.changeActionUpDownCounter(ctx, 1, stateProcessExecute)
+
 		if err := s.saveSpan(ctx, "Process Start", state, state); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, ".State.Traversal.Execute"):
-	case strings.HasSuffix(msg.Subject, ".State.Activity.Execute"):
-		if err := s.spanStart(ctx, state); err != nil {
+	case strings.HasSuffix(msg.Subject, stateTraversalExecute):
+	case strings.HasSuffix(msg.Subject, stateActivityExecute):
+		if err := s.spanStart(ctx, state, msg.Subject); err != nil {
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, ".State.Job.Execute.ServiceTask"),
-		strings.HasSuffix(msg.Subject, ".State.Job.Execute.UserTask"),
-		strings.HasSuffix(msg.Subject, ".State.Job.Execute.ManualTask"),
-		strings.Contains(msg.Subject, ".State.Job.Execute.SendMessage"):
-		if err := s.spanStart(ctx, state); err != nil {
-			slog.Error("span start: %w", slog.String(keys.ElementType, state.ElementType))
+	case strings.Contains(msg.Subject, stateJobExecuteServiceTask),
+		strings.HasSuffix(msg.Subject, stateJobExecuteUserTask),
+		strings.HasSuffix(msg.Subject, stateJobExecuteManualTask),
+		strings.Contains(msg.Subject, stateJobExecuteSendMessage):
+		if err := s.spanStart(ctx, state, msg.Subject); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, ".State.Traversal.Complete"):
-	case strings.HasSuffix(msg.Subject, ".State.Activity.Complete"),
-		strings.HasSuffix(msg.Subject, ".State.Activity.Abort"):
-		if err := s.spanEnd(ctx, "Activity: "+state.ElementId, state); err != nil {
+	case strings.HasSuffix(msg.Subject, stateTraversalComplete):
+	case strings.HasSuffix(msg.Subject, stateActivityComplete),
+		strings.HasSuffix(msg.Subject, stateActivityAbort):
+		if err := s.spanEnd(ctx, "Activity: "+state.ElementId, state, msg.Subject); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("saving Activity.Complete operation abandoned", err,
@@ -135,14 +224,15 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			}
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, ".State.Job.Complete.ServiceTask"),
-		strings.Contains(msg.Subject, ".State.Execution.Complete"),
-		strings.Contains(msg.Subject, ".State.Process.Terminated"),
-		strings.Contains(msg.Subject, ".State.Job.Abort.ServiceTask"),
-		strings.Contains(msg.Subject, ".State.Job.Complete.UserTask"),
-		strings.Contains(msg.Subject, ".State.Job.Complete.ManualTask"),
-		strings.Contains(msg.Subject, ".State.Job.Complete.SendMessage"):
-		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state); err != nil {
+	case strings.Contains(msg.Subject, stateJobCompleteServiceTask),
+		strings.Contains(msg.Subject, stateExecutionComplete),
+		strings.Contains(msg.Subject, stateProcessTerminated),
+		strings.Contains(msg.Subject, stateJobAbortServiceTask),
+		strings.Contains(msg.Subject, stateJobCompleteUserTask),
+		strings.Contains(msg.Subject, stateJobCompleteManualTask),
+		strings.Contains(msg.Subject, stateJobCompleteSendMessage):
+
+		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state, msg.Subject); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("span end", err,
@@ -155,8 +245,8 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			}
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, ".State.Job.Complete.SendMessage"):
-	case strings.Contains(msg.Subject, ".State.Log."):
+	case strings.Contains(msg.Subject, stateJobCompleteSendMessage):
+	case strings.Contains(msg.Subject, stateLog):
 
 	//case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
 	//case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
@@ -164,6 +254,24 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 
 	}
 	return true, nil
+}
+
+func (s *Server) incrementActionCounter(ctx context.Context, action string) {
+	s.wfStateCounter.Add(
+		ctx,
+		1,
+		// labels/tags
+		metric.WithAttributes(attribute.String("wf_action", action)),
+	)
+}
+
+func (s *Server) changeActionUpDownCounter(ctx context.Context, incr int64, action string) {
+	s.wfStateUpDownCounter.Add(
+		ctx,
+		incr,
+		// labels/tags
+		metric.WithAttributes(attribute.String("wf_action", action)),
+	)
 }
 
 func (s *Server) decodeState(ctx context.Context, msg *nats.Msg) (*model.WorkflowState, bool, error) {
@@ -183,7 +291,20 @@ func (s *Server) decodeState(ctx context.Context, msg *nats.Msg) (*model.Workflo
 	return state, false, nil
 }
 
-func (s *Server) spanStart(ctx context.Context, state *model.WorkflowState) error {
+func actionFrom(subject string, startOrEndActions []string) string {
+	for _, action := range startOrEndActions {
+		if strings.Contains(subject, action) {
+			return action
+		}
+	}
+	return "UNKNOWN_ACTION"
+}
+
+func (s *Server) spanStart(ctx context.Context, state *model.WorkflowState, subject string) error {
+	action := actionFrom(subject, startActions)
+	s.incrementActionCounter(ctx, action)
+	s.changeActionUpDownCounter(ctx, 1, action)
+
 	err := common.SaveObj(ctx, s.spanKV, common.TrackingID(state.Id).ID(), state)
 	if err != nil {
 		return fmt.Errorf("span-start failed fo save object: %w", err)
@@ -191,7 +312,18 @@ func (s *Server) spanStart(ctx context.Context, state *model.WorkflowState) erro
 	return nil
 }
 
-func (s *Server) spanEnd(ctx context.Context, name string, state *model.WorkflowState) error {
+func startActionFor(endAction string) string {
+	startAction, ok := endStartActionMapping[endAction]
+	if ok {
+		return startAction
+	}
+	return "UNKNOWN_START_ACTION"
+}
+
+func (s *Server) spanEnd(ctx context.Context, name string, state *model.WorkflowState, subject string) error {
+	endAction := actionFrom(subject, endActions)
+	s.changeActionUpDownCounter(ctx, -1, startActionFor(endAction))
+
 	log := logx.FromContext(ctx)
 	oldState := model.WorkflowState{}
 	if err := common.LoadObj(ctx, s.spanKV, common.TrackingID(state.Id).ID(), &oldState); err != nil {
@@ -302,4 +434,44 @@ func buildAttrs(m map[string]*string) []attribute.KeyValue {
 		}
 	}
 	return ret
+}
+
+// SetupMetrics initialises metrics
+func SetupMetrics(ctx context.Context, serviceName string) (*sdkmetric.MeterProvider, error) {
+	//c, err := getTls()
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	exporter, err := otlpmetrichttp.New(
+		ctx,
+		otlpmetrichttp.WithInsecure(), //just for local testing, probably should be TLS in deployed envs
+		//otlpmetricgrpc.WithEndpoint("localhost:4317"),
+		//otlpmetricgrpc.WithTLSCredentials(
+		//	// mutual tls.
+		//	credentials.NewTLS(c),
+		//),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed creation of metrics exporter: %w", err)
+	}
+
+	// labels/tags/resources that are common to all metrics.
+	resource := resource.NewWithAttributes(
+		semconv2.SchemaURL,
+		semconv2.ServiceNameKey.String(serviceName),
+		attribute.String("app", "shar-telemetry"),
+	)
+
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(resource),
+		sdkmetric.WithReader(
+			// collects and exports metric data every N seconds.
+			sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(10*time.Second)),
+		),
+	)
+
+	otel.SetMeterProvider(mp)
+
+	return mp, nil
 }

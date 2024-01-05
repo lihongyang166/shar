@@ -64,9 +64,14 @@ func NewOtelHandler() (slog.Handler, func() error) {
 		sdk.WithBatcher(logExporter),
 		sdk.WithResource(newResource()),
 	)
+
 	// gracefully shutdown logger to flush accumulated signals before program finish
 	shutdownFn := func() error {
-		return fmt.Errorf("error shutting down loggerProvider: %w", loggerProvider.Shutdown(ctx))
+		err := loggerProvider.Shutdown(ctx)
+		if err != nil {
+			return fmt.Errorf("error shutting down loggerProvider: %w", err)
+		}
+		return nil
 	}
 
 	return otelslog.NewOtelHandler(loggerProvider, &otelslog.HandlerOptions{}), shutdownFn

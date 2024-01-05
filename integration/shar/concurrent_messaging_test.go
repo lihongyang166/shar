@@ -18,7 +18,6 @@ import (
 
 //goland:noinspection GoNilness
 func TestConcurrentMessaging(t *testing.T) {
-
 	tst := &support.Integration{}
 	//tst.WithTrace = true
 
@@ -59,7 +58,7 @@ func TestConcurrentMessaging(t *testing.T) {
 	}()
 
 	handlers.instComplete = make(map[string]struct{})
-	n := 100
+	n := 200
 	tm := time.Now()
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {

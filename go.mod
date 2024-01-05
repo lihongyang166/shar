@@ -27,8 +27,11 @@ require (
 	github.com/yoheimuta/go-protoparser v3.4.0+incompatible
 	gitlab.com/shar-workflow/nats-proto-gen-go v0.0.0-20231114143611-df0240df32cb
 	go.opentelemetry.io/otel v1.21.0
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v0.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.21.0
+	go.opentelemetry.io/otel/metric v1.21.0
 	go.opentelemetry.io/otel/sdk v1.21.0
+	go.opentelemetry.io/otel/sdk/metric v1.21.0
 	go.opentelemetry.io/otel/trace v1.21.0
 	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb
 	google.golang.org/grpc v1.59.0
@@ -246,7 +249,6 @@ require (
 	gitlab.com/bosi/decorder v0.4.1 // indirect
 	go-simpler.org/sloglint v0.1.2 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.21.0 // indirect
-	go.opentelemetry.io/otel/metric v1.21.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.tmz.dev/musttag v0.7.2 // indirect
 	go.uber.org/atomic v1.9.0 // indirect

@@ -33,31 +33,30 @@ import (
 )
 
 const (
-	service                     = "shar"
-	environment                 = "production"
-	id                          = 1
-	workflowTelemetryStreamName = "WORKFLOW-TELEMETRY"
+	service     = "shar"
+	environment = "production"
+	id          = 1
 
-	StateExecutionExecute      = ".State.Execution.Execute"
-	StateProcessExecute        = ".State.Process.Execute"
-	StateTraversalExecute      = ".State.Traversal.Execute"
-	StateActivityExecute       = ".State.Activity.Execute"
-	StateJobExecuteServiceTask = ".State.Job.Execute.ServiceTask"
-	StateJobExecuteUserTask    = ".State.Job.Execute.UserTask"
-	StateJobExecuteManualTask  = ".State.Job.Execute.ManualTask"
-	StateJobExecuteSendMessage = ".State.Job.Execute.SendMessage"
+	stateExecutionExecute      = ".State.Execution.Execute"
+	stateProcessExecute        = ".State.Process.Execute"
+	stateTraversalExecute      = ".State.Traversal.Execute"
+	stateActivityExecute       = ".State.Activity.Execute"
+	stateJobExecuteServiceTask = ".State.Job.Execute.ServiceTask"
+	stateJobExecuteUserTask    = ".State.Job.Execute.UserTask"
+	stateJobExecuteManualTask  = ".State.Job.Execute.ManualTask"
+	stateJobExecuteSendMessage = ".State.Job.Execute.SendMessage"
 
-	StateTraversalComplete      = ".State.Traversal.Complete"
-	StateActivityComplete       = ".State.Activity.Complete"
-	StateActivityAbort          = ".State.Activity.Abort"
-	StateJobCompleteServiceTask = ".State.Job.Complete.ServiceTask"
-	StateExecutionComplete      = ".State.Execution.Complete"
-	StateProcessTerminated      = ".State.Process.Terminated"
-	StateJobAbortServiceTask    = ".State.Job.Abort.ServiceTask"
-	StateJobCompleteUserTask    = ".State.Job.Complete.UserTask"
-	StateJobCompleteManualTask  = ".State.Job.Complete.ManualTask"
-	StateJobCompleteSendMessage = ".State.Job.Complete.SendMessage"
-	StateLog                    = ".State.Log."
+	stateTraversalComplete      = ".State.Traversal.Complete"
+	stateActivityComplete       = ".State.Activity.Complete"
+	stateActivityAbort          = ".State.Activity.Abort"
+	stateJobCompleteServiceTask = ".State.Job.Complete.ServiceTask"
+	stateExecutionComplete      = ".State.Execution.Complete"
+	stateProcessTerminated      = ".State.Process.Terminated"
+	stateJobAbortServiceTask    = ".State.Job.Abort.ServiceTask"
+	stateJobCompleteUserTask    = ".State.Job.Complete.UserTask"
+	stateJobCompleteManualTask  = ".State.Job.Complete.ManualTask"
+	stateJobCompleteSendMessage = ".State.Job.Complete.SendMessage"
+	stateLog                    = ".State.Log."
 )
 
 // NatsConfig holds the current configuration of the SHAR Telemetry Server
@@ -66,27 +65,27 @@ const (
 var NatsConfig string
 
 var startActions = []string{
-	StateExecutionExecute, StateProcessExecute, StateTraversalExecute, StateActivityExecute,
-	StateJobExecuteServiceTask, StateJobExecuteUserTask, StateJobExecuteManualTask, StateJobExecuteSendMessage,
+	stateExecutionExecute, stateProcessExecute, stateTraversalExecute, stateActivityExecute,
+	stateJobExecuteServiceTask, stateJobExecuteUserTask, stateJobExecuteManualTask, stateJobExecuteSendMessage,
 }
 
 var endActions = []string{
-	StateTraversalComplete, StateActivityComplete, StateActivityAbort, StateJobCompleteServiceTask,
-	StateExecutionComplete, StateProcessTerminated, StateJobAbortServiceTask, StateJobCompleteUserTask,
-	StateJobCompleteManualTask, StateJobCompleteSendMessage,
+	stateTraversalComplete, stateActivityComplete, stateActivityAbort, stateJobCompleteServiceTask,
+	stateExecutionComplete, stateProcessTerminated, stateJobAbortServiceTask, stateJobCompleteUserTask,
+	stateJobCompleteManualTask, stateJobCompleteSendMessage,
 }
 
 var endStartActionMapping = map[string]string{
-	StateTraversalComplete:      StateTraversalExecute,
-	StateActivityComplete:       StateActivityExecute,
-	StateActivityAbort:          StateActivityExecute,
-	StateJobCompleteServiceTask: StateJobExecuteServiceTask,
-	StateExecutionComplete:      StateExecutionExecute,
-	StateProcessTerminated:      StateProcessExecute,
-	StateJobAbortServiceTask:    StateJobExecuteServiceTask,
-	StateJobCompleteUserTask:    StateJobExecuteUserTask,
-	StateJobCompleteManualTask:  StateJobExecuteManualTask,
-	StateJobCompleteSendMessage: StateJobExecuteSendMessage,
+	stateTraversalComplete:      stateTraversalExecute,
+	stateActivityComplete:       stateActivityExecute,
+	stateActivityAbort:          stateActivityExecute,
+	stateJobCompleteServiceTask: stateJobExecuteServiceTask,
+	stateExecutionComplete:      stateExecutionExecute,
+	stateProcessTerminated:      stateProcessExecute,
+	stateJobAbortServiceTask:    stateJobExecuteServiceTask,
+	stateJobCompleteUserTask:    stateJobExecuteUserTask,
+	stateJobCompleteManualTask:  stateJobExecuteManualTask,
+	stateJobCompleteSendMessage: stateJobExecuteSendMessage,
 }
 
 // Server is the shar server type responsible for hosting the telemetry server.
@@ -125,6 +124,10 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 			metric.WithDescription("how many workflow state messages have been received, tagged by subject"),
 		)
 
+	if err != nil {
+		slog.Error("err getting meter provider meter counter", "err", err.Error())
+	}
+
 	wfStateUpDownCounter, err := otel.GetMeterProvider().
 		Meter(
 			"instrumentation/server",
@@ -136,7 +139,7 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 		)
 
 	if err != nil {
-		slog.Error("err getting meter provider meter counter", "err", err.Error())
+		slog.Error("err getting meter provider meter up down counter", "err", err.Error())
 	}
 
 	return &Server{
@@ -179,35 +182,35 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	}
 
 	switch {
-	case strings.HasSuffix(msg.Subject, StateExecutionExecute):
-		s.incrementActionCounter(ctx, StateExecutionExecute)
-		s.changeActionUpDownCounter(ctx, 1, StateExecutionExecute)
+	case strings.HasSuffix(msg.Subject, stateExecutionExecute):
+		s.incrementActionCounter(ctx, stateExecutionExecute)
+		s.changeActionUpDownCounter(ctx, 1, stateExecutionExecute)
 
 		if err := s.saveSpan(ctx, "Execution Start", state, state); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, StateProcessExecute):
-		s.incrementActionCounter(ctx, StateProcessExecute)
-		s.changeActionUpDownCounter(ctx, 1, StateProcessExecute)
+	case strings.HasSuffix(msg.Subject, stateProcessExecute):
+		s.incrementActionCounter(ctx, stateProcessExecute)
+		s.changeActionUpDownCounter(ctx, 1, stateProcessExecute)
 
 		if err := s.saveSpan(ctx, "Process Start", state, state); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, StateTraversalExecute):
-	case strings.HasSuffix(msg.Subject, StateActivityExecute):
+	case strings.HasSuffix(msg.Subject, stateTraversalExecute):
+	case strings.HasSuffix(msg.Subject, stateActivityExecute):
 		if err := s.spanStart(ctx, state, msg.Subject); err != nil {
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, StateJobExecuteServiceTask),
-		strings.HasSuffix(msg.Subject, StateJobExecuteUserTask),
-		strings.HasSuffix(msg.Subject, StateJobExecuteManualTask),
-		strings.Contains(msg.Subject, StateJobExecuteSendMessage):
+	case strings.Contains(msg.Subject, stateJobExecuteServiceTask),
+		strings.HasSuffix(msg.Subject, stateJobExecuteUserTask),
+		strings.HasSuffix(msg.Subject, stateJobExecuteManualTask),
+		strings.Contains(msg.Subject, stateJobExecuteSendMessage):
 		if err := s.spanStart(ctx, state, msg.Subject); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, StateTraversalComplete):
-	case strings.HasSuffix(msg.Subject, StateActivityComplete),
-		strings.HasSuffix(msg.Subject, StateActivityAbort):
+	case strings.HasSuffix(msg.Subject, stateTraversalComplete):
+	case strings.HasSuffix(msg.Subject, stateActivityComplete),
+		strings.HasSuffix(msg.Subject, stateActivityAbort):
 		if err := s.spanEnd(ctx, "Activity: "+state.ElementId, state, msg.Subject); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
@@ -221,13 +224,13 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			}
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, StateJobCompleteServiceTask),
-		strings.Contains(msg.Subject, StateExecutionComplete),
-		strings.Contains(msg.Subject, StateProcessTerminated),
-		strings.Contains(msg.Subject, StateJobAbortServiceTask),
-		strings.Contains(msg.Subject, StateJobCompleteUserTask),
-		strings.Contains(msg.Subject, StateJobCompleteManualTask),
-		strings.Contains(msg.Subject, StateJobCompleteSendMessage):
+	case strings.Contains(msg.Subject, stateJobCompleteServiceTask),
+		strings.Contains(msg.Subject, stateExecutionComplete),
+		strings.Contains(msg.Subject, stateProcessTerminated),
+		strings.Contains(msg.Subject, stateJobAbortServiceTask),
+		strings.Contains(msg.Subject, stateJobCompleteUserTask),
+		strings.Contains(msg.Subject, stateJobCompleteManualTask),
+		strings.Contains(msg.Subject, stateJobCompleteSendMessage):
 
 		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state, msg.Subject); err != nil {
 			var escape *AbandonOpError
@@ -242,8 +245,8 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			}
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, StateJobCompleteSendMessage):
-	case strings.Contains(msg.Subject, StateLog):
+	case strings.Contains(msg.Subject, stateJobCompleteSendMessage):
+	case strings.Contains(msg.Subject, stateLog):
 
 	//case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
 	//case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):

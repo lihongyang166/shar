@@ -68,9 +68,14 @@ var RootCmd = &cobra.Command{
 
 		mp, err := server.SetupMetrics(ctx, "shar-telemetry-processor")
 		if err != nil {
-			panic(err)
+			slog.Error("failed to init metrics", "err", err.Error())
 		}
-		defer mp.Shutdown(ctx)
+		defer func() {
+			err := mp.Shutdown(ctx)
+			if err != nil {
+				slog.Error("failed to shutdown metrics provider", "err", err.Error())
+			}
+		}()
 
 		exp, err := exporterFor(ctx, cfg)
 		if err != nil {

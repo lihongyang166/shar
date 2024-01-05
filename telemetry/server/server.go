@@ -17,7 +17,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	//"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
@@ -113,18 +112,6 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 	)
 
 	if err := setup.Nats(ctx, nc, js, storageType, NatsConfig, true); err != nil {
-		//if err := common.EnsureBuckets(js, nats.FileStorage, []string{"WORKFLOW_TRACE"}); err != nil {
-		//	panic(err)
-		//}
-		//
-		//if err := ensureConsumer(js, workflowTelemetryStreamName, &nats.ConsumerConfig{
-		//	Durable:       "Tracing",
-		//	Description:   "Sequential Trace Consumer",
-		//	DeliverPolicy: nats.DeliverAllPolicy,
-		//	FilterSubject: "WORKFLOW-TELEMETRY.>",
-		//	AckPolicy:     nats.AckExplicitPolicy,
-		//	MaxAckPending: 1,
-		//}); err != nil {
 		panic(err)
 	}
 

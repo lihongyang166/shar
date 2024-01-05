@@ -24,6 +24,7 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.26.0
+	github.com/yoheimuta/go-protoparser v3.4.0+incompatible
 	gitlab.com/shar-workflow/nats-proto-gen-go v0.0.0-20231114143611-df0240df32cb
 	go.opentelemetry.io/otel v1.21.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.21.0

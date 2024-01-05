@@ -48,7 +48,7 @@ parameters:
     description: Administrative county
     type: string
 events:
-  error:
+  taskError:
   - name: ServiceDown
     code: "500"
   message:

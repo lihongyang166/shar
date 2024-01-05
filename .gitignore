@@ -32,3 +32,4 @@ build/
 /zen-shar/cmd/zen-shar/zen-shar
 /cli/cmd/shar/shar
 /report.xml
+/model/protodoc/protodoc

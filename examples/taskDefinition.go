@@ -47,7 +47,7 @@ func main() {
 			},
 		},
 		Events: &model.TaskEvents{
-			Error: []*model.Error{
+			Error: []*model.TaskError{
 				{Name: "ServiceDown", Code: "500"},
 			},
 			Message: []*model.Message{

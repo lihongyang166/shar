@@ -1,6 +1,7 @@
 syntax = "proto3";
 option go_package = "gitlab.com/shar-workflow/shar/model";
 
+
 //import "google/protobuf/timestamp.proto";
 //import "google/protobuf/duration.proto";
 //import "google/protobu f/any.proto";
@@ -632,41 +633,41 @@ message TaskSpecVersions {
 
 // Task specification
 message TaskSpec {
-  string version = 1; // Version of task specification.
-  string kind = 2; // Kind of task specification, may be "ServiceTask" or "UserTask".
-  TaskMetadata metadata = 3; // Metadata document any non functional information regarding the TaskSpec.
+  string version = 1; // Version of task specification. valid-value: "1.0"
+  string kind = 2; // Kind of task specification. valid-value: "ServiceTask" or "UserTask".
+  TaskMetadata metadata = 3 ; // Metadata document any non functional information regarding the TaskSpec.
   TaskBehaviour behaviour = 4; // Behaviour documents instance behaviour.
   TaskParameters parameters = 5; // Parameters document input and output parameters for the task.
   TaskEvents events = 6; // Events document errors and messages that can be emitted from the task.
 }
 
 message TaskMetadata {
-  string uid = 1; // Uid of the task as a KSUID.
-  string type = 2; // Type - the name for the task when referred to by process.
-  string version = 3; // Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters.
-  string short = 4; // Short description of the task.
-  string description = 5; // Description - a long description of the task.
-  repeated string labels = 6; // Labels - a comma seperated list of searchable tags for the task.
-  map<string,string> extensionData = 8; // ExtensionData - a map of values that can be used by third party tools.
+  string uid = 1; // Uid of the task. valid-value: a ksuid
+  string type = 2; // Type - the name for the task when referred to by process. valid-value: arbitrary string
+  string version = 3; // Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters. valid-value: semantic version number
+  string short = 4; // Short description of the task. valid-value: arbitrary string
+  string description = 5; // Description - a long description of the task. valid-value: arbitrary string
+  repeated string labels = 6; // Labels - a list of searchable tags for the task. valid-value: arbitrary string
+  map<string,string> extensionData = 8; // ExtensionData - a map of values that can be used by third party tools. valid-value: arbitrary string
 }
 
 message TaskParameters {
-  repeated ParameterGroup parameterGroup = 1; // ParameterGroup is a list of parameters with their categorization.  This is useful for display.
+  repeated ParameterGroup parameterGroup = 1; // ParameterGroup is a list of parameters with their categorization.  This is useful for display. valid-value: arbitrary string
   repeated Parameter input = 2; // Input documents input parameters to the task.
   repeated Parameter output = 3; // Output documents output parameters for the task.
 }
 
 message TaskEvents {
-  repeated Error error = 1; // Error workflow events that can be returned from the task.
+  repeated TaskError error = 1; // Error workflow events that can be returned from the task.
   repeated Message message = 2; // Message workflow events that can be returned from the task.
 }
 
 message TaskBehaviour {
   DefaultTaskRetry defaultRetry = 1; // Retry - the recommended retry behavior for the task, this could be overriden by a workflow.
-  uint64 estimatedMaxDuration = 7; // EstimatedMaxDuration documents how long the task is expected to run for.
-  bool unsafe = 2; // Unsafe labels the task as non-idempotent.  Non-idempotent tasks are highly unrecommended.
-  bool mock = 3; // Mock this task as it has no concrete implementation.
-  bool deprecated = 4; // Deprecated task.  Workflows can not be executed that include this task.
+  uint64 estimatedMaxDuration = 7; // EstimatedMaxDuration documents how long the task is expected to run for. valid-value: a unix millisecond duration
+  bool unsafe = 2; // Unsafe labels the task as non-idempotent.  Non-idempotent tasks are highly unrecommended. valid-value: boolean
+  bool mock = 3; // Mock this task as it has no concrete implementation. valid-value: boolean
+  bool deprecated = 4; // Deprecated task.  Workflows can not be executed that include this task. valid-value: boolean
 }
 
 enum RetryStrategy {
@@ -675,20 +676,20 @@ enum RetryStrategy {
 }
 
 message DefaultTaskRetry {
-  uint32 number = 1; // Retry - the recommended number of retries for the task.
+  uint32 number = 1; // Retry - the recommended number of retries for the task. valid-value: arbitrary positive integer
   RetryStrategy strategy = 2; // Strategy for retrying the task.
-  int64 initMilli = 3; // InitMilli - initial backoff delay in milliseconds (Static, Linear, Incremental)
-  int64 intervalMilli = 4; // IntervalMilli - delay interval (Linear) amount to add each attempt (Incremental)
-  int64 maxMilli = 5; // MaxMilli - delay ceiling (Static, Linear, Incremental)
+  int64 initMilli = 3; // InitMilli - initial backoff delay for Static, Linear, Incremental. valid-value: positive int
+  int64 intervalMilli = 4; // IntervalMilli - delay interval (Linear) amount to add each attempt (Incremental). valid-value: positive int
+  int64 maxMilli = 5; // MaxMilli - delay ceiling (Static, Linear, Incremental). valid-value: positive int
   DefaultRetryExceededBehaviour defaultExceeded = 6; // DefaultExceeded - specifies what to do by default when the attempts have been exhausted.  This only specifies the strategy, and doesn't contain runtime parameters.
 }
 
 message DefaultRetryExceededBehaviour {
   RetryErrorAction action = 1; // Action to take when retries are exceeded.
-  string variable = 2; // Variable - name of variable to set for the SetVariableValue action.
-  string variableType = 3; // VariableType - type of the variable "string", "int", "float", "bool" for the SetVariableValue action.
-  string variableValue = 4; // Variable value to set for the SetVariableValue action.
-  string errorCode = 5; // ErrorCode for the ThrowWorkflowError action
+  string variable = 2; // Variable - name of variable to set for the SetVariableValue action. valid-value: shar-variable
+  string variableType = 3; // VariableType - type of the variable for the SetVariableValue action. valid-value: "string", "int", "float", "bool"
+  string variableValue = 4; // Variable value to set for the SetVariableValue action. valid-value: arbitrary string representation of a valid value for variableType
+  string errorCode = 5; // ErrorCode for the ThrowWorkflowError action. valid-value: a valid workflow error code for the task.
 }
 
 enum RetryErrorAction {
@@ -699,38 +700,38 @@ enum RetryErrorAction {
 }
 
 message ParameterGroup {
-  string name = 1; // Name of the parameter group.
-  string short = 2; // Short description of the parameter groupp.
-  string description = 3; // Description - a long description of the parameter group.
+  string name = 1; // Name of the parameter group. valid-value: arbitrary string
+  string short = 2; // Short description of the parameter group. valid-value: arbitrary string
+  string description = 3; // Description - a long description of the parameter group. valid-value: arbitrary string
 }
 
 message Parameter {
-  string name = 1; // Name of the parameter.
-  string short = 2; // Short description of the parameter.
-  string description = 3; // Description - a long description of the parameter.
-  string type = 4; // Type of the parameter "string", "int", "float", "bool"
-  optional string customTypeExtension = 5; // Subtype describing the use of the type "IPAddress" etc.
-  bool collection = 6; // Collection specifies the parameter is an array.
-  optional string group = 7; // Group declares this parameter as part of a named parameter group.
-  map<string,string> extensionData = 8; // ExtensionData - a map of values that can be used by third party tools.
-  bool mandatory = 9; // Mandatory specifies that this parameter is required.
-  string validateExpr = 10; // ValidateExpr - an EXPR that is used to validate the field value.
-  string example = 11; // Example - an example EXPR that is used to provide a hint to a user on the nature of a task.  It is also used when the task is being used as a mock before implementation.
+  string name = 1; // Name of the parameter. valid-value: arbitrary string
+  string short = 2; // Short description of the parameter. valid-value: arbitrary string
+  string description = 3; // Description - a long description of the parameter. valid-value: arbitrary string
+  string type = 4; // Type of the parameter. valid-value: "string", "int", "float", "bool"
+  optional string customTypeExtension = 5; // Subtype describing the use of the type.  valid-value: eg. "IPAddress"
+  bool collection = 6; // Collection specifies the parameter is an array. valid-value: bool
+  optional string group = 7; // Group declares this parameter as part of a named parameter group. valid-value: parameter group name.
+  map<string,string> extensionData = 8; // ExtensionData - a map of values that can be used by third party tools. valid-value: arbitrary map of string/string
+  bool mandatory = 9; // Mandatory specifies that this parameter is required. valid-value: bool
+  string validateExpr = 10; // ValidateExpr - an EXPR that is used to validate the field value. valid-value: a valid EXPR expression prefixed by'='
+  string example = 11; // Example - an example EXPR that is used to provide a hint to a user on the nature of a task.  It is also used when the task is being used as a mock before implementation. valid-value: a valid EXPR expression prefixed by'='
 }
 
 message Message {
-  string name = 1; // Message name for a workflow message.
-  string correlationKey = 2; // CorrelationKey - the workflow message correlation key.
-  string short = 3; // Short description of the parameter.
-  string description = 4; // Description - a long description of the parameter.
+  string name = 1; // Name - Message name for a workflow message. valid-value: arbitrary string
+  string correlationKey = 2; // CorrelationKey - the workflow message correlation key. valid-value: NATS-safe identifier
+  string short = 3; // Short description of the parameter. valid-value: arbitrary string
+  string description = 4; // Description - a long description of the parameter. valid-value: arbitrary string
 }
 
-// Error represents a known error name and code which may be thrown by the state machine.
+// TaskError represents a known error name and code which may be thrown by the state machine.
 message TaskError {
-  string name = 1; // Name of the error.
-  string code = 2; // Code a unique code for the error.
-  string short = 3; // Short description of the parameter.
-  string description = 4; // Description - a long description of the parameter.
+  string name = 1; // Name of the error. valid-value: arbitrary string
+  string code = 2; // Code a unique code for the error. valid-value: NATS-safe identifier
+  string short = 3; // Short description of the error. valid-value: arbitrary string
+  string description = 4; // Description - a long description of the error. valid-value: arbitrary string
 }
 
 // RegisterTaskRequest registers a task in SHAR.

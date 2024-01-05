@@ -436,6 +436,7 @@ func buildAttrs(m map[string]*string) []attribute.KeyValue {
 	return ret
 }
 
+// SetupMetrics initialises metrics
 func SetupMetrics(ctx context.Context, serviceName string) (*sdkmetric.MeterProvider, error) {
 	//c, err := getTls()
 	//if err != nil {
@@ -452,7 +453,7 @@ func SetupMetrics(ctx context.Context, serviceName string) (*sdkmetric.MeterProv
 		//),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed creation of metrics exporter: %w", err)
 	}
 
 	// labels/tags/resources that are common to all metrics.

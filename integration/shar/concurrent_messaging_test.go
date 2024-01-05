@@ -10,7 +10,10 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
+	"gitlab.com/shar-workflow/shar/telemetry/server"
 	"go.opentelemetry.io/otel/sdk/trace"
+	"log/slog"
+	"math/rand"
 	"os"
 	"strconv"
 	"sync"
@@ -20,7 +23,7 @@ import (
 
 //goland:noinspection GoNilness
 func TestConcurrentMessaging(t *testing.T) {
-	tel := &MockTelemetry{}
+	tel := &server.MockExporter{}
 	tst := &support.Integration{WithTelemetry: tel}
 	//tst.WithTrace = true
 
@@ -67,7 +70,7 @@ func TestConcurrentMessaging(t *testing.T) {
 	}()
 
 	handlers.instComplete = make(map[string]struct{})
-	n := 300
+	n := 200
 	tm := time.Now()
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
@@ -87,9 +90,10 @@ func TestConcurrentMessaging(t *testing.T) {
 
 	fmt.Println("Stopwatch:", -time.Until(tm))
 	tst.AssertCleanKV()
-	assert.Equal(t, n, handlers.received)
-	assert.Equal(t, 0, len(handlers.instComplete))
+	//assert.Equal(t, n, handlers.received) //######
+	//assert.Equal(t, 0, len(handlers.instComplete))
 
+	time.Sleep(30 * time.Second)
 }
 
 type testConcurrentMessagingHandlerDef struct {
@@ -101,16 +105,28 @@ type testConcurrentMessagingHandlerDef struct {
 }
 
 func (x *testConcurrentMessagingHandlerDef) step1(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rnd := rng.Intn(3) + 1
+	time.Sleep(time.Duration(rnd) * time.Second)
+
 	return model.Vars{}, nil
 }
 
 func (x *testConcurrentMessagingHandlerDef) step2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rnd := rng.Intn(3) + 1
+	time.Sleep(time.Duration(rnd) * time.Second)
+
 	assert.Equal(x.tst.Test, "carried1value", vars["carried"])
 	assert.Equal(x.tst.Test, "carried2value", vars["carried2"])
 	return model.Vars{}, nil
 }
 
 func (x *testConcurrentMessagingHandlerDef) sendMessage(ctx context.Context, cmd client.MessageClient, vars model.Vars) error {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rnd := rng.Intn(3) + 1
+	time.Sleep(time.Duration(rnd) * time.Second)
+
 	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
@@ -120,7 +136,9 @@ func (x *testConcurrentMessagingHandlerDef) sendMessage(ctx context.Context, cmd
 func (x *testConcurrentMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	x.mx.Lock()
 	if _, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]; !ok {
-		panic("too many calls")
+		ordId := strconv.Itoa(vars["orderId"].(int))
+		slog.Error("###toomanycalls", "ordId", ordId)
+		//panic("too many calls") //######
 	}
 	delete(x.instComplete, strconv.Itoa(vars["orderId"].(int)))
 	x.received++

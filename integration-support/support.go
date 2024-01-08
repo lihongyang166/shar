@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -124,7 +125,10 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		require.NoError(t, err)
 		js, err := n.JetStream()
 		require.NoError(t, err)
-		_, err = server2.SetupMetrics(ctx, "shar-telemetry-processor-integration-test")
+		cfg, err := config.GetEnvironment()
+		require.NoError(t, err)
+
+		_, err = server2.SetupMetrics(ctx, cfg, "shar-telemetry-processor-integration-test")
 		if err != nil {
 			slog.Error("###failed to init metrics", "err", err.Error())
 		}

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -437,20 +438,24 @@ func buildAttrs(m map[string]*string) []attribute.KeyValue {
 }
 
 // SetupMetrics initialises metrics
-func SetupMetrics(ctx context.Context, serviceName string) (*sdkmetric.MeterProvider, error) {
+func SetupMetrics(ctx context.Context, cfg *config.Settings, serviceName string) (*sdkmetric.MeterProvider, error) {
 	//c, err := getTls()
 	//if err != nil {
 	//	return nil, err
 	//}
 
+	opts := []otlpmetrichttp.Option{otlpmetrichttp.WithEndpoint(cfg.OTLPEndpoint)}
+	if !cfg.OTLPEndpointIsSecure {
+		opts = append(opts, otlpmetrichttp.WithInsecure())
+	}
+
 	exporter, err := otlpmetrichttp.New(
 		ctx,
-		otlpmetrichttp.WithInsecure(), //just for local testing, probably should be TLS in deployed envs
-		//otlpmetricgrpc.WithEndpoint("localhost:4317"),
-		//otlpmetricgrpc.WithTLSCredentials(
-		//	// mutual tls.
-		//	credentials.NewTLS(c),
-		//),
+		opts...,
+	//otlpmetricgrpc.WithTLSCredentials(
+	//	// mutual tls.
+	//	credentials.NewTLS(c),
+	//),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed creation of metrics exporter: %w", err)

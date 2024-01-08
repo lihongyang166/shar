@@ -66,7 +66,7 @@ var RootCmd = &cobra.Command{
 
 		ctx := context.Background()
 
-		mp, err := server.SetupMetrics(ctx, "shar-telemetry-processor")
+		mp, err := server.SetupMetrics(ctx, cfg, "shar-telemetry-processor")
 		if err != nil {
 			slog.Error("failed to init metrics", "err", err.Error())
 		}

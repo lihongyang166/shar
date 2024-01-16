@@ -288,6 +288,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		WorkflowName:      wf.Name,
 		ProcessInstanceId: job.ProcessInstanceId,
 		ProcessName:       job.ProcessName,
+		TraceId:           job.TraceId,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", err)
@@ -305,6 +306,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		WorkflowName:      wf.Name,
 		ProcessInstanceId: job.ProcessInstanceId,
 		ProcessName:       job.ProcessName,
+		TraceId:           job.TraceId,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", err)

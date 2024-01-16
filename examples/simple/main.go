@@ -7,7 +7,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
-
+	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	"os"
 )
 
@@ -16,6 +16,9 @@ var finished = make(chan struct{})
 func main() {
 	// Create a starting context
 	ctx := context.Background()
+
+	t := tracer.Trace("nats://localhost:4222")
+	defer t.Close()
 
 	// Dial shar
 	cl := client.New()

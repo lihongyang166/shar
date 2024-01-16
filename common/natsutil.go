@@ -9,6 +9,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -21,7 +22,7 @@ import (
 	"time"
 )
 
-// NatsConn is the trimmad down NATS Connection interface that only emcompasses the methods used by SHAR
+// NatsConn is the trimmed down NATS Connection interface that only encompasses the methods used by SHAR
 type NatsConn interface {
 	JetStream(opts ...nats.JSOpt) (nats.JetStreamContext, error)
 	QueueSubscribe(subj string, queue string, cb nats.MsgHandler) (*nats.Subscription, error)
@@ -89,7 +90,7 @@ func Load(ctx context.Context, wf nats.KeyValue, k string) ([]byte, error) {
 	return nil, fmt.Errorf("load value from KV: %w", err)
 }
 
-// SaveObj save an protobuf message to a key value store
+// SaveObj save a protobuf message to a key value store
 func SaveObj(ctx context.Context, wf nats.KeyValue, k string, v proto.Message) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
@@ -118,7 +119,7 @@ func LoadObj(ctx context.Context, wf nats.KeyValue, k string, v proto.Message) e
 	return nil
 }
 
-// UpdateObj saves an protobuf message to a key value store after using updateFN to update the message.
+// UpdateObj saves a protobuf message to a key value store after using updateFN to update the message.
 func UpdateObj[T proto.Message](ctx context.Context, wf nats.KeyValue, k string, msg T, updateFn func(v T) (T, error)) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
@@ -145,7 +146,7 @@ func UpdateObj[T proto.Message](ctx context.Context, wf nats.KeyValue, k string,
 	})
 }
 
-// UpdateObjIsNew saves an protobuf message to a key value store after using updateFN to update the message, and returns true if this is a new value.
+// UpdateObjIsNew saves a protobuf message to a key value store after using updateFN to update the message, and returns true if this is a new value.
 func UpdateObjIsNew[T proto.Message](ctx context.Context, wf nats.KeyValue, k string, msg T, updateFn func(v T) (T, error)) (bool, error) {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
@@ -267,14 +268,6 @@ func Process(ctx context.Context, js nats.JetStreamContext, streamName string, t
 				}
 				m := msg[0]
 				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Header)
-				if x := msg[0].Header.Get(header.SharNamespace); x == "" {
-					log.Error("message without namespace", slog.Any("subject", m.Subject))
-					if err := msg[0].Ack(); err != nil {
-						log.Error("processing failed to ack", err)
-					}
-					cancel()
-					continue
-				}
 				if err != nil {
 					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
 					if err := msg[0].Ack(); err != nil {
@@ -283,8 +276,17 @@ func Process(ctx context.Context, js nats.JetStreamContext, streamName string, t
 					cancel()
 					continue
 				}
+				if x := msg[0].Header.Get(header.SharNamespace); x == "" {
+					log.Error("message without namespace", slog.Any("subject", m.Subject))
+					if err := msg[0].Ack(); err != nil {
+						log.Error("processing failed to ack", err)
+					}
+					cancel()
+					continue
+				}
 				//				log.Debug("Process:"+traceName, slog.String("subject", msg[0].Subject))
 				cancel()
+
 				if embargo := m.Header.Get("embargo"); embargo != "" && embargo != "0" {
 					e, err := strconv.Atoi(embargo)
 					if err != nil {
@@ -304,10 +306,18 @@ func Process(ctx context.Context, js nats.JetStreamContext, streamName string, t
 				executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Header)
 				executeCtx = header.Copy(ctx, executeCtx)
 				executeCtx = subj.SetNS(executeCtx, m.Header.Get(header.SharNamespace))
+
+				// Telemetry
+				executeCtx = telemetry.TelemetryContextFromNatsMsg(executeCtx, msg[0])
+				CheckCtxTelemetry(executeCtx)
+				if executeCtx.Value("traceparent") != nil {
+					fmt.Println("TraceParent:", msg[0].Subject, executeCtx.Value("traceparent"))
+				}
+
 				ack, err := fn(executeCtx, executeLog, msg[0])
 				if err != nil {
 					if errors2.IsWorkflowFatal(err) {
-						executeLog.Error("workflow fatal error occured processing function", err)
+						executeLog.Error("workflow fatal error occurred processing function", err)
 						ack = true
 					} else {
 						wfe := &workflow.Error{}
@@ -450,7 +460,7 @@ func SaveLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, ke
 	return nil
 }
 
-// SaveLargeObj save an protobuf message to a document store
+// SaveLargeObj save a protobuf message to a document store
 func SaveLargeObj(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, k string, v proto.Message, opt ...nats.ObjectOpt) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
@@ -479,7 +489,7 @@ func LoadLargeObj(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue,
 	return nil
 }
 
-// UpdateLargeObj saves an protobuf message to a document store after using updateFN to update the message.
+// UpdateLargeObj saves a protobuf message to a document store after using updateFN to update the message.
 func UpdateLargeObj[T proto.Message](ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, k string, msg T, updateFn func(v T) (T, error)) (T, error) { //nolint
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
@@ -552,6 +562,11 @@ func PublishObj(ctx context.Context, conn NatsConn, subject string, prot proto.M
 			return fmt.Errorf("middleware: %w", err)
 		}
 	}
+
+	// Telemetry
+	telemetry.TelemetryContextToNatsMsg(ctx, msg)
+	CheckNatsTelemetry(msg)
+
 	if err = conn.PublishMsg(msg); err != nil {
 		return fmt.Errorf("publish message: %w", err)
 	}

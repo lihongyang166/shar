@@ -1,10 +1,12 @@
 package commands
 
 import (
+	"context"
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	show_nats_config "gitlab.com/shar-workflow/shar/server/commands/show-nats-config"
 	"gitlab.com/shar-workflow/shar/server/config"
 	"gitlab.com/shar-workflow/shar/server/flags"
@@ -60,6 +62,11 @@ var RootCmd = &cobra.Command{
 		handlers := []slog.Handler{}
 		for _, h := range cfgHandlers {
 			handlers = append(handlers, handlerFactoryFns[h]())
+		}
+
+		if cfg.SpanEndpoint != "" {
+			ctx := context.Background()
+			telemetry.SetUpHTTP(ctx, cfg.SpanEndpoint, "shar-server")
 		}
 
 		logx.SetDefault("shar", common.NewMultiHandler(handlers))

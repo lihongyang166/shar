@@ -138,3 +138,16 @@ type grpcPortOption struct{ value int }
 func (o grpcPortOption) configure(server *Server) {
 	server.grpcPort = o.value
 }
+
+// otelSpanURIOption instructs SHAR to use an opentelemetry endpoint to record spans.
+func WithOTELSpanURI(uri string) otelSpanURIOption { //nolint
+	return otelSpanURIOption{uri: uri}
+}
+
+type otelSpanURIOption struct {
+	uri string
+}
+
+func (o otelSpanURIOption) configure(server *Server) {
+	server.otelSpanURI = o.uri
+}

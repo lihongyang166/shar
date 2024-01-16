@@ -11,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -136,6 +137,12 @@ func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars
 	msg.Header.Set(header.SharNamespace, subj.GetNS(ctx))
 	pubCtx, cancel := context.WithTimeout(ctx, s.publishTimeout)
 	defer cancel()
+
+	// Telemetry
+	telemetry.TelemetryContextToNatsMsg(ctx, msg)
+	common.CheckNatsTelemetry(msg)
+
+	fmt.Println("#########here3: ", msg.Subject, msg.Header.Get("traceparent"))
 	id := ksuid.New().String()
 	if _, err := s.txJS.PublishMsg(msg, nats.Context(pubCtx), nats.MsgId(id)); err != nil {
 		log := logx.FromContext(ctx)

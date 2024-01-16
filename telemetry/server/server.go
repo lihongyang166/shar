@@ -193,7 +193,6 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	case strings.HasSuffix(msg.Subject, stateProcessExecute):
 		s.incrementActionCounter(ctx, stateProcessExecute)
 		s.changeActionUpDownCounter(ctx, 1, stateProcessExecute)
-
 		if err := s.saveSpan(ctx, "Process Start", state, state); err != nil {
 			return true, nil
 		}
@@ -348,7 +347,8 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 
 func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.WorkflowState, newState *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
-	traceID := common.KSuidTo128bit(oldState.ExecutionId)
+	var traceID [16]byte
+	copy(traceID[:], oldState.TraceId[0:16])
 	spanID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ID())
 	parentID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ParentID())
 	parentSpan := trace.SpanContext{}

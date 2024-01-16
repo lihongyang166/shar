@@ -20,7 +20,7 @@ import (
 	"os"
 )
 
-// Log is the generic metod to output to SHAR telemetry.
+// Log is the generic method to output to SHAR telemetry.
 func Log(ctx context.Context, js nats.JetStream, trackingID string, source model.LogSource, severity messages.WorkflowLogLevel, code int32, message string, attrs map[string]string) error {
 	namespace := ctx.Value(ctxkey.SharNamespace)
 	if namespace == nil {

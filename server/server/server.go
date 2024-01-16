@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"net"
 	"os"
 	"os/signal"
@@ -40,6 +42,8 @@ type Server struct {
 	natsUrl                 string
 	grpcPort                int
 	conn                    *nats.Conn
+	otelSpanURI             string
+	spanProcessor           tracesdk.SpanProcessor
 }
 
 // New creates a new SHAR server.
@@ -69,6 +73,7 @@ func New(options ...Option) *Server {
 		slog.Warn("No AuthN set")
 		s.apiAuthenticator = noopAuthN
 	}
+
 	return s
 }
 
@@ -89,6 +94,12 @@ func noopAuthZ(_ context.Context, _ *model.ApiAuthorizationRequest) (*model.ApiA
 func (s *Server) Listen() {
 	// Capture errors and cancel signals
 	errs := make(chan error)
+
+	// Telemetry
+	ctx := context.Background()
+	sp, err := telemetry.SetUpHTTP(ctx, s.otelSpanURI, "shar-server")
+
+	s.spanProcessor = sp
 
 	// Capture SIGTERM and SIGINT
 	signal.Notify(s.sig, syscall.SIGTERM, syscall.SIGINT)
@@ -149,6 +160,12 @@ func (s *Server) Shutdown() {
 	s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 
 	s.api.Shutdown()
+
+	// Force all remaining OpenTelemetry to stop
+	if s.spanProcessor != nil {
+		s.spanProcessor.ForceFlush(context.Background())
+	}
+
 	if s.healthServiceEnabled {
 		s.grpcServer.GracefulStop()
 		slog.Info("shar grpc health stopped")

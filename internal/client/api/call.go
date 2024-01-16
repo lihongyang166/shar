@@ -8,9 +8,11 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/client/api"
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
@@ -45,6 +47,11 @@ func Call[T proto.Message, U proto.Message](ctx context.Context, con *nats.Conn,
 	} else {
 		msg.Header.Add(header.NatsCompatHeader, "v0.0.0")
 	}
+
+	// Telemetry
+	telemetry.TelemetryContextToNatsMsg(ctx, msg)
+	common.CheckNatsTelemetry(msg)
+
 	msg.Data = b
 	res, err := con.RequestMsg(msg, time.Second*60)
 	if err != nil {

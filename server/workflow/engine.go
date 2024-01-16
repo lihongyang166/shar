@@ -12,6 +12,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/services"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"strconv"
@@ -89,6 +91,11 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 	var reterr error
 	ctx, log := logx.ContextWith(ctx, "engine.launch")
 
+	sCtx := trace.SpanContextFromContext(ctx)
+	traceId := make([]byte, 16)
+	var traceArr [16]byte
+	traceArr = sCtx.TraceID()
+	copy(traceId, traceArr[0:16])
 	workflowName, err := c.ns.GetWorkflowNameFor(ctx, processName)
 	if err != nil {
 		reterr = c.engineErr(ctx, "get the workflow name for this process name", err,
@@ -174,6 +181,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 			WorkflowName: workflowName,
 			Vars:         vrs,
 			Id:           []string{executionId},
+			TraceId:      traceId,
 		}
 
 		ctx, log = common.ContextLoggerWithWfState(ctx, wiState)
@@ -223,8 +231,13 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 }
 
 func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
-	var reterr error
 	var hasStartEvents bool
+
+	ctx, err := telemetry.EnsureTraceId(ctx)
+	if err != nil {
+		return fmt.Errorf("ensure opentelemetry traceId: %w", err)
+	}
+	traceId := trace.SpanContextFromContext(ctx).TraceID()
 
 	testVars, err := vars.Decode(ctx, vrs)
 	if err != nil {
@@ -251,22 +264,20 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 	})
 
 	if vErr != nil {
-		reterr = fmt.Errorf("initialize all workflow start events: %w", vErr)
-		return reterr
+		return fmt.Errorf("initialize all workflow start events: %w", vErr)
 	}
 
 	if hasStartEvents {
 
 		pi, err := c.ns.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Name, workflowName, wfID)
 		if err != nil {
-			reterr = fmt.Errorf("launch failed to create new process instance: %w", err)
-			return reterr
+			return fmt.Errorf("launch failed to create new process instance: %w", err)
 		}
 
 		errs := make(chan error)
 
 		// for each start element, launch a workflow thread
-		startErr := forEachStartElement(pr, func(el *model.Element) error {
+		err = forEachStartElement(pr, func(el *model.Element) error {
 			trackingID := ID.Push(pi.ProcessInstanceId).Push(ksuid.New().String())
 			exec := &model.WorkflowState{
 				ElementType: el.Type,
@@ -279,14 +290,18 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 				WorkflowName:      workflowName,
 				ProcessName:       prName,
 				ProcessInstanceId: pi.ProcessInstanceId,
+				TraceId:           traceId[:],
 			}
 
 			ctx, log := common.ContextLoggerWithWfState(ctx, exec)
 			log.Debug("just prior to publishing start msg")
 
-			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, subj.GetNS(ctx)), exec); err != nil {
+			pExec := common.CopyWorkflowState(exec)
+			pExec.Id = common.TrackingID{pExec.ExecutionId, pExec.ProcessInstanceId}
+			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, subj.GetNS(ctx)), pExec); err != nil {
 				return fmt.Errorf("publish workflow timed process execute: %w", err)
 			}
+
 			if err := c.ns.RecordHistoryProcessStart(ctx, exec); err != nil {
 				log.Error("start events record process start", err)
 				return fmt.Errorf("publish initial traversal: %w", err)
@@ -297,20 +312,18 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 			}
 			return nil
 		})
-		if startErr != nil {
-			reterr = startErr
-			return reterr
+		if err != nil {
+			return fmt.Errorf("executing start elements: %w", err)
 		}
 		// wait for all paths to be started
 		close(errs)
 		if err := <-errs; err != nil {
-			reterr = c.engineErr(ctx, "initial traversal", err,
+			return c.engineErr(ctx, "initial traversal", err,
 				slog.String(keys.ParentInstanceElementID, parentElID),
 				slog.String(keys.ParentProcessInstanceID, parentpiID),
 				slog.String(keys.WorkflowName, workflowName),
 				slog.String(keys.WorkflowID, wfID),
 			)
-			return reterr
 		}
 	}
 	return nil
@@ -881,7 +894,7 @@ func (c *Engine) startJob(ctx context.Context, subject string, job *model.Workfl
 			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to get input variables: %w", err)}
 		}
 	}
-	// if this is a user task, find out who can perfoem it
+	// if this is a user task, find out who can perform it
 	if el.Type == element.UserTask {
 		vx, err := vars.Decode(ctx, v)
 		if err != nil {
@@ -1232,7 +1245,9 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 			}
 			state.ExecutionId = pi.ExecutionId
 			state.ProcessInstanceId = pi.ProcessInstanceId
-			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, state); err != nil {
+			pExec := common.CopyWorkflowState(state)
+			pExec.Id = common.TrackingID{pExec.ExecutionId, pExec.ProcessInstanceId}
+			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, pExec); err != nil {
 				log.Error("spawning process", err)
 				return false, 0, nil
 			}

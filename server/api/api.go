@@ -12,8 +12,10 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
+	"go.opentelemetry.io/otel"
 	"log/slog"
 	"runtime"
 	"sync"
@@ -196,9 +198,20 @@ func listen[T proto.Message, U proto.Message](con common.NatsConn, panicRecovery
 		}
 		ctx, log := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", msg.Header)
 		ctx = subj.SetNS(ctx, msg.Header.Get(header.SharNamespace))
+
+		// Telemetry
+		ctx = telemetry.TelemetryContextFromNatsMsg(ctx, msg)
+		common.CheckCtxTelemetry(ctx)
+
+		tr := otel.GetTracerProvider()
+		ctx, sp := tr.Tracer("shar-server").Start(ctx, subject)
+
 		if err := callAPI(ctx, panicRecovery, req, msg, fn); err != nil {
-			log.Error("API call for "+subject+" failed", err)
+			log.Error("API call for "+subject, "error", err)
+			sp.End()
+			return
 		}
+		sp.End()
 	})
 	if err != nil {
 		return fmt.Errorf("subscribe to %s: %w", subject, err)
@@ -219,7 +232,16 @@ func callAPI[T proto.Message, U proto.Message](ctx context.Context, panicRecover
 	if err != nil {
 		return errors2.ErrWorkflowFatal{Err: fmt.Errorf("decode context value from NATS message for API call: %w", err)}
 	}
+
 	ctx = context.WithValue(ctx, ctxkey.APIFunc, msg.Subject)
+
+	// Telemetry
+	ctx = telemetry.TelemetryContextFromNatsMsg(ctx, msg)
+	ctx, err = telemetry.EnsureTraceId(ctx)
+	if err != nil {
+		return fmt.Errorf("ensure telemetry trace: %w", err)
+	}
+	common.CheckCtxTelemetry(ctx)
 	resMsg, err := fn(ctx, container)
 	if err != nil {
 		c := codes.Unknown

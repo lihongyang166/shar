@@ -193,73 +193,73 @@ streams:
     nats-consumers: []
 buckets:
   - nats-config:
-      bucket: WORKFLOW_MESSAGES
+      bucket: default_WORKFLOW_MESSAGES
       description: ""
   - nats-config:
-      bucket: WORKFLOW_CLIENTS
+      bucket: default_WORKFLOW_CLIENTS
       description: ""
       ttl: 1.5s
   - nats-config:
-      bucket: WORKFLOW_NAME
+      bucket: default_WORKFLOW_NAME
       description: ""
   - nats-config:
-      bucket: WORKFLOW_DEF
+      bucket: default_WORKFLOW_DEF
       description: ""
   - nats-config:
-      bucket: WORKFLOW_CLIENTTASK
+      bucket: default_WORKFLOW_CLIENTTASK
       description: ""
   - nats-config:
-      bucket: WORKFLOW_GATEWAY
+      bucket: default_WORKFLOW_GATEWAY
       description: ""
   - nats-config:
-      bucket: WORKFLOW_VARSTATE
+      bucket: default_WORKFLOW_VARSTATE
       description: ""
   - nats-config:
-      bucket: WORKFLOW_GENLCK
+      bucket: default_WORKFLOW_GENLCK
       description: ""
       ttl: 30s
   - nats-config:
-      bucket: WORKFLOW_TSKSPEC
+      bucket: default_WORKFLOW_TSKSPEC
       description: ""
   - nats-config:
-      bucket: WORKFLOW_EXECUTION
+      bucket: default_WORKFLOW_EXECUTION
       description: ""
   - nats-config:
-      bucket: WORKFLOW_TRACKING
+      bucket: default_WORKFLOW_TRACKING
+      description: ""
+#  - nats-config:
+#      bucket: default_WORKFLOW_MSGNAME
+#      description: ""
+  - nats-config:
+      bucket: default_WORKFLOW_OWNERID
       description: ""
   - nats-config:
-      bucket: WORKFLOW_MSGNAME
+      bucket: default_WORKFLOW_OWNERNAME
       description: ""
   - nats-config:
-      bucket: WORKFLOW_OWNERID
+      bucket: default_WORKFLOW_HISTORY
       description: ""
   - nats-config:
-      bucket: WORKFLOW_OWNERNAME
+      bucket: default_WORKFLOW_TSPECVER
       description: ""
   - nats-config:
-      bucket: WORKFLOW_HISTORY
+      bucket: default_WORKFLOW_PROCESS_MAPPING
+      description: ""
+#  - nats-config:
+#      bucket: default_WORKFLOW_INSTANCE
+#      description: ""
+  - nats-config:
+      bucket: default_WORKFLOW_JOB
       description: ""
   - nats-config:
-      bucket: WORKFLOW_TSPECVER
+      bucket: default_WORKFLOW_VERSION
       description: ""
   - nats-config:
-      bucket: WORKFLOW_PROCESS_MAPPING
+      bucket: default_WORKFLOW_USERTASK
       description: ""
   - nats-config:
-      bucket: WORKFLOW_INSTANCE
+      bucket: default_WORKFLOW_PROCESS
       description: ""
   - nats-config:
-      bucket: WORKFLOW_JOB
-      description: ""
-  - nats-config:
-      bucket: WORKFLOW_VERSION
-      description: ""
-  - nats-config:
-      bucket: WORKFLOW_USERTASK
-      description: ""
-  - nats-config:
-      bucket: WORKFLOW_PROCESS
-      description: ""
-  - nats-config:
-      bucket: WORKFLOW_MSGTYPES
+      bucket: default_WORKFLOW_MSGTYPES
       description: ""

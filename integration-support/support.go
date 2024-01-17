@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
+	ns "gitlab.com/shar-workflow/shar/common/namespace"
+	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -203,6 +206,9 @@ func purgeOld(natsPersistHostRootForTest string, dataDirectories []os.DirEntry, 
 
 // AssertCleanKV - ensures SHAR has cleans up after itself, and there are no records left in the KV.
 func (s *Integration) AssertCleanKV() {
+	//TODO parameterise this when we introduce another namespace to execute in parallel
+	namespace := ns.Default
+
 	ctx, cancel := context.WithCancel(context.Background())
 	errs := make(chan error, 1)
 	var err error
@@ -212,7 +218,7 @@ func (s *Integration) AssertCleanKV() {
 				cancel()
 				return
 			}
-			err = s.checkCleanKV()
+			err = s.checkCleanKVFor(namespace)
 			if err == nil {
 				cancel()
 				close(errs)
@@ -242,12 +248,17 @@ func (s *Integration) AssertCleanKV() {
 	}
 }
 
-func (s *Integration) checkCleanKV() error {
+func (s *Integration) checkCleanKVFor(namespace string) error {
 	js, err := s.GetJetstream()
 	require.NoError(s.Test, err)
 
 	for n := range js.KeyValueStores() {
+
 		name := n.Bucket()
+		if !strings.HasPrefix(name, namespace) {
+			continue
+		}
+
 		kvs, err := js.KeyValue(name)
 		require.NoError(s.Test, err)
 		keys, err := kvs.Keys()
@@ -256,24 +267,24 @@ func (s *Integration) checkCleanKV() error {
 		}
 		require.NoError(s.Test, err)
 		switch name {
-		case "WORKFLOW_DEF",
-			"WORKFLOW_NAME",
-			"WORKFLOW_JOB",
-			"WORKFLOW_INSTANCE",
-			"WORKFLOW_PROCESS",
-			"WORKFLOW_VERSION",
-			"WORKFLOW_CLIENTTASK",
-			"WORKFLOW_MSGID",
-			"WORKFLOW_MSGNAME",
-			"WORKFLOW_OWNERNAME",
-			"WORKFLOW_OWNERID",
-			"WORKFLOW_USERTASK",
-			"WORKFLOW_MSGTYPES",
-			"WORKFLOW_HISTORY",
-			"WORKFLOW_TSKSPEC",
-			"WORKFLOW_TSPECVER",
-			"WORKFLOW_PROCESS_MAPPING",
-			"WORKFLOW_CLIENTS":
+		case ns.PrefixWith(namespace, messages.KvDefinition),
+			ns.PrefixWith(namespace, messages.KvWfName),
+			ns.PrefixWith(namespace, messages.KvJob),
+			ns.PrefixWith(namespace, messages.KvInstance),
+			ns.PrefixWith(namespace, messages.KvProcessInstance),
+			ns.PrefixWith(namespace, messages.KvVersion),
+			ns.PrefixWith(namespace, messages.KvClientTaskID),
+			ns.PrefixWith(namespace, "WORKFLOW_MSGID"),
+			ns.PrefixWith(namespace, "WORKFLOW_MSGNAME"),
+			ns.PrefixWith(namespace, messages.KvOwnerName),
+			ns.PrefixWith(namespace, messages.KvOwnerID),
+			ns.PrefixWith(namespace, messages.KvUserTask),
+			ns.PrefixWith(namespace, messages.KvMessageTypes),
+			ns.PrefixWith(namespace, messages.KvHistory),
+			ns.PrefixWith(namespace, messages.KvTaskSpec),
+			ns.PrefixWith(namespace, messages.KvTaskSpecVersions),
+			ns.PrefixWith(namespace, messages.KvProcess),
+			ns.PrefixWith(namespace, messages.KvClients):
 			//noop
 		default:
 			if len(keys) > 0 {
@@ -312,7 +323,7 @@ func (s *Integration) checkCleanKV() error {
 		}
 	}
 
-	b, err := js.KeyValue("WORKFLOW_USERTASK")
+	b, err := js.KeyValue(ns.PrefixWith(namespace, "WORKFLOW_USERTASK"))
 	if err != nil && errors.Is(err, nats.ErrNoKeysFound) {
 		return nil
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"strings"
 )
 
@@ -21,7 +22,7 @@ func GetNS(ctx context.Context) string {
 	if v != nil {
 		return v.(string)
 	}
-	return "default"
+	return namespace.Default
 }
 
 // SetNS sets the namespace in the given context and returns a new context.

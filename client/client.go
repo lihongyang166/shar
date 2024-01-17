@@ -16,6 +16,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
@@ -104,20 +105,20 @@ type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars) e
 
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and interating with the API
 type Client struct {
-	id                              string
-	host                            string
-	js                              nats.JetStreamContext
-	SvcTasks                        map[string]ServiceFn
-	con                             *nats.Conn
-	MsgSender                       map[string]SenderFn
-	storageType                     nats.StorageType
-	ns                              string
-	listenTasks                     map[string]struct{}
-	msgListenTasks                  map[string]struct{}
-	proCompleteTasks                map[string]ProcessTerminateFn
-	txJS                            nats.JetStreamContext
-	txCon                           *nats.Conn
-	wfInstance                      nats.KeyValue
+	id               string
+	host             string
+	js               nats.JetStreamContext
+	SvcTasks         map[string]ServiceFn
+	con              *nats.Conn
+	MsgSender        map[string]SenderFn
+	storageType      nats.StorageType
+	ns               string
+	listenTasks      map[string]struct{}
+	msgListenTasks   map[string]struct{}
+	proCompleteTasks map[string]ProcessTerminateFn
+	txJS             nats.JetStreamContext
+	txCon            *nats.Conn
+	//wfInstance                      nats.KeyValue
 	wf                              nats.KeyValue
 	job                             nats.KeyValue
 	concurrency                     int
@@ -158,7 +159,7 @@ func New(option ...Option) *Client {
 		listenTasks:                     make(map[string]struct{}),
 		msgListenTasks:                  make(map[string]struct{}),
 		proCompleteTasks:                make(map[string]ProcessTerminateFn),
-		ns:                              "default",
+		ns:                              ns.Default,
 		concurrency:                     10,
 		version:                         ver,
 		ExpectedCompatibleServerVersion: upgrader.GetCompatibleVersion(),
@@ -199,13 +200,13 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 		return fmt.Errorf("server version: %w", err)
 	}
 
-	if c.wfInstance, err = js.KeyValue("WORKFLOW_INSTANCE"); err != nil {
-		return fmt.Errorf("connect to workflow instance kv: %w", err)
-	}
-	if c.wf, err = js.KeyValue("WORKFLOW_DEF"); err != nil {
+	//if c.wfInstance, err = js.KeyValue("WORKFLOW_INSTANCE"); err != nil {
+	//	return fmt.Errorf("connect to workflow instance kv: %w", err)
+	//}
+	if c.wf, err = js.KeyValue(ns.PrefixWith(c.ns, messages.KvDefinition)); err != nil {
 		return fmt.Errorf("connect to workflow definition kv: %w", err)
 	}
-	if c.job, err = js.KeyValue("WORKFLOW_JOB"); err != nil {
+	if c.job, err = js.KeyValue(ns.PrefixWith(c.ns, messages.KvJob)); err != nil {
 		return fmt.Errorf("connect to workflow job kv: %w", err)
 	}
 

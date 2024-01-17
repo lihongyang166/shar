@@ -321,7 +321,7 @@ func (s *SharServer) listUserTaskIDs(ctx context.Context, req *model.ListUserTas
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	oid, err := s.ns.OwnerID(req.Owner)
+	oid, err := s.ns.OwnerID(ctx, req.Owner)
 	if err != nil {
 		return nil, fmt.Errorf("get owner ID: %w", err)
 	}

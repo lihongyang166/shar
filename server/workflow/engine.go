@@ -965,7 +965,7 @@ func (c *Engine) evaluateOwners(ctx context.Context, owners string, vars model.V
 		jobGroups = append(jobGroups, groups...)
 	}
 	for i, v := range jobGroups {
-		id, err := c.ns.OwnerID(v)
+		id, err := c.ns.OwnerID(ctx, v)
 		if err != nil {
 			return nil, fmt.Errorf("evaluate owners failed to get owner ID: %w", err)
 		}

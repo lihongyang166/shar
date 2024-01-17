@@ -28,6 +28,12 @@ const (
 )
 
 func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return fmt.Errorf("ensureMessageBuckets - failed getting KVs for ns %s: %w", ns, err)
+	}
+
 	for _, m := range wf.Messages {
 
 		receivers, ok := wf.MessageReceivers[m.Name]
@@ -42,14 +48,14 @@ func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) err
 			}
 		}
 
-		if err := common.Save(ctx, s.wfMsgTypes, m.Name, rcvrBytes); err != nil {
+		if err := common.Save(ctx, nsKVs.wfMsgTypes, m.Name, rcvrBytes); err != nil {
 			return &errors.ErrWorkflowFatal{Err: err}
 		}
 
 		ks := ksuid.New()
 
 		//TODO: this should only happen if there is a task associated with message send
-		if err := common.Save(ctx, s.wfClientTask, wf.Name+"_"+m.Name, []byte(ks.String())); err != nil {
+		if err := common.Save(ctx, nsKVs.wfClientTask, wf.Name+"_"+m.Name, []byte(ks.String())); err != nil {
 			return fmt.Errorf("create a client task during workflow creation: %w", err)
 		}
 
@@ -207,8 +213,14 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 }
 
 func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, messageName string) (bool, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return false, fmt.Errorf("hasAllReceivers - failed getting KVs for ns %s: %w", ns, err)
+	}
+
 	expectedMessageReceivers := &model.MessageReceivers{}
-	err := common.LoadObj(ctx, s.wfMsgTypes, messageName, expectedMessageReceivers)
+	err = common.LoadObj(ctx, nsKVs.wfMsgTypes, messageName, expectedMessageReceivers)
 	if err != nil {
 		return false, fmt.Errorf("failed loading expected receivers: %w", err)
 	}
@@ -226,12 +238,12 @@ func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, me
 	return allMessagesReceived, nil
 }
 
-func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Exchange, receiverName string, party string, messageName string, correlationKey string) error {
+func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Exchange, receiverName string, justArrivedParty string, messageName string, correlationKey string) error {
 	slog.Debug("attemptMessageDelivery", "exchange", exchange, "messageName", messageName, "correlationKey", correlationKey)
 
 	if exchange.Sender != nil && exchange.Receivers != nil {
 		var receivers []*model.Receiver
-		if party == senderParty { // deliver to all receivers
+		if justArrivedParty == senderParty { // deliver to all receivers
 			receivers = maps.Values(exchange.Receivers)
 		} else { // deliver only to the receiver that has just arrived
 			receivers = []*model.Receiver{exchange.Receivers[receiverName]}

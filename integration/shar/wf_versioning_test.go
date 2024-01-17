@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -27,7 +28,8 @@ func TestWfVersioning(t *testing.T) {
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := namespace.Default
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.Experimental_WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -54,7 +56,7 @@ func TestWfVersioning(t *testing.T) {
 	require.NoError(t, err)
 	js, err := nc.JetStream()
 	require.NoError(t, err)
-	kv, err := js.KeyValue(messages.KvDefinition)
+	kv, err := js.KeyValue(namespace.PrefixWith(ns, messages.KvDefinition))
 	require.NoError(t, err)
 	keys, err := kv.Keys()
 	require.NoError(t, err)

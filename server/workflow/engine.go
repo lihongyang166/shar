@@ -285,7 +285,7 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 			log.Debug("just prior to publishing start msg")
 
 			processWfState := proto.Clone(exec).(*model.WorkflowState)
-			processTrackingId := ID.Push(executionId).Push(pi.ProcessInstanceId).Push(ksuid.New().String())
+			processTrackingId := ID.Push(executionId).Push(pi.ProcessInstanceId)
 			processWfState.Id = processTrackingId
 
 			if err := c.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowProcessExecute, subj.GetNS(ctx)), processWfState); err != nil {
@@ -1237,11 +1237,11 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 			state.ExecutionId = pi.ExecutionId
 			state.ProcessInstanceId = pi.ProcessInstanceId
 
-			//processWfState := proto.Clone(state).(*model.WorkflowState)
-			//processTrackingId := common.TrackingID([]string{}).Push(state.ExecutionId).Push(state.ProcessInstanceId).Push(ksuid.New().String())
-			//processWfState.Id = processTrackingId
+			processWfState := proto.Clone(state).(*model.WorkflowState)
+			processTrackingId := common.TrackingID([]string{}).Push(state.ExecutionId).Push(state.ProcessInstanceId)
+			processWfState.Id = processTrackingId
 
-			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, state); err != nil {
+			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, processWfState); err != nil {
 				log.Error("spawning process", err)
 				return false, 0, nil
 			}

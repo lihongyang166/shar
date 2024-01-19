@@ -14,7 +14,8 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"log/slog"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -87,7 +88,15 @@ var RootCmd = &cobra.Command{
 		if err := svr.Listen(); err != nil {
 			panic(err)
 		}
-		time.Sleep(100 * time.Hour)
+
+		slog.Info("STARTED TELEMETRY")
+
+		// Capture SIGTERM and SIGINT
+		sigChan := make(chan os.Signal)
+		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+		select {
+		case <-sigChan:
+		}
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 

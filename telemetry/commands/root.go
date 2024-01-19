@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
+	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	show_nats_config "gitlab.com/shar-workflow/shar/telemetry/commands/show-nats-config"
@@ -83,13 +85,29 @@ var RootCmd = &cobra.Command{
 			panic(err)
 		}
 
+		var lev slog.Level
+		var addSource bool
+		switch cfg.LogLevel {
+		case "debug":
+			lev = slog.LevelDebug
+			addSource = true
+		case "info":
+			lev = slog.LevelInfo
+		case "warn":
+			lev = slog.LevelWarn
+		default:
+			lev = slog.LevelError
+		}
+
+		logx.SetDefault("shar", common.NewTextHandler(lev, addSource))
+
 		// Start the server
 		svr := server.New(ctx, nc, js, nats.FileStorage, exp)
 		if err := svr.Listen(); err != nil {
 			panic(err)
 		}
 
-		slog.Info("STARTED TELEMETRY")
+		slog.Warn("STARTED TELEMETRY")
 
 		// Capture SIGTERM and SIGINT
 		sigChan := make(chan os.Signal, 3)

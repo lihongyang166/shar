@@ -187,6 +187,8 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 		s.incrementActionCounter(ctx, stateExecutionExecute)
 		s.changeActionUpDownCounter(ctx, 1, stateExecutionExecute)
 
+		slog.Debug("execution execute", slog.Any("state", state))
+
 		if err := s.saveSpan(ctx, "Execution Start", state, state); err != nil {
 			return true, nil
 		}

@@ -8,7 +8,7 @@ import (
 // Settings is the settings provider for telemetry.
 type Settings struct {
 	NatsURL              string `env:"NATS_URL" envDefault:"nats://127.0.0.1:4222"`
-	LogLevel             string `env:"SHAR_LOG_LEVEL" envDefault:"debug"`
+	LogLevel             string `env:"SHAR_LOG_LEVEL" envDefault:"warn"`
 	OTLPEndpoint         string `env:"OTLP_URL" envDefault:"localhost:4318"`
 	OTLPEndpointIsSecure bool   `env:"OTLP_IS_SECURE" envDefault:"false"`
 }

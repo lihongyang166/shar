@@ -92,11 +92,9 @@ var RootCmd = &cobra.Command{
 		slog.Info("STARTED TELEMETRY")
 
 		// Capture SIGTERM and SIGINT
-		sigChan := make(chan os.Signal)
+		sigChan := make(chan os.Signal, 3)
 		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-		select {
-		case <-sigChan:
-		}
+		<-sigChan
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 

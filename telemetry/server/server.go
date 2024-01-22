@@ -187,6 +187,8 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 		s.incrementActionCounter(ctx, stateExecutionExecute)
 		s.changeActionUpDownCounter(ctx, 1, stateExecutionExecute)
 
+		slog.Debug("execution execute", slog.Any("state", state))
+
 		if err := s.saveSpan(ctx, "Execution Start", state, state); err != nil {
 			return true, nil
 		}
@@ -226,8 +228,6 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			return true, nil
 		}
 	case strings.Contains(msg.Subject, stateJobCompleteServiceTask),
-		strings.Contains(msg.Subject, stateExecutionComplete),
-		strings.Contains(msg.Subject, stateProcessTerminated),
 		strings.Contains(msg.Subject, stateJobAbortServiceTask),
 		strings.Contains(msg.Subject, stateJobCompleteUserTask),
 		strings.Contains(msg.Subject, stateJobCompleteManualTask),
@@ -241,11 +241,17 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
 					slog.String(keys.ElementType, state.ElementType),
+					slog.String("msg.Subject", msg.Subject),
 				)
 				return true, err
 			}
 			return true, nil
 		}
+	case strings.Contains(msg.Subject, stateExecutionComplete),
+		strings.Contains(msg.Subject, stateProcessTerminated):
+
+		endAction := actionFrom(msg.Subject, endActions)
+		s.changeActionUpDownCounter(ctx, -1, startActionFor(endAction))
 	case strings.Contains(msg.Subject, stateJobCompleteSendMessage):
 	case strings.Contains(msg.Subject, stateLog):
 

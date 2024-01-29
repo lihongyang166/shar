@@ -50,77 +50,40 @@ type NamespaceKvs struct {
 	wf            nats.KeyValue
 	wfVersion     nats.KeyValue
 	wfTracking    nats.KeyValue
-
-	//###this kv has ksuid based keys...so they should not overlap anyway
-	//(nor should any other kv that has ksuid keys as they are by definition
-	//globally unique
-	// so the question comes back to whether we should be creating ns unique kvs for jobs
-	//or any other kv for the sake of being able to easily isolate the data in them from each other
-	//and conveniently access the data of a given ns...
-	job          nats.KeyValue
-	ownerName    nats.KeyValue
-	ownerID      nats.KeyValue
-	wfClientTask nats.KeyValue
-	wfGateway    nats.KeyValue
-	wfName       nats.KeyValue
-	wfHistory    nats.KeyValue
-	//wfLock       nats.KeyValue
-	wfMsgTypes nats.KeyValue
-	wfProcess  nats.KeyValue
-	//wfMessages   nats.KeyValue
-	wfClients nats.KeyValue
+	job           nats.KeyValue
+	ownerName     nats.KeyValue
+	ownerID       nats.KeyValue
+	wfClientTask  nats.KeyValue
+	wfGateway     nats.KeyValue
+	wfName        nats.KeyValue
+	wfHistory     nats.KeyValue
+	wfLock        nats.KeyValue
+	wfMsgTypes    nats.KeyValue
+	wfProcess     nats.KeyValue
+	wfMessages    nats.KeyValue
+	wfClients     nats.KeyValue
 }
 
 // Nats contains the engine functions that communicate with NATS.
 type Nats struct {
-	js                        nats.JetStreamContext
-	txJS                      nats.JetStreamContext
-	eventProcessor            services.EventProcessorFunc
-	eventJobCompleteProcessor services.CompleteJobProcessorFunc
-	traversalFunc             services.TraversalFunc
-	launchFunc                services.LaunchFunc
-	messageProcessor          services.MessageProcessorFunc
-	storageType               nats.StorageType
-	concurrency               int
-	closing                   chan struct{}
-
-	//wfExecution       nats.KeyValue
-	//wfProcessInstance nats.KeyValue
-	//wfUserTasks   nats.KeyValue
-	//wfVarState    nats.KeyValue
-	//wfTaskSpec    nats.KeyValue
-	//wfTaskSpecVer nats.KeyValue
-	//wf nats.KeyValue
-	//wfVersion  nats.KeyValue
-	//wfTracking nats.KeyValue
-
-	//###this kv has ksuid based keys...so they should not overlap anyway
-	//(nor should any other kv that has ksuid keys as they are by definition
-	//globally unique
-	// so the question comes back to whether we should be creating ns unique kvs for jobs
-	//or any other kv for the sake of being able to easily isolate the data in them from each other
-	//and conveniently access the data of a given ns...
-	//job        nats.KeyValue
-	//ownerName    nats.KeyValue
-	//ownerID      nats.KeyValue
-	//wfClientTask nats.KeyValue
-	//wfGateway nats.KeyValue
-	conn   common.NatsConn
-	txConn common.NatsConn
-	//wfName                         nats.KeyValue
-	//wfHistory                      nats.KeyValue
+	js                             nats.JetStreamContext
+	txJS                           nats.JetStreamContext
+	eventProcessor                 services.EventProcessorFunc
+	eventJobCompleteProcessor      services.CompleteJobProcessorFunc
+	traversalFunc                  services.TraversalFunc
+	launchFunc                     services.LaunchFunc
+	messageProcessor               services.MessageProcessorFunc
+	storageType                    nats.StorageType
+	concurrency                    int
+	closing                        chan struct{}
+	conn                           common.NatsConn
+	txConn                         common.NatsConn
 	publishTimeout                 time.Duration
 	eventActivityCompleteProcessor services.CompleteActivityProcessorFunc
 	allowOrphanServiceTasks        bool
 	completeActivityFunc           services.CompleteActivityFunc
 	abortFunc                      services.AbortFunc
-	wfLock                         nats.KeyValue
-	//wfMsgTypes                     nats.KeyValue
-	//wfProcess  nats.KeyValue
-	wfMessages nats.KeyValue
-	//wfClients  nats.KeyValue
-
-	sharKvs map[string]*NamespaceKvs
+	sharKvs                        map[string]*NamespaceKvs
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
@@ -199,40 +162,6 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 
 	ns := namespace.Default
 
-	kvs := make(map[string]*nats.KeyValue)
-
-	//kvs[namespace.PrefixWith(ns, messages.KvWfName)] = &ms.wfName
-	//kvs[namespace.PrefixWith(ns, messages.KvInstance)] = &ms.wfInstance
-	//kvs[namespace.PrefixWith(ns, messages.KvExecution)] = &ms.wfExecution
-	//kvs[namespace.PrefixWith(ns, messages.KvTracking)] = &ms.wfTracking
-	//kvs[namespace.PrefixWith(ns, messages.KvDefinition)] = &ms.wf
-	//kvs[namespace.PrefixWith(ns, messages.KvJob)] = &ms.job
-	//kvs[namespace.PrefixWith(ns, messages.KvVersion)] = &ms.wfVersion
-	//kvs[namespace.PrefixWith(ns, messages.KvMessageInterest)] = &ms.wfMessageInterest
-	//kvs[namespace.PrefixWith(ns, messages.KvUserTask)] = &ms.wfUserTasks
-	//kvs[namespace.PrefixWith(ns, messages.KvOwnerID)] = &ms.ownerID
-	//kvs[namespace.PrefixWith(ns, messages.KvOwnerName)] = &ms.ownerName
-	//kvs[namespace.PrefixWith(ns, messages.KvClientTaskID)] = &ms.wfClientTask
-	//kvs[namespace.PrefixWith(ns, messages.KvVarState)] = &ms.wfVarState
-	//kvs[namespace.PrefixWith(ns, messages.KvProcessInstance)] = &ms.wfProcessInstance
-	//kvs[namespace.PrefixWith(ns, messages.KvGateway)] = &ms.wfGateway
-	//kvs[namespace.PrefixWith(ns, messages.KvHistory)] = &ms.wfHistory
-	kvs[namespace.PrefixWith(ns, messages.KvLock)] = &ms.wfLock
-	//kvs[namespace.PrefixWith(ns, messages.KvMessageTypes)] = &ms.wfMsgTypes
-	//kvs[namespace.PrefixWith(ns, messages.KvTaskSpec)] = &ms.wfTaskSpec
-	//kvs[namespace.PrefixWith(ns, messages.KvTaskSpecVersions)] = &ms.wfTaskSpecVer
-	//kvs[namespace.PrefixWith(ns, messages.KvProcess)] = &ms.wfProcess
-	kvs[namespace.PrefixWith(ns, messages.KvMessages)] = &ms.wfMessages
-	//kvs[namespace.PrefixWith(ns, messages.KvClients)] = &ms.wfClients
-
-	for k, v := range kvs {
-		kv, err := js.KeyValue(k)
-		if err != nil {
-			return nil, fmt.Errorf("open %s KV: %w", k, err)
-		}
-		*v = kv
-	}
-
 	nKvs, err2 := initNamespacedKvs(ns, js)
 	if err2 != nil {
 		return nil, fmt.Errorf("failed to init kvs for ns %s, %w", ns, err2)
@@ -243,17 +172,34 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	// TODO should this be namespace specific??
 	// Do we need to prefix consumerName with the ns???
 	// and add the ns to the subject below???
+
+	// TODO these 2 subscribers (kick consumer + telemetry)
+	// are invoked on shar server startup and not by a client/publisher with a given ns
+	// presumably the behaviour of both of these subscribers needs to work for all ns
+	// but how do we know what all namespaces are on shar startup??? previous subscriptions
+	// relied on the ns being supplied by the publishers but we can't rely on this in this case...
+
 	msg := nats.NewMsg(messages.WorkflowMessageKick)
 	msg.Header.Set(header.SharNamespace, ns)
-	if err := common.PublishOnce(js, ms.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
+	if err := common.PublishOnce(js, nKvs.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
 		return nil, fmt.Errorf("ensure kick message: %w", err)
 	}
 
 	// TODO probably want to keep track of the ns in the telemetry metric...
 
-	if err := ms.startTelemetry(ctx); err != nil {
+	if err := ms.startTelemetry(ctx, ns); err != nil {
 		return nil, fmt.Errorf("start telemetry: %w", err)
 	}
+
+	//TODO should we maintain a kv that has all known namespaces in it???
+	//(populated on initial call to KvsFor for a namespace)?
+	// OR should we just infer the namespaces based on the distinct prefixes of the KVs existing
+	// in nats???
+	//This way, we can iterate over the known namespaces on startup and setup.Nats for each one...
+	// is this even necessary though if we lazily call KvsFor on first call for a namespace???
+	// I think setup.Nats might already cater for the case where nats resources (streams|consumers|kvs)
+	// already exist on the nats server???
+
 	return ms, nil
 }
 
@@ -262,13 +208,11 @@ func initNamespacedKvs(ns string, js nats.JetStreamContext) (*NamespaceKvs, erro
 	kvs := make(map[string]*nats.KeyValue)
 
 	kvs[namespace.PrefixWith(ns, messages.KvWfName)] = &nKvs.wfName
-	//kvs[namespace.PrefixWith(ns, messages.KvInstance)] = &nKvs.wfInstance //unref
 	kvs[namespace.PrefixWith(ns, messages.KvExecution)] = &nKvs.wfExecution
 	kvs[namespace.PrefixWith(ns, messages.KvTracking)] = &nKvs.wfTracking
 	kvs[namespace.PrefixWith(ns, messages.KvDefinition)] = &nKvs.wf
 	kvs[namespace.PrefixWith(ns, messages.KvJob)] = &nKvs.job
 	kvs[namespace.PrefixWith(ns, messages.KvVersion)] = &nKvs.wfVersion
-	//kvs[namespace.PrefixWith(ns, messages.KvMessageInterest)] = &nKvs.wfMessageInterest //unref
 	kvs[namespace.PrefixWith(ns, messages.KvUserTask)] = &nKvs.wfUserTasks
 	kvs[namespace.PrefixWith(ns, messages.KvOwnerID)] = &nKvs.ownerID
 	kvs[namespace.PrefixWith(ns, messages.KvOwnerName)] = &nKvs.ownerName
@@ -277,12 +221,12 @@ func initNamespacedKvs(ns string, js nats.JetStreamContext) (*NamespaceKvs, erro
 	kvs[namespace.PrefixWith(ns, messages.KvProcessInstance)] = &nKvs.wfProcessInstance
 	kvs[namespace.PrefixWith(ns, messages.KvGateway)] = &nKvs.wfGateway
 	kvs[namespace.PrefixWith(ns, messages.KvHistory)] = &nKvs.wfHistory
-	//kvs[namespace.PrefixWith(ns, messages.KvLock)] = &nKvs.wfLock
+	kvs[namespace.PrefixWith(ns, messages.KvLock)] = &nKvs.wfLock
 	kvs[namespace.PrefixWith(ns, messages.KvMessageTypes)] = &nKvs.wfMsgTypes
 	kvs[namespace.PrefixWith(ns, messages.KvTaskSpec)] = &nKvs.wfTaskSpec
 	kvs[namespace.PrefixWith(ns, messages.KvTaskSpecVersions)] = &nKvs.wfTaskSpecVer
 	kvs[namespace.PrefixWith(ns, messages.KvProcess)] = &nKvs.wfProcess
-	//kvs[namespace.PrefixWith(ns, messages.KvMessages)] = &nKvs.wfMessages
+	kvs[namespace.PrefixWith(ns, messages.KvMessages)] = &nKvs.wfMessages
 	kvs[namespace.PrefixWith(ns, messages.KvClients)] = &nKvs.wfClients
 
 	for k, v := range kvs {
@@ -306,10 +250,15 @@ func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
 	//## TODO will we also need to call setup.Nats on first access attempt to a new ns???
 	//## setup.Nats appears to apply the nats config for streams, subjects, buckets to nats
 	// so that subsequent calls to js.KeyValue will work
+
 	// ## TODO - do we need to template the usage of * in the subject/consumers in nats-config.yml?
 	// ## it seems that if we do not, doing a common.Process/pullSubscribe off a stream/subject with
 	// ## a wildcarded namespace will mean all namespaces will get all messages when in reality, we probably
 	// ## only really want messages from a specific namespace...
+
+	//## TODO also, how do we deal with multiple shar instances attempting to initialise the
+	//## nats streams/consumers/buckets? we'd need to use the distributed lock mechanism to synchronize
+	//## between multiple shar instances trying to initialise nats resources for one namespace concurrently
 
 	if nsKvs, exists := s.sharKvs[ns]; !exists {
 		kvs, err := initNamespacedKvs(ns, s.js)

@@ -80,10 +80,16 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) startTelemetry(ctx context.Context) error {
+func (s *Nats) startTelemetry(ctx context.Context, ns string) error {
 	msg := nats.NewMsg(messages.WorkflowTelemetryTimer)
-	msg.Header.Set(header.SharNamespace, "*")
-	if err := common.PublishOnce(s.js, s.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
+	msg.Header.Set(header.SharNamespace, ns)
+
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return fmt.Errorf("startTelemetry - failed getting KVs for ns %s: %w", ns, err)
+	}
+
+	if err := common.PublishOnce(s.js, nsKVs.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
 		return fmt.Errorf("ensure telemetry timer message: %w", err)
 	}
 	if err := s.processTelemetryTimer(ctx); err != nil {

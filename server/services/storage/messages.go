@@ -80,6 +80,7 @@ func (s *Nats) messageKick(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("creating message kick subscription: %w", err)
 	}
+
 	go func() {
 		for {
 			select {
@@ -88,6 +89,7 @@ func (s *Nats) messageKick(ctx context.Context) error {
 			default:
 				pctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 				msgs, err := sub.Fetch(1, nats.Context(pctx))
+
 				if err != nil || len(msgs) == 0 {
 					slog.Warn("pulling kick message")
 					cancel()
@@ -95,14 +97,34 @@ func (s *Nats) messageKick(ctx context.Context) error {
 					continue
 				}
 				msg := msgs[0]
-				msgKeys, err := s.wfMessages.Keys()
+
+				//#########
+				var ns string
+				if ns := msg.Header.Get(header.SharNamespace); ns == "" {
+					slog.Error("messageKick - message without namespace", slog.Any("subject", msg.Subject))
+					cancel()
+					if err := msg.Ack(); err != nil {
+						slog.Error("messageKick - processing failed to ack", err)
+					}
+					continue
+				}
+
+				nsKVs, err := s.KvsFor(ns)
+				if err != nil {
+					slog.Error("messageKick - failed getting KVs for ns %s: %w", ns, err)
+					cancel()
+					continue
+				}
+				//#########
+
+				msgKeys, err := nsKVs.wfMessages.Keys()
 				if err != nil {
 					goto continueLoop
 				}
 
 				for _, k := range msgKeys {
 					exchange := &model.Exchange{}
-					err := common.LoadObj(ctx, s.wfMessages, k, exchange)
+					err := common.LoadObj(ctx, nsKVs.wfMessages, k, exchange)
 					if err != nil {
 						slog.Warn(err.Error())
 					}
@@ -184,6 +206,12 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.M
 type setPartyFn func(exch *model.Exchange) (*model.Exchange, error)
 
 func (s *Nats) handleMessageExchange(ctx context.Context, party string, setPartyFn setPartyFn, elementId string, exchange *model.Exchange, messageName string, correlationKey string) error {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return fmt.Errorf("handleMessageExchange - failed getting KVs for ns %s: %w", ns, err)
+	}
+
 	messageKey := messageKeyFrom([]string{messageName, correlationKey})
 
 	exchangeProto, err3 := proto.Marshal(exchange)
@@ -191,10 +219,10 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 		return fmt.Errorf("error serialising "+party+" message %w", err3)
 	}
 	//use optimistic locking capabilities on create/update to ensure no lost writes...
-	_, createErr := s.wfMessages.Create(messageKey, exchangeProto)
+	_, createErr := nsKVs.wfMessages.Create(messageKey, exchangeProto)
 
 	if errors2.Is(createErr, nats.ErrKeyExists) {
-		err3 := common.UpdateObj(ctx, s.wfMessages, messageKey, &model.Exchange{}, setPartyFn)
+		err3 := common.UpdateObj(ctx, nsKVs.wfMessages, messageKey, &model.Exchange{}, setPartyFn)
 		if err3 != nil {
 			return fmt.Errorf("failed to update exchange with %s: %w", party, err3)
 		}
@@ -203,7 +231,7 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 	}
 
 	updatedExchange := &model.Exchange{}
-	if err3 = common.LoadObj(ctx, s.wfMessages, messageKey, updatedExchange); err3 != nil {
+	if err3 = common.LoadObj(ctx, nsKVs.wfMessages, messageKey, updatedExchange); err3 != nil {
 		return fmt.Errorf("failed to retrieve exchange: %w", err3)
 	} else if err3 = s.attemptMessageDelivery(ctx, updatedExchange, elementId, party, messageName, correlationKey); err3 != nil {
 		return fmt.Errorf("failed attempted delivery: %w", err3)
@@ -241,6 +269,12 @@ func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, me
 func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Exchange, receiverName string, justArrivedParty string, messageName string, correlationKey string) error {
 	slog.Debug("attemptMessageDelivery", "exchange", exchange, "messageName", messageName, "correlationKey", correlationKey)
 
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return fmt.Errorf("attemptMessageDelivery - failed getting KVs for ns %s: %w", ns, err)
+	}
+
 	if exchange.Sender != nil && exchange.Receivers != nil {
 		var receivers []*model.Receiver
 		if justArrivedParty == senderParty { // deliver to all receivers
@@ -269,7 +303,7 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Excha
 
 		if exchange.Sender != nil && hasAllReceivers {
 			messageKey := messageKeyFrom([]string{messageName, correlationKey})
-			err := s.wfMessages.Delete(messageKey)
+			err := nsKVs.wfMessages.Delete(messageKey)
 			if err != nil {
 				return fmt.Errorf("error deleting exchange %w", err)
 			}

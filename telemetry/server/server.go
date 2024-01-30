@@ -6,6 +6,11 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -28,9 +33,6 @@ import (
 	semconv2 "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
-	"strings"
-	"time"
 )
 
 const (
@@ -124,7 +126,6 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 			"workflow_state",
 			metric.WithDescription("how many workflow state messages have been received, tagged by subject"),
 		)
-
 	if err != nil {
 		slog.Error("err getting meter provider meter counter", "err", err.Error())
 	}
@@ -138,7 +139,6 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 			"workflow_state_up_down",
 			metric.WithDescription("how many workflow state messages are active, tagged by action"),
 		)
-
 	if err != nil {
 		slog.Error("err getting meter provider meter up down counter", "err", err.Error())
 	}
@@ -255,8 +255,8 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	case strings.Contains(msg.Subject, stateJobCompleteSendMessage):
 	case strings.Contains(msg.Subject, stateLog):
 
-	//case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
-	//case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
+	// case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
+	// case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
 	default:
 
 	}
@@ -453,6 +453,11 @@ func SetupMetrics(ctx context.Context, cfg *config.Settings, serviceName string)
 	opts := []otlpmetrichttp.Option{otlpmetrichttp.WithEndpoint(cfg.OTLPEndpoint)}
 	if !cfg.OTLPEndpointIsSecure {
 		opts = append(opts, otlpmetrichttp.WithInsecure())
+	}
+
+	// By default, if an environment variable is not set, and this option is not passed, "/v1/metrics" will be used.
+	if path, set := os.LookupEnv("OTEL_URL_PATH"); set {
+		opts = append(opts, otlpmetrichttp.WithURLPath(path))
 	}
 
 	exporter, err := otlpmetrichttp.New(

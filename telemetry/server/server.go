@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -95,7 +96,6 @@ type Server struct {
 	spanKV nats.KeyValue
 	res    *resource.Resource
 	exp    Exporter
-	wfi    nats.KeyValue
 
 	wfStateCounter       metric.Int64Counter
 	wfStateUpDownCounter metric.Int64UpDownCounter
@@ -111,7 +111,7 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 		attribute.Int64("ID", id),
 	)
 
-	if err := setup.Nats(ctx, nc, js, storageType, NatsConfig, true); err != nil {
+	if err := setup.Nats(ctx, nc, js, storageType, NatsConfig, true, namespace.Default); err != nil {
 		panic(err)
 	}
 
@@ -157,16 +157,13 @@ func (s *Server) Listen() error {
 	ctx := context.Background()
 	closer := make(chan struct{})
 
+	//TODO need to think of implications of namespacing the spanKV
+
 	kv, err := s.js.KeyValue(messages.KvTracking)
 	if err != nil {
 		return fmt.Errorf("listen failed to attach to tracking key value database: %w", err)
 	}
 	s.spanKV = kv
-	kv, err = s.js.KeyValue(messages.KvInstance)
-	if err != nil {
-		return fmt.Errorf("listen failed to attach to instance key value database, is SHAR running on this cluster?: %w", err)
-	}
-	s.wfi = kv
 	err = common.Process(ctx, s.js, "WORKFLOW_TELEMETRY", "telemetry", closer, "WORKFLOW.*.State.>", "Tracing", 1, s.workflowTrace)
 	if err != nil {
 		return fmt.Errorf("listen failed to start telemetry handler: %w", err)

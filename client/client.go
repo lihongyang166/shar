@@ -105,22 +105,20 @@ type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars) e
 
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and interating with the API
 type Client struct {
-	id               string
-	host             string
-	js               nats.JetStreamContext
-	SvcTasks         map[string]ServiceFn
-	con              *nats.Conn
-	MsgSender        map[string]SenderFn
-	storageType      nats.StorageType
-	ns               string
-	listenTasks      map[string]struct{}
-	msgListenTasks   map[string]struct{}
-	proCompleteTasks map[string]ProcessTerminateFn
-	txJS             nats.JetStreamContext
-	txCon            *nats.Conn
-	//wfInstance                      nats.KeyValue
-	wf                              nats.KeyValue
-	job                             nats.KeyValue
+	id                              string
+	host                            string
+	js                              nats.JetStreamContext
+	SvcTasks                        map[string]ServiceFn
+	con                             *nats.Conn
+	MsgSender                       map[string]SenderFn
+	storageType                     nats.StorageType
+	ns                              string
+	listenTasks                     map[string]struct{}
+	msgListenTasks                  map[string]struct{}
+	proCompleteTasks                map[string]ProcessTerminateFn
+	txJS                            nats.JetStreamContext
+	txCon                           *nats.Conn
+	namespaceJobKvs                 map[string]nats.KeyValue
 	concurrency                     int
 	ExpectedCompatibleServerVersion *version.Version
 	ExpectedServerVersion           *version.Version
@@ -165,6 +163,7 @@ func New(option ...Option) *Client {
 		ExpectedCompatibleServerVersion: upgrader.GetCompatibleVersion(),
 		closer:                          make(chan struct{}),
 		sig:                             make(chan os.Signal),
+		namespaceJobKvs:                 make(map[string]nats.KeyValue),
 	}
 	for _, i := range option {
 		i.configure(client)
@@ -198,16 +197,6 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	_, err = c.GetServerVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("server version: %w", err)
-	}
-
-	//if c.wfInstance, err = js.KeyValue("WORKFLOW_INSTANCE"); err != nil {
-	//	return fmt.Errorf("connect to workflow instance kv: %w", err)
-	//}
-	if c.wf, err = js.KeyValue(ns.PrefixWith(c.ns, messages.KvDefinition)); err != nil {
-		return fmt.Errorf("connect to workflow definition kv: %w", err)
-	}
-	if c.job, err = js.KeyValue(ns.PrefixWith(c.ns, messages.KvJob)); err != nil {
-		return fmt.Errorf("connect to workflow job kv: %w", err)
 	}
 
 	cdef := &nats.ConsumerConfig{
@@ -358,6 +347,8 @@ func (c *Client) listen(ctx context.Context) error {
 				log.Error("unmarshaling", err)
 				return false, fmt.Errorf("service task listener: %w", err)
 			}
+
+			subj.SetNS(ctx, msg.Header.Get(header.SharNamespace))
 			ctx = context.WithValue(ctx, ctxkey.ExecutionID, ut.ExecutionId)
 			ctx = context.WithValue(ctx, ctxkey.ProcessInstanceID, ut.ProcessInstanceId)
 			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Header)
@@ -821,12 +812,32 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 
 // GetJob returns a Job given a tracking ID
 func (c *Client) GetJob(ctx context.Context, id string) (*model.WorkflowState, error) {
+	ns := subj.GetNS(ctx)
+	jobKv, err := c.jobKvFor(ns)
+	if err != nil {
+		return nil, fmt.Errorf("GetJob - failed getting KVs for ns %s: %w", ns, err)
+	}
+
 	job := &model.WorkflowState{}
 	// TODO: Stop direct data read
-	if err := common.LoadObj(ctx, c.job, id, job); err != nil {
+	if err := common.LoadObj(ctx, jobKv, id, job); err != nil {
 		return nil, fmt.Errorf("load object for get job: %w", err)
 	}
 	return job, nil
+}
+
+//nolint:ireturn
+func (c *Client) jobKvFor(namesp string) (nats.KeyValue, error) {
+	if jobKv, exists := c.namespaceJobKvs[namesp]; !exists {
+		if job, err := c.js.KeyValue(ns.PrefixWith(c.ns, messages.KvJob)); err != nil {
+			return nil, fmt.Errorf("failed to get job kv for ns %s: %w", namesp, err)
+		} else {
+			c.namespaceJobKvs[namesp] = job
+			return job, nil
+		}
+	} else {
+		return jobKv, nil
+	}
 }
 
 // GetServerVersion returns the current server version

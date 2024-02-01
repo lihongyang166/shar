@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	errors2 "errors"
 	"fmt"
+	"github.com/goccy/go-yaml"
 	"github.com/nats-io/nats.go"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
@@ -143,6 +144,7 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	if err != nil {
 		return nil, fmt.Errorf("open jetstream: %w", err)
 	}
+
 	ms := &Nats{
 		conn:                    conn,
 		txConn:                  txConn,
@@ -155,18 +157,18 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 		allowOrphanServiceTasks: allowOrphanServiceTasks,
 		sharKvs:                 make(map[string]*NamespaceKvs),
 	}
-	ctx := context.Background()
-	if err := setup.Nats(ctx, conn, js, storageType, NatsConfig, true); err != nil {
-		return nil, fmt.Errorf("set up nats queue insfrastructure: %w", err)
-	}
 
 	ns := namespace.Default
 
-	nKvs, err2 := initNamespacedKvs(ns, js)
+	ctx := context.Background()
+	if err := setup.Nats(ctx, conn, js, storageType, NatsConfig, true, ns); err != nil {
+		return nil, fmt.Errorf("set up nats queue insfrastructure: %w", err)
+	}
+
+	nKvs, err2 := initNamespacedKvs(ns, js, storageType, NatsConfig)
 	if err2 != nil {
 		return nil, fmt.Errorf("failed to init kvs for ns %s, %w", ns, err2)
 	}
-
 	ms.sharKvs[ns] = nKvs
 
 	// TODO should this be namespace specific??
@@ -195,6 +197,7 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	//(populated on initial call to KvsFor for a namespace)?
 	// OR should we just infer the namespaces based on the distinct prefixes of the KVs existing
 	// in nats???
+	// OR can we derive the namespaces based on subject headers???
 	//This way, we can iterate over the known namespaces on startup and setup.Nats for each one...
 	// is this even necessary though if we lazily call KvsFor on first call for a namespace???
 	// I think setup.Nats might already cater for the case where nats resources (streams|consumers|kvs)
@@ -203,7 +206,16 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	return ms, nil
 }
 
-func initNamespacedKvs(ns string, js nats.JetStreamContext) (*NamespaceKvs, error) {
+func initNamespacedKvs(ns string, js nats.JetStreamContext, storageType nats.StorageType, config string) (*NamespaceKvs, error) {
+	cfg := &setup.NatsConfig{}
+	if err := yaml.Unmarshal([]byte(config), cfg); err != nil {
+		return nil, fmt.Errorf("initNamespacedKvs - parse nats-config.yaml: %w", err)
+	}
+	err := setup.EnsureBuckets(cfg, js, storageType, ns)
+	if err != nil {
+		return nil, fmt.Errorf("initNamespacedKvs - EnsureBuckets: %w", err)
+	}
+
 	nKvs := NamespaceKvs{}
 	kvs := make(map[string]*nats.KeyValue)
 
@@ -247,21 +259,13 @@ func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
 	//## read and write to the map from multiple go routines ???
 	//## ie do we need to serialize access to the NamespaceKvs value for each ns on write???
 
-	//## TODO will we also need to call setup.Nats on first access attempt to a new ns???
-	//## setup.Nats appears to apply the nats config for streams, subjects, buckets to nats
-	// so that subsequent calls to js.KeyValue will work
-
-	// ## TODO - do we need to template the usage of * in the subject/consumers in nats-config.yml?
-	// ## it seems that if we do not, doing a common.Process/pullSubscribe off a stream/subject with
-	// ## a wildcarded namespace will mean all namespaces will get all messages when in reality, we probably
-	// ## only really want messages from a specific namespace...
-
 	//## TODO also, how do we deal with multiple shar instances attempting to initialise the
 	//## nats streams/consumers/buckets? we'd need to use the distributed lock mechanism to synchronize
 	//## between multiple shar instances trying to initialise nats resources for one namespace concurrently
+	//## does this really matter? what happens if we attempt to create a KV that already exists???
 
 	if nsKvs, exists := s.sharKvs[ns]; !exists {
-		kvs, err := initNamespacedKvs(ns, s.js)
+		kvs, err := initNamespacedKvs(ns, s.js, s.storageType, NatsConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialise KVs for namespace %s: %w", ns, err)
 		}
@@ -676,7 +680,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 		if err := setup.EnsureBucket(s.js, &nats.KeyValueConfig{
 			Bucket:      subj.NS("MsgTx_%s_", subj.GetNS(ctx)) + m.Name,
 			Description: "Message transmit for " + m.Name,
-		}, s.storageType); err != nil {
+		}, s.storageType, func(_ *nats.KeyValueConfig) {}); err != nil {
 			return nil, fmt.Errorf("ensuring bucket '%s':%w", m.Name, err)
 		}
 	}

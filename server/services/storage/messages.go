@@ -100,7 +100,7 @@ func (s *Nats) messageKick(ctx context.Context) error {
 
 				//#########
 				var ns string
-				if ns := msg.Header.Get(header.SharNamespace); ns == "" {
+				if ns = msg.Header.Get(header.SharNamespace); ns == "" {
 					slog.Error("messageKick - message without namespace", slog.Any("subject", msg.Subject))
 					cancel()
 					if err := msg.Ack(); err != nil {

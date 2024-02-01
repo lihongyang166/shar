@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
@@ -34,12 +33,13 @@ func TestSimple(t *testing.T) {
 
 	// Dial shar
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10),
-		//### can we run two instances of these tests in parallel but have different values for
-		// the namespace used here???
-		client.Experimental_WithNamespace(namespace.Default),
-		// maybe we could drive this via a parallel table test with multiple instances of the test
-		// running in separate namespaces running in parallel?
-	)
+		client.Experimental_WithNamespace("zzzFOONs"),
+	) //client.Experimental_WithNamespace("fooNS"),
+
+	//### can we run two instances of these tests in parallel but have different values for
+	// the namespace used here???
+	// maybe we could drive this via a parallel table test with multiple instances of the test
+	// running in separate namespaces running in parallel?
 
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
@@ -130,6 +130,7 @@ func concurrentMapAccess() {
 
 }
 
+// TODO ############# remove me eventually!!!
 func BenchmarkFoo(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		concurrentMapAccess()

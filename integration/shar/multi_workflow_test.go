@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -93,7 +94,7 @@ func TestMultiWorkflow(t *testing.T) {
 
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*60)
 
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testMultiworkflowMessagingHandlerDef struct {

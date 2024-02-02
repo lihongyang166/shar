@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
@@ -66,7 +67,7 @@ func TestHandledError(t *testing.T) {
 
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type errorHandledHandlerDef struct {

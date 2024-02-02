@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"os"
 	"testing"
 	"time"
@@ -58,7 +59,7 @@ func TestShutdownSimple(t *testing.T) {
 	cl.Shutdown()
 	assert.Greater(t, time.Since(stopwatch), time.Millisecond*2500)
 	//support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testShutdownHandlerDef struct {

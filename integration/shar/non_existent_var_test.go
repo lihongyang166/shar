@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"os"
@@ -30,5 +31,5 @@ func TestNonExistentVar(t *testing.T) {
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	assert.ErrorIs(t, err, errors2.ErrUndefinedVariable)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }

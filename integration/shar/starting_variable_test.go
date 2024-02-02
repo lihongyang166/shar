@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -45,7 +46,7 @@ func TestStartingVariable(t *testing.T) {
 	_, _, err = cl.LaunchProcess(ctx, "SimpleWorkflowTest", model.Vars{})
 
 	assert.Error(t, err)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testStartingVariableHandlerDef struct {

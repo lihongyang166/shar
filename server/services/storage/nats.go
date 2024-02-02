@@ -171,37 +171,15 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	}
 	ms.sharKvs[ns] = nKvs
 
-	// TODO should this be namespace specific??
-	// Do we need to prefix consumerName with the ns???
-	// and add the ns to the subject below???
-
-	// TODO these 2 subscribers (kick consumer + telemetry)
-	// are invoked on shar server startup and not by a client/publisher with a given ns
-	// presumably the behaviour of both of these subscribers needs to work for all ns
-	// but how do we know what all namespaces are on shar startup??? previous subscriptions
-	// relied on the ns being supplied by the publishers but we can't rely on this in this case...
-
 	msg := nats.NewMsg(messages.WorkflowMessageKick)
 	msg.Header.Set(header.SharNamespace, ns)
 	if err := common.PublishOnce(js, nKvs.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
 		return nil, fmt.Errorf("ensure kick message: %w", err)
 	}
 
-	// TODO probably want to keep track of the ns in the telemetry metric...
-
 	if err := ms.startTelemetry(ctx, ns); err != nil {
 		return nil, fmt.Errorf("start telemetry: %w", err)
 	}
-
-	//TODO should we maintain a kv that has all known namespaces in it???
-	//(populated on initial call to KvsFor for a namespace)?
-	// OR should we just infer the namespaces based on the distinct prefixes of the KVs existing
-	// in nats???
-	// OR can we derive the namespaces based on subject headers???
-	//This way, we can iterate over the known namespaces on startup and setup.Nats for each one...
-	// is this even necessary though if we lazily call KvsFor on first call for a namespace???
-	// I think setup.Nats might already cater for the case where nats resources (streams|consumers|kvs)
-	// already exist on the nats server???
 
 	return ms, nil
 }
@@ -260,8 +238,8 @@ func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
 	//## ie do we need to serialize access to the NamespaceKvs value for each ns on write???
 
 	//## TODO also, how do we deal with multiple shar instances attempting to initialise the
-	//## nats streams/consumers/buckets? we'd need to use the distributed lock mechanism to synchronize
-	//## between multiple shar instances trying to initialise nats resources for one namespace concurrently
+	//## nats buckets? would we need to use the distributed lock mechanism to synchronize
+	//## between multiple shar instances/goroutines trying to initialise nats resources for one namespace concurrently
 	//## does this really matter? what happens if we attempt to create a KV that already exists???
 
 	if nsKvs, exists := s.sharKvs[ns]; !exists {

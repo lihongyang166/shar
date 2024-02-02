@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -57,7 +58,7 @@ func TestStartMessaging(t *testing.T) {
 
 	support.WaitForChan(t, handlers.finished, 20*time.Second)
 
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testStartMessagingHandlerDef struct {

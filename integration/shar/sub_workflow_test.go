@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -62,7 +63,7 @@ func TestSubWorkflow(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testSubWorkflowHandlerDef struct {

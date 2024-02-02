@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"os"
 	"testing"
 	"time"
@@ -54,7 +55,7 @@ func TestSimpleRetry_SetVariable(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testSimpleRetrySetVariableHandlerDef struct {

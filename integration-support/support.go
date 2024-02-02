@@ -205,10 +205,7 @@ func purgeOld(natsPersistHostRootForTest string, dataDirectories []os.DirEntry, 
 }
 
 // AssertCleanKV - ensures SHAR has cleans up after itself, and there are no records left in the KV.
-func (s *Integration) AssertCleanKV() {
-	//TODO parameterise this when we introduce another namespace to execute in parallel
-	namespace := ns.Default
-
+func (s *Integration) AssertCleanKV(namespce string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errs := make(chan error, 1)
 	var err error
@@ -218,7 +215,7 @@ func (s *Integration) AssertCleanKV() {
 				cancel()
 				return
 			}
-			err = s.checkCleanKVFor(namespace)
+			err = s.checkCleanKVFor(namespce)
 			if err == nil {
 				cancel()
 				close(errs)

@@ -232,4 +232,12 @@ func main() {
         panic(err)
     }
     fmt.Println(resLog)
+
+    // Call GetJob
+    reqGetJob := &model.GetJobRequest{}
+    resGetJob, err := api.GetJob(ctx, reqGetJob)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(resGetJob)
 }

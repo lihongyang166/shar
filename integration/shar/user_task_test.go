@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -94,7 +95,7 @@ func TestUserTasks(t *testing.T) {
 	assert.Equal(t, "Miggins", d.finalVars["Surname"].(string))
 	assert.Equal(t, 69, d.finalVars["OrderId"].(int))
 	assert.Equal(t, 32767, d.finalVars["carried"].(int))
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testUserTaskHandlerDef struct {

@@ -239,3 +239,11 @@ func (c *SharClient) Log(ctx context.Context, req *model.LogRequest) (*model.Log
     }
 	return res, nil
 }
+// GetJob - The GetJob method.
+func (c *SharClient) GetJob(ctx context.Context, req *model.GetJobRequest) (*model.GetJobResponse, error) {
+	res := &model.GetJobResponse{}
+    if err := core.Call(ctx, c.txConn, c.middleware, c.customErrorHandler, "WORKFLOW.Api.GetJob", req, res); err != nil {
+        return nil, fmt.Errorf("client call to WORKFLOW.Api.GetJob: %w", err)
+    }
+	return res, nil
+}

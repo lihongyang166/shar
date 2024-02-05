@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -23,7 +24,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	//tst.WithTrace = true
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
-	
+
 	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{})}
 	handlers.tst = tst
 	// Create a starting context
@@ -76,7 +77,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*20)
 
 	fmt.Println("Stopwatch:", -time.Until(tm))
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 	assert.Equal(t, n, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
 }

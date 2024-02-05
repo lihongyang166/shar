@@ -116,6 +116,9 @@ func (s *SharServer) Listen() error {
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetUserTask, &model.GetUserTaskRequest{}, s.getUserTask); err != nil {
 		return fmt.Errorf("APIGetUserTask failed: %w", err)
 	}
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetJob, &model.GetJobRequest{}, s.getJob); err != nil {
+		return fmt.Errorf("APIGetJob failed: %w", err)
+	}
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIHandleWorkflowError, &model.HandleWorkflowErrorRequest{}, s.handleWorkflowError); err != nil {
 		return fmt.Errorf("APIHandleWorkflowError failed: %w", err)
 	}

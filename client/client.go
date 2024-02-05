@@ -16,6 +16,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
@@ -117,9 +118,6 @@ type Client struct {
 	proCompleteTasks                map[string]ProcessTerminateFn
 	txJS                            nats.JetStreamContext
 	txCon                           *nats.Conn
-	wfInstance                      nats.KeyValue
-	wf                              nats.KeyValue
-	job                             nats.KeyValue
 	concurrency                     int
 	ExpectedCompatibleServerVersion *version.Version
 	ExpectedServerVersion           *version.Version
@@ -158,7 +156,7 @@ func New(option ...Option) *Client {
 		listenTasks:                     make(map[string]struct{}),
 		msgListenTasks:                  make(map[string]struct{}),
 		proCompleteTasks:                make(map[string]ProcessTerminateFn),
-		ns:                              "default",
+		ns:                              ns.Default,
 		concurrency:                     10,
 		version:                         ver,
 		ExpectedCompatibleServerVersion: upgrader.GetCompatibleVersion(),
@@ -197,16 +195,6 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	_, err = c.GetServerVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("server version: %w", err)
-	}
-
-	if c.wfInstance, err = js.KeyValue("WORKFLOW_INSTANCE"); err != nil {
-		return fmt.Errorf("connect to workflow instance kv: %w", err)
-	}
-	if c.wf, err = js.KeyValue("WORKFLOW_DEF"); err != nil {
-		return fmt.Errorf("connect to workflow definition kv: %w", err)
-	}
-	if c.job, err = js.KeyValue("WORKFLOW_JOB"); err != nil {
-		return fmt.Errorf("connect to workflow job kv: %w", err)
 	}
 
 	cdef := &nats.ConsumerConfig{
@@ -357,6 +345,8 @@ func (c *Client) listen(ctx context.Context) error {
 				log.Error("unmarshaling", err)
 				return false, fmt.Errorf("service task listener: %w", err)
 			}
+
+			subj.SetNS(ctx, msg.Header.Get(header.SharNamespace))
 			ctx = context.WithValue(ctx, ctxkey.ExecutionID, ut.ExecutionId)
 			ctx = context.WithValue(ctx, ctxkey.ProcessInstanceID, ut.ProcessInstanceId)
 			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Header)
@@ -820,12 +810,13 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 
 // GetJob returns a Job given a tracking ID
 func (c *Client) GetJob(ctx context.Context, id string) (*model.WorkflowState, error) {
-	job := &model.WorkflowState{}
-	// TODO: Stop direct data read
-	if err := common.LoadObj(ctx, c.job, id, job); err != nil {
-		return nil, fmt.Errorf("load object for get job: %w", err)
+	req := &model.GetJobRequest{JobId: id}
+	res := &model.GetJobResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIGetJob, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
 	}
-	return job, nil
+	return res.Job, nil
 }
 
 // GetServerVersion returns the current server version

@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"os"
 	"testing"
 	"time"
@@ -57,7 +58,7 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.ErrorContains(t, err, "contains deprecated")
 
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 func TestDeprecateExecuting(t *testing.T) {
@@ -109,7 +110,7 @@ func TestDeprecateExecuting(t *testing.T) {
 	fmt.Println(inUseError.Usage.ExecutingProcessInstance)
 	close(d.wait)
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 func TestGetUsage(t *testing.T) {
@@ -177,7 +178,7 @@ func TestGetUsage(t *testing.T) {
 	assert.Equal(t, len(use2.ExecutingWorkflow), 1)
 	close(d.wait)
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testSimpleDeprecateHandlerDef struct {

@@ -321,7 +321,7 @@ func (s *SharServer) listUserTaskIDs(ctx context.Context, req *model.ListUserTas
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	oid, err := s.ns.OwnerID(req.Owner)
+	oid, err := s.ns.OwnerID(ctx, req.Owner)
 	if err != nil {
 		return nil, fmt.Errorf("get owner ID: %w", err)
 	}
@@ -354,6 +354,16 @@ func (s *SharServer) getUserTask(ctx context.Context, req *model.GetUserTaskRequ
 		Name:        els[job.ElementId].Name,
 		Description: els[job.ElementId].Documentation,
 		Vars:        job.Vars,
+	}, nil
+}
+
+func (s *SharServer) getJob(ctx context.Context, req *model.GetJobRequest) (*model.GetJobResponse, error) {
+	ctx, job, err2 := s.authFromJobID(ctx, req.JobId)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+	return &model.GetJobResponse{
+		Job: job,
 	}, nil
 }
 

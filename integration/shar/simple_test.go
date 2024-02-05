@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"os"
 	"testing"
 	"time"
@@ -26,7 +27,8 @@ func TestSimple(t *testing.T) {
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10)) //client.Experimental_WithNamespace("fooNS"),
+
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -54,7 +56,8 @@ func TestSimple(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV()
+
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testSimpleHandlerDef struct {

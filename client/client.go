@@ -118,7 +118,6 @@ type Client struct {
 	proCompleteTasks                map[string]ProcessTerminateFn
 	txJS                            nats.JetStreamContext
 	txCon                           *nats.Conn
-	namespaceJobKvs                 map[string]nats.KeyValue
 	concurrency                     int
 	ExpectedCompatibleServerVersion *version.Version
 	ExpectedServerVersion           *version.Version
@@ -163,7 +162,6 @@ func New(option ...Option) *Client {
 		ExpectedCompatibleServerVersion: upgrader.GetCompatibleVersion(),
 		closer:                          make(chan struct{}),
 		sig:                             make(chan os.Signal),
-		namespaceJobKvs:                 make(map[string]nats.KeyValue),
 	}
 	for _, i := range option {
 		i.configure(client)
@@ -812,32 +810,13 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 
 // GetJob returns a Job given a tracking ID
 func (c *Client) GetJob(ctx context.Context, id string) (*model.WorkflowState, error) {
-	ns := subj.GetNS(ctx)
-	jobKv, err := c.jobKvFor(ns)
-	if err != nil {
-		return nil, fmt.Errorf("GetJob - failed getting KVs for ns %s: %w", ns, err)
+	req := &model.GetJobRequest{JobId: id}
+	res := &model.GetJobResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIGetJob, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
 	}
-
-	job := &model.WorkflowState{}
-	// TODO: Stop direct data read
-	if err := common.LoadObj(ctx, jobKv, id, job); err != nil {
-		return nil, fmt.Errorf("load object for get job: %w", err)
-	}
-	return job, nil
-}
-
-//nolint:ireturn
-func (c *Client) jobKvFor(namesp string) (nats.KeyValue, error) {
-	if jobKv, exists := c.namespaceJobKvs[namesp]; !exists {
-		if job, err := c.js.KeyValue(ns.PrefixWith(c.ns, messages.KvJob)); err != nil {
-			return nil, fmt.Errorf("failed to get job kv for ns %s: %w", namesp, err)
-		} else {
-			c.namespaceJobKvs[namesp] = job
-			return job, nil
-		}
-	} else {
-		return jobKv, nil
-	}
+	return res.Job, nil
 }
 
 // GetServerVersion returns the current server version

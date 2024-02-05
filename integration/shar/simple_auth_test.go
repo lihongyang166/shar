@@ -182,6 +182,8 @@ func APIauth(api string, permissions map[string]struct{}) bool {
 		return true
 	case "WORKFLOW.Api.GetServiceTaskRoutingID":
 		return true
+	case "WORKFLOW.Api.GetJob":
+		return true
 	case "WORKFLOW.Api.LaunchProcess":
 		_, ok := permissions["X"]
 		return ok

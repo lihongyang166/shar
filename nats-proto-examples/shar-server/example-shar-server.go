@@ -147,6 +147,11 @@ func (a SharAPI) Log(ctx context.Context, req *model.LogRequest) (*model.LogResp
     //TODO: implement Shar:Log
     panic("implement Shar:Log")
 }
+// GetJob - The GetJob method.
+func (a SharAPI) GetJob(ctx context.Context, req *model.GetJobRequest) (*model.GetJobResponse, error) {
+    //TODO: implement Shar:GetJob
+    panic("implement Shar:GetJob")
+}
 
 func main() {
     con, err := nats.Connect("nats://127.0.0.1:4222")

@@ -34,6 +34,7 @@ service Shar {
   rpc ListTaskSpecUIDs (ListTaskSpecUIDsRequest) returns (ListTaskSpecUIDsResponse);
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
   rpc Log(LogRequest) returns (LogResponse);
+  rpc GetJob (GetJobRequest) returns (GetJobResponse);
 }
 
 message StoreWorkflowRequest {
@@ -598,6 +599,14 @@ message GetVersionInfoResponse {
   string serverVersion = 1;
   string minCompatibleVersion = 2;
   bool connect = 3;
+}
+
+message GetJobRequest {
+  string jobId = 1;
+}
+
+message GetJobResponse {
+  WorkflowState job = 1;
 }
 
 message WorkflowStats {

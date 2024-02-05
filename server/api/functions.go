@@ -357,6 +357,16 @@ func (s *SharServer) getUserTask(ctx context.Context, req *model.GetUserTaskRequ
 	}, nil
 }
 
+func (s *SharServer) getJob(ctx context.Context, req *model.GetJobRequest) (*model.GetJobResponse, error) {
+	ctx, job, err2 := s.authFromJobID(ctx, req.JobId)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+	return &model.GetJobResponse{
+		Job: job,
+	}, nil
+}
+
 func (s *SharServer) getWorkflowVersions(ctx context.Context, req *model.GetWorkflowVersionsRequest) (*model.GetWorkflowVersionsResponse, error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.Name)
 	if err2 != nil {

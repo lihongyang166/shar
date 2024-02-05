@@ -30,6 +30,7 @@ import (
 	"maps"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -85,6 +86,7 @@ type Nats struct {
 	completeActivityFunc           services.CompleteActivityFunc
 	abortFunc                      services.AbortFunc
 	sharKvs                        map[string]*NamespaceKvs
+	mx                             sync.Mutex
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
@@ -241,6 +243,13 @@ func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
 	//## nats buckets? would we need to use the distributed lock mechanism to synchronize
 	//## between multiple shar instances/goroutines trying to initialise nats resources for one namespace concurrently
 	//## does this really matter? what happens if we attempt to create a KV that already exists???
+
+	//lock the below section of code to ensure sequential access to the shared sharKvs map
+	//between multiple go routines. we can hopefully optimise/maybe remove the lock pending the outcome
+	//of concurrent testing with multiple namespaces but we are locking here to guarantee thread
+	//safety for now...
+	s.mx.Lock()
+	defer s.mx.Unlock()
 
 	if nsKvs, exists := s.sharKvs[ns]; !exists {
 		kvs, err := initNamespacedKvs(ns, s.js, s.storageType, NatsConfig)

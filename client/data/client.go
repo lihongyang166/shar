@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal/client/api"
@@ -31,7 +32,7 @@ type Option interface {
 func New(option ...Option) *Client {
 	client := &Client{
 		storageType: nats.FileStorage,
-		ns:          "default",
+		ns:          namespace.Default,
 		concurrency: 10,
 	}
 	for _, i := range option {

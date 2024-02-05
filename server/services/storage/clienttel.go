@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/header"
+	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
@@ -15,9 +16,15 @@ import (
 )
 
 func (s *Nats) processTelemetryTimer(ctx context.Context) error {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return fmt.Errorf("processTelemetryTimer - failed to get KVs for ns %s: %w", ns, err)
+	}
+
 	sub, err := s.js.PullSubscribe(messages.WorkflowTelemetryTimer, "server_telemetry_trigger")
 	if err != nil {
-		return fmt.Errorf("creating message kick subscription: %w", err)
+		return fmt.Errorf("creating server telemetry subscription: %w", err)
 	}
 	go func() {
 		for {
@@ -35,7 +42,7 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 					continue
 				}
 				msg := msgs[0]
-				clientKeys, err := s.wfClients.Keys(nats.Context(ctx))
+				clientKeys, err := nsKVs.wfClients.Keys(nats.Context(ctx))
 				var (
 					b    []byte
 					body *model.TelemetryClients
@@ -73,10 +80,16 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) startTelemetry(ctx context.Context) error {
+func (s *Nats) startTelemetry(ctx context.Context, ns string) error {
 	msg := nats.NewMsg(messages.WorkflowTelemetryTimer)
-	msg.Header.Set(header.SharNamespace, "*")
-	if err := common.PublishOnce(s.js, s.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
+	msg.Header.Set(header.SharNamespace, ns)
+
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return fmt.Errorf("startTelemetry - failed getting KVs for ns %s: %w", ns, err)
+	}
+
+	if err := common.PublishOnce(s.js, nsKVs.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
 		return fmt.Errorf("ensure telemetry timer message: %w", err)
 	}
 	if err := s.processTelemetryTimer(ctx); err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"log/slog"
@@ -83,7 +84,7 @@ func (suite *MessagingTestSuite) TestMessaging() {
 	}()
 	support.WaitForChan(t, handlers.finished, 20*time.Second)
 
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 func (suite *MessagingTestSuite) TestMessageNameGlobalUniqueness() {
@@ -112,7 +113,7 @@ func (suite *MessagingTestSuite) TestMessageNameGlobalUniqueness() {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessagingDupMessage", b)
 	require.ErrorContains(t, err, "These messages already exist for other workflows:")
 
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 func (suite *MessagingTestSuite) TestMessageNameGlobalUniquenessAcrossVersions() {
@@ -182,7 +183,7 @@ func (suite *MessagingTestSuite) TestMessageStartEvent() {
 	support.WaitForChan(t, messageEventHandlers.completed, time.Second*10)
 
 	//assert empty KV
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 type testMessagingHandlerDef struct {

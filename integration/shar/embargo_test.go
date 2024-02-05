@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -52,5 +53,5 @@ func TestEmbargo(t *testing.T) {
 	support.WaitForChan(t, finished, 20*time.Second)
 	d := time.Duration(time.Now().UnixNano() - sw)
 	assert.Equal(t, 2, int(d.Seconds()))
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -76,7 +77,7 @@ func TestConcurrentMessaging(t *testing.T) {
 	support.WaitForExpectedCompletions(t, n, handlers.finished, 60*time.Second)
 
 	fmt.Println("Stopwatch:", -time.Until(tm))
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 	assert.Equal(t, n, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
 }

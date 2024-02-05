@@ -39,8 +39,8 @@ type NatsService interface {
 	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
 	ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionItem, chan error)
 	ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResponse, chan error)
-	OwnerID(name string) (string, error)
-	OwnerName(id string) (string, error)
+	OwnerID(ctx context.Context, name string) (string, error)
+	OwnerName(ctx context.Context, id string) (string, error)
 	PublishMessage(ctx context.Context, name string, key string, vars []byte) error
 	PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, ops ...storage.PublishOpt) error
 	PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error)

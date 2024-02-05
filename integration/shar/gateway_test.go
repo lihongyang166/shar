@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/parser"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -94,7 +95,7 @@ func TestExclusiveRun(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, g.finished, time.Second*20)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 
 }
 
@@ -142,7 +143,7 @@ func TestInclusiveRun(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, g.finished, 20*time.Second)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 
 }
 

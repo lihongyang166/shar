@@ -15,7 +15,7 @@ configure:
 	curl -o ./nats-proto-gen-go-main.tar.gz https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz
 	tar -zxvf nats-proto-gen-go-main.tar.gz && rm nats-proto-gen-go-main.tar.gz
 	mv nats-proto-gen-go-main nats-proto-gen-go
-	cd nats-proto-gen-go/cmd/nats-proto-gen-go && go build && cp nats-proto-gen-go $(GOROOT)/bin/
+	GROOT="$(shell go env GOROOT)"; echo "GOROOT $$GROOT" && cd nats-proto-gen-go/cmd/nats-proto-gen-go && go build && cp nats-proto-gen-go $$GROOT/bin/
 	rm -rf nats-proto-gen-go
 
 

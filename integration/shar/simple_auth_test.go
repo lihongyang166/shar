@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common/header"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
@@ -67,7 +68,7 @@ func TestSimpleAuthZ(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 func TestNoAuthN(t *testing.T) {
@@ -118,7 +119,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	assert.ErrorContains(t, err, "authorize")
 
-	tst.AssertCleanKV()
+	tst.AssertCleanKV(namespace.Default)
 }
 
 func testAuthNFn(ctx context.Context, request *model.ApiAuthenticationRequest) (*model.ApiAuthenticationResponse, error) {
@@ -180,6 +181,8 @@ func APIauth(api string, permissions map[string]struct{}) bool {
 		// IRL This should be checked versus a permission
 		return true
 	case "WORKFLOW.Api.GetServiceTaskRoutingID":
+		return true
+	case "WORKFLOW.Api.GetJob":
 		return true
 	case "WORKFLOW.Api.LaunchProcess":
 		_, ok := permissions["X"]

@@ -1437,23 +1437,23 @@ func (_c *MockNatsService_ListWorkflows_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
-// OwnerID provides a mock function with given fields: name
-func (_m *MockNatsService) OwnerID(name string) (string, error) {
-	ret := _m.Called(name)
+// OwnerID provides a mock function with given fields: ctx, name
+func (_m *MockNatsService) OwnerID(ctx context.Context, name string) (string, error) {
+	ret := _m.Called(ctx, name)
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (string, error)); ok {
-		return rf(name)
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
+		return rf(ctx, name)
 	}
-	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(name)
+	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = rf(ctx, name)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(name)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, name)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1467,14 +1467,15 @@ type MockNatsService_OwnerID_Call struct {
 }
 
 // OwnerID is a helper method to define mock.On call
+//   - ctx context.Context
 //   - name string
-func (_e *MockNatsService_Expecter) OwnerID(name interface{}) *MockNatsService_OwnerID_Call {
-	return &MockNatsService_OwnerID_Call{Call: _e.mock.On("OwnerID", name)}
+func (_e *MockNatsService_Expecter) OwnerID(ctx interface{}, name interface{}) *MockNatsService_OwnerID_Call {
+	return &MockNatsService_OwnerID_Call{Call: _e.mock.On("OwnerID", ctx, name)}
 }
 
-func (_c *MockNatsService_OwnerID_Call) Run(run func(name string)) *MockNatsService_OwnerID_Call {
+func (_c *MockNatsService_OwnerID_Call) Run(run func(ctx context.Context, name string)) *MockNatsService_OwnerID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
+		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
@@ -1484,28 +1485,28 @@ func (_c *MockNatsService_OwnerID_Call) Return(_a0 string, _a1 error) *MockNatsS
 	return _c
 }
 
-func (_c *MockNatsService_OwnerID_Call) RunAndReturn(run func(string) (string, error)) *MockNatsService_OwnerID_Call {
+func (_c *MockNatsService_OwnerID_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockNatsService_OwnerID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// OwnerName provides a mock function with given fields: id
-func (_m *MockNatsService) OwnerName(id string) (string, error) {
-	ret := _m.Called(id)
+// OwnerName provides a mock function with given fields: ctx, id
+func (_m *MockNatsService) OwnerName(ctx context.Context, id string) (string, error) {
+	ret := _m.Called(ctx, id)
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (string, error)); ok {
-		return rf(id)
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
+		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(id)
+	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = rf(ctx, id)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(id)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, id)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1519,14 +1520,15 @@ type MockNatsService_OwnerName_Call struct {
 }
 
 // OwnerName is a helper method to define mock.On call
+//   - ctx context.Context
 //   - id string
-func (_e *MockNatsService_Expecter) OwnerName(id interface{}) *MockNatsService_OwnerName_Call {
-	return &MockNatsService_OwnerName_Call{Call: _e.mock.On("OwnerName", id)}
+func (_e *MockNatsService_Expecter) OwnerName(ctx interface{}, id interface{}) *MockNatsService_OwnerName_Call {
+	return &MockNatsService_OwnerName_Call{Call: _e.mock.On("OwnerName", ctx, id)}
 }
 
-func (_c *MockNatsService_OwnerName_Call) Run(run func(id string)) *MockNatsService_OwnerName_Call {
+func (_c *MockNatsService_OwnerName_Call) Run(run func(ctx context.Context, id string)) *MockNatsService_OwnerName_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
+		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
@@ -1536,7 +1538,7 @@ func (_c *MockNatsService_OwnerName_Call) Return(_a0 string, _a1 error) *MockNat
 	return _c
 }
 
-func (_c *MockNatsService_OwnerName_Call) RunAndReturn(run func(string) (string, error)) *MockNatsService_OwnerName_Call {
+func (_c *MockNatsService_OwnerName_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockNatsService_OwnerName_Call {
 	_c.Call.Return(run)
 	return _c
 }

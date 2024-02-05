@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"log/slog"
 
@@ -66,7 +67,7 @@ func run(cmd *cobra.Command, args []string) error {
 			Durable:       "Tracing",
 			Description:   "Sequential Trace Consumer",
 			DeliverPolicy: nats.DeliverAllPolicy,
-			FilterSubject: subj.NS(messages.WorkflowStateAll, "default"),
+			FilterSubject: subj.NS(messages.WorkflowStateAll, namespace.Default),
 			AckPolicy:     nats.AckExplicitPolicy,
 		}); err != nil {
 			panic(err)

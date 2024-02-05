@@ -8,6 +8,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/header"
+	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -28,8 +29,14 @@ func (s *Nats) GetTaskSpecUID(ctx context.Context, name string) (string, error) 
 
 // GetTaskSpecVersions fetches the versions of a given task spec name
 func (s *Nats) GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return nil, fmt.Errorf("GetTaskSpecVersions - failed getting KVs for ns %s: %w", ns, err)
+	}
+
 	tskVer := &model.TaskSpecVersions{}
-	if err := common.LoadObj(ctx, s.wfTaskSpecVer, name, tskVer); err != nil {
+	if err := common.LoadObj(ctx, nsKVs.wfTaskSpecVer, name, tskVer); err != nil {
 		return nil, fmt.Errorf("opening task spec versions: %w", err)
 	}
 	return tskVer, nil
@@ -37,6 +44,11 @@ func (s *Nats) GetTaskSpecVersions(ctx context.Context, name string) (*model.Tas
 
 // PutTaskSpec writes a task spec to the database.
 func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return "", fmt.Errorf("PutTaskSpec - failed getting KVs for ns %s: %w", ns, err)
+	}
 
 	uid, err := task.CreateUID(spec)
 	if err != nil {
@@ -47,11 +59,11 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 		return "", fmt.Errorf("ensure consumer for service task %s:%w", uid, err)
 	}
 
-	if err := common.SaveObj(ctx, s.wfTaskSpec, spec.Metadata.Uid, spec); err != nil {
+	if err := common.SaveObj(ctx, nsKVs.wfTaskSpec, spec.Metadata.Uid, spec); err != nil {
 		return "", fmt.Errorf("saving task spec: %w", err)
 	}
 	vers := &model.TaskSpecVersions{}
-	if err := common.UpdateObj(ctx, s.wfTaskSpecVer, spec.Metadata.Type, vers, func(v *model.TaskSpecVersions) (*model.TaskSpecVersions, error) {
+	if err := common.UpdateObj(ctx, nsKVs.wfTaskSpecVer, spec.Metadata.Type, vers, func(v *model.TaskSpecVersions) (*model.TaskSpecVersions, error) {
 		if !slices.Contains(v.Id, uid) {
 			v.Id = append(v.Id, uid)
 			subj := messages.WorkflowSystemTaskCreate
@@ -78,8 +90,14 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 
 // GetTaskSpecByUID fetches a task spec from the database.
 func (s *Nats) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return nil, fmt.Errorf("PutTaskSpec - failed getting KVs for ns %s: %w", ns, err)
+	}
+
 	spec := &model.TaskSpec{}
-	if err := common.LoadObj(ctx, s.wfTaskSpec, uid, spec); err != nil {
+	if err := common.LoadObj(ctx, nsKVs.wfTaskSpec, uid, spec); err != nil {
 		return nil, fmt.Errorf("loading task spec: %w", err)
 	}
 	return spec, nil
@@ -87,11 +105,17 @@ func (s *Nats) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpe
 
 // GetTaskSpecUsageByName produces a report of running and executable places where the task spec is in use.
 func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.TaskSpecUsageReport, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return nil, fmt.Errorf("GetTaskSpecUsageByName - failed getting KVs for ns %s: %w", ns, err)
+	}
+
 	taskSpecVersions, err := s.GetTaskSpecVersions(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("get task spec versions: %w", err)
 	}
-	wfKeys, err := s.wf.Keys()
+	wfKeys, err := nsKVs.wf.Keys()
 	if err != nil {
 		return nil, fmt.Errorf("task spec usage by name get workflow version keys: %w", err)
 	}
@@ -99,7 +123,7 @@ func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.
 	rptPr := make(map[string]struct{})
 	for _, vk := range wfKeys {
 		wf := &model.Workflow{}
-		err := common.LoadObj(ctx, s.wfVersion, vk, wf)
+		err := common.LoadObj(ctx, nsKVs.wfVersion, vk, wf)
 		if err != nil {
 			return nil, fmt.Errorf("task spec usage by name get workflow")
 		}
@@ -113,7 +137,7 @@ func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.
 		}
 	}
 
-	piKeys, err := s.wfProcessInstance.Keys()
+	piKeys, err := nsKVs.wfProcessInstance.Keys()
 	if err != nil {
 		return nil, fmt.Errorf("task spec usage by name get process instance keys: %w", err)
 	}
@@ -123,7 +147,7 @@ func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.
 
 	for _, piKey := range piKeys {
 		pi := &model.ProcessInstance{}
-		err := common.LoadObj(ctx, s.wfProcessInstance, piKey, pi)
+		err := common.LoadObj(ctx, nsKVs.wfProcessInstance, piKey, pi)
 		if err != nil {
 			return nil, fmt.Errorf("task spec usage by name get process instance: %w", err)
 		}
@@ -141,14 +165,20 @@ func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.
 
 // GetExecutableWorkflowIds returns a list of all workflow Ids that contain executable processes
 func (s *Nats) GetExecutableWorkflowIds(ctx context.Context) ([]string, error) {
-	verKeys, err := s.wfVersion.Keys()
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return nil, fmt.Errorf("GetExecutableWorkflowIds - failed getting KVs for ns %s: %w", ns, err)
+	}
+
+	verKeys, err := nsKVs.wfVersion.Keys()
 	if err != nil {
 		return nil, fmt.Errorf("get workflow version keys: %w", err)
 	}
 	res := make([]string, 0, len(verKeys))
 	for _, verKey := range verKeys {
 		wfv := &model.WorkflowVersions{}
-		err := common.LoadObj(ctx, s.wfVersion, verKey, wfv)
+		err := common.LoadObj(ctx, nsKVs.wfVersion, verKey, wfv)
 		if err != nil {
 			return nil, fmt.Errorf("get workflow version: %w", err)
 		}
@@ -159,6 +189,11 @@ func (s *Nats) GetExecutableWorkflowIds(ctx context.Context) ([]string, error) {
 
 // GetTaskSpecUsage returns the usage report for a list of task specs.
 func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskSpecUsageReport, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ns)
+	if err != nil {
+		return nil, fmt.Errorf("GetTaskSpecUsage - failed getting KVs for ns %s: %w", ns, err)
+	}
 
 	wfKeys, err := s.GetExecutableWorkflowIds(ctx)
 	if !errors.Is(err, nats.ErrNoKeysFound) && err != nil {
@@ -168,7 +203,7 @@ func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskS
 	rptPr := make(map[string]struct{})
 	for _, vk := range wfKeys {
 		wf := &model.Workflow{}
-		err := common.LoadObj(ctx, s.wf, vk, wf)
+		err := common.LoadObj(ctx, nsKVs.wf, vk, wf)
 		if err != nil {
 			return nil, fmt.Errorf("task spec usage by name get workflow")
 		}
@@ -182,7 +217,7 @@ func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskS
 		}
 	}
 
-	piKeys, err := s.wfProcessInstance.Keys()
+	piKeys, err := nsKVs.wfProcessInstance.Keys()
 	if !errors.Is(err, nats.ErrNoKeysFound) && err != nil {
 		return nil, fmt.Errorf("task spec usage by name get process instance keys: %w", err)
 	}
@@ -192,7 +227,7 @@ func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskS
 
 	for _, piKey := range piKeys {
 		pi := &model.ProcessInstance{}
-		err := common.LoadObj(ctx, s.wfProcessInstance, piKey, pi)
+		err := common.LoadObj(ctx, nsKVs.wfProcessInstance, piKey, pi)
 		if err != nil {
 			return nil, fmt.Errorf("task spec usage by name get process instance: %w", err)
 		}

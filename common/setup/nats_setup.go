@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	sharVersion "gitlab.com/shar-workflow/shar/common/version"
 	"regexp"
@@ -37,8 +38,7 @@ type NatsStream struct {
 }
 
 // Nats sets up nats server objects.
-func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, storageType nats.StorageType, config string, update bool) error {
-
+func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, storageType nats.StorageType, config string, update bool, ns string) error {
 	cfg := &NatsConfig{}
 	if err := yaml.Unmarshal([]byte(config), cfg); err != nil {
 		return fmt.Errorf("parse nats-config.yaml: %w", err)
@@ -56,11 +56,12 @@ func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, sto
 			}
 		}
 	}
-	for i := range cfg.KeyValue {
-		if err := EnsureBucket(js, &cfg.KeyValue[i].Config, storageType); err != nil {
-			return fmt.Errorf("ensure key-value: %w", err)
-		}
+
+	err := EnsureBuckets(cfg, js, storageType, ns)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 
@@ -130,9 +131,25 @@ func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamCont
 	return nil
 }
 
+// EnsureBuckets creates a list of buckets if they do not exist
+func EnsureBuckets(cfg *NatsConfig, js nats.JetStreamContext, storageType nats.StorageType, ns string) error {
+	namespaceBucketNameFn := func(kvCfg *nats.KeyValueConfig) {
+		kvCfg.Bucket = namespace.PrefixWith(ns, kvCfg.Bucket)
+	}
+
+	for i := range cfg.KeyValue {
+		if err := EnsureBucket(js, &cfg.KeyValue[i].Config, storageType, namespaceBucketNameFn); err != nil {
+			return fmt.Errorf("ensure key-value: %w", err)
+		}
+	}
+	return nil
+}
+
 // EnsureBucket creates a bucket if it does not exist
-func EnsureBucket(js nats.JetStreamContext, cfg *nats.KeyValueConfig, storageType nats.StorageType) error {
+func EnsureBucket(js nats.JetStreamContext, cfg *nats.KeyValueConfig, storageType nats.StorageType, namespaceBucketNameFn func(*nats.KeyValueConfig)) error {
+	namespaceBucketNameFn(cfg)
 	cfg.Storage = storageType
+
 	if _, err := js.KeyValue(cfg.Bucket); errors.Is(err, nats.ErrBucketNotFound) {
 		if _, err := js.CreateKeyValue(cfg); err != nil {
 			return fmt.Errorf("ensure buckets: %w", err)

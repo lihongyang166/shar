@@ -157,9 +157,7 @@ func (s *Server) Listen() error {
 	ctx := context.Background()
 	closer := make(chan struct{})
 
-	//TODO need to think of implications of namespacing the spanKV
-
-	kv, err := s.js.KeyValue(messages.KvTracking)
+	kv, err := s.js.KeyValue(namespace.PrefixWith(namespace.Default, messages.KvTracking))
 	if err != nil {
 		return fmt.Errorf("listen failed to attach to tracking key value database: %w", err)
 	}

@@ -31,7 +31,7 @@ func TestHandledError(t *testing.T) {
 		panic(err)
 	}
 
-	d := errorHandledHandlerDef{tst: tst, finished: make(chan struct{})}
+	d := errorHandledHandlerDef{test: t, finished: make(chan struct{})}
 
 	// Register service tasks
 	err := taskutil.RegisterTaskYamlFile(ctx, cl, "error_handled_test_couldThrowError.yaml", d.mayFail)
@@ -72,7 +72,7 @@ func TestHandledError(t *testing.T) {
 
 type errorHandledHandlerDef struct {
 	fixed    bool
-	tst      *support.Integration
+	test     *testing.T
 	finished chan struct{}
 }
 
@@ -84,8 +84,8 @@ func (d *errorHandledHandlerDef) mayFail(_ context.Context, _ client.JobClient, 
 
 // A "Hello World" service task
 func (d *errorHandledHandlerDef) fixSituation(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(d.tst.Test, 69, vars["testVal"])
-	assert.Equal(d.tst.Test, 32768, vars["carried"])
+	assert.Equal(d.test, 69, vars["testVal"])
+	assert.Equal(d.test, 32768, vars["carried"])
 	d.fixed = true
 	return model.Vars{}, nil
 }

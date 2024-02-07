@@ -25,8 +25,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	tst.Setup(t)
 	defer tst.Teardown()
 
-	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{})}
-	handlers.tst = tst
+	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{}), test: t}
 	// Create a starting context
 	ctx := context.Background()
 
@@ -84,7 +83,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 
 type testConcurrentMessaging2HandlerDef struct {
 	mx           sync.Mutex
-	tst          *support.Integration
+	test         *testing.T
 	received     int
 	finished     chan struct{}
 	instComplete map[string]struct{}
@@ -95,8 +94,8 @@ func (x *testConcurrentMessaging2HandlerDef) step1(_ context.Context, _ client.J
 }
 
 func (x *testConcurrentMessaging2HandlerDef) step2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(x.tst.Test, "carried1value", vars["carried"])
-	assert.Equal(x.tst.Test, "carried2value", vars["carried2"])
+	assert.Equal(x.test, "carried1value", vars["carried"])
+	assert.Equal(x.test, "carried2value", vars["carried2"])
 	return model.Vars{}, nil
 }
 

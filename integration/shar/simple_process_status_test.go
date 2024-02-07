@@ -16,11 +16,11 @@ import (
 )
 
 func TestSimpleProcessStatus(t *testing.T) {
-	tst := &support.Integration{}
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 120*time.Second)
+	//tst.Cooldown = 120 * time.Second
 	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 	defer tst.Teardown()
-	tst.Cooldown = 120 * time.Second
 	// Create a starting context
 	ctx := context.Background()
 

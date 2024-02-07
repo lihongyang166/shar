@@ -16,9 +16,9 @@ import (
 )
 
 func TestUnhandledError(t *testing.T) {
-	tst := &support.Integration{}
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	//sub := tracer.Trace(tst.NatsURL)

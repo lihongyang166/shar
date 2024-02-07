@@ -31,8 +31,8 @@ const testAud = "go-workflow.com"
 
 func TestSimpleAuthZ(t *testing.T) {
 
-	tst := &support.Integration{}
-	tst.Setup(t, testAuthZFn, testAuthNFn)
+	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, nil, 60*time.Second)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -72,12 +72,10 @@ func TestSimpleAuthZ(t *testing.T) {
 }
 
 func TestNoAuthN(t *testing.T) {
-	tst := &support.Integration{
-		TestRunnable: func() (bool, string) {
-			return !support.IsSharContainerised(), "authN test not runnable with containerised Shar"
-		},
-	}
-	tst.Setup(t, testAuthZFn, testAuthNFn)
+	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, func() (bool, string) {
+		return !support.IsSharContainerised(), "authN test not runnable with containerised Shar"
+	}, 60*time.Second)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -94,14 +92,11 @@ func TestNoAuthN(t *testing.T) {
 }
 
 func TestSimpleNoAuthZ(t *testing.T) {
-	tst := &support.Integration{
-		TestRunnable: func() (bool, string) {
-			return !support.IsSharContainerised(), "authZ test not runnable with containerised Shar"
-		},
-	}
-
+	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, func() (bool, string) {
+		return !support.IsSharContainerised(), "authZ test not runnable with containerised Shar"
+	}, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t, testAuthZFn, testAuthNFn)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context

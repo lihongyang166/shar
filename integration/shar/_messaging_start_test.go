@@ -20,7 +20,7 @@ import (
 func TestStartMessaging(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 
 	defer tst.Teardown()
 

@@ -17,10 +17,10 @@ import (
 )
 
 func TestLaunchProcessWithDeprecated(t *testing.T) {
-	tst := &support.Integration{}
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
 
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -62,10 +62,10 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 }
 
 func TestDeprecateExecuting(t *testing.T) {
-	tst := &support.Integration{}
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
 
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -114,10 +114,10 @@ func TestDeprecateExecuting(t *testing.T) {
 }
 
 func TestGetUsage(t *testing.T) {
-	tst := &support.Integration{}
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
 
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context

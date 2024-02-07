@@ -17,10 +17,10 @@ import (
 )
 
 func TestSimpleRetry_ThrowWorkflowError(t *testing.T) {
-	tst := &support.Integration{}
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
 
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context

@@ -10,11 +10,12 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"os"
 	"testing"
+	time2 "time"
 )
 
 func TestNonExistentVar(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Setup(t, nil, nil)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time2.Second)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context

@@ -11,13 +11,14 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestWorkflowChanged(t *testing.T) {
-	tst := &support.Integration{TestRunnable: func() (bool, string) {
+	tst := support.NewIntegrationT(t, nil, nil, false, func() (bool, string) {
 		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
-	}}
-	tst.Setup(t, nil, nil)
+	}, 60*time.Second)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context

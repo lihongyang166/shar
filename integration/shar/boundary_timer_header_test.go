@@ -18,8 +18,8 @@ import (
 )
 
 func TestBoundaryTimerHeaders(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Setup(t, nil, nil)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst.Setup(t)
 	defer tst.Teardown()
 	complete := make(chan *model.WorkflowInstanceComplete, 100)
 	d := &testBoundaryTimerHeaderDef{tst: tst, finished: make(chan struct{})}
@@ -34,9 +34,9 @@ func TestBoundaryTimerHeaders(t *testing.T) {
 }
 
 func TestBoundaryTimerTimeoutHeaders(t *testing.T) {
-	tst := &support.Integration{}
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	complete := make(chan *model.WorkflowInstanceComplete, 100)
@@ -57,8 +57,8 @@ func TestBoundaryTimerTimeoutHeaders(t *testing.T) {
 }
 
 func TestExclusiveGatewayHeaders(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Setup(t, nil, nil)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	complete := make(chan *model.WorkflowInstanceComplete, 100)

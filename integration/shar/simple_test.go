@@ -17,10 +17,11 @@ import (
 )
 
 func TestSimple(t *testing.T) {
-	tst := &support.Integration{}
-	tst.WithTrace = true
+	tst := support.NewIntegrationT(t, nil, nil, true, nil, 60*time.Second)
+	//tst := &support.Integration{}
+	//tst.WithTrace = true
 
-	tst.Setup(t, nil, nil)
+	tst.Setup(t)
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -73,6 +74,6 @@ func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.Job
 	return vars, nil
 }
 
-func (d *testSimpleHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *model.Error, _ model.CancellationState) {
 	close(d.finished)
 }

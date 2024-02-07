@@ -26,9 +26,9 @@ type MessagingTestSuite struct {
 }
 
 func (suite *MessagingTestSuite) SetupTest() {
-	suite.integrationSupport = &support.Integration{}
-	suite.integrationSupport.WithTrace = false
-	suite.integrationSupport.Setup(suite.T(), nil, nil)
+	suite.integrationSupport = support.NewIntegrationT(suite.T(), nil, nil, false, nil, 60*time.Second)
+	//suite.integrationSupport.WithTrace = false
+	suite.integrationSupport.Setup(suite.T())
 	suite.ctx = context.Background()
 
 	suite.client = client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))

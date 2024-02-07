@@ -20,7 +20,7 @@ import (
 func TestStartMessaging(t *testing.T) {
 	tst := &support.Integration{}
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 
 	defer tst.Teardown()
 
@@ -58,7 +58,7 @@ func TestStartMessaging(t *testing.T) {
 
 	support.WaitForChan(t, handlers.finished, 20*time.Second)
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 type testStartMessagingHandlerDef struct {

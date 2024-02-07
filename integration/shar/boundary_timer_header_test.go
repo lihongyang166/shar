@@ -19,7 +19,7 @@ import (
 
 func TestBoundaryTimerHeaders(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 	complete := make(chan *model.WorkflowInstanceComplete, 100)
 	d := &testBoundaryTimerHeaderDef{tst: tst, finished: make(chan struct{})}
@@ -30,13 +30,13 @@ func TestBoundaryTimerHeaders(t *testing.T) {
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func TestBoundaryTimerTimeoutHeaders(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	complete := make(chan *model.WorkflowInstanceComplete, 100)
@@ -53,12 +53,12 @@ func TestBoundaryTimerTimeoutHeaders(t *testing.T) {
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func TestExclusiveGatewayHeaders(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	complete := make(chan *model.WorkflowInstanceComplete, 100)
@@ -74,7 +74,7 @@ func TestExclusiveGatewayHeaders(t *testing.T) {
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func executeBoundaryTimerHeaderTest(t *testing.T, complete chan *model.WorkflowInstanceComplete, d *testBoundaryTimerHeaderDef) {

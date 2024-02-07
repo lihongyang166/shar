@@ -15,7 +15,7 @@ import (
 
 func TestEmbargo(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -53,5 +53,5 @@ func TestEmbargo(t *testing.T) {
 	support.WaitForChan(t, finished, 20*time.Second)
 	d := time.Duration(time.Now().UnixNano() - sw)
 	assert.Equal(t, 2, int(d.Seconds()))
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }

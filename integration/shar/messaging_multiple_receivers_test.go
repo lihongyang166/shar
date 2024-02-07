@@ -21,7 +21,7 @@ import (
 func TestMessagingMultipleReceivers(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 
 	defer tst.Teardown()
 
@@ -68,7 +68,7 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	}()
 	support.WaitForChan(t, handlers.finished, 20*time.Second)
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 type testMessagingMultiReceiverHandlerDef struct {

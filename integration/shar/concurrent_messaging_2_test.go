@@ -22,7 +22,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{}), test: t}
@@ -76,7 +76,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*20)
 
 	fmt.Println("Stopwatch:", -time.Until(tm))
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 	assert.Equal(t, n, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
 }

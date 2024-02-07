@@ -20,7 +20,7 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
 
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -58,14 +58,14 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.ErrorContains(t, err, "contains deprecated")
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func TestDeprecateExecuting(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
 
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -110,14 +110,14 @@ func TestDeprecateExecuting(t *testing.T) {
 	fmt.Println(inUseError.Usage.ExecutingProcessInstance)
 	close(d.wait)
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func TestGetUsage(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
 
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -178,7 +178,7 @@ func TestGetUsage(t *testing.T) {
 	assert.Equal(t, len(use2.ExecutingWorkflow), 1)
 	close(d.wait)
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 type testSimpleDeprecateHandlerDef struct {

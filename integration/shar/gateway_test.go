@@ -54,7 +54,7 @@ func TestNestedExclusiveParse(t *testing.T) {
 func TestExclusiveRun(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -95,14 +95,14 @@ func TestExclusiveRun(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, g.finished, time.Second*20)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 
 }
 
 func TestInclusiveRun(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -143,7 +143,7 @@ func TestInclusiveRun(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, g.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 
 }
 

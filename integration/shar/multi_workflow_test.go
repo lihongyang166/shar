@@ -21,7 +21,7 @@ func TestMultiWorkflow(t *testing.T) {
 
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 	tst.Cooldown = 120 * time.Second
 	defer tst.Teardown()
 	handlers := &testMultiworkflowMessagingHandlerDef{t: t, finished: make(chan struct{})}
@@ -94,7 +94,7 @@ func TestMultiWorkflow(t *testing.T) {
 
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*60)
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 type testMultiworkflowMessagingHandlerDef struct {

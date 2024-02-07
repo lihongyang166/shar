@@ -18,7 +18,7 @@ func TestWorkflowChanged(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, func() (bool, string) {
 		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
 	}, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context

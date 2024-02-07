@@ -15,7 +15,7 @@ func TestRegisterNil(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time2.Second)
 	//tst.WithTrace = true
 
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context

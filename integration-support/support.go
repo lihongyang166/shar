@@ -47,7 +47,6 @@ type Integration struct {
 	testNatsServer                zensvr.Server
 	testSharServer                zensvr.Server
 	FinalVars                     map[string]interface{}
-	Test                          *testing.T
 	Mx                            sync.Mutex
 	Cooldown                      time.Duration
 	WithTelemetry                 server2.Exporter
@@ -85,24 +84,19 @@ func NewIntegrationT(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check, t
 }
 
 // Setup - sets up the test NATS and SHAR servers.
-func (s *Integration) Setup(t *testing.T) {
+func (s *Integration) Setup() {
 	//t.Setenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME, "nats:2.9.20")
 	//t.Setenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME, "local/shar-server:0.0.1-SNAPSHOT")
 	//t.Setenv(NATS_PERSIST_ENV_VAR_NAME, "true")
 
-	// can we encapsulate the call to t.Skipf OR a panic for *testing.T vs *testing.M
-	// this way, we can differentiate between a call from _test.go vs a call from main_test.go
-
 	if s.TestRunnable != nil {
 		runnable, skipReason := s.TestRunnable()
 		if !runnable {
-			//t.Skipf("test skipped reason: %s", skipReason)
 			s.setupContainerServersFailedFn(fmt.Sprintf("test skipped reason: %s", skipReason))
 		}
 	}
 
 	if IsSharContainerised() && !IsNatsContainerised() {
-		//t.Skip("invalid shar/nats server container/in process combination")
 		s.setupContainerServersFailedFn("invalid shar/nats server container/in process combination")
 		//the combo of in container shar/in process nats will lead to problems as
 		//in container shar will persist nats data to disk - an issue if subsequent tests
@@ -111,26 +105,17 @@ func (s *Integration) Setup(t *testing.T) {
 	}
 
 	if IsNatsPersist() && !IsNatsContainerised() {
-		//t.Skip("NATS_PERSIST only usable with containerised nats")
 		s.setupContainerServersFailedFn("NATS_PERSIST only usable with containerised nats")
 	}
-
-	//s.Cooldown = 60 * time.Second
-
-	//TODO can we not store the test at the struct lvl but pass it as a param where needed?
-	s.Test = t
 	s.FinalVars = make(map[string]interface{})
 
 	zensvrOptions := []zensvr.ZenSharOptionApplyFn{zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNatsServerImageUrl(os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME))}
 
 	if IsNatsPersist() {
-		//TODO we might be able to get away with a common state dir for namespaced tests...
-		//natsStateDirForTestableUnit := s.natsStateDirForTestableUnit(t)
 		natsStateDirForTest := s.natsStateDirForTestableUnit(s.testableUnitName)
 		zensvrOptions = append(zensvrOptions, zensvr.WithNatsPersistHostPath(natsStateDirForTest))
 	}
 
-	//ss, ns, err := zensvr.GetServers(20, authZFn, authNFn, zensvrOptions...)
 	ss, ns, err := zensvr.GetServers(20, s.authZFn, s.authNFn, zensvrOptions...)
 
 	level := slog.LevelDebug
@@ -162,15 +147,10 @@ func (s *Integration) Setup(t *testing.T) {
 	if s.WithTelemetry != nil {
 		ctx := context.Background()
 		n, err := nats.Connect(s.NatsURL)
-		//TODO can this be generalised to a panic so we take away dependency on t??
-		//it seems that we need to fail/stop test execution
-		//require.NoError(t, err)
 		s.telemtryFailedHandlerFn(err)
 		js, err := n.JetStream()
-		//require.NoError(t, err)
 		s.telemtryFailedHandlerFn(err)
 		cfg, err := config.GetEnvironment()
-		//require.NoError(t, err)
 		s.telemtryFailedHandlerFn(err)
 
 		_, err = server2.SetupMetrics(ctx, cfg, "shar-telemetry-processor-integration-test")
@@ -181,7 +161,6 @@ func (s *Integration) Setup(t *testing.T) {
 		s.testTelemetry = server2.New(ctx, n, js, nats.MemoryStorage, s.WithTelemetry)
 
 		err = s.testTelemetry.Listen()
-		//require.NoError(t, err)
 		s.telemtryFailedHandlerFn(err)
 	}
 
@@ -249,7 +228,7 @@ func purgeOld(natsPersistHostRootForTest string, dataDirectories []os.DirEntry, 
 }
 
 // AssertCleanKV - ensures SHAR has cleans up after itself, and there are no records left in the KV.
-func (s *Integration) AssertCleanKV(namespce string) {
+func (s *Integration) AssertCleanKV(namespce string, t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errs := make(chan error, 1)
 	var err error
@@ -259,7 +238,7 @@ func (s *Integration) AssertCleanKV(namespce string) {
 				cancel()
 				return
 			}
-			err = s.checkCleanKVFor(namespce)
+			err = s.checkCleanKVFor(namespce, t)
 			if err == nil {
 				cancel()
 				close(errs)
@@ -278,20 +257,20 @@ func (s *Integration) AssertCleanKV(namespce string) {
 	select {
 	case err2 := <-errs:
 		cancel()
-		assert.NoError(s.Test, err2, "KV not clean")
+		assert.NoError(t, err2, "KV not clean")
 		return
 	case <-time.After(s.Cooldown):
 		cancel()
 		if err != nil {
-			assert.NoErrorf(s.Test, err, "KV not clean")
+			assert.NoErrorf(t, err, "KV not clean")
 		}
 		return
 	}
 }
 
-func (s *Integration) checkCleanKVFor(namespace string) error {
+func (s *Integration) checkCleanKVFor(namespace string, t *testing.T) error {
 	js, err := s.GetJetstream()
-	require.NoError(s.Test, err)
+	require.NoError(t, err)
 
 	for n := range js.KeyValueStores() {
 
@@ -301,12 +280,12 @@ func (s *Integration) checkCleanKVFor(namespace string) error {
 		}
 
 		kvs, err := js.KeyValue(name)
-		require.NoError(s.Test, err)
+		require.NoError(t, err)
 		keys, err := kvs.Keys()
 		if err != nil && errors.Is(err, nats.ErrNoKeysFound) {
 			continue
 		}
-		require.NoError(s.Test, err)
+		require.NoError(t, err)
 		switch name {
 		case ns.PrefixWith(namespace, messages.KvDefinition),
 			ns.PrefixWith(namespace, messages.KvWfName),

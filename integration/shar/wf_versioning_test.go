@@ -22,7 +22,7 @@ func TestWfVersioning(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, func() (bool, string) {
 		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
 	}, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -81,7 +81,7 @@ func TestWfVersioning(t *testing.T) {
 	keys, err = kv.Keys()
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(keys))
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 type wfTeestandlerDef struct {

@@ -18,7 +18,7 @@ import (
 
 func TestUserTasks(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -95,7 +95,7 @@ func TestUserTasks(t *testing.T) {
 	assert.Equal(t, "Miggins", d.finalVars["Surname"].(string))
 	assert.Equal(t, 69, d.finalVars["OrderId"].(int))
 	assert.Equal(t, 32767, d.finalVars["carried"].(int))
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 type testUserTaskHandlerDef struct {

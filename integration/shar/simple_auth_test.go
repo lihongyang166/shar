@@ -32,7 +32,7 @@ const testAud = "go-workflow.com"
 func TestSimpleAuthZ(t *testing.T) {
 
 	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, nil, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -68,14 +68,14 @@ func TestSimpleAuthZ(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func TestNoAuthN(t *testing.T) {
 	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, func() (bool, string) {
 		return !support.IsSharContainerised(), "authN test not runnable with containerised Shar"
 	}, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -96,7 +96,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 		return !support.IsSharContainerised(), "authZ test not runnable with containerised Shar"
 	}, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -114,7 +114,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	assert.ErrorContains(t, err, "authorize")
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func testAuthNFn(ctx context.Context, request *model.ApiAuthenticationRequest) (*model.ApiAuthenticationResponse, error) {

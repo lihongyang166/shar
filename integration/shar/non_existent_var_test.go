@@ -15,7 +15,7 @@ import (
 
 func TestNonExistentVar(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time2.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -32,5 +32,5 @@ func TestNonExistentVar(t *testing.T) {
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	assert.ErrorIs(t, err, errors2.ErrUndefinedVariable)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }

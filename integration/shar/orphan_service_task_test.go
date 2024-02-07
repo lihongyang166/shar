@@ -13,7 +13,7 @@ import (
 
 func TestRegisterOrphanServiceTask(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time2.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -30,5 +30,5 @@ func TestRegisterOrphanServiceTask(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.ErrorContains(t, err, "task SimpleProcess is not registered")
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }

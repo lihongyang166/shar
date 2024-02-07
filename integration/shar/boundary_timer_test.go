@@ -20,7 +20,7 @@ var testBoundaryTimerTimeout = 60 * time.Second
 func TestBoundaryTimer(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	d := &testBoundaryTimerDef{
@@ -34,13 +34,13 @@ func TestBoundaryTimer(t *testing.T) {
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func TestBoundaryTimerTimeout(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
 	//tst.WithTrace = true
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	d := &testBoundaryTimerDef{
@@ -56,12 +56,12 @@ func TestBoundaryTimerTimeout(t *testing.T) {
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func TestExclusiveGateway(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	d := &testBoundaryTimerDef{
@@ -76,7 +76,7 @@ func TestExclusiveGateway(t *testing.T) {
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {

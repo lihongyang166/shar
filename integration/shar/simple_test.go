@@ -21,7 +21,7 @@ func TestSimple(t *testing.T) {
 	//tst := &support.Integration{}
 	//tst.WithTrace = true
 
-	tst.Setup(t)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
@@ -58,7 +58,7 @@ func TestSimple(t *testing.T) {
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 type testSimpleHandlerDef struct {

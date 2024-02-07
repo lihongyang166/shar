@@ -28,7 +28,7 @@ type MessagingTestSuite struct {
 func (suite *MessagingTestSuite) SetupTest() {
 	suite.integrationSupport = support.NewIntegrationT(suite.T(), nil, nil, false, nil, 60*time.Second)
 	//suite.integrationSupport.WithTrace = false
-	suite.integrationSupport.Setup(suite.T())
+	suite.integrationSupport.Setup()
 	suite.ctx = context.Background()
 
 	suite.client = client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
@@ -84,7 +84,7 @@ func (suite *MessagingTestSuite) TestMessaging() {
 	}()
 	support.WaitForChan(t, handlers.finished, 20*time.Second)
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func (suite *MessagingTestSuite) TestMessageNameGlobalUniqueness() {
@@ -113,7 +113,7 @@ func (suite *MessagingTestSuite) TestMessageNameGlobalUniqueness() {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessagingDupMessage", b)
 	require.ErrorContains(t, err, "These messages already exist for other workflows:")
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 func (suite *MessagingTestSuite) TestMessageNameGlobalUniquenessAcrossVersions() {
@@ -183,7 +183,7 @@ func (suite *MessagingTestSuite) TestMessageStartEvent() {
 	support.WaitForChan(t, messageEventHandlers.completed, time.Second*10)
 
 	//assert empty KV
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t)
 }
 
 type testMessagingHandlerDef struct {

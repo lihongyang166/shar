@@ -63,13 +63,13 @@ type Integration struct {
 }
 
 // NewIntegrationT is used to construct an instance of Integration support used from the context of a test
-func NewIntegrationT(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check, trace bool, testRunnableFn func() (bool, string), cooldown time.Duration) *Integration {
+func NewIntegrationT(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check, trace bool, testRunnableFn func() (bool, string), WithTelemetry server2.Exporter) *Integration {
 	i := &Integration{}
 	i.authZFn = authZFn
 	i.authNFn = authNFn
-	i.Cooldown = cooldown
 	i.WithTrace = trace
 	i.TestRunnable = testRunnableFn
+	i.WithTelemetry = WithTelemetry
 
 	i.testableUnitName = t.Name()
 	i.setupContainerServersFailedFn = func(failureMessage string) {
@@ -78,6 +78,23 @@ func NewIntegrationT(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check, t
 
 	i.telemtryFailedHandlerFn = func(err error) {
 		require.NoError(t, err)
+	}
+
+	return i
+}
+
+func NewIntegration(trace bool, packageName string, WithTelemetry server2.Exporter) *Integration {
+	i := &Integration{}
+	i.WithTrace = trace
+	i.WithTelemetry = WithTelemetry
+
+	i.testableUnitName = packageName
+	i.setupContainerServersFailedFn = func(failureMessage string) {
+		panic("unable to start containerised integration test support: " + failureMessage)
+	}
+
+	i.telemtryFailedHandlerFn = func(err error) {
+		panic("unable to initialise telemetry: " + err.Error())
 	}
 
 	return i
@@ -228,7 +245,7 @@ func purgeOld(natsPersistHostRootForTest string, dataDirectories []os.DirEntry, 
 }
 
 // AssertCleanKV - ensures SHAR has cleans up after itself, and there are no records left in the KV.
-func (s *Integration) AssertCleanKV(namespce string, t *testing.T) {
+func (s *Integration) AssertCleanKV(namespce string, t *testing.T, cooldown time.Duration) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errs := make(chan error, 1)
 	var err error
@@ -259,7 +276,7 @@ func (s *Integration) AssertCleanKV(namespce string, t *testing.T) {
 		cancel()
 		assert.NoError(t, err2, "KV not clean")
 		return
-	case <-time.After(s.Cooldown):
+	case <-time.After(cooldown):
 		cancel()
 		if err != nil {
 			assert.NoErrorf(t, err, "KV not clean")

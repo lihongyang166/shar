@@ -15,7 +15,7 @@ import (
 )
 
 func TestSubWorkflow(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	//tst.WithTrace = true
 	tst.Setup()
 	defer tst.Teardown()
@@ -63,7 +63,7 @@ func TestSubWorkflow(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 type testSubWorkflowHandlerDef struct {

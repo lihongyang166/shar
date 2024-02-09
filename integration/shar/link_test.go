@@ -17,7 +17,7 @@ import (
 )
 
 func TestLink(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	tst.Setup()
 	defer tst.Teardown()
 
@@ -61,7 +61,7 @@ func TestLink(t *testing.T) {
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	assert.True(t, d.hitEnd)
 	assert.True(t, d.hitResponse)
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 type testLinkHandlerDef struct {

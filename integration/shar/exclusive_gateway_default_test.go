@@ -15,7 +15,7 @@ import (
 )
 
 func TestExclusiveGatewayDefault(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	tst.Setup()
 	defer tst.Teardown()
 
@@ -55,7 +55,7 @@ func TestExclusiveGatewayDefault(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 type testExclusiveGatewayDefaultDef struct {

@@ -8,11 +8,11 @@ import (
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"os"
 	"testing"
-	time2 "time"
+	"time"
 )
 
 func TestRegisterOrphanServiceTask(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time2.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	tst.Setup()
 	defer tst.Teardown()
 
@@ -30,5 +30,5 @@ func TestRegisterOrphanServiceTask(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.ErrorContains(t, err, "task SimpleProcess is not registered")
 
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }

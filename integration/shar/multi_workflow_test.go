@@ -19,7 +19,7 @@ import (
 //goland:noinspection GoNilness
 func TestMultiWorkflow(t *testing.T) {
 
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	//tst.WithTrace = true
 	tst.Setup()
 	tst.Cooldown = 120 * time.Second
@@ -94,7 +94,7 @@ func TestMultiWorkflow(t *testing.T) {
 
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*60)
 
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 type testMultiworkflowMessagingHandlerDef struct {

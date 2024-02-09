@@ -16,7 +16,7 @@ import (
 )
 
 func TestStartingVariable(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	tst.Setup()
 	defer tst.Teardown()
 
@@ -47,7 +47,7 @@ func TestStartingVariable(t *testing.T) {
 	_, _, err = cl.LaunchProcess(ctx, "SimpleWorkflowTest", model.Vars{})
 
 	assert.Error(t, err)
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 type testStartingVariableHandlerDef struct {

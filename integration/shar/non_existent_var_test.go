@@ -10,11 +10,11 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"os"
 	"testing"
-	time2 "time"
+	"time"
 )
 
 func TestNonExistentVar(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time2.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	tst.Setup()
 	defer tst.Teardown()
 
@@ -32,5 +32,5 @@ func TestNonExistentVar(t *testing.T) {
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	assert.ErrorIs(t, err, errors2.ErrUndefinedVariable)
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }

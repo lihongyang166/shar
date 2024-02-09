@@ -11,13 +11,12 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
 	"testing"
-	"time"
 )
 
 func TestWorkflowChanged(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, func() (bool, string) {
 		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
-	}, 60*time.Second)
+	})
 	tst.Setup()
 	defer tst.Teardown()
 

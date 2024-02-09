@@ -17,7 +17,7 @@ import (
 )
 
 func TestHandledError(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
 	//tst.WithTrace = true
 	tst.Setup()
 	defer tst.Teardown()
@@ -67,7 +67,7 @@ func TestHandledError(t *testing.T) {
 
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 type errorHandledHandlerDef struct {

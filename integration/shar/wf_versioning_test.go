@@ -81,7 +81,7 @@ func TestWfVersioning(t *testing.T) {
 	keys, err = kv.Keys()
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(keys))
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, tst.Cooldown)
 }
 
 type wfTeestandlerDef struct {

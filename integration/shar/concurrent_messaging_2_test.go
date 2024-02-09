@@ -20,7 +20,7 @@ import (
 //goland:noinspection GoNilness
 func TestConcurrentMessaging2(t *testing.T) {
 
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
 	//tst.WithTrace = true
 	tst.Setup()
 	defer tst.Teardown()
@@ -76,7 +76,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*20)
 
 	fmt.Println("Stopwatch:", -time.Until(tm))
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 	assert.Equal(t, n, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
 }

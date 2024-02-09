@@ -17,7 +17,7 @@ import (
 )
 
 func TestEndEventError(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
 	tst.Setup()
 	defer tst.Teardown()
 
@@ -65,7 +65,7 @@ func TestEndEventError(t *testing.T) {
 
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 type testErrorEndEventHandlerDef struct {

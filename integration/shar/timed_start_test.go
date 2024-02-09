@@ -17,7 +17,7 @@ import (
 )
 
 func TestTimedStart(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	//tst.WithTrace = true
 	tst.Setup()
 	defer tst.Teardown()
@@ -60,7 +60,7 @@ func TestTimedStart(t *testing.T) {
 	assert.Equal(t, 32768, d.tst.FinalVars["carried"])
 	assert.Equal(t, 3, d.count)
 	fmt.Println("good")
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, tst.Cooldown)
 }
 
 type timedStartHandlerDef struct {

@@ -19,7 +19,7 @@ import (
 
 //goland:noinspection GoNilness
 func TestMessagingMultipleReceivers(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, 60*time.Second)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil)
 	tst.WithTrace = true
 	tst.Setup()
 
@@ -68,7 +68,7 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	}()
 	support.WaitForChan(t, handlers.finished, 20*time.Second)
 
-	tst.AssertCleanKV(namespace.Default, t)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 type testMessagingMultiReceiverHandlerDef struct {

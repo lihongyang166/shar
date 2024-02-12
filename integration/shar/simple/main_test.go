@@ -22,9 +22,11 @@ func TestMain(m *testing.M) {
 
 	tst = support.NewIntegration(false, packageName, nil)
 	tst.Setup()
-	defer tst.Teardown()
 
 	code := m.Run()
-	fmt.Printf("\033[1;36m%s\033[0m", "> end tests for "+packageName+"\n")
-	os.Exit(code)
+	defer func() {
+		tst.Teardown()
+		fmt.Printf("\033[1;36m%s\033[0m", "> end tests for "+packageName+"\n")
+		os.Exit(code)
+	}()
 }

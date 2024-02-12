@@ -19,7 +19,7 @@ import (
 //goland:noinspection GoNilness
 func TestMultiWorkflow(t *testing.T) {
 
-	tst := support.NewIntegrationT(t, nil, nil, false, nil)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
 	//tst.WithTrace = true
 	tst.Setup()
 	tst.Cooldown = 120 * time.Second

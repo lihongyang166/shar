@@ -17,6 +17,7 @@ import (
 )
 
 func TestSimpleRetry_SetVariable(t *testing.T) {
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 	ns := ksuid.New().String()

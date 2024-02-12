@@ -17,6 +17,7 @@ import (
 )
 
 func TestSimpleRetry_ThrowWorkflowError(t *testing.T) {
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 

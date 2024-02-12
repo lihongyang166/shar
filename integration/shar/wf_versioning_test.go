@@ -12,8 +12,6 @@ import (
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"time"
-
 	"os"
 	"testing"
 )
@@ -21,7 +19,7 @@ import (
 func TestWfVersioning(t *testing.T) {
 	tst := support.NewIntegrationT(t, nil, nil, false, func() (bool, string) {
 		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
-	}, 60*time.Second)
+	}, nil)
 	tst.Setup()
 	defer tst.Teardown()
 

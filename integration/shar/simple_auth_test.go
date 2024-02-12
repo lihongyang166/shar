@@ -1,4 +1,4 @@
-package simple
+package intTest
 
 import (
 	"context"
@@ -30,7 +30,6 @@ const testAlg = "HS256"
 const testAud = "go-workflow.com"
 
 func TestSimpleAuthZ(t *testing.T) {
-
 	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, nil, nil)
 	tst.Setup()
 	defer tst.Teardown()
@@ -46,11 +45,11 @@ func TestSimpleAuthZ(t *testing.T) {
 	d := &testSimpleAuthHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
@@ -108,7 +107,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)

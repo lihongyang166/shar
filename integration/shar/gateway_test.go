@@ -52,7 +52,7 @@ func TestNestedExclusiveParse(t *testing.T) {
 }
 
 func TestExclusiveRun(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
 	//tst.WithTrace = true
 	tst.Setup()
 	defer tst.Teardown()
@@ -100,7 +100,7 @@ func TestExclusiveRun(t *testing.T) {
 }
 
 func TestInclusiveRun(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
 	//tst.WithTrace = true
 	tst.Setup()
 	defer tst.Teardown()

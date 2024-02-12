@@ -26,7 +26,7 @@ type MessagingTestSuite struct {
 }
 
 func (suite *MessagingTestSuite) SetupTest() {
-	suite.integrationSupport = support.NewIntegrationT(suite.T(), nil, nil, false, nil)
+	suite.integrationSupport = support.NewIntegrationT(suite.T(), nil, nil, false, nil, nil)
 	//suite.integrationSupport.WithTrace = false
 	suite.integrationSupport.Setup()
 	suite.ctx = context.Background()

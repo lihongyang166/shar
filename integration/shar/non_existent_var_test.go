@@ -14,7 +14,7 @@ import (
 )
 
 func TestNonExistentVar(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil)
+	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
 	tst.Setup()
 	defer tst.Teardown()
 

@@ -16,6 +16,7 @@ import (
 )
 
 func TestSimpleProcessStatus(t *testing.T) {
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 

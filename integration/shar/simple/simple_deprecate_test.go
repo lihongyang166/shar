@@ -18,6 +18,7 @@ import (
 )
 
 func TestLaunchProcessWithDeprecated(t *testing.T) {
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
@@ -57,6 +58,7 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 }
 
 func TestDeprecateExecuting(t *testing.T) {
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
@@ -104,6 +106,7 @@ func TestDeprecateExecuting(t *testing.T) {
 }
 
 func TestGetUsage(t *testing.T) {
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 

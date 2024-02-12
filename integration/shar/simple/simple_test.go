@@ -17,53 +17,6 @@ import (
 )
 
 func TestSimple(t *testing.T) {
-	//type req struct {
-	//	reqId string
-	//}
-	//
-	//type res struct {
-	//	reqId string
-	//}
-	//
-	//reqChan := make(chan req, 100)
-	//resChan := make(chan res, 100)
-	//
-	//go func() {
-	//	fmt.Println("###starting background thread")
-	//	for {
-	//		rq := <-reqChan
-	//		fmt.Println("###received rq with reqId: " + rq.reqId)
-	//		resChan <- res{reqId: rq.reqId}
-	//	}
-	//}()
-	//
-	//for i := 0; i < 5; i++ {
-	//	go func(j int) {
-	//		reqId := ksuid.New().String()
-	//		fmt.Println("###sending req for go routine " + fmt.Sprint(j) + " with req id " + reqId)
-	//
-	//		rand.Seed(time.Now().UnixNano())
-	//		randI := rand.Intn(5) + 1
-	//		time.Sleep(time.Second * time.Duration(randI))
-	//
-	//		reqChan <- req{reqId: reqId}
-	//	outer:
-	//		for {
-	//			select {
-	//			case res := <-resChan:
-	//				fmt.Println("###in go routine " + fmt.Sprint(j) + " received res for id " + res.reqId)
-	//				break outer
-	//			case <-time.After(time.Second * 8):
-	//				fmt.Println("### didn't get response after 2s")
-	//				break outer
-	//			}
-	//		}
-	//
-	//		fmt.Println("###complete go routine " + fmt.Sprint(j))
-	//	}(i)
-	//}
-	//
-	//time.Sleep(time.Second * 30)
 	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()

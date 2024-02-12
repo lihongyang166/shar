@@ -66,6 +66,15 @@ type NamespaceKvs struct {
 	wfClients     nats.KeyValue
 }
 
+type nsKvReq struct {
+	ns string
+}
+
+type nsKvRes struct {
+	nsKvs    *NamespaceKvs
+	nsKvsErr error
+}
+
 // Nats contains the engine functions that communicate with NATS.
 type Nats struct {
 	js                             nats.JetStreamContext
@@ -87,6 +96,8 @@ type Nats struct {
 	abortFunc                      services.AbortFunc
 	sharKvs                        map[string]*NamespaceKvs
 	mx                             sync.Mutex
+	nsKvRequest                    chan nsKvReq
+	nsKvResponse                   chan nsKvRes
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
@@ -158,6 +169,8 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 		publishTimeout:          time.Second * 30,
 		allowOrphanServiceTasks: allowOrphanServiceTasks,
 		sharKvs:                 make(map[string]*NamespaceKvs),
+		nsKvRequest:             make(chan nsKvReq, 100),
+		nsKvResponse:            make(chan nsKvRes, 100),
 	}
 
 	ns := namespace.Default
@@ -177,6 +190,10 @@ func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageT
 	msg.Header.Set(header.SharNamespace, ns)
 	if err := common.PublishOnce(js, nKvs.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
 		return nil, fmt.Errorf("ensure kick message: %w", err)
+	}
+
+	if err := ms.startNsKvsHandler(); err != nil {
+		return nil, fmt.Errorf("start NsKvHandler: %w", err)
 	}
 
 	if err := ms.startTelemetry(ctx, ns); err != nil {
@@ -248,9 +265,36 @@ func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
 	//between multiple go routines. we can hopefully optimise/maybe remove the lock pending the outcome
 	//of concurrent testing with multiple namespaces but we are locking here to guarantee thread
 	//safety for now...
-	s.mx.Lock()
-	defer s.mx.Unlock()
 
+	//s.mx.Lock()
+	//defer s.mx.Unlock()
+	//
+	//return s.nsKvsHandler(ns)
+
+	nsKvReq := nsKvReq{ns: ns}
+	s.nsKvRequest <- nsKvReq
+
+	var nsKvs *NamespaceKvs
+	var nsKvsErr error
+
+outer:
+	for {
+		select {
+		case nsKvRes := <-s.nsKvResponse:
+			nsKvs = nsKvRes.nsKvs
+			nsKvsErr = nsKvRes.nsKvsErr
+			break outer
+		case <-time.After(time.Second * 10):
+			nsKvs = nil
+			nsKvsErr = fmt.Errorf("### unable to get namespace KVs for ns: %s", ns)
+			break outer
+		}
+	}
+
+	return nsKvs, nsKvsErr
+}
+
+func (s *Nats) nsKvsHandler(ns string) (*NamespaceKvs, error) {
 	if nsKvs, exists := s.sharKvs[ns]; !exists {
 		kvs, err := initNamespacedKvs(ns, s.js, s.storageType, NatsConfig)
 		if err != nil {
@@ -262,6 +306,23 @@ func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
 	} else {
 		return nsKvs, nil
 	}
+}
+
+func (s *Nats) startNsKvsHandler() error {
+	go func() {
+		for {
+			select {
+			case <-s.closing:
+				return
+			default:
+				nsKvReq := <-s.nsKvRequest
+				nsKvs, err := s.nsKvsHandler(nsKvReq.ns)
+				s.nsKvResponse <- nsKvRes{nsKvs: nsKvs, nsKvsErr: err}
+			}
+		}
+	}()
+
+	return nil
 }
 
 // StartProcessing begins listening to all the message processing queues.

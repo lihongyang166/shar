@@ -1,12 +1,12 @@
-package intTest
+package boundarytimer
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -18,31 +18,24 @@ import (
 var testBoundaryTimerTimeout = 60 * time.Second
 
 func TestBoundaryTimer(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
-	//tst.WithTrace = true
-	tst.Setup()
-	defer tst.Teardown()
-
+	t.Parallel()
 	d := &testBoundaryTimerDef{
 		tst:      tst,
 		finished: make(chan struct{}),
 	}
 
-	executeBoundaryTimerTest(t, d)
+	ns := ksuid.New().String()
+	executeBoundaryTimerTest(t, d, ns)
 	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 func TestBoundaryTimerTimeout(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
-	//tst.WithTrace = true
-	tst.Setup()
-	defer tst.Teardown()
-
+	t.Parallel()
 	d := &testBoundaryTimerDef{
 		CanTimeOutPause:  time.Second * 5,
 		CheckResultPause: time.Second * 4,
@@ -50,42 +43,40 @@ func TestBoundaryTimerTimeout(t *testing.T) {
 		finished:         make(chan struct{}),
 	}
 
-	executeBoundaryTimerTest(t, d)
+	ns := ksuid.New().String()
+	executeBoundaryTimerTest(t, d, ns)
 	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 func TestExclusiveGateway(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
-	tst.Setup()
-	defer tst.Teardown()
-
+	t.Parallel()
 	d := &testBoundaryTimerDef{
 		CheckResultPause: time.Second * 3,
 		tst:              tst,
 		finished:         make(chan struct{}),
 	}
 
-	executeBoundaryTimerTest(t, d)
+	ns := ksuid.New().String()
+	executeBoundaryTimerTest(t, d, ns)
 	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
-func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
-
+func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef, ns string) string {
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.Experimental_WithNamespace(ns))
 	err := cl.Dial(ctx, d.tst.NatsURL)
 	require.NoError(t, err)
 
@@ -100,7 +91,7 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/possible-timeout-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/possible-timeout-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "PossibleTimeout", b)

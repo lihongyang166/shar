@@ -11,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -476,4 +477,11 @@ func IsNatsContainerised() bool {
 // IsNatsPersist determines whether tests are persist nats data between executions
 func IsNatsPersist() bool {
 	return os.Getenv(NATS_PERSIST_ENV_VAR_NAME) == "true"
+}
+
+func GetPackageName(packageNameStruct any) string {
+	fullPackageName := reflect.TypeOf(packageNameStruct).PkgPath()
+	packageNameSegments := strings.Split(fullPackageName, "/")
+	packageName := packageNameSegments[len(packageNameSegments)-1]
+	return packageName
 }

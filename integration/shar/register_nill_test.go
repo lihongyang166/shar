@@ -6,16 +6,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"testing"
 )
 
 func TestRegisterNil(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
-	//tst.WithTrace = true
-
-	tst.Setup()
-	defer tst.Teardown()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
@@ -27,6 +22,6 @@ func TestRegisterNil(t *testing.T) {
 
 	// Register a service task
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", nil)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", nil)
 	assert.NoError(t, err)
 }

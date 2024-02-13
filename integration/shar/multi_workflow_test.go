@@ -3,11 +3,11 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -18,19 +18,16 @@ import (
 
 //goland:noinspection GoNilness
 func TestMultiWorkflow(t *testing.T) {
+	t.Parallel()
 
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
-	//tst.WithTrace = true
-	tst.Setup()
-	tst.Cooldown = 120 * time.Second
-	defer tst.Teardown()
 	handlers := &testMultiworkflowMessagingHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -94,7 +91,7 @@ func TestMultiWorkflow(t *testing.T) {
 
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*60)
 
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 120*time.Second)
 }
 
 type testMultiworkflowMessagingHandlerDef struct {

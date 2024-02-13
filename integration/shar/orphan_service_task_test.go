@@ -2,25 +2,23 @@ package intTest
 
 import (
 	"context"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/common/namespace"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"os"
 	"testing"
 	"time"
 )
 
 func TestRegisterOrphanServiceTask(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
-	tst.Setup()
-	defer tst.Teardown()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -30,5 +28,5 @@ func TestRegisterOrphanServiceTask(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.ErrorContains(t, err, "task SimpleProcess is not registered")
 
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }

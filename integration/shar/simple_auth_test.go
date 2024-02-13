@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang-jwt/jwt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common/header"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
@@ -30,6 +30,7 @@ const testAlg = "HS256"
 const testAud = "go-workflow.com"
 
 func TestSimpleAuthZ(t *testing.T) {
+	t.Parallel()
 	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, nil, nil)
 	tst.Setup()
 	defer tst.Teardown()
@@ -38,7 +39,8 @@ func TestSimpleAuthZ(t *testing.T) {
 	ctx := context.Background()
 	ctx = header.Set(ctx, "JWT", testUserSimpleWorkflowJWT)
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -67,10 +69,11 @@ func TestSimpleAuthZ(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 func TestNoAuthN(t *testing.T) {
+	t.Parallel()
 	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, func() (bool, string) {
 		return !support.IsSharContainerised(), "authN test not runnable with containerised Shar"
 	}, nil)
@@ -91,6 +94,7 @@ func TestNoAuthN(t *testing.T) {
 }
 
 func TestSimpleNoAuthZ(t *testing.T) {
+	t.Parallel()
 	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, func() (bool, string) {
 		return !support.IsSharContainerised(), "authZ test not runnable with containerised Shar"
 	}, nil)
@@ -102,7 +106,8 @@ func TestSimpleNoAuthZ(t *testing.T) {
 	ctx := context.Background()
 	ctx = header.Set(ctx, "JWT", testUserReadOnlyJWT)
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -113,7 +118,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	assert.ErrorContains(t, err, "authorize")
 
-	tst.AssertCleanKV(namespace.Default, t, tst.Cooldown)
+	tst.AssertCleanKV(ns, t, tst.Cooldown)
 }
 
 func testAuthNFn(ctx context.Context, request *model.ApiAuthenticationRequest) (*model.ApiAuthenticationResponse, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
@@ -27,7 +28,7 @@ func TestWfVersioning(t *testing.T) {
 	ctx := context.Background()
 
 	// Dial shar
-	ns := namespace.Default
+	ns := ksuid.New().String()
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
@@ -79,7 +80,7 @@ func TestWfVersioning(t *testing.T) {
 	keys, err = kv.Keys()
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(keys))
-	tst.AssertCleanKV(namespace.Default, t, tst.Cooldown)
+	tst.AssertCleanKV(ns, t, tst.Cooldown)
 }
 
 type wfTeestandlerDef struct {

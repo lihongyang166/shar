@@ -3,10 +3,10 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -15,19 +15,14 @@ import (
 )
 
 func TestSubWorkflow(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
-	//tst.WithTrace = true
-	tst.Setup()
-	defer tst.Teardown()
-
-	//sub := tracer.Trace(NatsURL)
-	//defer sub.Drain()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -63,7 +58,7 @@ func TestSubWorkflow(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testSubWorkflowHandlerDef struct {

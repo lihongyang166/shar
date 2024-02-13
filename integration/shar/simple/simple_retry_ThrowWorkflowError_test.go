@@ -23,7 +23,7 @@ func TestSimpleRetry_ThrowWorkflowError(t *testing.T) {
 
 	ns := ksuid.New().String()
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.Experimental_WithNamespace(ns))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 

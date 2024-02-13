@@ -1,13 +1,13 @@
-package intTest
+package messaging
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -19,18 +19,15 @@ import (
 
 //goland:noinspection GoNilness
 func TestConcurrentMessaging2(t *testing.T) {
-
-	tst := support.NewIntegrationT(t, nil, nil, false, nil, nil)
-	//tst.WithTrace = true
-	tst.Setup()
-	defer tst.Teardown()
+	t.Parallel()
 
 	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{}), test: t}
 	// Create a starting context
 	ctx := context.Background()
 
+	ns := ksuid.New().String()
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -41,7 +38,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/message-workflow-2.bpmn")
+	b, err := os.ReadFile("../../../testdata/message-workflow-2.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestConcurrentMessaging", b)
@@ -76,7 +73,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*20)
 
 	fmt.Println("Stopwatch:", -time.Until(tm))
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 	assert.Equal(t, n, handlers.received)
 	assert.Equal(t, 0, len(handlers.instComplete))
 }

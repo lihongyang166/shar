@@ -1,14 +1,13 @@
-package intTest
+package messaging
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"log/slog"
@@ -18,49 +17,25 @@ import (
 	"time"
 )
 
-type MessagingTestSuite struct {
-	suite.Suite
-	integrationSupport *support.Integration
-	ctx                context.Context
-	client             *client.Client
-}
-
-func (suite *MessagingTestSuite) SetupTest() {
-	suite.integrationSupport = support.NewIntegrationT(suite.T(), nil, nil, false, nil, nil)
-	//suite.integrationSupport.WithTrace = false
-	suite.integrationSupport.Setup()
-	suite.ctx = context.Background()
-
-	suite.client = client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
-	err := suite.client.Dial(suite.ctx, suite.integrationSupport.NatsURL)
-	require.NoError(suite.T(), err)
-}
-
-func (suite *MessagingTestSuite) TearDownTest() {
-	suite.integrationSupport.Teardown()
-}
-
-func TestMessagingTestSuite(t *testing.T) {
-	suite.Run(t, new(MessagingTestSuite))
-}
-
 //goland:noinspection GoNilness
-func (suite *MessagingTestSuite) TestMessaging() {
-	t := suite.T()
-	tst := suite.integrationSupport
-	ctx := suite.ctx
-	cl := suite.client
+func TestMessaging(t *testing.T) {
+	t.Parallel()
+	ns := ksuid.New().String()
+	ctx := context.Background()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 
 	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
 	// Register service tasks
-	err := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
 	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/message-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
 	require.NoError(t, err)
@@ -84,42 +59,47 @@ func (suite *MessagingTestSuite) TestMessaging() {
 	}()
 	support.WaitForChan(t, handlers.finished, 20*time.Second)
 
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
-func (suite *MessagingTestSuite) TestMessageNameGlobalUniqueness() {
-	t := suite.T()
-	ctx := suite.ctx
-	cl := suite.client
-	tst := suite.integrationSupport
+func TestMessageNameGlobalUniqueness(t *testing.T) {
+	t.Parallel()
+	ns := ksuid.New().String()
+	ctx := context.Background()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 
 	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
 	// Register service tasks
-	err := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
 	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/message-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
 	require.NoError(t, err)
 
 	// try to load another bpmn with a message of the same name, should fail
-	b, err = os.ReadFile("../../testdata/message-workflow-duplicate-message.bpmn")
+	b, err = os.ReadFile("../../../testdata/message-workflow-duplicate-message.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessagingDupMessage", b)
 	require.ErrorContains(t, err, "These messages already exist for other workflows:")
 
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
-func (suite *MessagingTestSuite) TestMessageNameGlobalUniquenessAcrossVersions() {
-	t := suite.T()
-	ctx := suite.ctx
-	cl := suite.client
+func TestMessageNameGlobalUniquenessAcrossVersions(t *testing.T) {
+	t.Parallel()
+	ns := ksuid.New().String()
+	ctx := context.Background()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 
 	messageEventHandlers := messageStartEventWorkflowEventHandler{
 		completed: make(chan struct{}),
@@ -130,26 +110,28 @@ func (suite *MessagingTestSuite) TestMessageNameGlobalUniquenessAcrossVersions()
 	err2 := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
 	require.NoError(t, err2)
 
-	err := cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
+	err = cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
 	require.NoError(t, err)
 
 	//load bpmn
-	b, err := os.ReadFile("../../testdata/message-start-test.bpmn")
+	b, err := os.ReadFile("../../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
 	require.NoError(t, err)
 
-	b, err = os.ReadFile("../../testdata/message-start-test-v2.bpmn")
+	b, err = os.ReadFile("../../../testdata/message-start-test-v2.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
 	require.NoError(t, err)
 }
 
-func (suite *MessagingTestSuite) TestMessageStartEvent() {
-	t := suite.T()
-	ctx := suite.ctx
-	cl := suite.client
-	tst := suite.integrationSupport
+func TestMessageStartEvent(t *testing.T) {
+	t.Parallel()
+	ns := ksuid.New().String()
+	ctx := context.Background()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 
 	messageEventHandlers := messageStartEventWorkflowEventHandler{
 		completed: make(chan struct{}),
@@ -160,11 +142,11 @@ func (suite *MessagingTestSuite) TestMessageStartEvent() {
 	err2 := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
 	require.NoError(t, err2)
 
-	err := cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
+	err = cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
 	require.NoError(t, err)
 
 	//load bpmn
-	b, err := os.ReadFile("../../testdata/message-start-test.bpmn")
+	b, err := os.ReadFile("../../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
 	require.NoError(t, err)
@@ -183,7 +165,7 @@ func (suite *MessagingTestSuite) TestMessageStartEvent() {
 	support.WaitForChan(t, messageEventHandlers.completed, time.Second*10)
 
 	//assert empty KV
-	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testMessagingHandlerDef struct {

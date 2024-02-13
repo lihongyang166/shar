@@ -76,7 +76,7 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef, ns string) 
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.Experimental_WithNamespace(ns))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, d.tst.NatsURL)
 	require.NoError(t, err)
 

@@ -58,10 +58,10 @@ func (o noOSSig) configure(client *Client) {
 	client.noOSSig = true
 }
 
-// Experimental_WithNamespace **DANGER: EXPERIMENTAL FEATURE.  MAY CAUSE DATA LOSS OR CORRUPTION!!** applies a client namespace.
+// WithNamespace applies a client namespace.
 //
 //goland:noinspection GoExportedFuncWithUnexportedType
-func Experimental_WithNamespace(name string) namespace { //nolint
+func WithNamespace(name string) namespace { //nolint
 	return namespace{name: name}
 }
 

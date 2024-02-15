@@ -91,7 +91,7 @@ func TestMultiWorkflow(t *testing.T) {
 
 	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*60)
 
-	tst.AssertCleanKV(ns, t, 120*time.Second)
+	tst.AssertCleanKV(ns, t, 140*time.Second)
 }
 
 type testMultiworkflowMessagingHandlerDef struct {

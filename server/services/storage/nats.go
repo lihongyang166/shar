@@ -234,11 +234,6 @@ func initNamespacedKvs(ns string, js nats.JetStreamContext, storageType nats.Sto
 // KvsFor retrieves the shar KVs for a given namespace. If they do not exist for a namespace,
 // it will initialise them and store them in a map for future lookup.
 func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
-	//## TODO how do we deal with multiple shar instances attempting to initialise the
-	//## nats buckets? would we need to use the distributed lock mechanism to synchronize
-	//## between multiple shar instances/goroutines trying to initialise nats resources for one namespace concurrently
-	//## does this really matter? what happens if we attempt to create a KV that already exists???
-
 	s.rwmx.RLock()
 	if nsKvs, exists := s.sharKvs[ns]; !exists {
 		s.rwmx.RUnlock()

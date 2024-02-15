@@ -84,6 +84,7 @@ func NewIntegrationT(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check, t
 	return i
 }
 
+// NewIntegration is used to construct an instance of Integration support used from the context of a package
 func NewIntegration(trace bool, packageName string, WithTelemetry server2.Exporter) *Integration {
 	i := &Integration{}
 	i.WithTrace = trace
@@ -479,6 +480,7 @@ func IsNatsPersist() bool {
 	return os.Getenv(NATS_PERSIST_ENV_VAR_NAME) == "true"
 }
 
+// GetPackageName retrieves the name of a package a particular struct is declared in
 func GetPackageName(packageNameStruct any) string {
 	fullPackageName := reflect.TypeOf(packageNameStruct).PkgPath()
 	packageNameSegments := strings.Split(fullPackageName, "/")

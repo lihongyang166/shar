@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
@@ -220,7 +221,7 @@ func EnsureBucket(js nats.JetStreamContext, storageType nats.StorageType, name s
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(ctx context.Context, js nats.JetStreamContext, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error), opts ...ProcessOption) error {
+func Process(ctx context.Context, js nats.JetStreamContext, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error), opts ...ProcessOption) error {
 	set := &ProcessOpts{}
 	for _, i := range opts {
 		i.Set(set)
@@ -301,9 +302,19 @@ func Process(ctx context.Context, js nats.JetStreamContext, streamName string, t
 						continue
 					}
 				}
+
 				executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Header)
 				executeCtx = header.Copy(ctx, executeCtx)
 				executeCtx = subj.SetNS(executeCtx, m.Header.Get(header.SharNamespace))
+
+				for _, i := range middleware {
+					var err error
+					if executeCtx, err = i(executeCtx, m); err != nil {
+						slog.Error("process middleware", "error", err, "subject", subject, "middleware", reflect.TypeOf(i).Name())
+						continue
+					}
+				}
+
 				ack, err := fn(executeCtx, executeLog, msg[0])
 				if err != nil {
 					if errors2.IsWorkflowFatal(err) {

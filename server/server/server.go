@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"net"
 	"os"
 	"os/signal"
@@ -40,6 +41,7 @@ type Server struct {
 	natsUrl                 string
 	grpcPort                int
 	conn                    *nats.Conn
+	telemetryConfig         telemetry.Config
 }
 
 // New creates a new SHAR server.
@@ -58,6 +60,7 @@ func New(options ...Option) *Server {
 		healthServiceEnabled:    true,
 		concurrency:             6,
 	}
+
 	for _, i := range options {
 		i.configure(s)
 	}
@@ -121,7 +124,7 @@ func (s *Server) Listen() {
 	}
 
 	ns := s.createServices(s.conn, s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
-	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator)
+	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator, s.telemetryConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -180,7 +183,7 @@ func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool,
 	if ephemeral {
 		store = nats.MemoryStorage
 	}
-	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks)
+	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks, s.telemetryConfig)
 	if err != nil {
 		slog.Error("create NATS KV store", slog.String("error", err.Error()))
 		panic(err)

@@ -60,7 +60,7 @@ func (c *Client) backoff(ctx context.Context, msg *nats.Msg) error {
 			trackingID := common.TrackingID(state.Id).ID()
 			res := &model.HandleWorkflowErrorResponse{}
 			req := &model.HandleWorkflowErrorRequest{TrackingId: trackingID, ErrorCode: retryBehaviour.DefaultExceeded.ErrorCode, Vars: []byte{}}
-			if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowError, c.ExpectedCompatibleServerVersion, req, res); err2 != nil {
+			if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {
 				// TODO: This isn't right.  If this call fails it assumes it is handled!
 				reterr := fmt.Errorf("retry workflow error handle: %w", err2)
 				return logx.Err(ctx, "call workflow error handler", reterr, slog.Any("workflowError", &workflow.Error{Code: retryBehaviour.DefaultExceeded.ErrorCode, WrappedError: err2}))

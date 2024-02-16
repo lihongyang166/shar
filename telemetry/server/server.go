@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/model"
@@ -164,7 +165,7 @@ func (s *Server) Listen() error {
 		return fmt.Errorf("listen failed to attach to tracking key value database: %w", err)
 	}
 	s.spanKV = kv
-	err = common.Process(ctx, s.js, "WORKFLOW_TELEMETRY", "telemetry", closer, "WORKFLOW.*.State.>", "Tracing", 1, s.workflowTrace)
+	err = common.Process(ctx, s.js, "WORKFLOW_TELEMETRY", "telemetry", closer, "WORKFLOW.*.State.>", "Tracing", 1, []middleware.Receive{}, s.workflowTrace)
 	if err != nil {
 		return fmt.Errorf("listen failed to start telemetry handler: %w", err)
 	}

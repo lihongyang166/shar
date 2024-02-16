@@ -12,6 +12,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -29,6 +30,7 @@ import (
 type Engine struct {
 	closing chan struct{}
 	ns      NatsService
+	telCfg  telemetry.Config
 }
 
 // New returns an instance of the core workflow engine.
@@ -175,6 +177,8 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 			Vars:         vrs,
 			Id:           []string{executionId},
 		}
+
+		telemetry.CtxToWfState(ctx, &c.telCfg, wiState)
 
 		ctx, log = common.ContextLoggerWithWfState(ctx, wiState)
 		log.Debug("just after adding wfState details to log ctx")

@@ -3,14 +3,14 @@ default: clean proto server tracing cli zen-shar
 configure:
 	@echo "\033[92mConfigure\033[0m"
 	go version
-	go get -d google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
+	go get -d google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
 	go get -d google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go get -d github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go get -d github.com/vektra/mockery/v2@v2.36.0
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
+	go get -d github.com/vektra/mockery/v2@v2.41.0
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install github.com/vektra/mockery/v2@v2.36.0
+	go install github.com/vektra/mockery/v2@v2.41.0
 	go install gotest.tools/gotestsum@latest
 	curl -o ./nats-proto-gen-go-main.tar.gz https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz
 	tar -zxvf nats-proto-gen-go-main.tar.gz && rm nats-proto-gen-go-main.tar.gz

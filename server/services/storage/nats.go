@@ -255,7 +255,6 @@ func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
 
 // StartProcessing begins listening to all the message processing queues.
 func (s *Nats) StartProcessing(ctx context.Context) error {
-
 	if err := s.processTraversals(ctx); err != nil {
 		return fmt.Errorf("start traversals handler: %w", err)
 	}
@@ -1199,22 +1198,26 @@ func (s *Nats) processActivities(ctx context.Context) error {
 
 		case strings.HasSuffix(msg.Subject, ".State.Activity.Complete"):
 			if err := proto.Unmarshal(msg.Data, &activity); err != nil {
+				log.Info("###### err 1 processing .State.Activity.Complete", "err", err)
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
 
 			if _, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processActivities aborted due to a missing process")
+				log.Info("###### err 2 processing .State.Activity.Complete", "err", err)
 				return true, nil
 			} else if err != nil {
 				return false, err
 			}
 			activityID := common.TrackingID(activity.Id).ID()
 			if err := s.eventActivityCompleteProcessor(ctx, &activity); err != nil {
+				log.Info("###### err 3 processing .State.Activity.Complete", "err", err)
 				return false, err
 			}
 			err := s.deleteSavedState(ctx, activityID)
 			if err != nil {
+				log.Info("###### err 4 processing .State.Activity.Complete", "err", err)
 				return true, fmt.Errorf("delete saved state upon activity completion: %w", err)
 			}
 		}
@@ -1442,6 +1445,8 @@ func (s *Nats) processProcessComplete(ctx context.Context) error {
 
 func (s *Nats) processGeneralAbort(ctx context.Context) error {
 	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+		log.Info("###processGeneralAbort")
+
 		var state model.WorkflowState
 		if err := proto.Unmarshal(msg.Data, &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
@@ -1450,7 +1455,7 @@ func (s *Nats) processGeneralAbort(ctx context.Context) error {
 		switch {
 		case strings.HasSuffix(msg.Subject, ".State.Activity.Abort"):
 			if err := s.deleteActivity(ctx, &state); err != nil {
-				log.Error("######### error processing WorkflowActivityAbort ", "err", err)
+				log.Error("^^^^^^^^^ error processing WorkflowActivityAbort ", "err", err)
 				return false, fmt.Errorf("delete activity during general abort processor: %w", err)
 			}
 		case strings.HasSuffix(msg.Subject, ".State.Workflow.Abort"):

@@ -63,8 +63,7 @@ test_stage:
       when: never
     - if: "$CI_PIPELINE_IID"
   script:
-#    - make test
-    - go test --count 10 -v ./integration/shar/boundarytimer
+    - make test
   artifacts:
     when: always
     reports:

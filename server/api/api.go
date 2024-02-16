@@ -33,13 +33,13 @@ import (
 
 // SharServer provides API endpoints for SHAR
 type SharServer struct {
-	ns                   *storage.Nats
-	engine               *workflow.Engine
-	subs                 *sync.Map
-	panicRecovery        bool
-	apiAuthZFn           authz.APIFunc
-	apiAuthNFn           authn.Check
-	receiveMiddleware    []middleware.Receive
+	ns            *storage.Nats
+	engine        *workflow.Engine
+	subs          *sync.Map
+	panicRecovery bool
+	apiAuthZFn    authz.APIFunc
+	apiAuthNFn    authn.Check
+	//receiveMiddleware    []middleware.Receive
 	receiveApiMiddleware []middleware.Receive
 	sendMiddleware       []middleware.Send
 }

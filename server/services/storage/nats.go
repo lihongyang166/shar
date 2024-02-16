@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	_ "embed"
 	errors2 "errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/header"
@@ -140,11 +142,10 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 }
 
 // New creates a new instance of the NATS communication layer.
-func New(conn common.NatsConn, txConn common.NatsConn, storageType nats.StorageType, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config) (*Nats, error) {
+func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config) (*Nats, error) {
 	if concurrency < 1 || concurrency > 200 {
 		return nil, fmt.Errorf("invalid concurrency: %w", errors2.New("invalid concurrency set"))
 	}
-
 	js, err := conn.JetStream()
 	if err != nil {
 		return nil, fmt.Errorf("open jetstream: %w", err)
@@ -979,26 +980,37 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 		i.Apply(c)
 	}
 	state.UnixTimeNano = time.Now().UnixNano()
-	id, err := ksuid.Parse(common.TrackingID(state.Id).ID())
-	if err != nil {
-		return fmt.Errorf("parse ksuid: %w", err)
-	}
 
-	// Set
-	idStr := common.KSuidTo64bit(id.String())
-	spanID := fmt.Sprintf("%x", idStr)
-	var traceID string
-	if sctx := trace.SpanContextFromContext(ctx); sctx.IsValid() {
-		traceID = sctx.TraceID().String()
-	} else if state.TraceParent != "" {
-		traceID, _ = telemetry.GetTraceparentTraceAndSpan(state.TraceParent)
-	} else if ctx.Value("traceparent") != nil {
-		traceID, _ = telemetry.GetTraceparentTraceAndSpan(ctx.Value("traceparent").(string))
-	}
-	traceparent := fmt.Sprintf("00-%s-%s-01", traceID, spanID)
-	ctx = context.WithValue(ctx, "traceparent", traceparent)
-	state.TraceParent = traceparent
+	// Timed start messages have no id, as they have not started yet, so don't attempt to encode telemetry
+	if len(state.Id) == 0 {
+		traceId := make([]byte, 16)
+		_, err := rand.Read(traceId)
+		if err != nil {
+			return fmt.Errorf("generate random trace ID: %w", err)
+		}
+		state.TraceParent = telemetry.NewTraceParent(traceId)
 
+	} else {
+		id, err := ksuid.Parse(common.TrackingID(state.Id).ID())
+		if err != nil {
+			return fmt.Errorf("parse ksuid: %w", err)
+		}
+
+		// Set
+		idStr := common.KSuidTo64bit(id.String())
+		spanID := fmt.Sprintf("%x", idStr)
+		var traceID string
+		if sctx := trace.SpanContextFromContext(ctx); sctx.IsValid() {
+			traceID = sctx.TraceID().String()
+		} else if state.TraceParent != "" {
+			traceID, _ = telemetry.GetTraceparentTraceAndSpan(state.TraceParent)
+		} else if ctx.Value(ctxkey.Traceparent) != nil {
+			traceID, _ = telemetry.GetTraceparentTraceAndSpan(ctx.Value(ctxkey.Traceparent).(string))
+		}
+		traceparent := fmt.Sprintf("00-%s-%s-01", traceID, spanID)
+		ctx = context.WithValue(ctx, ctxkey.Traceparent, traceparent)
+		state.TraceParent = traceparent
+	}
 	msg := nats.NewMsg(subj.NS(stateName, subj.GetNS(ctx)))
 	msg.Header.Set("embargo", strconv.Itoa(c.Embargo))
 	msg.Header.Set(header.SharNamespace, subj.GetNS(ctx))

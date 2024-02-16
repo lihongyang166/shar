@@ -6,6 +6,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/shar-workflow/shar/common/ctxkey"
 
 	"gitlab.com/shar-workflow/shar/model"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -43,14 +44,6 @@ func TestClientTelemetryToSharServeWithNewTraceIdrNoTelemetry(t *testing.T) {
 
 func TestClientNoTelemetryToSharServerNoTelemetry(t *testing.T) {
 	testClientToSharServerWithTelemetry(t, false, false)
-}
-
-type mockTelemetryCapable struct {
-	telemetryConfig Config
-}
-
-func (c *mockTelemetryCapable) GetTelemetryConfig() Config {
-	return c.telemetryConfig
 }
 
 // testClientToSharServerWithTelemetry emulates communication with telemetry across the platform;
@@ -118,7 +111,7 @@ func testClientToSharServerWithTelemetry(t *testing.T, clientEnabled bool, serve
 			carriedTraceId = serverSpanCtx.TraceID().String()
 			assert.NotEqual(t, clientSpanContext.SpanID().String(), carriedSpanId)
 		} else {
-			carriedTraceId, carriedSpanId = GetTraceparentTraceAndSpan(svrCtx.Value("traceparent").(string))
+			carriedTraceId, carriedSpanId = GetTraceparentTraceAndSpan(svrCtx.Value(ctxkey.Traceparent).(string))
 			assert.Equal(t, clientSpanContext.SpanID().String(), carriedSpanId)
 		}
 		assert.Equal(t, clientSpanContext.TraceID().String(), carriedTraceId)

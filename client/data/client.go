@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
+	middleware2 "gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal/client/api"
 	"gitlab.com/shar-workflow/shar/model"
@@ -21,6 +23,9 @@ type Client struct {
 	concurrency                     int
 	ExpectedServerVersion           *version.Version
 	ExpectedCompatibleServerVersion *version.Version
+	SendMiddleware                  []middleware2.Send
+	ReceiveMiddleware               []middleware2.Receive
+	telemetryConfig                 telemetry.Config
 }
 
 // Option represents a configuration changer for the client.
@@ -31,9 +36,12 @@ type Option interface {
 // New creates a new SHAR data client instance
 func New(option ...Option) *Client {
 	client := &Client{
-		storageType: nats.FileStorage,
-		ns:          namespace.Default,
-		concurrency: 10,
+		storageType:       nats.FileStorage,
+		ns:                namespace.Default,
+		concurrency:       10,
+		SendMiddleware:    make([]middleware2.Send, 0),
+		ReceiveMiddleware: make([]middleware2.Receive, 0),
+		telemetryConfig:   telemetry.Config{Enabled: false},
 	}
 	for _, i := range option {
 		i.configure(client)
@@ -43,6 +51,14 @@ func New(option ...Option) *Client {
 
 // Dial instructs the client to connect to a NATS server.
 func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) error {
+
+	c.SendMiddleware = append(c.SendMiddleware,
+		telemetry.SendMessageTelemetry(c.telemetryConfig),
+	)
+	c.ReceiveMiddleware = append(c.ReceiveMiddleware,
+		telemetry.ReceiveMessageTelemetry(c.telemetryConfig),
+	)
+
 	n, err := nats.Connect(natsURL, opts...)
 	if err != nil {
 		return fmt.Errorf("data client dial: %w", err)
@@ -62,7 +78,7 @@ func (c *Client) GetServerVersion(ctx context.Context) (*version.Version, error)
 		ClientVersion: version2.Version,
 	}
 	res := &model.GetVersionInfoResponse{}
-	if err := api.Call(ctx, c.con, messages.APIGetVersionInfo, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api.Call(ctx, c.con, messages.APIGetVersionInfo, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, fmt.Errorf("get version info: %w", err)
 	}
 

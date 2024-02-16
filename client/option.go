@@ -26,6 +26,7 @@ type concurrency struct {
 	val int
 }
 
+// ConfigurationOption represents an interface for configuring a client.
 type ConfigurationOption interface {
 	configure(client *Client)
 }
@@ -47,14 +48,15 @@ func (o noRecovery) configure(client *Client) {
 }
 
 // WithOpenTelemetry enables the flow of Open Telemetry Trace and Span IDs.
-func WithOpenTelemetry() ConfigurationOption {
-	return openTelemetry{}
+func WithOpenTelemetry() OpenTelemetry {
+	return OpenTelemetry{}
 }
 
-type openTelemetry struct {
+// OpenTelemetry represents a type for enabling OpenTelemetry for a client.
+type OpenTelemetry struct {
 }
 
-func (o openTelemetry) configure(client *Client) {
+func (o OpenTelemetry) configure(client *Client) {
 	client.telemetryConfig.Enabled = true
 }
 

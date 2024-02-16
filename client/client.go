@@ -173,10 +173,6 @@ func New(option ...ConfigurationOption) *Client {
 	return client
 }
 
-func (c *Client) GetTelemetryConfig() telemetry.Config {
-	return c.telemetryConfig
-}
-
 // Dial instructs the client to connect to a NATS server.
 func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) error {
 

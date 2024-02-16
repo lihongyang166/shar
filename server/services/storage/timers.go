@@ -102,6 +102,8 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 					continue
 				}
 				if strings.HasSuffix(msg[0].Subject, ".Timers.ElementExecute") {
+					log.Debug("######### processing .Timers.ElementExecute", "subj", msg[0].Subject)
+
 					_, err := s.hasValidExecution(sCtx, state.ExecutionId)
 					if errors2.Is(err, errors.ErrExecutionNotFound) {
 						log := logx.FromContext(sCtx)
@@ -143,6 +145,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 					}
 					if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), state); err != nil {
 						if err != nil {
+							log.Error("######### error publishing WorkflowActivityAbort for timer", "err", err)
 							continue
 						}
 					}

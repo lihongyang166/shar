@@ -12,6 +12,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -352,7 +353,10 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 
 func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.WorkflowState, newState *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
-	traceID := common.KSuidTo128bit(oldState.ExecutionId)
+	traceID, err := telemetry.TraceIDFromTraceparent(oldState.TraceParent)
+	if err != nil {
+		traceID = common.KSuidTo128bit(oldState.ExecutionId)
+	}
 	spanID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ID())
 	parentID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ParentID())
 	parentSpan := trace.SpanContext{}
@@ -363,7 +367,7 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 		})
 	}
 	pid := common.TrackingID(oldState.Id).ParentID()
-	id := common.TrackingID(oldState.Id).ID()
+	id := traceID.String()
 	st := oldState.State.String()
 	at := map[string]*string{
 		keys.ElementID:   &oldState.ElementId,

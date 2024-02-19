@@ -1450,7 +1450,6 @@ func (s *Nats) processGeneralAbort(ctx context.Context) error {
 		switch {
 		case strings.HasSuffix(msg.Subject, ".State.Activity.Abort"):
 			if err := s.deleteActivity(ctx, &state); err != nil {
-				log.Error("######### error processing WorkflowActivityAbort ", "err", err)
 				return false, fmt.Errorf("delete activity during general abort processor: %w", err)
 			}
 		case strings.HasSuffix(msg.Subject, ".State.Workflow.Abort"):
@@ -1479,15 +1478,12 @@ func (s *Nats) deleteActivity(ctx context.Context, state *model.WorkflowState) e
 
 func (s *Nats) deleteJob(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.DeleteJob(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
-		slog.Error("######### error DeleteJob deleteJob", "err", err)
 		return fmt.Errorf("delete job: %w", err)
 	}
 	if activityState, err := s.GetOldState(ctx, common.TrackingID(state.Id).Pop().ID()); err != nil && !errors2.Is(err, errors.ErrStateNotFound) {
-		slog.Error("######### error GetOldState deleteJob", "err", err)
 		return fmt.Errorf("fetch old state during delete job: %w", err)
 	} else if err == nil {
 		if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), activityState); err != nil {
-			slog.Error("######### error publishing WorkflowActivityAbort for deleteJob", "err", err)
 			return fmt.Errorf("publish activity abort during delete job: %w", err)
 		}
 	}

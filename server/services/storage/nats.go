@@ -1201,8 +1201,8 @@ func (s *Nats) processActivities(ctx context.Context) error {
 				log.Info("###### err 1 processing .State.Activity.Complete", "err", err)
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
-
-			if _, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+			pi, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.ExecutionId)
+			if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processActivities aborted due to a missing process")
 				log.Info("###### err 2 processing .State.Activity.Complete", "err", err)
@@ -1215,10 +1215,21 @@ func (s *Nats) processActivities(ctx context.Context) error {
 				log.Info("###### err 3 processing .State.Activity.Complete", "err", err)
 				return false, err
 			}
-			err := s.deleteSavedState(ctx, activityID)
+			err = s.deleteSavedState(ctx, activityID)
 			if err != nil {
 				log.Info("###### err 4 processing .State.Activity.Complete", "err", err)
 				return true, fmt.Errorf("delete saved state upon activity completion: %w", err)
+			}
+
+			//TODO can we move the publish to WorkflowProcessComplete (that ultimately deletes process/execution) here??
+			//but what happens if any of the above steps fails??? should we perhaps publish to WorkflowProcessComplete as a defer???
+			//but only if we actually have a valid process to delete???
+			if activity.State == model.CancellationState_completed || activity.State == model.CancellationState_errored || activity.State == model.CancellationState_terminated {
+				newState := common.CopyWorkflowState(&activity)
+				newState.Id = []string{pi.ProcessInstanceId}
+				if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, newState); err != nil {
+					return false, fmt.Errorf("activity complete, publish ProcessComplete: %w", err)
+				}
 			}
 		}
 

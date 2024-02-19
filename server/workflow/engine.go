@@ -780,7 +780,6 @@ func (c *Engine) completeActivity(ctx context.Context, state *model.WorkflowStat
 	// tell the world that we processed the activity
 	common.DropStateParams(state)
 	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
-		slog.Info("###failed to publish ActivityComplete completeActivity ", "err", err)
 		return c.engineErr(ctx, "publish workflow cancellationState", err)
 		//TODO: report this without process: apErrFields(wfi.WorkflowInstanceId, wfi.WorkflowId, el.Id, el.Name, el.Type, process.Name)
 	}

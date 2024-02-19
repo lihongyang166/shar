@@ -63,8 +63,7 @@ test_stage:
       when: never
     - if: "$CI_PIPELINE_IID"
   script:
-#    - make test
-    - go test -v -count 10 ./integration/shar/...
+    - make test
   artifacts:
     when: always
     reports:

@@ -1202,13 +1202,6 @@ func (s *Nats) processActivities(ctx context.Context) error {
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
 
-			//if _, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
-			//	log := logx.FromContext(ctx)
-			//	log.Log(ctx, slog.LevelInfo, "processActivities aborted due to a missing process")
-			//	return true, nil
-			//} else if err != nil {
-			//	return false, err
-			//}
 			activityID := common.TrackingID(activity.Id).ID()
 			if err := s.eventActivityCompleteProcessor(ctx, &activity); err != nil {
 				return false, err

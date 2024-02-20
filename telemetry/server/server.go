@@ -4,9 +4,15 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
 	"github.com/nats-io/nats.go"
+	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/namespace"
@@ -29,9 +35,6 @@ import (
 	semconv2 "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
-	"strings"
-	"time"
 )
 
 const (
@@ -124,7 +127,6 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 			"workflow_state",
 			metric.WithDescription("how many workflow state messages have been received, tagged by subject"),
 		)
-
 	if err != nil {
 		slog.Error("err getting meter provider meter counter", "err", err.Error())
 	}
@@ -138,7 +140,6 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 			"workflow_state_up_down",
 			metric.WithDescription("how many workflow state messages are active, tagged by action"),
 		)
-
 	if err != nil {
 		slog.Error("err getting meter provider meter up down counter", "err", err.Error())
 	}
@@ -181,8 +182,18 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	case strings.HasSuffix(msg.Subject, stateExecutionExecute):
 		s.incrementActionCounter(ctx, stateExecutionExecute)
 		s.changeActionUpDownCounter(ctx, 1, stateExecutionExecute)
-
-		slog.Debug("execution execute", slog.Any("state", state))
+		// TODO: we should add a trace ID field and change this in future
+		// in case we are passed a trace ID that is used instead of this
+		ks, err := ksuid.Parse(state.ExecutionId)
+		if err != nil {
+			slog.Error("error parsing trace ID: %w", err)
+		}
+		slog.Debug(
+			"execution execute",
+			slog.String("hexTraceID", hex.EncodeToString(ks.Payload())),
+			slog.String("executionId", state.ExecutionId),
+			slog.String("workflowId", state.WorkflowId),
+		)
 
 		if err := s.saveSpan(ctx, "Execution Start", state, state); err != nil {
 			return true, nil
@@ -250,8 +261,8 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	case strings.Contains(msg.Subject, stateJobCompleteSendMessage):
 	case strings.Contains(msg.Subject, stateLog):
 
-	//case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
-	//case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
+	// case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
+	// case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
 	default:
 
 	}
@@ -350,6 +361,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.WorkflowState, newState *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
 	traceID := common.KSuidTo128bit(oldState.ExecutionId)
+
 	spanID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ID())
 	parentID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ParentID())
 	parentSpan := trace.SpanContext{}

@@ -1,12 +1,12 @@
-package intTest
+package error
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
@@ -16,19 +16,14 @@ import (
 )
 
 func TestUnhandledError(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
-	//sub := tracer.Trace(tst.NatsURL)
-	//defer sub.Close()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
 		panic(err)
 	}
@@ -42,7 +37,7 @@ func TestUnhandledError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/errors.bpmn")
+	b, err := os.ReadFile("../../../testdata/errors.bpmn")
 	if err != nil {
 		panic(err)
 	}
@@ -70,7 +65,7 @@ func TestUnhandledError(t *testing.T) {
 
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testErrorUnhandledHandlerDef struct {

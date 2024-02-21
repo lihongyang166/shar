@@ -1,16 +1,16 @@
-package intTest
+package gateway
 
 import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/parser"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -19,9 +19,10 @@ import (
 )
 
 func TestExclusiveParse(t *testing.T) {
+	t.Parallel()
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/gateway-exclusive-out-and-in-test.bpmn")
+	b, err := os.ReadFile("../../../testdata/gateway-exclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
 
 	wf, err := parser.Parse("SimpleWorkflowTest", bytes.NewBuffer(b))
@@ -38,8 +39,10 @@ func TestExclusiveParse(t *testing.T) {
 }
 
 func TestNestedExclusiveParse(t *testing.T) {
+	t.Parallel()
+
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/gateway-multi-exclusive-out-and-in-test.bpmn")
+	b, err := os.ReadFile("../../../testdata/gateway-multi-exclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
 
 	wf, err := parser.Parse("SimpleWorkflowTest", bytes.NewBuffer(b))
@@ -52,16 +55,14 @@ func TestNestedExclusiveParse(t *testing.T) {
 }
 
 func TestExclusiveRun(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 
 	require.NoError(t, err)
@@ -77,7 +78,7 @@ func TestExclusiveRun(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/gateway-exclusive-out-and-in-test.bpmn")
+	b, err := os.ReadFile("../../../testdata/gateway-exclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ExclusiveGatewayTest", b)
 	require.NoError(t, err)
@@ -95,21 +96,19 @@ func TestExclusiveRun(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, g.finished, time.Second*20)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 
 }
 
 func TestInclusiveRun(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 
 	require.NoError(t, err)
@@ -125,7 +124,7 @@ func TestInclusiveRun(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/gateway-inclusive-out-and-in-test.bpmn")
+	b, err := os.ReadFile("../../../testdata/gateway-inclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "InclusiveGatewayTest", b)
 	require.NoError(t, err)
@@ -143,7 +142,7 @@ func TestInclusiveRun(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, g.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 
 }
 

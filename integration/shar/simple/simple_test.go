@@ -1,9 +1,9 @@
-package intTest
+package simple
 
 import (
 	"context"
 	"fmt"
-	"gitlab.com/shar-workflow/shar/common/namespace"
+	"github.com/segmentio/ksuid"
 	"os"
 	"testing"
 	"time"
@@ -17,17 +17,13 @@ import (
 )
 
 func TestSimple(t *testing.T) {
-	tst := &support.Integration{}
-	tst.WithTrace = true
-
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10)) //client.Experimental_WithNamespace("fooNS"),
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
@@ -41,7 +37,7 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
@@ -57,7 +53,7 @@ func TestSimple(t *testing.T) {
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testSimpleHandlerDef struct {
@@ -73,6 +69,6 @@ func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.Job
 	return vars, nil
 }
 
-func (d *testSimpleHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *model.Error, _ model.CancellationState) {
 	close(d.finished)
 }

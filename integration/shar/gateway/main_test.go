@@ -1,4 +1,4 @@
-package intTest
+package gateway
 
 import (
 	"fmt"

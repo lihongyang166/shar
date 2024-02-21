@@ -1,12 +1,14 @@
-package intTest
+package boundarytimer
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
+	"gitlab.com/shar-workflow/shar/common/header"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -15,80 +17,67 @@ import (
 	"time"
 )
 
-var testBoundaryTimerTimeout = 60 * time.Second
+func TestBoundaryTimerHeaders(t *testing.T) {
+	t.Parallel()
+	complete := make(chan *model.WorkflowInstanceComplete, 100)
+	d := &testBoundaryTimerHeaderDef{tst: tst, finished: make(chan struct{})}
 
-func TestBoundaryTimer(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Cooldown = 60 * time.Second
-	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
-	d := &testBoundaryTimerDef{
-		tst:      tst,
-		finished: make(chan struct{}),
-	}
-
-	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
+	ns := ksuid.New().String()
+	executeBoundaryTimerHeaderTest(t, complete, d, ns)
+	support.WaitForChan(t, d.finished, 20*time.Second)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
-func TestBoundaryTimerTimeout(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Cooldown = 60 * time.Second
-	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
-	d := &testBoundaryTimerDef{
+func TestBoundaryTimerTimeoutHeaders(t *testing.T) {
+	t.Parallel()
+	complete := make(chan *model.WorkflowInstanceComplete, 100)
+	d := &testBoundaryTimerHeaderDef{
 		CanTimeOutPause:  time.Second * 5,
 		CheckResultPause: time.Second * 4,
 		tst:              tst,
 		finished:         make(chan struct{}),
 	}
 
-	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
+	ns := ksuid.New().String()
+	executeBoundaryTimerHeaderTest(t, complete, d, ns)
+	support.WaitForChan(t, d.finished, 20*time.Second)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
-func TestExclusiveGateway(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Cooldown = 60 * time.Second
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
-	d := &testBoundaryTimerDef{
+func TestExclusiveGatewayHeaders(t *testing.T) {
+	t.Parallel()
+	complete := make(chan *model.WorkflowInstanceComplete, 100)
+	d := &testBoundaryTimerHeaderDef{
 		CheckResultPause: time.Second * 3,
 		tst:              tst,
 		finished:         make(chan struct{}),
 	}
 
-	executeBoundaryTimerTest(t, d)
-	support.WaitForChan(t, d.finished, testBoundaryTimerTimeout)
+	ns := ksuid.New().String()
+	executeBoundaryTimerHeaderTest(t, complete, d, ns)
+	support.WaitForChan(t, d.finished, 20*time.Second)
 	fmt.Println("CanTimeOut Called:", d.CanTimeOutCalled)
 	fmt.Println("NoTimeout Called:", d.NoTimeoutCalled)
 	fmt.Println("TimedOut Called:", d.TimedOutCalled)
 	fmt.Println("CheckResult Called:", d.CheckResultCalled)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
-func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
-
+func executeBoundaryTimerHeaderTest(t *testing.T, complete chan *model.WorkflowInstanceComplete, d *testBoundaryTimerHeaderDef, ns string) {
+	d.t = t
 	// Create a starting context
 	ctx := context.Background()
-
+	ctx = header.Set(ctx, "sample", "ok")
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, d.tst.NatsURL)
 	require.NoError(t, err)
 
@@ -103,7 +92,7 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/possible-timeout-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/possible-timeout-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "PossibleTimeout", b)
@@ -111,18 +100,18 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef) string {
 
 	err = cl.RegisterProcessComplete("Process_16piog5", d.processEnd)
 	require.NoError(t, err)
+
 	// Launch the workflow
-	wfiID, _, err := cl.LaunchProcess(ctx, "Process_16piog5", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, "Process_16piog5", model.Vars{})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
 		require.NoError(t, err)
 	}()
-	return wfiID
 }
 
-type testBoundaryTimerDef struct {
+type testBoundaryTimerHeaderDef struct {
 	mx                sync.Mutex
 	CheckResultCalled int
 	CanTimeOutCalled  int
@@ -131,11 +120,13 @@ type testBoundaryTimerDef struct {
 	CanTimeOutPause   time.Duration
 	CheckResultPause  time.Duration
 	NoTimeoutPause    time.Duration
+	t                 *testing.T
 	tst               *support.Integration
 	finished          chan struct{}
 }
 
-func (d *testBoundaryTimerDef) canTimeout(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerHeaderDef) canTimeout(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	assert.Equal(d.t, "ok", header.Get(ctx, "sample"))
 	d.mx.Lock()
 	d.CanTimeOutCalled++
 	d.mx.Unlock()
@@ -143,7 +134,8 @@ func (d *testBoundaryTimerDef) canTimeout(_ context.Context, _ client.JobClient,
 	return vars, nil
 }
 
-func (d *testBoundaryTimerDef) noTimeout(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerHeaderDef) noTimeout(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	assert.Equal(d.t, "ok", header.Get(ctx, "sample"))
 	d.mx.Lock()
 	d.NoTimeoutCalled++
 	d.mx.Unlock()
@@ -151,14 +143,16 @@ func (d *testBoundaryTimerDef) noTimeout(_ context.Context, _ client.JobClient, 
 	return vars, nil
 }
 
-func (d *testBoundaryTimerDef) timedOut(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerHeaderDef) timedOut(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	assert.Equal(d.t, "ok", header.Get(ctx, "sample"))
 	d.mx.Lock()
 	d.TimedOutCalled++
 	d.mx.Unlock()
 	return vars, nil
 }
 
-func (d *testBoundaryTimerDef) checkResult(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerHeaderDef) checkResult(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	assert.Equal(d.t, "ok", header.Get(ctx, "sample"))
 	d.mx.Lock()
 	d.CheckResultCalled++
 	d.mx.Unlock()
@@ -166,6 +160,6 @@ func (d *testBoundaryTimerDef) checkResult(_ context.Context, _ client.JobClient
 	return vars, nil
 }
 
-func (d *testBoundaryTimerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (d *testBoundaryTimerHeaderDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	d.finished <- struct{}{}
 }

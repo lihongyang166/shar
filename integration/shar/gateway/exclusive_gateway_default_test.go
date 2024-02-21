@@ -1,12 +1,12 @@
-package intTest
+package gateway
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -15,15 +15,14 @@ import (
 )
 
 func TestExclusiveGatewayDefault(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -38,7 +37,7 @@ func TestExclusiveGatewayDefault(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/exclusive-gateway-default.bpmn")
+	b, err := os.ReadFile("../../../testdata/exclusive-gateway-default.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ExclusiveGatewayDefaultTest", b)
 	require.NoError(t, err)
@@ -55,7 +54,7 @@ func TestExclusiveGatewayDefault(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testExclusiveGatewayDefaultDef struct {

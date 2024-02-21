@@ -3,11 +3,11 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -17,15 +17,14 @@ import (
 )
 
 func TestUserTasks(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
 		panic(err)
 	}
@@ -95,7 +94,7 @@ func TestUserTasks(t *testing.T) {
 	assert.Equal(t, "Miggins", d.finalVars["Surname"].(string))
 	assert.Equal(t, 69, d.finalVars["OrderId"].(int))
 	assert.Equal(t, 32767, d.finalVars["carried"].(int))
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, tst.Cooldown)
 }
 
 type testUserTaskHandlerDef struct {

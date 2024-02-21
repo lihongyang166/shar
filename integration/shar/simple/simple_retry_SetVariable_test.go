@@ -1,10 +1,10 @@
-package intTest
+package simple
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	"os"
 	"testing"
 	"time"
@@ -17,17 +17,12 @@ import (
 )
 
 func TestSimpleRetry_SetVariable(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
-
+	ns := ksuid.New().String()
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -40,7 +35,7 @@ func TestSimpleRetry_SetVariable(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow-output.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow-output.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
@@ -55,7 +50,7 @@ func TestSimpleRetry_SetVariable(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testSimpleRetrySetVariableHandlerDef struct {

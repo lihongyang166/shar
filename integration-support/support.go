@@ -11,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,22 +45,65 @@ var errDirtyKV = errors.New("KV contains values when expected empty")
 
 // Integration - the integration test support framework.
 type Integration struct {
-	testNatsServer zensvr.Server
-	testSharServer zensvr.Server
-	FinalVars      map[string]interface{}
-	Test           *testing.T
-	Mx             sync.Mutex
-	Cooldown       time.Duration
-	WithTelemetry  server2.Exporter
-	testTelemetry  *server2.Server
-	WithTrace      bool
-	traceSub       *tracer.OpenTrace
-	NatsURL        string // NatsURL is the default testing URL for the NATS host.
-	TestRunnable   func() (bool, string)
+	testNatsServer                zensvr.Server
+	testSharServer                zensvr.Server
+	FinalVars                     map[string]interface{}
+	Mx                            sync.Mutex
+	Cooldown                      time.Duration
+	WithTelemetry                 server2.Exporter
+	testTelemetry                 *server2.Server
+	WithTrace                     bool
+	traceSub                      *tracer.OpenTrace
+	NatsURL                       string // NatsURL is the default testing URL for the NATS host.
+	TestRunnable                  func() (bool, string)
+	testableUnitName              string
+	setupContainerServersFailedFn func(string)
+	telemtryFailedHandlerFn       func(error)
+	authZFn                       authz.APIFunc
+	authNFn                       authn.Check
+}
+
+// NewIntegrationT is used to construct an instance of Integration support used from the context of a test
+func NewIntegrationT(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check, trace bool, testRunnableFn func() (bool, string), WithTelemetry server2.Exporter) *Integration {
+	i := &Integration{}
+	i.authZFn = authZFn
+	i.authNFn = authNFn
+	i.WithTrace = trace
+	i.TestRunnable = testRunnableFn
+	i.WithTelemetry = WithTelemetry
+
+	i.testableUnitName = t.Name()
+	i.setupContainerServersFailedFn = func(failureMessage string) {
+		t.Skip(failureMessage)
+	}
+
+	i.telemtryFailedHandlerFn = func(err error) {
+		require.NoError(t, err)
+	}
+
+	return i
+}
+
+// NewIntegration is used to construct an instance of Integration support used from the context of a package
+func NewIntegration(trace bool, packageName string, WithTelemetry server2.Exporter) *Integration {
+	i := &Integration{}
+	i.WithTrace = trace
+	i.WithTelemetry = WithTelemetry
+
+	i.testableUnitName = packageName
+	i.setupContainerServersFailedFn = func(failureMessage string) {
+		panic("unable to start containerised integration test support: " + failureMessage)
+	}
+
+	i.telemtryFailedHandlerFn = func(err error) {
+		panic("unable to initialise telemetry: " + err.Error())
+	}
+
+	return i
 }
 
 // Setup - sets up the test NATS and SHAR servers.
-func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.Check) {
+func (s *Integration) Setup() {
 	//t.Setenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME, "nats:2.9.20")
 	//t.Setenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME, "local/shar-server:0.0.1-SNAPSHOT")
 	//t.Setenv(NATS_PERSIST_ENV_VAR_NAME, "true")
@@ -67,12 +111,12 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	if s.TestRunnable != nil {
 		runnable, skipReason := s.TestRunnable()
 		if !runnable {
-			t.Skipf("test skipped reason: %s", skipReason)
+			s.setupContainerServersFailedFn(fmt.Sprintf("test skipped reason: %s", skipReason))
 		}
 	}
 
 	if IsSharContainerised() && !IsNatsContainerised() {
-		t.Skip("invalid shar/nats server container/in process combination")
+		s.setupContainerServersFailedFn("invalid shar/nats server container/in process combination")
 		//the combo of in container shar/in process nats will lead to problems as
 		//in container shar will persist nats data to disk - an issue if subsequent tests
 		//try to run against a nats instance that has previously written state to disk
@@ -80,21 +124,18 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	}
 
 	if IsNatsPersist() && !IsNatsContainerised() {
-		t.Skip("NATS_PERSIST only usable with containerised nats")
+		s.setupContainerServersFailedFn("NATS_PERSIST only usable with containerised nats")
 	}
-
-	s.Cooldown = 60 * time.Second
-	s.Test = t
 	s.FinalVars = make(map[string]interface{})
 
 	zensvrOptions := []zensvr.ZenSharOptionApplyFn{zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNatsServerImageUrl(os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME))}
 
 	if IsNatsPersist() {
-		natsStateDirForTest := s.natsStateDirForTest(t)
+		natsStateDirForTest := s.natsStateDirForTestableUnit(s.testableUnitName)
 		zensvrOptions = append(zensvrOptions, zensvr.WithNatsPersistHostPath(natsStateDirForTest))
 	}
 
-	ss, ns, err := zensvr.GetServers(20, authZFn, authNFn, zensvrOptions...)
+	ss, ns, err := zensvr.GetServers(20, s.authZFn, s.authNFn, zensvrOptions...)
 
 	level := slog.LevelDebug
 
@@ -125,11 +166,11 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 	if s.WithTelemetry != nil {
 		ctx := context.Background()
 		n, err := nats.Connect(s.NatsURL)
-		require.NoError(t, err)
+		s.telemtryFailedHandlerFn(err)
 		js, err := n.JetStream()
-		require.NoError(t, err)
+		s.telemtryFailedHandlerFn(err)
 		cfg, err := config.GetEnvironment()
-		require.NoError(t, err)
+		s.telemtryFailedHandlerFn(err)
 
 		_, err = server2.SetupMetrics(ctx, cfg, "shar-telemetry-processor-integration-test")
 		if err != nil {
@@ -139,17 +180,18 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		s.testTelemetry = server2.New(ctx, n, js, nats.MemoryStorage, s.WithTelemetry)
 
 		err = s.testTelemetry.Listen()
-		require.NoError(t, err)
+		s.telemtryFailedHandlerFn(err)
 	}
 
 	s.testSharServer = ss
 	s.testNatsServer = ns
-	s.Test.Logf("Starting test support for " + s.Test.Name())
-	s.Test.Logf("\033[1;36m%s\033[0m", "> Setup completed\n")
+
+	fmt.Printf("Starting test support for " + s.testableUnitName + "\n")
+	fmt.Printf("\033[1;36m%s\033[0m", "> Setup completed\n")
 }
 
-func (s *Integration) natsStateDirForTest(t *testing.T) string {
-	natsPersistHostRootForTest := fmt.Sprintf("%snats-store/%s/", os.Getenv("TMPDIR"), t.Name())
+func (s *Integration) natsStateDirForTestableUnit(name string) string {
+	natsPersistHostRootForTest := fmt.Sprintf("%snats-store/%s/", os.Getenv("TMPDIR"), name)
 	slog.Info(fmt.Sprintf("### natsPersistHostRootForTest is %s ", natsPersistHostRootForTest))
 
 	//dir name is the dir creation time epoch millis, sorted asc, if it exists
@@ -205,7 +247,7 @@ func purgeOld(natsPersistHostRootForTest string, dataDirectories []os.DirEntry, 
 }
 
 // AssertCleanKV - ensures SHAR has cleans up after itself, and there are no records left in the KV.
-func (s *Integration) AssertCleanKV(namespce string) {
+func (s *Integration) AssertCleanKV(namespce string, t *testing.T, cooldown time.Duration) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errs := make(chan error, 1)
 	var err error
@@ -215,7 +257,7 @@ func (s *Integration) AssertCleanKV(namespce string) {
 				cancel()
 				return
 			}
-			err = s.checkCleanKVFor(namespce)
+			err = s.checkCleanKVFor(namespce, t)
 			if err == nil {
 				cancel()
 				close(errs)
@@ -234,20 +276,20 @@ func (s *Integration) AssertCleanKV(namespce string) {
 	select {
 	case err2 := <-errs:
 		cancel()
-		assert.NoError(s.Test, err2, "KV not clean")
+		assert.NoError(t, err2, "KV not clean")
 		return
-	case <-time.After(s.Cooldown):
+	case <-time.After(cooldown):
 		cancel()
 		if err != nil {
-			assert.NoErrorf(s.Test, err, "KV not clean")
+			assert.NoErrorf(t, err, "KV not clean")
 		}
 		return
 	}
 }
 
-func (s *Integration) checkCleanKVFor(namespace string) error {
+func (s *Integration) checkCleanKVFor(namespace string, t *testing.T) error {
 	js, err := s.GetJetstream()
-	require.NoError(s.Test, err)
+	require.NoError(t, err)
 
 	for n := range js.KeyValueStores() {
 
@@ -257,12 +299,12 @@ func (s *Integration) checkCleanKVFor(namespace string) error {
 		}
 
 		kvs, err := js.KeyValue(name)
-		require.NoError(s.Test, err)
+		require.NoError(t, err)
 		keys, err := kvs.Keys()
 		if err != nil && errors.Is(err, nats.ErrNoKeysFound) {
 			continue
 		}
-		require.NoError(s.Test, err)
+		require.NoError(t, err)
 		switch name {
 		case ns.PrefixWith(namespace, messages.KvDefinition),
 			ns.PrefixWith(namespace, messages.KvWfName),
@@ -359,12 +401,12 @@ func (s *Integration) Teardown() {
 	if s.WithTrace {
 		s.traceSub.Close()
 	}
-	s.Test.Log("TEARDOWN")
+	fmt.Println("TEARDOWN")
 	s.testSharServer.Shutdown()
 	s.testNatsServer.Shutdown()
-	s.Test.Log("NATS shut down")
-	s.Test.Logf("\033[1;36m%s\033[0m", "> Teardown completed")
-	s.Test.Log("\n")
+	fmt.Println("NATS shut down")
+	fmt.Printf("\033[1;36m%s\033[0m", "> Teardown completed\n")
+	fmt.Printf("\n")
 }
 
 // GetJetstream - fetches the test framework jetstream server for making test calls.
@@ -436,4 +478,12 @@ func IsNatsContainerised() bool {
 // IsNatsPersist determines whether tests are persist nats data between executions
 func IsNatsPersist() bool {
 	return os.Getenv(NATS_PERSIST_ENV_VAR_NAME) == "true"
+}
+
+// GetPackageName retrieves the name of a package a particular struct is declared in
+func GetPackageName(packageNameStruct any) string {
+	fullPackageName := reflect.TypeOf(packageNameStruct).PkgPath()
+	packageNameSegments := strings.Split(fullPackageName, "/")
+	packageName := packageNameSegments[len(packageNameSegments)-1]
+	return packageName
 }

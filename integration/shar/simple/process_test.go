@@ -1,27 +1,23 @@
-package intTest
+package simple
 
 import (
 	"context"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"os"
 	"testing"
 )
 
 func TestProcessPersistenceNonUniqueName(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -31,14 +27,14 @@ func TestProcessPersistenceNonUniqueName(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
 
 	//load another process with different workflow name but same process name
-	pb, err := os.ReadFile("../../testdata/simple-workflow-same-processname.bpmn")
+	pb, err := os.ReadFile("../../../testdata/simple-workflow-same-processname.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowSameProcessNameTest", pb)

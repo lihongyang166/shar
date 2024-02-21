@@ -5,11 +5,13 @@ import (
 	"crypto/rand"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/segmentio/ksuid"
 	"math/big"
 	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,23 +101,12 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 		nPort = cNsvr.exposedToHostPorts[defaultNatsContainerPort]
 		nsvr = cNsvr
 	} else {
-		if defaults.natsServerAddress == "" {
-			v, e := rand.Int(rand.Reader, big.NewInt(500))
-			if e != nil {
-				panic("no crypto:" + e.Error())
-			}
-			nPort = 4459 + int(v.Int64())
-		} else {
-			a, p, err := parseUriOrAddressPort(defaults.natsServerAddress)
-			if err != nil {
-				return nil, nil, err
-			}
-			nPort = p
-			nHost = a
+		natsServer, err := inProcessNatsServer(natsConfigFile, nHost, defaults)
+		if err != nil {
+			return nil, nil, err
 		}
-
-		nsvr = inProcessNatsServer(natsConfigFile, nHost, nPort)
-		nsvr.Listen()
+		nPort = natsServer.port
+		nsvr = natsServer
 	}
 
 	var ssvr Server
@@ -127,6 +118,16 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 
 	slog.Info("Setup completed", "nats port", nPort)
 	return ssvr, nsvr, nil
+}
+
+func getRandomNatsPort() int {
+	v, e := rand.Int(rand.Reader, big.NewInt(500))
+	if e != nil {
+		panic("no crypto:" + e.Error())
+	}
+	nPort := 4459 + int(v.Int64())
+
+	return nPort
 }
 
 func parseUriOrAddressPort(address string) (string, int, error) {
@@ -150,7 +151,7 @@ func parseUriOrAddressPort(address string) (string, int, error) {
 }
 
 func writeNatsConfig() (string, string) {
-	natsConfigFileLocation := fmt.Sprintf("%snats-conf/", os.Getenv("TMPDIR"))
+	natsConfigFileLocation := fmt.Sprintf("%snats-conf/%s/", os.Getenv("TMPDIR"), ksuid.New().String())
 	if err := os.MkdirAll(filepath.Dir(natsConfigFileLocation), 0777); err != nil {
 		panic(fmt.Errorf("failed creating nats config dir: %w", err))
 	}
@@ -162,9 +163,24 @@ func writeNatsConfig() (string, string) {
 	return natsConfigFileLocation, natsConfigFile
 }
 
-func inProcessNatsServer(natsConfig string, natsHost string, natsPort int) *NatsServer {
-	n := &NatsServer{natsConfig: natsConfig, host: natsHost, port: natsPort}
-	return n
+func inProcessNatsServer(natsConfig string, defaultNatsHost string, defaults *zenOpts) (*NatsServer, error) {
+	var nHost string
+	var nPort int
+	if defaults.natsServerAddress == "" {
+		nHost = defaultNatsHost
+		nPort = getRandomNatsPort()
+	} else {
+		a, p, err := parseUriOrAddressPort(defaults.natsServerAddress)
+		if err != nil {
+			return nil, err
+		}
+		nHost = a
+		nPort = p
+	}
+
+	n := &NatsServer{natsConfig: natsConfig, host: nHost, port: nPort}
+	n.Listen()
+	return n, nil
 }
 
 func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort int) *containerisedServer {
@@ -273,25 +289,40 @@ func (natserver *NatsServer) Listen() {
 	if err != nil {
 		panic(fmt.Errorf("failed to load conf with err %w", err))
 	}
+
 	natsOptions.Host = natserver.host
 	natsOptions.Port = natserver.port
 
-	nsvr, err := server.NewServer(natsOptions)
+	natsSvr, actualNatsPort := tryStartingNats(natsOptions, natserver.port, 1)
+
+	slog.Info("NATS started")
+
+	natserver.port = actualNatsPort
+	natserver.nsvr = natsSvr
+}
+
+func tryStartingNats(natsOptions *server.Options, natsPort int, attempt int) (*server.Server, int) {
+	natsOptions.Port = natsPort
+	natsSvr, err := server.NewServer(natsOptions)
 
 	if err != nil {
-		// return nil, nil, fmt.Errorf("create a new server instance: %w", err)
 		panic(fmt.Errorf("create a new server instance: %w", err))
 	}
 	//nl := &NatsLogger{}
-	//nsvr.SetLogger(nl, true, true)
+	//natsSvr.SetLogger(nl, true, false)
 
-	go nsvr.Start()
-	if !nsvr.ReadyForConnections(5 * time.Second) {
-		panic("start NATS ")
+	go natsSvr.Start()
+	if natsSvr.ReadyForConnections(5 * time.Second) {
+		return natsSvr, natsPort
+	} else {
+		slog.Info("failed to start nats", "port", natsPort)
+		natsSvr.Shutdown()
+		if attempt == 3 {
+			panic("start NATS failed after " + strconv.Itoa(attempt) + " attempts")
+		} else {
+			return tryStartingNats(natsOptions, getRandomNatsPort(), attempt+1)
+		}
 	}
-	slog.Info("NATS started")
-
-	natserver.nsvr = nsvr
 }
 
 // Shutdown shutsdown an in process nats server

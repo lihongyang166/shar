@@ -1,13 +1,13 @@
-package intTest
+package messaging
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"log/slog"
@@ -19,11 +19,7 @@ import (
 
 //goland:noinspection GoNilness
 func TestMessagingMultipleReceivers(t *testing.T) {
-	tst := &support.Integration{}
-	tst.WithTrace = true
-	tst.Setup(t, nil, nil)
-
-	defer tst.Teardown()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
@@ -31,7 +27,8 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	handlers := &testMessagingMultiReceiverHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -44,7 +41,7 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/message-multiple-receivers-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/message-multiple-receivers-workflow.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
 	require.NoError(t, err)
@@ -68,7 +65,7 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	}()
 	support.WaitForChan(t, handlers.finished, 20*time.Second)
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testMessagingMultiReceiverHandlerDef struct {

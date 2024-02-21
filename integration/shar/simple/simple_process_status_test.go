@@ -1,13 +1,13 @@
-package intTest
+package simple
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -16,16 +16,13 @@ import (
 )
 
 func TestSimpleProcessStatus(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-	tst.Cooldown = 120 * time.Second
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -38,7 +35,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)
@@ -61,7 +58,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 		assert.Equal(t, "SimpleProcess", *ps.ProcessState[0].Execute)
 	}
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 120*time.Second)
 }
 
 type testSimpleProcessStatsHandlerDef struct {

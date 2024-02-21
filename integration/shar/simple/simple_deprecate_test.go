@@ -1,8 +1,9 @@
-package intTest
+package simple
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"os"
 	"testing"
@@ -17,12 +18,7 @@ import (
 )
 
 func TestLaunchProcessWithDeprecated(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
@@ -48,7 +44,7 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
@@ -58,21 +54,17 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.ErrorContains(t, err, "contains deprecated")
 
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
 }
 
 func TestDeprecateExecuting(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -86,7 +78,7 @@ func TestDeprecateExecuting(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
@@ -110,21 +102,17 @@ func TestDeprecateExecuting(t *testing.T) {
 	fmt.Println(inUseError.Usage.ExecutingProcessInstance)
 	close(d.wait)
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 func TestGetUsage(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -138,7 +126,7 @@ func TestGetUsage(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
@@ -178,7 +166,7 @@ func TestGetUsage(t *testing.T) {
 	assert.Equal(t, len(use2.ExecutingWorkflow), 1)
 	close(d.wait)
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testSimpleDeprecateHandlerDef struct {

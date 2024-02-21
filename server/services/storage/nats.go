@@ -86,7 +86,7 @@ type Nats struct {
 	completeActivityFunc           services.CompleteActivityFunc
 	abortFunc                      services.AbortFunc
 	sharKvs                        map[string]*NamespaceKvs
-	mx                             sync.Mutex
+	rwmx                           sync.RWMutex
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
@@ -234,32 +234,21 @@ func initNamespacedKvs(ns string, js nats.JetStreamContext, storageType nats.Sto
 // KvsFor retrieves the shar KVs for a given namespace. If they do not exist for a namespace,
 // it will initialise them and store them in a map for future lookup.
 func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
-	//## TODO we can probably lazily initialise the NamespaceKvs struct here on demand
-	//## but do we need to worry about contention/concurrency issues as we may well be trying to
-	//## read and write to the map from multiple go routines ???
-	//## ie do we need to serialize access to the NamespaceKvs value for each ns on write???
-
-	//## TODO also, how do we deal with multiple shar instances attempting to initialise the
-	//## nats buckets? would we need to use the distributed lock mechanism to synchronize
-	//## between multiple shar instances/goroutines trying to initialise nats resources for one namespace concurrently
-	//## does this really matter? what happens if we attempt to create a KV that already exists???
-
-	//lock the below section of code to ensure sequential access to the shared sharKvs map
-	//between multiple go routines. we can hopefully optimise/maybe remove the lock pending the outcome
-	//of concurrent testing with multiple namespaces but we are locking here to guarantee thread
-	//safety for now...
-	s.mx.Lock()
-	defer s.mx.Unlock()
-
+	s.rwmx.RLock()
 	if nsKvs, exists := s.sharKvs[ns]; !exists {
+		s.rwmx.RUnlock()
+		s.rwmx.Lock()
 		kvs, err := initNamespacedKvs(ns, s.js, s.storageType, NatsConfig)
 		if err != nil {
+			s.rwmx.Unlock()
 			return nil, fmt.Errorf("failed to initialise KVs for namespace %s: %w", ns, err)
 		}
 
 		s.sharKvs[ns] = kvs
+		s.rwmx.Unlock()
 		return kvs, nil
 	} else {
+		s.rwmx.RUnlock()
 		return nsKvs, nil
 	}
 }
@@ -1213,13 +1202,6 @@ func (s *Nats) processActivities(ctx context.Context) error {
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
 
-			if _, _, err := s.HasValidProcess(ctx, activity.ProcessInstanceId, activity.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
-				log := logx.FromContext(ctx)
-				log.Log(ctx, slog.LevelInfo, "processActivities aborted due to a missing process")
-				return true, nil
-			} else if err != nil {
-				return false, err
-			}
 			activityID := common.TrackingID(activity.Id).ID()
 			if err := s.eventActivityCompleteProcessor(ctx, &activity); err != nil {
 				return false, err

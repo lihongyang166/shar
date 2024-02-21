@@ -20,7 +20,7 @@ func main() {
 	t := tracer.Trace("127.0.0.1:4222")
 	defer t.Close()
 	// Dial shar
-	cl := client.New(client.Experimental_WithNamespace("testns"))
+	cl := client.New(client.WithNamespace("testns"))
 	if err := cl.Dial(ctx, nats.DefaultURL); err != nil {
 		panic(err)
 	}

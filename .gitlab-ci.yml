@@ -54,6 +54,8 @@ build_stage:
     paths:
       - build
 test_stage:
+  tags:
+    - saas-linux-medium-amd64
   image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.14
   stage: test
   rules:

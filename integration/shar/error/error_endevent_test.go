@@ -1,13 +1,13 @@
-package intTest
+package error
 
 import (
 	"context"
 	"fmt"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"log/slog"
@@ -17,15 +17,13 @@ import (
 )
 
 func TestEndEventError(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
-
+	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New()
+	ns := ksuid.New().String()
+	cl := client.New(client.WithNamespace(ns))
 	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
 		panic(err)
 	}
@@ -39,7 +37,7 @@ func TestEndEventError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/errors.bpmn")
+	b, err := os.ReadFile("../../../testdata/errors.bpmn")
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +63,7 @@ func TestEndEventError(t *testing.T) {
 
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testErrorEndEventHandlerDef struct {

@@ -469,7 +469,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	}
 
 	// get the corresponding workflow definition
-	process, err := c.ns.GetWorkflow(ctx, pi.WorkflowId)
+	workflow, err := c.ns.GetWorkflow(ctx, pi.WorkflowId)
 	if err != nil {
 		return c.engineErr(ctx, "get workflow", err,
 			slog.String(keys.ExecutionID, pi.ExecutionId),
@@ -478,7 +478,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	}
 
 	// create an indexed map of elements
-	els := common.ElementTable(process)
+	els := common.ElementTable(workflow)
 	el := els[traversal.ElementId]
 
 	// force traversal will not process the event, and will just traverse instead.
@@ -492,16 +492,16 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	newState.Id = activityID
 	// tell the world we are going to execute an activity
 	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowActivityExecute, newState); err != nil {
-		return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 	}
 	// log this with history
 	if err := c.ns.RecordHistoryActivityExecute(ctx, newState); err != nil {
-		return c.engineErr(ctx, "publish process history", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish process history", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 	}
 
 	// tell the world we have safely completed the traversal
 	if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalComplete, traversal); err != nil {
-		return c.engineErr(ctx, "publish traversal status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+		return c.engineErr(ctx, "publish traversal status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 	}
 
 	//Start any timers
@@ -589,15 +589,15 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			return fmt.Errorf("get service task routing key during activity start processor: %w", err)
 		}
 		if err := c.startJob(ctx, messages.WorkflowJobServiceTaskExecute+"."+*el.Version, newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start service task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start service task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.UserTask:
 		if err := c.startJob(ctx, messages.WorkflowJobUserTaskExecute, newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start user task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start user task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.ManualTask:
 		if err := c.startJob(ctx, messages.WorkflowJobManualTaskExecute, newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start manual task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start manual task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.MessageIntermediateThrowEvent:
 		wf, err := c.ns.GetWorkflow(ctx, pi.WorkflowId)
@@ -619,18 +619,18 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		msgState.Condition = &wf.Messages[ix].Execute
 
 		if err := c.startJob(ctx, messages.WorkflowJobSendMessageExecute+"."+pi.WorkflowName+"_"+el.Execute, newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start message job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start message job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.CallActivity:
 		if err := c.startJob(ctx, subj.NS(messages.WorkflowJobLaunchExecute, subj.GetNS(ctx)), newState, el, traversal.Vars); err != nil {
-			return c.engineErr(ctx, "start message launch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start message launch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.MessageIntermediateCatchEvent:
 		awaitMsg := common.CopyWorkflowState(newState)
 		awaitMsg.Execute = &el.Execute
 		awaitMsg.Condition = &el.Msg
 		if err := c.startJob(ctx, messages.WorkflowJobAwaitMessageExecute, awaitMsg, el, awaitMsg.Vars); err != nil {
-			return c.engineErr(ctx, "start await message task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "start await message task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.TimerIntermediateCatchEvent:
 		varmap, err := vars.Decode(ctx, traversal.Vars)
@@ -696,7 +696,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		newState.State = status
 		newState.Error = el.Error
 		if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, newState); err != nil {
-			return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, process.Name)...)
+			return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	}
 	return nil

@@ -4,15 +4,20 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
 	"github.com/nats-io/nats.go"
+	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
-	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -31,9 +36,6 @@ import (
 	semconv2 "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
-	"strings"
-	"time"
 )
 
 const (
@@ -140,7 +142,6 @@ func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageTy
 			"workflow_state_up_down",
 			metric.WithDescription("how many workflow state messages are active, tagged by action"),
 		)
-
 	if err != nil {
 		slog.Error("err getting meter provider meter up down counter", "err", err.Error())
 	}
@@ -159,9 +160,7 @@ func (s *Server) Listen() error {
 	ctx := context.Background()
 	closer := make(chan struct{})
 
-	//TODO need to think of implications of namespacing the spanKV
-
-	kv, err := s.js.KeyValue(messages.KvTracking)
+	kv, err := s.js.KeyValue(namespace.PrefixWith(namespace.Default, messages.KvTracking))
 	if err != nil {
 		return fmt.Errorf("listen failed to attach to tracking key value database: %w", err)
 	}
@@ -185,8 +184,18 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	case strings.HasSuffix(msg.Subject, stateExecutionExecute):
 		s.incrementActionCounter(ctx, stateExecutionExecute)
 		s.changeActionUpDownCounter(ctx, 1, stateExecutionExecute)
-
-		slog.Debug("execution execute", slog.Any("state", state))
+		// TODO: we should add a trace ID field and change this in future
+		// in case we are passed a trace ID that is used instead of this
+		ks, err := ksuid.Parse(state.ExecutionId)
+		if err != nil {
+			slog.Error("error parsing trace ID: %w", err)
+		}
+		slog.Debug(
+			"execution execute",
+			slog.String("hexTraceID", hex.EncodeToString(ks.Payload())),
+			slog.String("executionId", state.ExecutionId),
+			slog.String("workflowId", state.WorkflowId),
+		)
 
 		if err := s.saveSpan(ctx, "Execution Start", state, state); err != nil {
 			return true, nil
@@ -254,8 +263,8 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 	case strings.Contains(msg.Subject, stateJobCompleteSendMessage):
 	case strings.Contains(msg.Subject, stateLog):
 
-	//case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
-	//case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
+	// case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
+	// case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
 	default:
 
 	}
@@ -353,10 +362,8 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 
 func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.WorkflowState, newState *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
-	traceID, err := telemetry.TraceIDFromTraceparent(oldState.TraceParent)
-	if err != nil {
-		traceID = common.KSuidTo128bit(oldState.ExecutionId)
-	}
+	traceID := common.KSuidTo128bit(oldState.ExecutionId)
+
 	spanID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ID())
 	parentID := common.KSuidTo64bit(common.TrackingID(oldState.Id).ParentID())
 	parentSpan := trace.SpanContext{}
@@ -367,7 +374,7 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 		})
 	}
 	pid := common.TrackingID(oldState.Id).ParentID()
-	id := traceID.String()
+	id := common.TrackingID(oldState.Id).ID()
 	st := oldState.State.String()
 	at := map[string]*string{
 		keys.ElementID:   &oldState.ElementId,

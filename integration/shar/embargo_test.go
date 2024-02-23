@@ -2,10 +2,10 @@ package intTest
 
 import (
 	"context"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
@@ -14,15 +14,14 @@ import (
 )
 
 func TestEmbargo(t *testing.T) {
-	tst := &support.Integration{}
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
+	t.Parallel()
+	ns := ksuid.New().String()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -53,5 +52,5 @@ func TestEmbargo(t *testing.T) {
 	support.WaitForChan(t, finished, 20*time.Second)
 	d := time.Duration(time.Now().UnixNano() - sw)
 	assert.Equal(t, 2, int(d.Seconds()))
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }

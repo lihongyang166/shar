@@ -3,7 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
-	"gitlab.com/shar-workflow/shar/common/namespace"
+	"github.com/segmentio/ksuid"
 	"os"
 	"testing"
 	"time"
@@ -12,29 +12,25 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
 func TestShutdownSimple(t *testing.T) {
-	tst := &support.Integration{}
-	//tst.WithTrace = true
-
-	tst.Setup(t, nil, nil)
-	defer tst.Teardown()
+	t.Parallel()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
 	// Register a service task
 	d := &testShutdownHandlerDef{t: t, finished: make(chan struct{})}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
@@ -59,7 +55,7 @@ func TestShutdownSimple(t *testing.T) {
 	cl.Shutdown()
 	assert.Greater(t, time.Since(stopwatch), time.Millisecond*2500)
 	//support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testShutdownHandlerDef struct {

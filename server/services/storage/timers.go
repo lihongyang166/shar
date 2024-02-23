@@ -93,6 +93,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js nats.JetStreamContext, cl
 
 				ctx, log := logx.NatsMessageLoggingEntrypoint(sCtx, "shar-server", msg[0].Header)
 				ctx, err = header.FromMsgHeaderToCtx(ctx, m.Header)
+				ctx = subj.SetNS(ctx, m.Header.Get(header.SharNamespace))
 				if err != nil {
 					log.Error("get header values from incoming process message", slog.Any("error", &errors.ErrWorkflowFatal{Err: err}))
 					if err := msg[0].Ack(); err != nil {

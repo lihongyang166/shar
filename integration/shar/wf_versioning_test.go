@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
@@ -12,24 +13,23 @@ import (
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
-
 	"os"
 	"testing"
 )
 
 func TestWfVersioning(t *testing.T) {
-	tst := &support.Integration{TestRunnable: func() (bool, string) {
+	tst := support.NewIntegrationT(t, nil, nil, false, func() (bool, string) {
 		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
-	}}
-	tst.Setup(t, nil, nil)
+	}, nil)
+	tst.Setup()
 	defer tst.Teardown()
 
 	// Create a starting context
 	ctx := context.Background()
 
 	// Dial shar
-	ns := namespace.Default
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.Experimental_WithNamespace(ns))
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -80,7 +80,7 @@ func TestWfVersioning(t *testing.T) {
 	keys, err = kv.Keys()
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(keys))
-	tst.AssertCleanKV(namespace.Default)
+	tst.AssertCleanKV(ns, t, tst.Cooldown)
 }
 
 type wfTeestandlerDef struct {

@@ -3,8 +3,6 @@ package client
 import "github.com/nats-io/nats.go"
 
 // WithEphemeralStorage specifies a client store the result of all operations in memory.
-//
-//goland:noinspection GoExportedFuncWithUnexportedType
 func WithEphemeralStorage() ConfigurationOption { //nolint
 	return ephemeralStorage{}
 }
@@ -16,8 +14,6 @@ func (o ephemeralStorage) configure(client *Client) {
 }
 
 // WithConcurrency specifies the number of threads to process each service task.
-//
-//goland:noinspection GoExportedFuncWithUnexportedType
 func WithConcurrency(n int) ConfigurationOption { //nolint
 	return concurrency{val: n}
 }
@@ -72,8 +68,8 @@ func (o noOSSig) configure(client *Client) {
 	client.noOSSig = true
 }
 
-// Experimental_WithNamespace **DANGER: EXPERIMENTAL FEATURE.  MAY CAUSE DATA LOSS OR CORRUPTION!!** applies a client namespace.
-func Experimental_WithNamespace(name string) ConfigurationOption { //nolint
+// WithNamespace applies a client namespace.
+func WithNamespace(name string) ConfigurationOption { //nolint
 	return namespace{name: name}
 }
 

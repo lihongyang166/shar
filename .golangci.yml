@@ -16,6 +16,13 @@ linters-settings:
       - fmt.Errorf(
     ignorePackageGlobs:
       - intTests
+  ireturn:
+    allow:
+      - anon
+      - error
+      - empty
+      - stdlib
+      - trace.Span
 issues:
   include:
     - EXC0012  # EXC0012 revive: Annoying issue about not having a comment. The rare codebase has such comments

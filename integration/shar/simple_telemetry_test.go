@@ -2,7 +2,6 @@ package intTest
 
 import (
 	"context"
-	"fmt"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -21,7 +20,7 @@ import (
 
 func TestSimpleTelemetry(t *testing.T) {
 	tst := &support.Integration{}
-	tst.WithTrace = true
+	tst.WithTrace = false
 
 	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	require.NoError(t, err, "failed to create stdouttrace exporter")
@@ -35,11 +34,8 @@ func TestSimpleTelemetry(t *testing.T) {
 	defer tst.Teardown()
 
 	// Create a starting context
-	ctx, span := traceProvider.Tracer("client-trace").Start(context.Background(), "client-span")
-	defer span.End()
-	sctx := trace.SpanContextFromContext(ctx)
-	fmt.Println("spanID", sctx.SpanID())
-	fmt.Println("traceID", sctx.TraceID())
+	ctx := context.Background()
+
 	// Dial shar
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithOpenTelemetry()) //client.Experimental_WithNamespace("fooNS"),
 
@@ -47,7 +43,16 @@ func TestSimpleTelemetry(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register a service task
-	d := &testSimpleTelemetryHandlerDef{t: t, finished: make(chan struct{}), originalSpan: sctx.SpanID(), originalTrace: sctx.TraceID()}
+	ctx, span := traceProvider.Tracer("client-trace").Start(ctx, "client-span")
+	defer span.End()
+	sctx := trace.SpanContextFromContext(ctx)
+
+	d := &testSimpleTelemetryHandlerDef{
+		t:             t,
+		finished:      make(chan struct{}),
+		originalSpan:  sctx.SpanID(),
+		originalTrace: sctx.TraceID(),
+	}
 
 	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)

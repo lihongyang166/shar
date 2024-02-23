@@ -94,6 +94,8 @@ func (s *Integration) Setup(t *testing.T, authZFn authz.APIFunc, authNFn authn.C
 		zensvrOptions = append(zensvrOptions, zensvr.WithNatsPersistHostPath(natsStateDirForTest))
 	}
 
+	zensvrOptions = append(zensvrOptions, zensvr.WithSharServerTelemetry("console"))
+
 	ss, ns, err := zensvr.GetServers(20, authZFn, authNFn, zensvrOptions...)
 
 	level := slog.LevelDebug

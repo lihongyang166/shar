@@ -3,7 +3,6 @@ package storage
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	_ "embed"
 	errors2 "errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
-	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/header"
@@ -96,6 +94,8 @@ type Nats struct {
 	sendMiddleware                 []middleware.Send
 	telCfg                         telemetry.Config
 	receiveMiddleware              []middleware.Receive
+	tr                             trace.Tracer
+	tp                             trace.TracerProvider
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
@@ -142,7 +142,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 }
 
 // New creates a new instance of the NATS communication layer.
-func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config) (*Nats, error) {
+func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config, tp trace.TracerProvider) (*Nats, error) {
 	if concurrency < 1 || concurrency > 200 {
 		return nil, fmt.Errorf("invalid concurrency: %w", errors2.New("invalid concurrency set"))
 	}
@@ -167,12 +167,16 @@ func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, 
 		allowOrphanServiceTasks: allowOrphanServiceTasks,
 		sharKvs:                 make(map[string]*NamespaceKvs),
 		telCfg:                  telCfg,
+		tp:                      tp,
+		tr:                      tp.Tracer("shar-workflow/nats-storage"),
 	}
 
 	ns := namespace.Default
 
-	ms.sendMiddleware = append(ms.sendMiddleware, telemetry.SendServerMessageTelemetry(telCfg))
-	ms.receiveMiddleware = append(ms.receiveMiddleware, telemetry.ReceiveServerMessageTelemetry(telCfg))
+	if telCfg.Enabled {
+		ms.sendMiddleware = append(ms.sendMiddleware, telemetry.CtxSpanToNatsMsgMiddleware())
+		ms.receiveMiddleware = append(ms.receiveMiddleware, telemetry.NatsMsgToCtxWithSpanMiddleware())
+	}
 
 	ctx := context.Background()
 	if err := setup.Nats(ctx, conn, js, storageType, NatsConfig, true, ns); err != nil {
@@ -981,36 +985,6 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 	}
 	state.UnixTimeNano = time.Now().UnixNano()
 
-	// Timed start messages have no id, as they have not started yet, so don't attempt to encode telemetry
-	if len(state.Id) == 0 {
-		traceId := make([]byte, 16)
-		_, err := rand.Read(traceId)
-		if err != nil {
-			return fmt.Errorf("generate random trace ID: %w", err)
-		}
-		state.TraceParent = telemetry.NewTraceParent(traceId)
-
-	} else {
-		id, err := ksuid.Parse(common.TrackingID(state.Id).ID())
-		if err != nil {
-			return fmt.Errorf("parse ksuid: %w", err)
-		}
-
-		// Set
-		idStr := common.KSuidTo64bit(id.String())
-		spanID := fmt.Sprintf("%x", idStr)
-		var traceID string
-		if sctx := trace.SpanContextFromContext(ctx); sctx.IsValid() {
-			traceID = sctx.TraceID().String()
-		} else if state.TraceParent != "" {
-			traceID, _ = telemetry.GetTraceparentTraceAndSpan(state.TraceParent)
-		} else if ctx.Value(ctxkey.Traceparent) != nil {
-			traceID, _ = telemetry.GetTraceparentTraceAndSpan(ctx.Value(ctxkey.Traceparent).(string))
-		}
-		traceparent := fmt.Sprintf("00-%s-%s-01", traceID, spanID)
-		ctx = context.WithValue(ctx, ctxkey.Traceparent, traceparent)
-		state.TraceParent = traceparent
-	}
 	msg := nats.NewMsg(subj.NS(stateName, subj.GetNS(ctx)))
 	msg.Header.Set("embargo", strconv.Itoa(c.Embargo))
 	msg.Header.Set(header.SharNamespace, subj.GetNS(ctx))

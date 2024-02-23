@@ -7,9 +7,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/element"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"go.opentelemetry.io/otel"
 	"testing"
 	"time"
 )
@@ -18,7 +21,8 @@ func TestLaunchWorkflow(t *testing.T) {
 	ctx := context.Background()
 
 	workflowName := "TestWorkflow"
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", workflowName)
+	tp := otel.GetTracerProvider()
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", workflowName, tp)
 
 	processName := "SimpleProcess"
 	process := wf.Process[processName]
@@ -89,7 +93,11 @@ func TestLaunchWorkflow(t *testing.T) {
 			assert.Equal(t, args[2].(*model.WorkflowState).ExecutionId, executionId)
 		}).
 		Return(nil)
-
+	ctx, sp1 := otel.GetTracerProvider().Tracer("shar").Start(ctx, "test-client-span")
+	defer sp1.End()
+	ctx = context.WithValue(ctx, ctxkey.Traceparent, telemetry.NewTraceParent(sp1.SpanContext().TraceID(), sp1.SpanContext().SpanID()))
+	ctx, sp := telemetry.StartApiSpan(ctx, "shar", "test-api-call")
+	defer sp.End()
 	wfiid, _, err := eng.Launch(ctx, processName, []byte{})
 	assert.NoError(t, err)
 	assert.Equal(t, executionId, wfiid)
@@ -99,8 +107,8 @@ func TestLaunchWorkflow(t *testing.T) {
 
 func TestTraversal(t *testing.T) {
 	ctx := context.Background()
-
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", "TestWorkflow")
+	tp := otel.GetTracerProvider()
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", "TestWorkflow", tp)
 
 	process := wf.Process["SimpleProcess"]
 	els := make(map[string]*model.Element)
@@ -151,8 +159,8 @@ func TestTraversal(t *testing.T) {
 
 func TestActivityProcessorServiceTask(t *testing.T) {
 	ctx := context.Background()
-
-	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", "TestWorkflow")
+	tp := otel.GetTracerProvider()
+	eng, svc, wf := setupTestWorkflow(t, "simple-workflow.bpmn", "TestWorkflow", tp)
 
 	process := wf.Process["SimpleProcess"]
 	els := make(map[string]*model.Element)

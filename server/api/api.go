@@ -14,8 +14,10 @@ import (
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
+	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
+	"go.opentelemetry.io/otel/trace"
 	"log/slog"
 	"reflect"
 	"runtime"
@@ -42,11 +44,13 @@ type SharServer struct {
 	//receiveMiddleware    []middleware.Receive
 	receiveApiMiddleware []middleware.Receive
 	sendMiddleware       []middleware.Send
+	tp                   trace.TracerProvider
+	tr                   trace.Tracer
 }
 
 // New creates a new instance of the SHAR API server
-func New(ns *storage.Nats, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, telemetryCfg telemetry.Config) (*SharServer, error) {
-	engine, err := workflow.New(ns)
+func New(ns *storage.Nats, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, telemetryCfg telemetry.Config, tp trace.TracerProvider) (*SharServer, error) {
+	engine, err := workflow.New(ns, tp)
 	if err != nil {
 		return nil, fmt.Errorf("create SHAR engine instance: %w", err)
 	}
@@ -60,9 +64,11 @@ func New(ns *storage.Nats, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuth
 		engine:        engine,
 		panicRecovery: panicRecovery,
 		subs:          &sync.Map{},
+		tp:            tp,
+		tr:            tp.Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
 	}
-	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.ReceiveAPIMessageTelemetry(telemetryCfg))
-	ss.sendMiddleware = append(ss.sendMiddleware, telemetry.SendServerMessageTelemetry(telemetryCfg))
+	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.CtxWithTraceParentFromNatsMsgMiddleware())
+	ss.sendMiddleware = append(ss.sendMiddleware, telemetry.CtxSpanToNatsMsgMiddleware())
 	return ss, nil
 }
 
@@ -216,9 +222,11 @@ func listen[T proto.Message, U proto.Message](con common.NatsConn, panicRecovery
 				return
 			}
 		}
+		ctx, span := telemetry.StartApiSpan(ctx, "shar", msg.Subject)
 		if err := callAPI(ctx, panicRecovery, req, msg, fn); err != nil {
 			log.Error("API call for "+subject+" failed", err)
 		}
+		span.End()
 	})
 	if err != nil {
 		return fmt.Errorf("subscribe to %s: %w", subject, err)

@@ -31,6 +31,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
 	"io"
@@ -176,12 +177,14 @@ func New(option ...ConfigurationOption) *Client {
 // Dial instructs the client to connect to a NATS server.
 func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) error {
 
-	c.SendMiddleware = append(c.SendMiddleware,
-		telemetry.SendMessageTelemetry(c.telemetryConfig),
-	)
-	c.ReceiveMiddleware = append(c.ReceiveMiddleware,
-		telemetry.ReceiveMessageTelemetry(c.telemetryConfig),
-	)
+	if c.telemetryConfig.Enabled {
+		c.SendMiddleware = append(c.SendMiddleware,
+			telemetry.CtxSpanToNatsMsgMiddleware(),
+		)
+		c.ReceiveMiddleware = append(c.ReceiveMiddleware,
+			telemetry.NatsMsgToCtxWithSpanMiddleware(),
+		)
+	}
 
 	n, err := nats.Connect(natsURL, opts...)
 	if err != nil {
@@ -354,7 +357,7 @@ func (c *Client) listen(ctx context.Context) error {
 
 			ut := &model.WorkflowState{}
 			if err := proto.Unmarshal(msg.Data, ut); err != nil {
-				log.Error("unmarshaling", err)
+				log.Error("unmarshalling", err)
 				return false, fmt.Errorf("service task listener: %w", err)
 			}
 
@@ -404,6 +407,7 @@ func (c *Client) listen(ctx context.Context) error {
 					}
 					fnMx.Lock()
 					pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
+					pidCtx = ReParentSpan(pidCtx, job)
 					v, e = svcFn(pidCtx, &jobClient{cl: c, trackingID: trackingID}, dv)
 					close(waitCancelSig)
 					fnMx.Unlock()
@@ -475,7 +479,7 @@ func (c *Client) listen(ctx context.Context) error {
 				}
 				ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
 				pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
-
+				pidCtx = ReParentSpan(pidCtx, job)
 				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv); err != nil {
 					log.Warn("nats listener", err)
 					return false, err
@@ -495,6 +499,25 @@ func (c *Client) listen(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// ReParentSpan reparents a span in the given context with the span ID obtained from the WorkflowState ID.
+// If the span context in the context is valid, it replaces the span ID with the 64-bit representation
+// obtained from the WorkflowState ID. Otherwise, it returns the original context.
+//
+// Parameters:
+// - ctx: The context to re-parent the span in.
+// - state: The WorkflowState containing the ID to extract the new span ID from.
+//
+// Returns:
+// - The context with the re-parented span ID or the original context if the span context is invalid.
+func ReParentSpan(ctx context.Context, state *model.WorkflowState) context.Context {
+	sCtx := trace.SpanContextFromContext(ctx)
+	if sCtx.IsValid() {
+		c := common.KSuidTo64bit(common.TrackingID(state.Id).ID())
+		return trace.ContextWithSpanContext(ctx, sCtx.WithSpanID(c))
+	}
+	return ctx
 }
 
 func (c *Client) listenProcessTerminate(ctx context.Context) error {

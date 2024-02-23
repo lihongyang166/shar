@@ -2,7 +2,9 @@ package intTest
 
 import (
 	"context"
+	"fmt"
 	"gitlab.com/shar-workflow/shar/common/namespace"
+	"go.opentelemetry.io/otel/trace"
 	"os"
 	"testing"
 	"time"
@@ -17,7 +19,7 @@ import (
 
 func TestSimpleTelemetryServerTrace(t *testing.T) {
 	tst := &support.Integration{}
-	tst.WithTrace = true
+	tst.WithTrace = false
 
 	tst.Setup(t, nil, nil)
 	defer tst.Teardown()
@@ -65,6 +67,8 @@ type testSimpleTelemetrySvrTraceHandlerDef struct {
 }
 
 func (d *testSimpleTelemetrySvrTraceHandlerDef) integrationSimple(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	sc := trace.SpanContextFromContext(ctx)
+	fmt.Println("STSKDO", sc.TraceID())
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))
 	vars["Success"] = true

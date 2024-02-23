@@ -53,10 +53,10 @@ func New(option ...Option) *Client {
 func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) error {
 
 	c.SendMiddleware = append(c.SendMiddleware,
-		telemetry.SendMessageTelemetry(c.telemetryConfig),
+		telemetry.CtxSpanToNatsMsgMiddleware(),
 	)
 	c.ReceiveMiddleware = append(c.ReceiveMiddleware,
-		telemetry.ReceiveMessageTelemetry(c.telemetryConfig),
+		telemetry.NatsMsgToCtxWithSpanMiddleware(),
 	)
 
 	n, err := nats.Connect(natsURL, opts...)

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"log/slog"
 	"reflect"
@@ -44,13 +45,12 @@ type SharServer struct {
 	//receiveMiddleware    []middleware.Receive
 	receiveApiMiddleware []middleware.Receive
 	sendMiddleware       []middleware.Send
-	tp                   trace.TracerProvider
 	tr                   trace.Tracer
 }
 
 // New creates a new instance of the SHAR API server
-func New(ns *storage.Nats, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, telemetryCfg telemetry.Config, tp trace.TracerProvider) (*SharServer, error) {
-	engine, err := workflow.New(ns, tp)
+func New(ns *storage.Nats, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, telemetryCfg telemetry.Config) (*SharServer, error) {
+	engine, err := workflow.New(ns)
 	if err != nil {
 		return nil, fmt.Errorf("create SHAR engine instance: %w", err)
 	}
@@ -64,10 +64,10 @@ func New(ns *storage.Nats, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuth
 		engine:        engine,
 		panicRecovery: panicRecovery,
 		subs:          &sync.Map{},
-		tp:            tp,
-		tr:            tp.Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
+		tr:            otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
 	}
 	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.CtxWithTraceParentFromNatsMsgMiddleware())
+	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.NatsMsgToCtxWithSpanMiddleware())
 	ss.sendMiddleware = append(ss.sendMiddleware, telemetry.CtxSpanToNatsMsgMiddleware())
 	return ss, nil
 }

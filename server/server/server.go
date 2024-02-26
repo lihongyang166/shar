@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"net"
 	"os"
 	"os/signal"
@@ -46,7 +47,6 @@ type Server struct {
 	grpcPort                int
 	conn                    *nats.Conn
 	telemetryConfig         telemetry.Config
-	tp                      trace.TracerProvider
 	tr                      trace.Tracer
 }
 
@@ -135,7 +135,7 @@ func (s *Server) Listen() {
 	}
 
 	ns := s.createServices(s.conn, s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
-	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator, s.telemetryConfig, s.tp)
+	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator, s.telemetryConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -165,20 +165,20 @@ func setupTelemetry(s *Server) {
 		if err != nil {
 			err := fmt.Errorf("create stdouttrace exporter: %w", err)
 			slog.Error(err.Error())
-			s.tp = otel.GetTracerProvider()
+			otel.SetTracerProvider(noop.NewTracerProvider())
 			goto setProvider
 		}
 		batchSpanProcessor := sdktrace.NewBatchSpanProcessor(exporter)
-		s.tp = sdktrace.NewTracerProvider(
+		tp := sdktrace.NewTracerProvider(
 			sdktrace.WithSampler(sdktrace.AlwaysSample()),
 			sdktrace.WithSpanProcessor(batchSpanProcessor),
 		)
+		otel.SetTracerProvider(tp)
 	default:
-		s.tp = otel.GetTracerProvider()
-
+		otel.SetTracerProvider(noop.NewTracerProvider())
 	}
 setProvider:
-	s.tr = s.tp.Tracer(traceName, trace.WithInstrumentationVersion(version2.Version))
+	s.tr = otel.GetTracerProvider().Tracer(traceName, trace.WithInstrumentationVersion(version2.Version))
 }
 
 // Shutdown gracefully shuts down the GRPC server, and requests that
@@ -218,7 +218,7 @@ func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool,
 	if ephemeral {
 		store = nats.MemoryStorage
 	}
-	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks, s.telemetryConfig, s.tp)
+	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks, s.telemetryConfig)
 	if err != nil {
 		slog.Error("create NATS KV store", slog.String("error", err.Error()))
 		panic(err)

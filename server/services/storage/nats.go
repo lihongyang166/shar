@@ -25,6 +25,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	maps2 "golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -94,7 +95,6 @@ type Nats struct {
 	telCfg                         telemetry.Config
 	receiveMiddleware              []middleware.Receive
 	tr                             trace.Tracer
-	tp                             trace.TracerProvider
 	rwmx                           sync.RWMutex
 }
 
@@ -142,7 +142,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 }
 
 // New creates a new instance of the NATS communication layer.
-func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config, tp trace.TracerProvider) (*Nats, error) {
+func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config) (*Nats, error) {
 	if concurrency < 1 || concurrency > 200 {
 		return nil, fmt.Errorf("invalid concurrency: %w", errors2.New("invalid concurrency set"))
 	}
@@ -168,16 +168,13 @@ func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, 
 		allowOrphanServiceTasks: allowOrphanServiceTasks,
 		sharKvs:                 make(map[string]*NamespaceKvs),
 		telCfg:                  telCfg,
-		tp:                      tp,
-		tr:                      tp.Tracer("shar-workflow/nats-storage"),
+		tr:                      otel.GetTracerProvider().Tracer("shar-workflow/nats-storage"),
 	}
 
 	ns := namespace.Default
 
-	if telCfg.Enabled {
-		ms.sendMiddleware = append(ms.sendMiddleware, telemetry.CtxSpanToNatsMsgMiddleware())
-		ms.receiveMiddleware = append(ms.receiveMiddleware, telemetry.NatsMsgToCtxWithSpanMiddleware())
-	}
+	ms.sendMiddleware = append(ms.sendMiddleware, telemetry.CtxSpanToNatsMsgMiddleware())
+	ms.receiveMiddleware = append(ms.receiveMiddleware, telemetry.NatsMsgToCtxWithSpanMiddleware())
 
 	ctx := context.Background()
 	if err := setup.Nats(ctx, conn, js, storageType, NatsConfig, true, ns); err != nil {
@@ -991,6 +988,10 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 		if err := i(ctx, msg); err != nil {
 			return fmt.Errorf("apply middleware %s: %w", reflect.TypeOf(i), err)
 		}
+	}
+
+	if !trace.SpanContextFromContext(ctx).IsValid() {
+		msg.Header.Set("traceparent", state.TraceParent)
 	}
 
 	pubCtx, cancel := context.WithTimeout(ctx, s.publishTimeout)

@@ -38,7 +38,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -364,16 +363,10 @@ func (c *Client) listen(ctx context.Context) error {
 			subj.SetNS(ctx, msg.Header.Get(header.SharNamespace))
 			ctx = context.WithValue(ctx, ctxkey.ExecutionID, ut.ExecutionId)
 			ctx = context.WithValue(ctx, ctxkey.ProcessInstanceID, ut.ProcessInstanceId)
+			ctx = ReParentSpan(ctx, ut)
 			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Header)
 			if err != nil {
 				return true, &errors2.ErrWorkflowFatal{Err: fmt.Errorf("obtain headers from message: %w", err)}
-			}
-
-			for _, i := range c.ReceiveMiddleware {
-				ctx, err = i(ctx, msg)
-				if err != nil {
-					return true, &errors2.ErrWorkflowFatal{Err: fmt.Errorf("client listen: process middleware %s: %w", reflect.TypeOf(i).Name(), err)}
-				}
 			}
 
 			switch ut.ElementType {

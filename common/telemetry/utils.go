@@ -32,7 +32,7 @@ func TraceIDFromTraceparent(traceparent string) (trace.TraceID, error) {
 	return traceID, nil
 }
 
-var emptySpan = [8]byte{1, 0, 0, 0, 0, 0, 0, 1}
+var emptySpan = [8]byte{}
 
 // StartApiSpan starts a new API span with the provided tracer name and API name.
 // It takes a context, tracer name, and API name as input parameters.

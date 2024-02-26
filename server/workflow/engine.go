@@ -8,6 +8,7 @@ import (
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/client/parser"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -21,6 +22,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/services"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
@@ -32,17 +34,15 @@ import (
 type Engine struct {
 	closing chan struct{}
 	ns      NatsService
-	tp      trace.TracerProvider
 	tr      trace.Tracer
 }
 
 // New returns an instance of the core workflow engine.
-func New(ns NatsService, tp trace.TracerProvider) (*Engine, error) {
+func New(ns NatsService) (*Engine, error) {
 	e := &Engine{
 		ns:      ns,
 		closing: make(chan struct{}),
-		tp:      tp,
-		tr:      tp.Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
+		tr:      otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
 	}
 	return e, nil
 }
@@ -293,7 +293,13 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 				ProcessName:       prName,
 				ProcessInstanceId: pi.ProcessInstanceId,
 			}
-			telemetry.CtxWithTraceParentToWfState(ctx, exec)
+
+			if trace.SpanContextFromContext(ctx).IsValid() {
+				telemetry.CtxWithTraceParentToWfState(ctx, exec)
+			} else {
+				// If there is no valid span, then use the traceparent.
+				exec.TraceParent = ctx.Value(ctxkey.Traceparent).(string)
+			}
 			ctx, log := common.ContextLoggerWithWfState(ctx, exec)
 			log.Debug("just prior to publishing start msg")
 
@@ -1180,6 +1186,7 @@ func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState
 		return &errors.ErrWorkflowFatal{Err: errors.ErrWorkflowNotFound}
 	}
 	els := common.ElementTable(wf)
+	ctx = context.WithValue(ctx, ctxkey.Traceparent, state.TraceParent)
 	if _, _, err := c.launch(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.ProcessInstanceId, state.ElementId); err != nil {
 		return c.engineErr(ctx, "launch child workflow", &errors.ErrWorkflowFatal{Err: err})
 	}

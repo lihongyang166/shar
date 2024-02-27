@@ -56,7 +56,7 @@ zen-shar: .FORCE proto
 	@echo "\033[92mBuilding Zen\033[0m"
 	cd zen-shar/cmd/zen-shar; CGO_ENABLED=0 go build
 	cp zen-shar/cmd/zen-shar/zen-shar build/zen-shar/
-docker: clean configure proto server tracing .FORCE
+docker: proto server tracing .FORCE
 	cd build/server; docker build -t shar .
 	cd build/telemetry; docker build -t shar-telemetry .
 clean: .FORCE
@@ -68,9 +68,9 @@ clean: .FORCE
 	rm -f model/*.pb.go
 	rm -rf build
 	mkdir -p build
-generated-code: proto configure .FORCE
+generated-code: proto .FORCE
 	go generate server/workflow/nats-service.go
-test: configure proto generated-code server tracing examples .FORCE
+test: proto generated-code server tracing examples .FORCE
 	golangci-lint cache clean
 	@echo "\033[92mLinting\033[0m"
 	golangci-lint run -v -E gosec -E revive -E ireturn --timeout 5m0s
@@ -78,7 +78,7 @@ test: configure proto generated-code server tracing examples .FORCE
 	go clean -testcache
 	@echo "\033[92mRunning tests\033[0m"
 	CGO_ENABLED=0 gotestsum --junitfile report.xml --format testname
-race: configure proto server tracing .FORCE
+race: proto server tracing .FORCE
 	@echo "\033[92mCleaning test cache\033[0m"
 	go clean -testcache
 	@echo "\033[92mRunning tests\033[0m"

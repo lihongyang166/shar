@@ -18,7 +18,7 @@ import (
 )
 
 func (s *Nats) processGatewayActivation(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		ns := subj.GetNS(ctx)
 		nsKVs, err := s.KvsFor(ns)
 		if err != nil {
@@ -69,10 +69,10 @@ func (s *Nats) processGatewayActivation(ctx context.Context) error {
 }
 
 func (s *Nats) processGatewayExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.gatewayExecProcessor); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
-	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.gatewayExecProcessor); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil

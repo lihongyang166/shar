@@ -11,18 +11,20 @@ import (
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
 
 // Call provides the functionality to call shar APIs
-func Call[T proto.Message, U proto.Message](ctx context.Context, con *nats.Conn, subject string, expectCompat *version2.Version, command T, ret U) error {
+func Call[T proto.Message, U proto.Message](ctx context.Context, con *nats.Conn, subject string, expectCompat *version2.Version, sendMiddleware []middleware.Send, command T, ret U) error {
 
 	if ctx.Value(ctxkey.SharNamespace) == nil {
 		panic("contextless call")
@@ -44,6 +46,11 @@ func Call[T proto.Message, U proto.Message](ctx context.Context, con *nats.Conn,
 		msg.Header.Add(header.NatsCompatHeader, expectCompat.String())
 	} else {
 		msg.Header.Add(header.NatsCompatHeader, "v0.0.0")
+	}
+	for _, i := range sendMiddleware {
+		if err := i(ctx, msg); err != nil {
+			return fmt.Errorf("send middleware %s: %w", reflect.TypeOf(i).Name(), err)
+		}
 	}
 	msg.Data = b
 	res, err := con.RequestMsg(msg, time.Second*60)

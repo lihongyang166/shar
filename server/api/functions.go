@@ -75,12 +75,11 @@ func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequ
 				Vars: req.Vars,
 			}
 			launchWorkflowResponse, err := s.launchProcess(ctx, launchWorkflowRequest)
-			executionId := launchWorkflowResponse.InstanceId
-			workflowId := launchWorkflowResponse.WorkflowId
-
 			if err != nil {
 				return nil, fmt.Errorf("failed to launch process with message: %w", err)
 			}
+			executionId := launchWorkflowResponse.InstanceId
+			workflowId := launchWorkflowResponse.WorkflowId
 			return &model.SendMessageResponse{ExecutionId: executionId, WorkflowId: workflowId}, nil
 		}
 	} else {

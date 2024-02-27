@@ -8,10 +8,13 @@ import (
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/client/parser"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
+	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -19,6 +22,8 @@ import (
 	"gitlab.com/shar-workflow/shar/server/services"
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"strconv"
@@ -29,6 +34,7 @@ import (
 type Engine struct {
 	closing chan struct{}
 	ns      NatsService
+	tr      trace.Tracer
 }
 
 // New returns an instance of the core workflow engine.
@@ -36,6 +42,7 @@ func New(ns NatsService) (*Engine, error) {
 	e := &Engine{
 		ns:      ns,
 		closing: make(chan struct{}),
+		tr:      otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
 	}
 	return e, nil
 }
@@ -176,6 +183,8 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 			Id:           []string{executionId},
 		}
 
+		telemetry.CtxWithTraceParentToWfState(ctx, wiState)
+
 		ctx, log = common.ContextLoggerWithWfState(ctx, wiState)
 		log.Debug("just after adding wfState details to log ctx")
 
@@ -223,6 +232,10 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 }
 
 func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
+	ctx, sp := c.tr.Start(ctx, "launchProcess")
+	defer func() {
+		sp.End()
+	}()
 	var reterr error
 	var hasStartEvents bool
 
@@ -281,6 +294,12 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 				ProcessInstanceId: pi.ProcessInstanceId,
 			}
 
+			if trace.SpanContextFromContext(ctx).IsValid() {
+				telemetry.CtxWithTraceParentToWfState(ctx, exec)
+			} else {
+				// If there is no valid span, then use the traceparent.
+				exec.TraceParent = ctx.Value(ctxkey.Traceparent).(string)
+			}
 			ctx, log := common.ContextLoggerWithWfState(ctx, exec)
 			log.Debug("just prior to publishing start msg")
 
@@ -941,7 +960,6 @@ func (c *Engine) startJob(ctx context.Context, subject string, job *model.Workfl
 	*/
 	// Single instance launch
 	if el.Iteration == nil {
-
 		if err := c.ns.PublishWorkflowState(ctx, subj.NS(subject, subj.GetNS(ctx)), job, opts...); err != nil {
 			return fmt.Errorf("start job failed to publish: %w", err)
 		}
@@ -1168,6 +1186,7 @@ func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState
 		return &errors.ErrWorkflowFatal{Err: errors.ErrWorkflowNotFound}
 	}
 	els := common.ElementTable(wf)
+	ctx = context.WithValue(ctx, ctxkey.Traceparent, state.TraceParent)
 	if _, _, err := c.launch(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.ProcessInstanceId, state.ElementId); err != nil {
 		return c.engineErr(ctx, "launch child workflow", &errors.ErrWorkflowFatal{Err: err})
 	}
@@ -1238,6 +1257,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 			state.ProcessInstanceId = pi.ProcessInstanceId
 
 			processWfState := proto.Clone(state).(*model.WorkflowState)
+			processWfState.TraceParent = telemetry.NewTraceParentWithEmptySpan(telemetry.NewTraceID())
 			processTrackingId := common.TrackingID([]string{}).Push(state.ExecutionId).Push(state.ProcessInstanceId)
 			processWfState.Id = processTrackingId
 

@@ -19,3 +19,6 @@ var APIFunc = sharContextKey("API_FN")
 
 // SharNamespace - the context key used to hold the active namespace.
 var SharNamespace = sharContextKey("SHAR_NAMESPACE")
+
+// Traceparent - the context key used to hold the active namespace.
+var Traceparent = sharContextKey("traceparent")

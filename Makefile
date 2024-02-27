@@ -1,4 +1,4 @@
-default: clean proto server tracing cli zen-shar
+default: clean configure proto server tracing cli zen-shar
 
 configure:
 	@echo "\033[92mConfigure\033[0m"
@@ -56,7 +56,7 @@ zen-shar: .FORCE proto
 	@echo "\033[92mBuilding Zen\033[0m"
 	cd zen-shar/cmd/zen-shar; CGO_ENABLED=0 go build
 	cp zen-shar/cmd/zen-shar/zen-shar build/zen-shar/
-docker: clean proto server tracing .FORCE
+docker: clean configure proto server tracing .FORCE
 	cd build/server; docker build -t shar .
 	cd build/telemetry; docker build -t shar-telemetry .
 clean: .FORCE
@@ -78,7 +78,7 @@ test: configure proto generated-code server tracing examples .FORCE
 	go clean -testcache
 	@echo "\033[92mRunning tests\033[0m"
 	CGO_ENABLED=0 gotestsum --junitfile report.xml --format testname
-race: proto server tracing .FORCE
+race: configure proto server tracing .FORCE
 	@echo "\033[92mCleaning test cache\033[0m"
 	go clean -testcache
 	@echo "\033[92mRunning tests\033[0m"

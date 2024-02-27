@@ -21,10 +21,14 @@ const (
 	DebugTrace = "debug"
 	// DebugTraceShort is the short flag name for the trace switch.
 	DebugTraceShort = "d"
-	// JsonOutput is the flag name for machine readable json responses.
+	// JsonOutput is the flag name for machine-readable json responses.
 	JsonOutput = "json"
-	// JsonOutputShort is the short flag name for machine readable json responses.
+	// JsonOutputShort is the short flag name for machine-readable json responses.
 	JsonOutputShort = "j"
+	// Namespace if the flag name for namespace partition.
+	Namespace = "namespace"
+	// NamespaceShort is the short flag name for the namespace partition.
+	NamespaceShort = "n"
 )
 
 // Set is the set of flags associated with the CLI.
@@ -35,6 +39,7 @@ type Set struct {
 	DebugTrace     bool
 	Vars           []string
 	Json           bool
+	Namespace      string
 }
 
 // Value contains the values of the SHAR CLI flags.

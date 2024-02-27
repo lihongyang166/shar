@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/cli/flag"
 	"gitlab.com/shar-workflow/shar/cli/output"
-	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/cli/util"
 	"os"
 )
 
@@ -30,7 +30,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("reading file: %w", err)
 	}
 
-	shar := client.New()
+	shar := util.GetClient()
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}

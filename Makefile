@@ -12,8 +12,8 @@ configure:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/vektra/mockery/v2@v2.41.0
 	go install gotest.tools/gotestsum@latest
-	curl --insecure https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz --output build/nats-proto-gen-go-main.tar.gz
 	mkdir -p build
+	curl --insecure https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz --output build/nats-proto-gen-go-main.tar.gz
 	cd build && rm -rf nats-proto-gen-go-main protogen
 	cd build && tar -zxvf nats-proto-gen-go-main.tar.gz #&& rm nats-proto-gen-go-main.tar.gz
 	cd build && mv nats-proto-gen-go-main protogen

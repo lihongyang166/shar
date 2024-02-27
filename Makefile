@@ -1,23 +1,24 @@
-default: clean proto server tracing cli zen-shar
+default: clean configure proto server tracing cli zen-shar
 
 configure:
 	@echo "\033[92mConfigure\033[0m"
 	go version
-	go get -d google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
+	go get -d google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
 	go get -d google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go get -d github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go get -d github.com/vektra/mockery/v2@v2.36.0
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
+	go get -d github.com/vektra/mockery/v2@v2.41.0
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install github.com/vektra/mockery/v2@v2.36.0
+	go install github.com/vektra/mockery/v2@v2.41.0
 	go install gotest.tools/gotestsum@latest
-	curl -o ./nats-proto-gen-go-main.tar.gz https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz
-	tar -zxvf nats-proto-gen-go-main.tar.gz && rm nats-proto-gen-go-main.tar.gz
-	mv nats-proto-gen-go-main nats-proto-gen-go
-	GROOT="$(shell go env GOROOT)"; echo "GOROOT $$GROOT" && cd nats-proto-gen-go/cmd/nats-proto-gen-go && go build && cp nats-proto-gen-go $$GROOT/bin/
-	rm -rf nats-proto-gen-go
-
+	mkdir -p build
+	curl --insecure https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz --output build/nats-proto-gen-go-main.tar.gz
+	cd build && rm -rf nats-proto-gen-go-main protogen
+	cd build && tar -zxvf nats-proto-gen-go-main.tar.gz #&& rm nats-proto-gen-go-main.tar.gz
+	cd build && mv nats-proto-gen-go-main protogen
+	cd build/protogen/cmd/nats-proto-gen-go && go build && cp nats-proto-gen-go ../../../
+	#rm -rf nats-proto-gen-go
 
 all: proto server tracing cli zen-shar
 
@@ -28,7 +29,7 @@ proto: .FORCE
 	mv model/gitlab.com/shar-workflow/shar/model/models.pb.go model/
 	@echo "\033[92mRemove proto working directories\033[0m"
 	rm -rf model/gitlab.com
-	nats-proto-gen-go proto/shar-workflow/models.proto --module-namespace="gitlab.com/shar-workflow/shar" --output-package="internal/natsrpc" --message-prefix "WORKFLOW.Api."
+	build/nats-proto-gen-go proto/shar-workflow/models.proto --module-namespace="gitlab.com/shar-workflow/shar" --output-package="internal/natsrpc" --message-prefix "WORKFLOW.Api."
 	cd model/protodoc && go build
 	model/protodoc/protodoc
 server: .FORCE proto
@@ -55,7 +56,7 @@ zen-shar: .FORCE proto
 	@echo "\033[92mBuilding Zen\033[0m"
 	cd zen-shar/cmd/zen-shar; CGO_ENABLED=0 go build
 	cp zen-shar/cmd/zen-shar/zen-shar build/zen-shar/
-docker: clean proto server tracing .FORCE
+docker: proto server tracing .FORCE
 	cd build/server; docker build -t shar .
 	cd build/telemetry; docker build -t shar-telemetry .
 clean: .FORCE
@@ -65,9 +66,12 @@ clean: .FORCE
 	cd telemetry/cmd/shar-telemetry; go clean
 	rm -f telemetry/cmd/shar-telemetry/shar-telemetry
 	rm -f model/*.pb.go
-generated-code: configure .FORCE
+	rm -rf build
+	mkdir -p build
+generated-code: proto .FORCE
 	go generate server/workflow/nats-service.go
-test: configure generated-code proto server tracing examples .FORCE
+ci-pipeline-test: clean configure test .FORCE
+test: proto generated-code server tracing examples .FORCE
 	golangci-lint cache clean
 	@echo "\033[92mLinting\033[0m"
 	golangci-lint run -v -E gosec -E revive -E ireturn --timeout 5m0s

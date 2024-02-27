@@ -5,6 +5,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/authn"
 	"gitlab.com/shar-workflow/shar/common/authz"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 )
 
 // Option represents a SHAR server option
@@ -137,4 +138,17 @@ type grpcPortOption struct{ value int }
 
 func (o grpcPortOption) configure(server *Server) {
 	server.grpcPort = o.value
+}
+
+// WithTelemetryEndpoint specifies a handler function for API authorization.
+func WithTelemetryEndpoint(endpoint string) telemetryEndpointOption { //nolint
+	return telemetryEndpointOption{endpoint: endpoint}
+}
+
+type telemetryEndpointOption struct {
+	endpoint string
+}
+
+func (o telemetryEndpointOption) configure(server *Server) {
+	server.telemetryConfig = telemetry.Config{Enabled: o.endpoint != "", Endpoint: o.endpoint}
 }

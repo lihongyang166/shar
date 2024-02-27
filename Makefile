@@ -70,6 +70,7 @@ clean: .FORCE
 	mkdir -p build
 generated-code: proto .FORCE
 	go generate server/workflow/nats-service.go
+ci-pipeline-test: clean configure test .FORCE
 test: proto generated-code server tracing examples .FORCE
 	golangci-lint cache clean
 	@echo "\033[92mLinting\033[0m"

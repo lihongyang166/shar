@@ -63,7 +63,7 @@ test_stage:
       when: never
     - if: "$CI_PIPELINE_IID"
   script:
-    - make test
+    - make ci-pipeline-test
   artifacts:
     when: always
     reports:

@@ -35,7 +35,7 @@ include:
   - template: Security/License-Scanning.gitlab-ci.yml
   - template: Jobs/Container-Scanning.gitlab-ci.yml
 build_stage:
-  image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.14
+  image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.15
   stage: build
   rules:
     - if: "$CI_COMMIT_TAG"
@@ -56,7 +56,7 @@ build_stage:
 test_stage:
   tags:
     - saas-linux-medium-amd64
-  image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.14
+  image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.15
   stage: test
   rules:
     - if: "$CI_COMMIT_TAG"
@@ -124,7 +124,7 @@ package_container_stage:
 package_binary_stage:
   # Ref: https://www.docker.com/blog/multi-arch-build-what-about-gitlab-ci/
   #  can update from this image to get later buildx version if test works;
-  image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.14
+  image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.15
   stage: package
   rules:
     - if: "$CI_COMMIT_BRANCH != 'main' && $CI_COMMIT_BRANCH != 'release'"

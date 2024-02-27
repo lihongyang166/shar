@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"net"
 	"os"
 	"os/signal"
@@ -40,6 +46,8 @@ type Server struct {
 	natsUrl                 string
 	grpcPort                int
 	conn                    *nats.Conn
+	telemetryConfig         telemetry.Config
+	tr                      trace.Tracer
 }
 
 // New creates a new SHAR server.
@@ -58,9 +66,11 @@ func New(options ...Option) *Server {
 		healthServiceEnabled:    true,
 		concurrency:             6,
 	}
+
 	for _, i := range options {
 		i.configure(s)
 	}
+
 	if s.apiAuthorizer == nil {
 		slog.Warn("No AuthZ set")
 		s.apiAuthorizer = noopAuthZ
@@ -69,6 +79,7 @@ func New(options ...Option) *Server {
 		slog.Warn("No AuthN set")
 		s.apiAuthenticator = noopAuthN
 	}
+
 	return s
 }
 
@@ -87,6 +98,9 @@ func noopAuthZ(_ context.Context, _ *model.ApiAuthorizationRequest) (*model.ApiA
 
 // Listen starts the GRPC server for both serving requests, and the GRPC health endpoint.
 func (s *Server) Listen() {
+	// Set up telemetry for the server
+	setupTelemetry(s)
+
 	// Capture errors and cancel signals
 	errs := make(chan error)
 
@@ -121,7 +135,7 @@ func (s *Server) Listen() {
 	}
 
 	ns := s.createServices(s.conn, s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
-	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator)
+	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator, s.telemetryConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -141,6 +155,30 @@ func (s *Server) Listen() {
 	case <-s.sig:
 		s.Shutdown()
 	}
+}
+
+func setupTelemetry(s *Server) {
+	var traceName = "shar"
+	switch s.telemetryConfig.Endpoint {
+	case "console":
+		exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+		if err != nil {
+			err := fmt.Errorf("create stdouttrace exporter: %w", err)
+			slog.Error(err.Error())
+			otel.SetTracerProvider(noop.NewTracerProvider())
+			goto setProvider
+		}
+		batchSpanProcessor := sdktrace.NewBatchSpanProcessor(exporter)
+		tp := sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithSpanProcessor(batchSpanProcessor),
+		)
+		otel.SetTracerProvider(tp)
+	default:
+		otel.SetTracerProvider(noop.NewTracerProvider())
+	}
+setProvider:
+	s.tr = otel.GetTracerProvider().Tracer(traceName, trace.WithInstrumentationVersion(version2.Version))
 }
 
 // Shutdown gracefully shuts down the GRPC server, and requests that
@@ -180,7 +218,7 @@ func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool,
 	if ephemeral {
 		store = nats.MemoryStorage
 	}
-	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks)
+	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks, s.telemetryConfig)
 	if err != nil {
 		slog.Error("create NATS KV store", slog.String("error", err.Error()))
 		panic(err)

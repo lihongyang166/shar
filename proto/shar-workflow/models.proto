@@ -271,6 +271,7 @@ message WorkflowState {
   string processInstanceId = 19; // ProcessInstanceId - the unique ID for the process instance.
   map<string,SatisfiesGateway> satisfiesGatewayExpectation = 20; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
   map<string,GatewayExpectations> gatewayExpectations = 21; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
+  string traceParent = 23; // TraceContext holds an OTEL trace context.
 }
 
 message WorkflowStateSummary {

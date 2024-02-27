@@ -32,11 +32,12 @@ const (
 )
 
 type zenOpts struct {
-	sharVersion         string
-	sharServerImageUrl  string
-	natsServerImageUrl  string
-	natsPersistHostPath string
-	natsServerAddress   string
+	sharVersion                 string
+	sharServerImageUrl          string
+	natsServerImageUrl          string
+	natsPersistHostPath         string
+	natsServerAddress           string
+	sharServerTelemetryEndpoint string
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -77,6 +78,13 @@ func WithNatsPersistHostPath(natsPersistHostPath string) ZenSharOptionApplyFn {
 	}
 }
 
+// WithSharServerTelemetry will make zen-shar persist nats messages between test runs if we are running against a containerised nats server
+func WithSharServerTelemetry(endpoint string) ZenSharOptionApplyFn {
+	return func(cfg *zenOpts) {
+		cfg.sharServerTelemetryEndpoint = endpoint
+	}
+}
+
 //go:embed nats-server.conf
 var natsConfig []byte
 
@@ -111,9 +119,9 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 
 	var ssvr Server
 	if defaults.sharServerImageUrl != "" {
-		ssvr = inContainerSharServer(defaults.sharServerImageUrl, dockerHostName, nPort)
+		ssvr = inContainerSharServer(defaults.sharServerImageUrl, dockerHostName, nPort, defaults.sharServerTelemetryEndpoint)
 	} else {
-		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort)
+		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint)
 	}
 
 	slog.Info("Setup completed", "nats port", nPort)
@@ -183,7 +191,7 @@ func inProcessNatsServer(natsConfig string, defaultNatsHost string, defaults *ze
 	return n, nil
 }
 
-func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort int) *containerisedServer {
+func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort int, telemetryEndpoint string) *containerisedServer {
 	ssvr := newContainerisedServer(testcontainers.ContainerRequest{
 		Image:        sharServerImageUrl,
 		ExposedPorts: []string{"50000/tcp"},
@@ -197,7 +205,7 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 	return ssvr
 }
 
-func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int) *sharsvr.Server {
+func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string) *sharsvr.Server {
 	natsUrl := fmt.Sprintf("%s:%d", natsHost, natsPort)
 	conn, err := nats.Connect(natsUrl)
 	if err != nil {
@@ -213,6 +221,7 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 		sharsvr.NatsUrl(natsUrl),
 		sharsvr.NatsConn(conn),
 		sharsvr.GrpcPort(0),
+		sharsvr.WithTelemetryEndpoint(telemetryEndpoint),
 	}
 	if apiAuth != nil {
 		options = append(options, sharsvr.WithApiAuthorizer(apiAuth))

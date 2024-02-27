@@ -16,10 +16,12 @@ import (
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	middleware2 "gitlab.com/shar-workflow/shar/common/middleware"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	api2 "gitlab.com/shar-workflow/shar/internal/client/api"
@@ -29,6 +31,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
 	"io"
@@ -130,15 +133,13 @@ type Client struct {
 	processing                      int
 	processingMx                    sync.Mutex
 	noOSSig                         bool
-}
-
-// Option represents a configuration changer for the client.
-type Option interface {
-	configure(client *Client)
+	telemetryConfig                 telemetry.Config
+	SendMiddleware                  []middleware2.Send
+	ReceiveMiddleware               []middleware2.Receive
 }
 
 // New creates a new SHAR client instance
-func New(option ...Option) *Client {
+func New(option ...ConfigurationOption) *Client {
 	ver, err := version.NewVersion(version2.Version)
 	if err != nil {
 		panic(err)
@@ -162,6 +163,9 @@ func New(option ...Option) *Client {
 		ExpectedCompatibleServerVersion: upgrader.GetCompatibleVersion(),
 		closer:                          make(chan struct{}),
 		sig:                             make(chan os.Signal),
+		telemetryConfig:                 telemetry.Config{Enabled: false},
+		SendMiddleware:                  make([]middleware2.Send, 0),
+		ReceiveMiddleware:               make([]middleware2.Receive, 0),
 	}
 	for _, i := range option {
 		i.configure(client)
@@ -171,6 +175,16 @@ func New(option ...Option) *Client {
 
 // Dial instructs the client to connect to a NATS server.
 func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) error {
+
+	if c.telemetryConfig.Enabled {
+		c.SendMiddleware = append(c.SendMiddleware,
+			telemetry.CtxSpanToNatsMsgMiddleware(),
+		)
+		c.ReceiveMiddleware = append(c.ReceiveMiddleware,
+			telemetry.NatsMsgToCtxWithSpanMiddleware(),
+		)
+	}
+
 	n, err := nats.Connect(natsURL, opts...)
 	if err != nil {
 		return c.clientErr(context.Background(), err)
@@ -220,7 +234,7 @@ func (c *Client) DeprecateTaskSpec(ctx context.Context, name string) error {
 	}
 	res := &model.DeprecateServiceTaskResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIDeprecateServiceTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIDeprecateServiceTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	if !res.Success {
@@ -288,7 +302,7 @@ func (c *Client) listen(ctx context.Context) error {
 			return fmt.Errorf("listen obtaining consumer info for %s: %w", cName, err)
 		}
 		ackTimeout := cInf.Config.AckWait
-		err = common.Process(ctx, c.js, "WORKFLOW", "jobExecute", c.closer, v, cName, c.concurrency, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+		err = common.Process(ctx, c.js, "WORKFLOW", "jobExecute", c.closer, v, cName, c.concurrency, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 			c.processingMx.Lock()
 			c.processing++
 			c.processingMx.Unlock()
@@ -342,17 +356,19 @@ func (c *Client) listen(ctx context.Context) error {
 
 			ut := &model.WorkflowState{}
 			if err := proto.Unmarshal(msg.Data, ut); err != nil {
-				log.Error("unmarshaling", err)
+				log.Error("unmarshalling", err)
 				return false, fmt.Errorf("service task listener: %w", err)
 			}
 
 			subj.SetNS(ctx, msg.Header.Get(header.SharNamespace))
 			ctx = context.WithValue(ctx, ctxkey.ExecutionID, ut.ExecutionId)
 			ctx = context.WithValue(ctx, ctxkey.ProcessInstanceID, ut.ProcessInstanceId)
+			ctx = ReParentSpan(ctx, ut)
 			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Header)
 			if err != nil {
 				return true, &errors2.ErrWorkflowFatal{Err: fmt.Errorf("obtain headers from message: %w", err)}
 			}
+
 			switch ut.ElementType {
 			case element.ServiceTask:
 				trackingID := common.TrackingID(ut.Id).ID()
@@ -384,6 +400,7 @@ func (c *Client) listen(ctx context.Context) error {
 					}
 					fnMx.Lock()
 					pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
+					pidCtx = ReParentSpan(pidCtx, job)
 					v, e = svcFn(pidCtx, &jobClient{cl: c, trackingID: trackingID}, dv)
 					close(waitCancelSig)
 					fnMx.Unlock()
@@ -400,7 +417,7 @@ func (c *Client) listen(ctx context.Context) error {
 						res := &model.HandleWorkflowErrorResponse{}
 						req := &model.HandleWorkflowErrorRequest{TrackingId: trackingID, ErrorCode: wfe.Code, Vars: v}
 						ctx = subj.SetNS(ctx, c.ns)
-						if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowError, c.ExpectedCompatibleServerVersion, req, res); err2 != nil {
+						if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {
 							// TODO: This isn't right.  If this call fails it assumes it is handled!
 							reterr := fmt.Errorf("handle workflow error: %w", err2)
 							return true, logx.Err(ctx, "handle a workflow error", reterr, slog.Any("workflowError", wfe))
@@ -455,7 +472,7 @@ func (c *Client) listen(ctx context.Context) error {
 				}
 				ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
 				pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
-
+				pidCtx = ReParentSpan(pidCtx, job)
 				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv); err != nil {
 					log.Warn("nats listener", err)
 					return false, err
@@ -477,9 +494,28 @@ func (c *Client) listen(ctx context.Context) error {
 	return nil
 }
 
+// ReParentSpan reparents a span in the given context with the span ID obtained from the WorkflowState ID.
+// If the span context in the context is valid, it replaces the span ID with the 64-bit representation
+// obtained from the WorkflowState ID. Otherwise, it returns the original context.
+//
+// Parameters:
+// - ctx: The context to re-parent the span in.
+// - state: The WorkflowState containing the ID to extract the new span ID from.
+//
+// Returns:
+// - The context with the re-parented span ID or the original context if the span context is invalid.
+func ReParentSpan(ctx context.Context, state *model.WorkflowState) context.Context {
+	sCtx := trace.SpanContextFromContext(ctx)
+	if sCtx.IsValid() {
+		c := common.KSuidTo64bit(common.TrackingID(state.Id).ID())
+		return trace.ContextWithSpanContext(ctx, sCtx.WithSpanID(c))
+	}
+	return ctx
+}
+
 func (c *Client) listenProcessTerminate(ctx context.Context) error {
 	closer := make(chan struct{}, 1)
-	err := common.Process(ctx, c.js, "WORKFLOW", "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, c.js, "WORKFLOW", "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
 		st := &model.WorkflowState{}
 		if err := proto.Unmarshal(msg.Data, st); err != nil {
 			log.Error("proto unmarshal error", err)
@@ -506,7 +542,7 @@ func (c *Client) ListUserTaskIDs(ctx context.Context, owner string) (*model.User
 	res := &model.UserTasks{}
 	req := &model.ListUserTasksRequest{Owner: owner}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListUserTaskIDs, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIListUserTaskIDs, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res, nil
@@ -517,7 +553,7 @@ func (c *Client) GetTaskSpecVersions(ctx context.Context, name string) ([]string
 	res := &model.GetTaskSpecVersionsResponse{}
 	req := &model.GetTaskSpecVersionsRequest{Name: name}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecVersions, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecVersions, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Versions.Id, nil
@@ -532,7 +568,7 @@ func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID 
 	res := &model.CompleteUserTaskResponse{}
 	req := &model.CompleteUserTaskRequest{Owner: owner, TrackingId: trackingID, Vars: ev}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APICompleteUserTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APICompleteUserTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
@@ -546,7 +582,7 @@ func (c *Client) completeServiceTask(ctx context.Context, trackingID string, new
 	res := &model.CompleteServiceTaskResponse{}
 	req := &model.CompleteServiceTaskRequest{TrackingId: trackingID, Vars: ev}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APICompleteServiceTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APICompleteServiceTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
@@ -560,7 +596,7 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 	res := &model.CompleteSendMessageResponse{}
 	req := &model.CompleteSendMessageRequest{TrackingId: trackingID, Vars: ev}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APICompleteSendMessageTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APICompleteSendMessageTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
@@ -586,7 +622,7 @@ func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b [
 
 	res := &model.StoreWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIStoreWorkflow, c.ExpectedCompatibleServerVersion, &model.StoreWorkflowRequest{Workflow: wf}, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIStoreWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, &model.StoreWorkflowRequest{Workflow: wf}, res); err != nil {
 		return "", c.clientErr(ctx, err)
 	}
 	return res.WorkflowId, nil
@@ -620,7 +656,7 @@ func (c *Client) GetWorkflowVersions(ctx context.Context, name string) (*model.W
 	}
 	res := &model.GetWorkflowVersionsResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflowVersions, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflowVersions, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Versions, nil
@@ -633,7 +669,7 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, e
 	}
 	res := &model.GetWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflow, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Definition, nil
@@ -646,7 +682,7 @@ func (c *Client) GetTaskSpecUsage(ctx context.Context, id string) (*model.TaskSp
 	}
 	res := &model.TaskSpecUsageReport{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecUsage, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpecUsage, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res, nil
@@ -665,7 +701,7 @@ func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInst
 		Error: wfe,
 	}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APICancelExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APICancelExecution, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
@@ -680,7 +716,7 @@ func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars mo
 	req := &model.LaunchWorkflowRequest{Name: processName, Vars: ev}
 	res := &model.LaunchWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return "", "", c.clientErr(ctx, err)
 	}
 	return res.InstanceId, res.WorkflowId, nil
@@ -691,7 +727,7 @@ func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListE
 	req := &model.ListExecutionRequest{WorkflowName: name}
 	res := &model.ListExecutionResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Result, nil
@@ -702,7 +738,7 @@ func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowRespon
 	req := &model.ListWorkflowsRequest{}
 	res := &model.ListWorkflowsResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Result, nil
@@ -713,7 +749,7 @@ func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.
 	req := &model.ListExecutionProcessesRequest{Id: id}
 	res := &model.ListExecutionProcessesResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListExecutionProcesses, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIListExecutionProcesses, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res, nil
@@ -724,7 +760,7 @@ func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) (*mode
 	req := &model.GetProcessInstanceStatusRequest{Id: id}
 	res := &model.GetProcessInstanceStatusResult{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res, nil
@@ -735,7 +771,7 @@ func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID strin
 	req := &model.GetUserTaskRequest{Owner: owner, TrackingId: trackingID}
 	res := &model.GetUserTaskResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetUserTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetUserTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, nil, c.clientErr(ctx, err)
 	}
 	v, err := vars.Decode(ctx, res.Vars)
@@ -761,7 +797,7 @@ func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars mo
 	req := &model.SendMessageRequest{Name: name, CorrelationKey: skey, Vars: b}
 	res := &model.SendMessageResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APISendMessage, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APISendMessage, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
@@ -782,7 +818,7 @@ func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string
 	req := &model.GetProcessHistoryRequest{Id: processInstanceId}
 	res := &model.GetProcessHistoryResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessHistory, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessHistory, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res, nil
@@ -802,7 +838,7 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 	}
 	res := &model.LogResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APILog, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APILog, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
@@ -813,7 +849,7 @@ func (c *Client) GetJob(ctx context.Context, id string) (*model.WorkflowState, e
 	req := &model.GetJobRequest{JobId: id}
 	res := &model.GetJobResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetJob, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetJob, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Job, nil
@@ -827,7 +863,7 @@ func (c *Client) GetServerVersion(ctx context.Context) (*version.Version, error)
 	}
 	res := &model.GetVersionInfoResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.con, messages.APIGetVersionInfo, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.con, messages.APIGetVersionInfo, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, fmt.Errorf("get version info: %w", err)
 	}
 
@@ -858,7 +894,7 @@ func (c *Client) registerServiceTask(ctx context.Context, spec *model.TaskSpec) 
 	}
 	res := &model.RegisterTaskResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIRegisterTask, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIRegisterTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return "", c.clientErr(ctx, err)
 	}
 	return res.Uid, nil
@@ -871,7 +907,7 @@ func (c *Client) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskS
 	}
 	res := &model.GetTaskSpecResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpec, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIGetTaskSpec, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Spec, nil
@@ -884,7 +920,7 @@ func (c *Client) ListTaskSpecs(ctx context.Context, includeDeprecated bool) ([]*
 	}
 	res := &model.ListTaskSpecUIDsResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListTaskSpecUIDs, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIListTaskSpecUIDs, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
 
@@ -908,7 +944,7 @@ func (c *Client) heartbeat(ctx context.Context) error {
 	}
 	res := &model.HeartbeatResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIHeartbeat, c.ExpectedCompatibleServerVersion, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APIHeartbeat, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil

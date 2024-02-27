@@ -13,6 +13,7 @@ type Settings struct {
 	LogLevel      string `env:"SHAR_LOG_LEVEL" envDefault:"debug"`
 	PanicRecovery bool   `env:"SHAR_PANIC_RECOVERY" envDefault:"true"`
 	Concurrency   int    `env:"SHAR_CONCURRENCY" envDefault:"10"`
+	TracerName    string `env:"SHAR_TRACER_NAME" envDefault:"shar"`
 }
 
 // GetEnvironment pulls the active settings into a settings struct.

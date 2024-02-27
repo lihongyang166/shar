@@ -5,12 +5,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client/parser"
 	"gitlab.com/shar-workflow/shar/model"
+	"go.opentelemetry.io/otel/trace"
 
 	"os"
 	"testing"
 )
 
-func setupTestWorkflow(t *testing.T, workflowFilename string, workflowName string) (*Engine, *MockNatsService, *model.Workflow) {
+func setupTestWorkflow(t *testing.T, workflowFilename string, workflowName string, tp trace.TracerProvider) (*Engine, *MockNatsService, *model.Workflow) {
 	svc := &MockNatsService{}
 
 	eng, err := New(svc)

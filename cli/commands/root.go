@@ -49,6 +49,7 @@ func init() {
 	RootCmd.AddCommand(servicetask.Cmd)
 	RootCmd.PersistentFlags().StringVarP(&flag.Value.Server, flag.Server, flag.ServerShort, nats.DefaultURL, "sets the address of a NATS server")
 	RootCmd.PersistentFlags().StringVarP(&flag.Value.LogLevel, flag.LogLevel, flag.LogLevelShort, "error", "sets the logging level for the CLI")
+	RootCmd.PersistentFlags().StringVarP(&flag.Value.Namespace, flag.Namespace, flag.NamespaceShort, "default", "sets the SHAR namespace for CLI operations")
 	RootCmd.PersistentFlags().BoolVarP(&flag.Value.Json, flag.JsonOutput, flag.JsonOutputShort, false, "sets the CLI output to json")
 	var lev slog.Level
 	var addSource bool

@@ -39,7 +39,7 @@ build_image_2_scan:
   script:
     - docker build --tag $CI_REGISTRY_IMAGE/server:${CI_COMMIT_SHORT_SHA} --file Dockerfile --target server .
     - docker login --username gitlab-ci-token --password $CI_JOB_TOKEN $CI_REGISTRY
-    - docker push $CI_REGISTRY_IMAGE/tutorial-image
+    - docker push $CI_REGISTRY_IMAGE/server:${CI_COMMIT_SHORT_SHA}
 
 # Scan the container we build in package stage at the end of the pipeline 
 # (will just pull the already built image):

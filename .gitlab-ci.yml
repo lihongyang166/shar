@@ -27,13 +27,22 @@ stages:
   - build
   - tag
   - package
+  - container_scanning
+
 sast:
-  stage: test
+  stage: scanning
+
+# Scan the container we build in package stage at the end of the pipeline (will just pull the already built image):
+container_scanning:
+  stage: container_scanning
+  variables:
+    CS_DEFAULT_BRANCH_IMAGE: registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:$VER.${CI_VERSION}
+
 include:
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
-  - template: Security/License-Scanning.gitlab-ci.yml
   - template: Jobs/Container-Scanning.gitlab-ci.yml
+
 build_stage:
   image: registry.gitlab.com/shar-workflow/build-go/build-go:1.0.15
   stage: build

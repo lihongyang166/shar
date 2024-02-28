@@ -30,7 +30,7 @@ stages:
   - container_scanning
 
 sast:
-  stage: scanning
+  stage: test
 
 # Scan the container we build in package stage at the end of the pipeline (will just pull the already built image):
 container_scanning:

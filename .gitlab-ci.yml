@@ -27,16 +27,28 @@ stages:
   - build
   - tag
   - package
-  - container_scanning
 
 sast:
   stage: test
 
-# Scan the container we build in package stage at the end of the pipeline (will just pull the already built image):
+build_image_2_scan:
+  image: docker:24.0.2
+  stage: build
+  services:
+    - docker:24.0.2-dind
+  script:
+    - docker build --tag $CI_REGISTRY_IMAGE/server:${CI_COMMIT_SHORT_SHA} --file Dockerfile --target server .
+    - docker login --username gitlab-ci-token --password $CI_JOB_TOKEN $CI_REGISTRY
+    - docker push $CI_REGISTRY_IMAGE/tutorial-image
+
+# Scan the container we build in package stage at the end of the pipeline 
+# (will just pull the already built image):
 container_scanning:
-  stage: container_scanning
+  needs:
+    - build_image_2_scan
   variables:
-    CS_IMAGE: registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:$VER.${CI_VERSION}
+    CS_IMAGE: $CI_REGISTRY_IMAGE/server:${CI_COMMIT_SHORT_SHA}
+    CS_DEFAULT_BRANCH_IMAGE: registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:latest
 
 include:
   - template: Security/SAST.gitlab-ci.yml

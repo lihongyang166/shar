@@ -10,7 +10,7 @@
 # ^This will build a multi-platform image for linux/amd64,linux/arm64 and linux/386 platforms.
 # Reference: https://www.docker.com/blog/faster-multi-platform-builds-dockerfile-cross-compilation-guide/
 
-FROM --platform=$BUILDPLATFORM golang:1.21.1-alpine as build-stage
+FROM --platform=$BUILDPLATFORM golang:1.22.0-alpine as build-stage
 ARG BINARY_VERSION="0.1.0"
 ARG COMMIT_HASH="12345abcd"
 ARG TARGETPLATFORM

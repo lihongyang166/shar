@@ -36,7 +36,7 @@ sast:
 container_scanning:
   stage: container_scanning
   variables:
-    CS_DEFAULT_BRANCH_IMAGE: registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:$VER.${CI_VERSION}
+    CS_IMAGE: registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:$VER.${CI_VERSION}
 
 include:
   - template: Security/SAST.gitlab-ci.yml

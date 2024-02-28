@@ -33,7 +33,7 @@ sast:
 
 build_image_2_scan:
   image: docker:24.0.2
-  stage: build
+  stage: test
   services:
     - docker:24.0.2-dind
   script:
@@ -44,6 +44,7 @@ build_image_2_scan:
 # Scan the container we build in package stage at the end of the pipeline 
 # (will just pull the already built image):
 container_scanning:
+  stage: test
   needs:
     - build_image_2_scan
   variables:

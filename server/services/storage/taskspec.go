@@ -64,22 +64,20 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 	}
 	vers := &model.TaskSpecVersions{}
 	if err := common.UpdateObj(ctx, nsKVs.wfTaskSpecVer, spec.Metadata.Type, vers, func(v *model.TaskSpecVersions) (*model.TaskSpecVersions, error) {
-		if !slices.Contains(v.Id, uid) {
-			v.Id = append(v.Id, uid)
-			subj := messages.WorkflowSystemTaskCreate
-			if len(v.Id) == 0 {
-				subj = messages.WorkflowSystemTaskUpdate
-			}
-			msg := nats.NewMsg(subj)
-			b, err := proto.Marshal(spec)
-			if err != nil {
-				return nil, fmt.Errorf("marshal %s system message: %w", subj, err)
-			}
-			msg.Data = b
-			msg.Header.Set(header.SharNamespace, "*")
-			if err := s.conn.PublishMsg(msg); err != nil {
-				return nil, fmt.Errorf("send %s system message: %w", subj, err)
-			}
+		v.Id = append(v.Id, uid)
+		subj := messages.WorkflowSystemTaskCreate
+		if len(v.Id) == 0 {
+			subj = messages.WorkflowSystemTaskUpdate
+		}
+		msg := nats.NewMsg(subj)
+		b, err := proto.Marshal(spec)
+		if err != nil {
+			return nil, fmt.Errorf("marshal %s system message: %w", subj, err)
+		}
+		msg.Data = b
+		msg.Header.Set(header.SharNamespace, "*")
+		if err := s.conn.PublishMsg(msg); err != nil {
+			return nil, fmt.Errorf("send %s system message: %w", subj, err)
 		}
 		return v, nil
 	}); err != nil {

@@ -33,7 +33,6 @@ streams:
         - WORKFLOW.*.State.Job.Activate.Gateway
         - WORKFLOW.*.State.Job.ReEnter.Gateway
         - WORKFLOW.Message.Telemetry
-        - WORKFLOW.Message.Kick
         - $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>
       retention: 1
       storage: 1
@@ -150,14 +149,6 @@ streams:
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Execute.AwaitMessage
           max_ack_pending: 65535
-          max_batch: 1
-      - nats-config:
-          durable_name: MessageKickConsumer
-          description: Message processing consumer timer
-          ack_policy: 2
-          ack_wait: 2m0s
-          filter_subject: WORKFLOW.Message.Kick
-          max_ack_pending: 1
           max_batch: 1
       - nats-config:
           durable_name: TelemetryTimerConsumer

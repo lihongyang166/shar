@@ -64,7 +64,6 @@ const (
 
 const (
 	WorkflowTelemetryTimer = "WORKFLOW.Message.Telemetry" // WorkflowTelemetryTimer is the message subject for triggering telemetry messages from the server.
-	WorkflowMessageKick    = "WORKFLOW.Message.Kick"      // WorkflowMessageKick is the message subject for triggering delivery of missed messages.
 )
 
 const (
@@ -127,7 +126,6 @@ var AllMessages = []string{
 	subj.NS(WorkflowJobGatewayTaskActivate, "*"),
 	subj.NS(WorkflowJobGatewayTaskReEnter, "*"),
 	WorkflowTelemetryTimer,
-	WorkflowMessageKick,
 	"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>", // Dead letter functionality
 }
 

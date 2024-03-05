@@ -159,7 +159,7 @@ func parseUriOrAddressPort(address string) (string, int, error) {
 }
 
 func writeNatsConfig() (string, string) {
-	natsConfigFileLocation := fmt.Sprintf("%snats-conf/%s/", os.Getenv("TMPDIR"), ksuid.New().String())
+	natsConfigFileLocation := fmt.Sprintf("%snats-conf/%s/", os.TempDir(), ksuid.New().String())
 	if err := os.MkdirAll(filepath.Dir(natsConfigFileLocation), 0777); err != nil {
 		panic(fmt.Errorf("failed creating nats config dir: %w", err))
 	}
@@ -338,6 +338,14 @@ func tryStartingNats(natsOptions *server.Options, natsPort int, attempt int) (*s
 func (natserver *NatsServer) Shutdown() {
 	natserver.nsvr.Shutdown()
 	natserver.nsvr.WaitForShutdown()
+
+	natserver.removeNatsConfFile()
+}
+
+func (natserver *NatsServer) removeNatsConfFile() {
+	natsConfigFileLocationSegments := strings.Split(natserver.natsConfig, "/")
+	natsConfigFileDirectory := natsConfigFileLocationSegments[:len(natsConfigFileLocationSegments)-1]
+	_ = os.RemoveAll(strings.Join(natsConfigFileDirectory, "/"))
 }
 
 // GetEndPoint returns the url of the nats endpoint

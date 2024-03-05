@@ -187,12 +187,6 @@ func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, 
 	}
 	ms.sharKvs[ns] = nKvs
 
-	msg := nats.NewMsg(messages.WorkflowMessageKick)
-	msg.Header.Set(header.SharNamespace, ns)
-	if err := common.PublishOnce(js, nKvs.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
-		return nil, fmt.Errorf("ensure kick message: %w", err)
-	}
-
 	if err := ms.startTelemetry(ctx, ns); err != nil {
 		return nil, fmt.Errorf("start telemetry: %w", err)
 	}
@@ -311,9 +305,6 @@ func (s *Nats) StartProcessing(ctx context.Context) error {
 	}
 	if err := s.processGatewayExecute(ctx); err != nil {
 		return fmt.Errorf("start gateway execute handler: %w", err)
-	}
-	if err := s.messageKick(ctx); err != nil {
-		return fmt.Errorf("starting message kick: %w", err)
 	}
 	return nil
 }

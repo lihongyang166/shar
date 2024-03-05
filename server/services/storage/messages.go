@@ -19,7 +19,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"strings"
-	"time"
 )
 
 const (
@@ -70,78 +69,6 @@ func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) err
 			return fmt.Errorf("add service task consumer: %w", err)
 		}
 	}
-	return nil
-}
-
-var messageKickInterval = time.Second * 10
-
-func (s *Nats) messageKick(ctx context.Context) error {
-	sub, err := s.js.PullSubscribe(messages.WorkflowMessageKick, "MessageKick")
-	if err != nil {
-		return fmt.Errorf("creating message kick subscription: %w", err)
-	}
-
-	go func() {
-		for {
-			select {
-			case <-s.closing:
-				return
-			default:
-				pctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-				msgs, err := sub.Fetch(1, nats.Context(pctx))
-
-				if err != nil || len(msgs) == 0 {
-					slog.Warn("pulling kick message")
-					cancel()
-					time.Sleep(20 * time.Second)
-					continue
-				}
-				msg := msgs[0]
-
-				//#########
-				var ns string
-				if ns = msg.Header.Get(header.SharNamespace); ns == "" {
-					slog.Error("messageKick - message without namespace", slog.Any("subject", msg.Subject))
-					cancel()
-					if err := msg.Ack(); err != nil {
-						slog.Error("messageKick - processing failed to ack", err)
-					}
-					continue
-				}
-
-				nsKVs, err := s.KvsFor(ns)
-				if err != nil {
-					slog.Error("messageKick - failed getting KVs for ns %s: %w", ns, err)
-					cancel()
-					continue
-				}
-				//#########
-
-				msgKeys, err := nsKVs.wfMessages.Keys()
-				if err != nil {
-					goto continueLoop
-				}
-
-				for _, k := range msgKeys {
-					exchange := &model.Exchange{}
-					err := common.LoadObj(ctx, nsKVs.wfMessages, k, exchange)
-					if err != nil {
-						slog.Warn(err.Error())
-					}
-					correlationKey, messageName := elementsFrom(k)
-					err = s.attemptMessageDelivery(ctx, exchange, "", senderParty, messageName, correlationKey)
-					if err != nil {
-						slog.Warn(err.Error())
-					}
-				}
-			continueLoop:
-				if err := msg.NakWithDelay(messageKickInterval); err != nil {
-					slog.Warn("message nak: " + err.Error())
-				}
-				cancel()
-			}
-		}
-	}()
 	return nil
 }
 
@@ -323,11 +250,6 @@ func (s *Nats) processAwaitMessageExecute(ctx context.Context) error {
 
 func messageKeyFrom(keyElements []string) string {
 	return strings.Join(keyElements, "-")
-}
-
-func elementsFrom(key string) (string, string) {
-	eles := strings.Split(key, "-")
-	return eles[0], eles[1]
 }
 
 // awaitMessageProcessor waits for WORKFLOW.*.State.Job.AwaitMessage.Execute job and executes a delivery

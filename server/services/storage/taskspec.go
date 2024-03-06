@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/header"
@@ -196,7 +197,7 @@ func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskS
 	}
 
 	wfKeys, err := s.GetExecutableWorkflowIds(ctx)
-	if !errors.Is(err, nats.ErrNoKeysFound) && err != nil {
+	if !errors.Is(err, jetstream.ErrNoKeysFound) && err != nil {
 		return nil, fmt.Errorf("task spec usage get executasble workflows: %w", err)
 	}
 	rptWf := make(map[string]struct{})
@@ -218,7 +219,7 @@ func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskS
 	}
 
 	piKeys, err := nsKVs.wfProcessInstance.Keys(ctx)
-	if !errors.Is(err, nats.ErrNoKeysFound) && err != nil {
+	if !errors.Is(err, jetstream.ErrNoKeysFound) && err != nil {
 		return nil, fmt.Errorf("task spec usage by name get process instance keys: %w", err)
 	}
 

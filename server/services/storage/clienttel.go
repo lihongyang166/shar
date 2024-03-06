@@ -50,11 +50,11 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 					b    []byte
 					body *model.TelemetryClients
 				)
-				if errors.Is(err, nats.ErrNoKeysFound) {
+				if errors.Is(err, jetstream.ErrNoKeysFound) {
 					goto continueLoop
 				}
 
-				if errors.Is(err, nats.ErrNoKeysFound) {
+				if errors.Is(err, jetstream.ErrNoKeysFound) {
 					clientKeys = []string{}
 				} else if err != nil {
 					slog.Error("get client KV keys", "error", err)

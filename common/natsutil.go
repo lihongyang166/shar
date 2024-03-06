@@ -125,7 +125,7 @@ func UpdateObj[T proto.Message](ctx context.Context, wf jetstream.KeyValue, k st
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "update KV object", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.Any("fn", reflect.TypeOf(updateFn)))
 	}
-	if oldk, err := wf.Get(ctx, k); errors.Is(err, nats.ErrKeyNotFound) || (err == nil && oldk.Value() == nil) {
+	if oldk, err := wf.Get(ctx, k); errors.Is(err, jetstream.ErrKeyNotFound) || (err == nil && oldk.Value() == nil) {
 		if err := SaveObj(ctx, wf, k, msg); err != nil {
 			return fmt.Errorf("save during update object: %w", err)
 		}
@@ -153,7 +153,7 @@ func UpdateObjIsNew[T proto.Message](ctx context.Context, wf jetstream.KeyValue,
 		log.Log(ctx, errors2.TraceLevel, "update KV object", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.Any("fn", reflect.TypeOf(updateFn)))
 	}
 	isNew := false
-	if oldk, err := wf.Get(ctx, k); errors.Is(err, nats.ErrKeyNotFound) || (err == nil && oldk.Value() == nil) {
+	if oldk, err := wf.Get(ctx, k); errors.Is(err, jetstream.ErrKeyNotFound) || (err == nil && oldk.Value() == nil) {
 		if err := SaveObj(ctx, wf, k, msg); err != nil {
 			return false, fmt.Errorf("save during update object: %w", err)
 		}
@@ -206,7 +206,7 @@ func EnsureBuckets(ctx context.Context, js jetstream.JetStream, storageType jets
 
 // EnsureBucket creates a bucket if it does not exist
 func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetstream.StorageType, name string, ttl time.Duration) error {
-	if _, err := js.KeyValue(ctx, name); errors.Is(err, nats.ErrBucketNotFound) {
+	if _, err := js.KeyValue(ctx, name); errors.Is(err, jetstream.ErrBucketNotFound) {
 		if _, err := js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
 			Bucket:  name,
 			Storage: storageType,
@@ -345,7 +345,7 @@ var lockVal = make([]byte, 0)
 // Lock ensures a lock on a given ID, it returns true if a lock was granted.
 func Lock(ctx context.Context, kv jetstream.KeyValue, lockID string) (bool, error) {
 	_, err := kv.Create(ctx, lockID, lockVal)
-	if errors.Is(err, nats.ErrKeyExists) {
+	if errors.Is(err, jetstream.ErrKeyExists) {
 		return false, nil
 	} else if err != nil {
 		return false, fmt.Errorf("querying lock: %w", err)
@@ -356,7 +356,7 @@ func Lock(ctx context.Context, kv jetstream.KeyValue, lockID string) (bool, erro
 // ExtendLock extends the lock past its stale time.
 func ExtendLock(ctx context.Context, kv jetstream.KeyValue, lockID string) error {
 	v, err := kv.Get(ctx, lockID)
-	if errors.Is(err, nats.ErrKeyNotFound) {
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("hold lock found no lock: %w", err)
 	} else if err != nil {
 		return fmt.Errorf("querying lock: %w", err)
@@ -377,7 +377,7 @@ func ExtendLock(ctx context.Context, kv jetstream.KeyValue, lockID string) error
 // UnLock closes an existing lock.
 func UnLock(ctx context.Context, kv jetstream.KeyValue, lockID string) error {
 	_, err := kv.Get(ctx, lockID)
-	if errors.Is(err, nats.ErrKeyNotFound) {
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("unlocking found no lock: %w", err)
 	} else if err != nil {
 		return fmt.Errorf("unlocking get lock: %w", err)
@@ -507,7 +507,7 @@ func DeleteLarge(ctx context.Context, ds jetstream.ObjectStore, mutex jetstream.
 			slog.Error("load large unlocking", "error", err.Error())
 		}
 	}()
-	if err := ds.Delete(ctx, k); err != nil && errors.Is(err, nats.ErrNoObjectsFound) && !errors.Is(err, nats.ErrKeyNotFound) {
+	if err := ds.Delete(ctx, k); err != nil && errors.Is(err, jetstream.ErrNoObjectsFound) && !errors.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete large removing: %w", err)
 	}
 	return nil

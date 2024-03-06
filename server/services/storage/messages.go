@@ -149,7 +149,7 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 	//use optimistic locking capabilities on create/update to ensure no lost writes...
 	_, createErr := nsKVs.wfMessages.Create(ctx, messageKey, exchangeProto)
 
-	if errors2.Is(createErr, nats.ErrKeyExists) {
+	if errors2.Is(createErr, jetstream.ErrKeyExists) {
 		err3 := common.UpdateObj(ctx, nsKVs.wfMessages, messageKey, &model.Exchange{}, setPartyFn)
 		if err3 != nil {
 			return fmt.Errorf("failed to update exchange with %s: %w", party, err3)
@@ -213,7 +213,7 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Excha
 
 		for _, recvr := range receivers {
 			job, err := s.GetJob(ctx, recvr.Id)
-			if errors2.Is(err, nats.ErrKeyNotFound) {
+			if errors2.Is(err, jetstream.ErrKeyNotFound) {
 				return nil
 			} else if err != nil {
 				return err
@@ -275,7 +275,7 @@ func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg 
 	}
 
 	el, err := s.GetElement(ctx, job)
-	if errors2.Is(err, nats.ErrKeyNotFound) {
+	if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err)}
 	} else if err != nil {
 		return false, fmt.Errorf("get message element: %w", err)

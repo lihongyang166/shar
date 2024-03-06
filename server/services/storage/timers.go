@@ -23,7 +23,13 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 	log := logx.FromContext(sCtx)
 	subject := subj.NS("WORKFLOW.%s.Timers.>", "*")
 	durable := "workflowTimers"
-	consumer, err := js.Consumer(sCtx, subject, durable)
+	consumerCfg := jetstream.ConsumerConfig{
+		Name:          durable,
+		Durable:       durable,
+		FilterSubject: subject,
+	}
+
+	consumer, err := js.CreateOrUpdateConsumer(sCtx, "WORKFLOW", consumerCfg)
 	if err != nil {
 		return fmt.Errorf("get consumer for %s: %w", durable, err)
 	}

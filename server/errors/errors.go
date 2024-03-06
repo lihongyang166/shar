@@ -3,7 +3,7 @@ package errors
 import (
 	"errors"
 	"fmt"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"runtime"
 )
 
@@ -69,12 +69,12 @@ func Fn() string {
 }
 
 var integrityErrors = []error{
-	nats.ErrKeyNotFound,
-	nats.ErrNoKeysFound,
-	nats.ErrConsumerNotFound,
-	nats.ErrStreamNotFound,
-	nats.ErrObjectNotFound,
-	nats.ErrMsgNotFound,
+	jetstream.ErrKeyNotFound,
+	jetstream.ErrNoKeysFound,
+	jetstream.ErrConsumerNotFound,
+	jetstream.ErrStreamNotFound,
+	jetstream.ErrObjectNotFound,
+	jetstream.ErrMsgNotFound,
 	ErrElementNotFound,
 	ErrJobNotFound,
 	ErrExecutionNotFound,

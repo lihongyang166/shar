@@ -115,7 +115,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 	}
 
 	ks, err := nsKVs.wfVersion.Keys(ctx)
-	if errors2.Is(err, nats.ErrNoKeysFound) {
+	if errors2.Is(err, jetstream.ErrNoKeysFound) {
 		ks = []string{}
 	} else if err != nil {
 		errs <- err
@@ -125,7 +125,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 		for _, k := range ks {
 			v := &model.WorkflowVersions{}
 			err := common.LoadObj(ctx, nsKVs.wfVersion, k, v)
-			if errors2.Is(err, nats.ErrNoKeysFound) {
+			if errors2.Is(err, jetstream.ErrNoKeysFound) {
 				continue
 			}
 			if err != nil {
@@ -328,7 +328,7 @@ func (s *Nats) validateUniqueProcessNameFor(ctx context.Context, wf *model.Workf
 
 	for processName := range wf.Process {
 		workFlowName, err := nsKVs.wfProcess.Get(ctx, processName)
-		if errors2.Is(err, nats.ErrKeyNotFound) {
+		if errors2.Is(err, jetstream.ErrKeyNotFound) {
 			continue
 		}
 		wfName := string(workFlowName.Value())
@@ -375,7 +375,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 	}
 
 	_, err = nsKVs.wfName.Get(ctx, wf.Name)
-	if errors2.Is(err, nats.ErrKeyNotFound) {
+	if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		wfNameID := ksuid.New().String()
 		_, err = nsKVs.wfName.Put(ctx, wf.Name, []byte(wfNameID))
 		if err != nil {
@@ -395,7 +395,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 		for _, j := range i.Elements {
 			if j.Type == element.ServiceTask {
 				id, err := s.GetTaskSpecUID(ctx, j.Execute)
-				if err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
+				if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
 					return "", fmt.Errorf("task %s is not registered: %w", j.Execute, err)
 				}
 				j.Version = &id
@@ -588,7 +588,7 @@ func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workf
 	}
 
 	wf := &model.Workflow{}
-	if err := common.LoadObj(ctx, nsKVs.wf, workflowID, wf); errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := common.LoadObj(ctx, nsKVs.wf, workflowID, wf); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get workflow failed to load object: %w", errors.ErrWorkflowNotFound)
 
 	} else if err != nil {
@@ -605,7 +605,7 @@ func (s *Nats) GetWorkflowNameFor(ctx context.Context, processName string) (stri
 		return "", fmt.Errorf("GetWorkflowVersions - failed getting KVs for ns %s: %w", ns, err)
 	}
 
-	if entry, err := common.Load(ctx, nsKVs.wfProcess, processName); errors2.Is(err, nats.ErrKeyNotFound) {
+	if entry, err := common.Load(ctx, nsKVs.wfProcess, processName); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return "", fmt.Errorf(fmt.Sprintf("get workflow name for process %s failed: %%w", processName), errors.ErrProcessNotFound)
 	} else if err != nil {
 		return "", fmt.Errorf("load workflow name for process: %w", err)
@@ -623,7 +623,7 @@ func (s *Nats) GetWorkflowVersions(ctx context.Context, workflowName string) (*m
 	}
 
 	ver := &model.WorkflowVersions{}
-	if err := common.LoadObj(ctx, nsKVs.wfVersion, workflowName, ver); errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := common.LoadObj(ctx, nsKVs.wfVersion, workflowName, ver); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get workflow versions failed to load object: %w", errors.ErrWorkflowVersionNotFound)
 
 	} else if err != nil {
@@ -674,7 +674,7 @@ func (s *Nats) GetExecution(ctx context.Context, executionID string) (*model.Exe
 	}
 
 	e := &model.Execution{}
-	if err := common.LoadObj(ctx, nsKVs.wfExecution, executionID, e); errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := common.LoadObj(ctx, nsKVs.wfExecution, executionID, e); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get execution failed to load object: %w", errors.ErrExecutionNotFound)
 	} else if err != nil {
 		return nil, fmt.Errorf("load execution from KV: %w", err)
@@ -740,13 +740,13 @@ func (s *Nats) deleteExecution(ctx context.Context, state *model.WorkflowState) 
 		return fmt.Errorf("deleteExecution - failed to get KVs for ns %s: %w", ns, err)
 	}
 
-	if err := nsKVs.wfExecution.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := nsKVs.wfExecution.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete workflow instance: %w", err)
 	}
 
 	//TODO: Loop through all messages checking for process subscription and remove
 
-	if err := nsKVs.wfTracking.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := nsKVs.wfTracking.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete workflow tracking: %w", err)
 	}
 	if err := s.PublishWorkflowState(ctx, messages.ExecutionTerminated, state); err != nil {
@@ -764,7 +764,7 @@ func (s *Nats) GetLatestVersion(ctx context.Context, workflowName string) (strin
 	}
 
 	v := &model.WorkflowVersions{}
-	if err := common.LoadObj(ctx, nsKVs.wfVersion, workflowName, v); errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := common.LoadObj(ctx, nsKVs.wfVersion, workflowName, v); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return "", fmt.Errorf("get latest workflow version: %w", errors.ErrWorkflowNotFound)
 	} else if err != nil {
 		return "", fmt.Errorf("load object whist getting latest versiony: %w", err)
@@ -800,7 +800,7 @@ func (s *Nats) GetJob(ctx context.Context, trackingID string) (*model.WorkflowSt
 	job := &model.WorkflowState{}
 	if err := common.LoadObj(ctx, nsKVs.job, trackingID, job); err == nil {
 		return job, nil
-	} else if errors2.Is(err, nats.ErrKeyNotFound) {
+	} else if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get job failed to load workflow object: %w", errors.ErrJobNotFound)
 	} else if err != nil {
 		return nil, fmt.Errorf("load job from KV: %w", err)
@@ -851,7 +851,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 	}
 
 	ks, err := nsKVs.wfExecution.Keys(ctx)
-	if errors2.Is(err, nats.ErrNoKeysFound) {
+	if errors2.Is(err, jetstream.ErrNoKeysFound) {
 		ks = []string{}
 	} else if err != nil {
 		log := logx.FromContext(ctx)
@@ -863,7 +863,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 			v := &model.Execution{}
 			err := common.LoadObj(ctx, nsKVs.wfExecution, k, v)
 			if wv, ok := ver[v.WorkflowId]; ok {
-				if err != nil && errors2.Is(err, nats.ErrKeyNotFound) {
+				if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
 					errs <- err
 					log.Error("loading object", err)
 					close(errs)
@@ -1013,7 +1013,7 @@ func (s *Nats) GetElement(ctx context.Context, state *model.WorkflowState) (*mod
 	}
 
 	wf := &model.Workflow{}
-	if err := common.LoadObj(ctx, nsKVs.wf, state.WorkflowId, wf); errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := common.LoadObj(ctx, nsKVs.wf, state.WorkflowId, wf); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, fmt.Errorf("load object during get element: %w", err)
 	}
 	els := common.ElementTable(wf)
@@ -1318,7 +1318,7 @@ func (s *Nats) OwnerID(ctx context.Context, name string) (string, error) {
 		name = "AnyUser"
 	}
 	nm, err := nsKVs.ownerID.Get(ctx, name)
-	if err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	if err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return "", fmt.Errorf("get owner id: %w", err)
 	}
 	if nm == nil {
@@ -1361,7 +1361,7 @@ func (s *Nats) GetOldState(ctx context.Context, id string) (*model.WorkflowState
 	err = common.LoadObj(ctx, nsKVs.wfVarState, id, oldState)
 	if err == nil {
 		return oldState, nil
-	} else if errors2.Is(err, nats.ErrKeyNotFound) {
+	} else if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get old state failed to load object: %w", errors.ErrStateNotFound)
 	}
 	return nil, fmt.Errorf("retrieving task state: %w", err)
@@ -1478,14 +1478,14 @@ func (s *Nats) processGeneralAbort(ctx context.Context) error {
 }
 
 func (s *Nats) deleteActivity(ctx context.Context, state *model.WorkflowState) error {
-	if err := s.deleteSavedState(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := s.deleteSavedState(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete activity: %w", err)
 	}
 	return nil
 }
 
 func (s *Nats) deleteJob(ctx context.Context, state *model.WorkflowState) error {
-	if err := s.DeleteJob(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := s.DeleteJob(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete job: %w", err)
 	}
 	if activityState, err := s.GetOldState(ctx, common.TrackingID(state.Id).Pop().ID()); err != nil && !errors2.Is(err, errors.ErrStateNotFound) {
@@ -1567,7 +1567,7 @@ func (s *Nats) GetProcessInstance(ctx context.Context, processInstanceID string)
 
 	pi := &model.ProcessInstance{}
 	err = common.LoadObj(ctx, nsKVs.wfProcessInstance, processInstanceID, pi)
-	if errors2.Is(err, nats.ErrKeyNotFound) {
+	if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get process instance failed to load instance: %w", errors.ErrProcessInstanceNotFound)
 	}
 	if err != nil {
@@ -1733,7 +1733,7 @@ func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string
 	messageReceivers := &model.MessageReceivers{}
 	err = common.LoadObj(ctx, nsKVs.wfMsgTypes, startEventMessageName, messageReceivers)
 
-	if errors2.Is(err, nats.ErrKeyNotFound) || messageReceivers.MessageReceiver == nil || len(messageReceivers.MessageReceiver) == 0 {
+	if errors2.Is(err, jetstream.ErrKeyNotFound) || messageReceivers.MessageReceiver == nil || len(messageReceivers.MessageReceiver) == 0 {
 		return "", fmt.Errorf("no message receivers for %q: %w", startEventMessageName, err)
 	}
 

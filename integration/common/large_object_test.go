@@ -179,5 +179,5 @@ func TestLargeObjDelete(t *testing.T) {
 	err = common.DeleteLarge(rctx, ds, kv, "testKey")
 	require.NoError(t, err)
 	_, err = ds.List(ctx)
-	assert.ErrorIs(t, err, nats.ErrNoObjectsFound)
+	assert.ErrorIs(t, err, jetstream.ErrNoObjectsFound)
 }

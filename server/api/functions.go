@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-version"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -325,7 +325,7 @@ func (s *SharServer) listUserTaskIDs(ctx context.Context, req *model.ListUserTas
 		return nil, fmt.Errorf("get owner ID: %w", err)
 	}
 	ut, err := s.ns.GetUserTaskIDs(ctx, oid)
-	if errors.Is(err, nats.ErrKeyNotFound) {
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return &model.UserTasks{Id: []string{}}, nil
 	}
 	if err != nil {

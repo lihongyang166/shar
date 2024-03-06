@@ -303,7 +303,7 @@ func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *
 		kvs, err := js.KeyValue(ctx, name)
 		require.NoError(t, err)
 		keys, err := kvs.Keys(ctx)
-		if err != nil && errors.Is(err, nats.ErrNoKeysFound) {
+		if err != nil && errors.Is(err, jetstream.ErrNoKeysFound) {
 			continue
 		}
 		require.NoError(t, err)
@@ -365,7 +365,7 @@ func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *
 	}
 
 	b, err := js.KeyValue(ctx, ns.PrefixWith(namespace, "WORKFLOW_USERTASK"))
-	if err != nil && errors.Is(err, nats.ErrNoKeysFound) {
+	if err != nil && errors.Is(err, jetstream.ErrNoKeysFound) {
 		return nil
 	}
 	if err != nil {
@@ -374,7 +374,7 @@ func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *
 
 	keys, err := b.Keys(ctx)
 	if err != nil {
-		if errors.Is(err, nats.ErrNoKeysFound) {
+		if errors.Is(err, jetstream.ErrNoKeysFound) {
 			return nil
 		}
 		return fmt.Errorf("checkCleanKV failed to get user task keys: %w", err)

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/goccy/go-yaml"
 	"github.com/hashicorp/go-version"
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/namespace"
@@ -69,10 +68,10 @@ func Nats(ctx context.Context, nc common.NatsConn, js jetstream.JetStream, stora
 // EnsureConsumer creates a new consumer appending the current semantic version number to the description.  If the consumer exists and has a previous version, it upgrader it.
 func EnsureConsumer(ctx context.Context, js jetstream.JetStream, streamName string, consumerConfig jetstream.ConsumerConfig, update bool, storageType jetstream.StorageType) error {
 	consumerConfig.MemoryStorage = storageType == jetstream.MemoryStorage
-	existingConsumer, exerr := js.Consumer(ctx, streamName, consumerConfig.Name)
+	existingConsumer, exerr := js.Consumer(ctx, streamName, consumerConfig.Durable)
 	var exists bool
 	var consumerInfo *jetstream.ConsumerInfo
-	if errors.Is(exerr, nats.ErrConsumerNotFound) {
+	if errors.Is(exerr, jetstream.ErrConsumerNotFound) {
 		// This is fine, we just don't have this consumer yet
 	} else if exerr != nil {
 		return fmt.Errorf("consumer exists: %w", exerr)
@@ -116,7 +115,7 @@ func EnsureStream(ctx context.Context, nc common.NatsConn, js jetstream.JetStrea
 	var exists bool
 	var streamInfo *jetstream.StreamInfo
 	stream, serr := js.Stream(ctx, streamConfig.Name)
-	if !errors.Is(serr, nats.ErrStreamNotFound) {
+	if errors.Is(serr, jetstream.ErrStreamNotFound) {
 		// This is fine
 	} else if serr != nil {
 		return fmt.Errorf("get stream: %w", serr)
@@ -177,7 +176,7 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, cfg jetstream.Key
 	namespaceBucketNameFn(&cfg)
 	cfg.Storage = storageType
 
-	if _, err := js.KeyValue(ctx, cfg.Bucket); errors.Is(err, nats.ErrBucketNotFound) {
+	if _, err := js.KeyValue(ctx, cfg.Bucket); errors.Is(err, jetstream.ErrBucketNotFound) {
 		if _, err := js.CreateKeyValue(ctx, cfg); err != nil {
 			return fmt.Errorf("ensure buckets: %w", err)
 		}

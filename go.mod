@@ -17,7 +17,7 @@ require (
 	github.com/goccy/go-yaml v1.11.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/hashicorp/go-version v1.6.0
-	github.com/nats-io/nats-server/v2 v2.10.7
+	github.com/nats-io/nats-server/v2 v2.10.11
 	github.com/nats-io/nats.go v1.33.1
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/pterm/pterm v0.12.71
@@ -69,7 +69,7 @@ require (
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/klauspost/compress v1.17.4 // indirect
+	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lufia/plan9stats v0.0.0-20231016141302-07b5767bb0ed // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -106,6 +106,7 @@ require (
 	go.opentelemetry.io/contrib/propagators/ot v1.23.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.21.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
+	go.uber.org/automaxprocs v1.5.3 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.19.0 // indirect
 	golang.org/x/mod v0.15.0 // indirect

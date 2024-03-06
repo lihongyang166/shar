@@ -4,7 +4,6 @@ import (
 	"context"
 	errors2 "errors"
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -40,7 +39,7 @@ func (s *Nats) processGatewayActivation(ctx context.Context) error {
 		gwIID, _, _ := s.GetGatewayInstanceID(&job)
 		job.Id = common.TrackingID(job.Id).Push(gwIID)
 		gw := &model.Gateway{}
-		if err := common.LoadObj(ctx, nsKVs.wfGateway, gwIID, gw); errors2.Is(err, nats.ErrKeyNotFound) {
+		if err := common.LoadObj(ctx, nsKVs.wfGateway, gwIID, gw); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			// create a new gateway job
 			gw = &model.Gateway{
 				MetExpectations: make(map[string]string),

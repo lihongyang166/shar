@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -214,9 +215,9 @@ func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool,
 		}
 	}
 
-	var store = nats.FileStorage
+	var store = jetstream.FileStorage
 	if ephemeral {
-		store = nats.MemoryStorage
+		store = jetstream.MemoryStorage
 	}
 	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks, s.telemetryConfig)
 	if err != nil {

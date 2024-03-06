@@ -33,7 +33,7 @@ func TestUpgradeNATSObjects(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	err = setup.EnsureStream(ctx, nc, js, nats.StreamConfig{
+	err = setup.EnsureStream(ctx, nc, js, jetstream.StreamConfig{
 		Name:        "TestStream",
 		Description: "SHAR",
 		Subjects:    []string{"TestStream.*.State.Job.Activate.Gateway"},
@@ -44,7 +44,7 @@ func TestUpgradeNATSObjects(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "SHAR v1.0.1", si.Config.Description)
 	assert.Len(t, si.Config.Subjects, 1)
-	err = setup.EnsureConsumer(js, "TestStream", nats.ConsumerConfig{
+	err = setup.EnsureConsumer(js, "TestStream", jetstream.ConsumerConfig{
 		Durable:         "GatewayActivateConsumer",
 		Description:     "Tracking queue for gateway activation",
 		AckPolicy:       nats.AckExplicitPolicy,
@@ -62,7 +62,7 @@ func TestUpgradeNATSObjects(t *testing.T) {
 
 	sharVersion.Version = "v1.0.2"
 
-	err = setup.EnsureStream(ctx, nc, js, nats.StreamConfig{
+	err = setup.EnsureStream(ctx, nc, js, jetstream.StreamConfig{
 		Name:        "TestStream",
 		Description: "SHAR",
 		Subjects:    []string{"TestStream.*.State.Job.Activate.Gateway", "TestStream.*.State.Job.Abort.Gateway"},
@@ -73,7 +73,7 @@ func TestUpgradeNATSObjects(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, si.Config.Subjects, 2)
 	assert.Equal(t, "SHAR v1.0.2", si.Config.Description)
-	err = setup.EnsureConsumer(js, "TestStream", nats.ConsumerConfig{
+	err = setup.EnsureConsumer(js, "TestStream", jetstream.ConsumerConfig{
 		Durable:         "GatewayActivateConsumer",
 		Description:     "Tracking queue for gateway activation",
 		AckPolicy:       nats.AckExplicitPolicy,
@@ -91,7 +91,7 @@ func TestUpgradeNATSObjects(t *testing.T) {
 	assert.Equal(t, 2, ci.Config.MaxRequestBatch)
 
 	sharVersion.Version = "v1.0.1"
-	err = setup.EnsureStream(ctx, nc, js, nats.StreamConfig{
+	err = setup.EnsureStream(ctx, nc, js, jetstream.StreamConfig{
 		Name:        "TestStream",
 		Description: "SHAR",
 		Subjects:    []string{"TestStream.*.State.Job.Abort.Gateway"},
@@ -102,7 +102,7 @@ func TestUpgradeNATSObjects(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, si.Config.Subjects, 2)
 	assert.Equal(t, "SHAR v1.0.2", si.Config.Description)
-	err = setup.EnsureConsumer(js, "TestStream", nats.ConsumerConfig{
+	err = setup.EnsureConsumer(js, "TestStream", jetstream.ConsumerConfig{
 		Durable:         "GatewayActivateConsumer",
 		Description:     "Tracking queue for gateway activation",
 		AckPolicy:       nats.AckExplicitPolicy,

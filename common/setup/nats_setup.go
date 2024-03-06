@@ -8,6 +8,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
@@ -23,22 +24,22 @@ type NatsConfig struct {
 
 // NatsKeyValue holds information about a NATS Key-Value store (bucket)
 type NatsKeyValue struct {
-	Config nats.KeyValueConfig `json:"nats-config"`
+	Config jetstream.KeyValueConfig `json:"nats-config"`
 }
 
 // NatsConsumer holds information about a NATS Consumer
 type NatsConsumer struct {
-	Config nats.ConsumerConfig `json:"nats-config"`
+	Config jetstream.ConsumerConfig `json:"nats-config"`
 }
 
 // NatsStream holds information about a NATS Stream
 type NatsStream struct {
-	Config    nats.StreamConfig `json:"nats-config"`
-	Consumers []NatsConsumer    `json:"nats-consumers"`
+	Config    jetstream.StreamConfig `json:"nats-config"`
+	Consumers []NatsConsumer         `json:"nats-consumers"`
 }
 
 // Nats sets up nats server objects.
-func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, storageType nats.StorageType, config string, update bool, ns string) error {
+func Nats(ctx context.Context, nc common.NatsConn, js jetstream.JetStream, storageType jetstream.StorageType, config string, update bool, ns string) error {
 	cfg := &NatsConfig{}
 	if err := yaml.Unmarshal([]byte(config), cfg); err != nil {
 		return fmt.Errorf("parse nats-config.yaml: %w", err)
@@ -50,14 +51,14 @@ func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, sto
 			return fmt.Errorf("ensure stream: %w", err)
 		}
 		for _, consumer := range stream.Consumers {
-			consumer.Config.MemoryStorage = storageType == nats.MemoryStorage
-			if err := EnsureConsumer(js, stream.Config.Name, consumer.Config, update, storageType); err != nil {
+			consumer.Config.MemoryStorage = storageType == jetstream.MemoryStorage
+			if err := EnsureConsumer(ctx, js, stream.Config.Name, consumer.Config, update, storageType); err != nil {
 				return fmt.Errorf("ensure consumer: %w", err)
 			}
 		}
 	}
 
-	err := EnsureBuckets(cfg, js, storageType, ns)
+	err := EnsureBuckets(ctx, cfg, js, storageType, ns)
 	if err != nil {
 		return err
 	}
@@ -66,28 +67,41 @@ func Nats(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, sto
 }
 
 // EnsureConsumer creates a new consumer appending the current semantic version number to the description.  If the consumer exists and has a previous version, it upgrader it.
-func EnsureConsumer(js nats.JetStreamContext, streamName string, consumerConfig nats.ConsumerConfig, update bool, storageType nats.StorageType) error {
-	consumerConfig.MemoryStorage = storageType == nats.MemoryStorage
-	if ci, err := js.ConsumerInfo(streamName, consumerConfig.Durable); errors.Is(err, nats.ErrConsumerNotFound) {
+func EnsureConsumer(ctx context.Context, js jetstream.JetStream, streamName string, consumerConfig jetstream.ConsumerConfig, update bool, storageType jetstream.StorageType) error {
+	consumerConfig.MemoryStorage = storageType == jetstream.MemoryStorage
+	existingConsumer, exerr := js.Consumer(ctx, streamName, consumerConfig.Name)
+	var exists bool
+	var consumerInfo *jetstream.ConsumerInfo
+	if errors.Is(exerr, nats.ErrConsumerNotFound) {
+		// This is fine, we just don't have this consumer yet
+	} else if exerr != nil {
+		return fmt.Errorf("consumer exists: %w", exerr)
+	} else {
+		exists = true
+		var err error
+		consumerInfo, err = existingConsumer.Info(ctx)
+		if err != nil {
+			return fmt.Errorf("get existing consumer info: %w", err)
+		}
+	}
+	if !exists {
 		if consumerConfig.Metadata == nil {
 			consumerConfig.Metadata = make(map[string]string)
 		}
 		consumerConfig.Metadata["shar_version"] = sharVersion.Version
-		if _, err := js.AddConsumer(streamName, &consumerConfig); err != nil {
+		if _, err := js.CreateConsumer(ctx, streamName, consumerConfig); err != nil {
 			return fmt.Errorf("cannot ensure consumer '%s' with subject '%s' : %w", consumerConfig.Name, consumerConfig.FilterSubject, err)
 		}
-	} else if err != nil {
-		return fmt.Errorf("ensure consumer: %w", err)
 	} else {
 		if !update {
 			return nil
 		}
-		if ok := requiresUpgrade(ci.Config.Metadata["shar_version"], sharVersion.Version); ok {
+		if ok := requiresUpgrade(consumerInfo.Config.Metadata["shar_version"], sharVersion.Version); ok {
 			if consumerConfig.Metadata == nil {
 				consumerConfig.Metadata = make(map[string]string)
 			}
 			consumerConfig.Metadata["shar_version"] = sharVersion.Version
-			_, err := js.UpdateConsumer(streamName, &consumerConfig)
+			_, err := js.UpdateConsumer(ctx, streamName, consumerConfig)
 			if err != nil {
 				return fmt.Errorf("ensure stream couldn't update the consumer configuration for %s: %w", consumerConfig.Name, err)
 			}
@@ -97,21 +111,34 @@ func EnsureConsumer(js nats.JetStreamContext, streamName string, consumerConfig 
 }
 
 // EnsureStream creates a new stream appending the current semantic version number to the description.  If the stream exists and has a previous version, it upgrader it.
-func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext, streamConfig nats.StreamConfig, storageType nats.StorageType) error {
+func EnsureStream(ctx context.Context, nc common.NatsConn, js jetstream.JetStream, streamConfig jetstream.StreamConfig, storageType jetstream.StorageType) error {
 	streamConfig.Storage = storageType
-	if si, err := js.StreamInfo(streamConfig.Name); errors.Is(err, nats.ErrStreamNotFound) {
+	var exists bool
+	var streamInfo *jetstream.StreamInfo
+	stream, serr := js.Stream(ctx, streamConfig.Name)
+	if !errors.Is(serr, nats.ErrStreamNotFound) {
+		// This is fine
+	} else if serr != nil {
+		return fmt.Errorf("get stream: %w", serr)
+	} else {
+		exists = true
+		var err error
+		streamInfo, err = stream.Info(ctx)
+		if err != nil {
+			return fmt.Errorf("get stream info: %w", err)
+		}
+	}
+	if !exists {
 		if streamConfig.Metadata == nil {
 			streamConfig.Metadata = make(map[string]string)
 		}
 		streamConfig.Metadata["shar_version"] = sharVersion.Version
-		if _, err := js.AddStream(&streamConfig); err != nil {
-			return fmt.Errorf("add stream: %w", err)
+		if _, err := js.CreateStream(ctx, streamConfig); err != nil {
+			return fmt.Errorf("create stream: %w", err)
 		}
-	} else if err != nil {
-		return fmt.Errorf("ensure stream: %w", err)
 	} else {
-		if ok := requiresUpgrade(si.Config.Metadata["shar_version"], sharVersion.Version); ok {
-			existingVer := upgradeExpr.FindString(si.Config.Description)
+		if ok := requiresUpgrade(streamInfo.Config.Metadata["shar_version"], sharVersion.Version); ok {
+			existingVer := upgradeExpr.FindString(streamInfo.Config.Description)
 			if existingVer == "" {
 				existingVer = sharVersion.Version
 			}
@@ -122,7 +149,7 @@ func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamCont
 				streamConfig.Metadata = make(map[string]string)
 			}
 			streamConfig.Metadata["shar_version"] = sharVersion.Version
-			_, err := js.UpdateStream(&streamConfig)
+			_, err := js.UpdateStream(ctx, streamConfig)
 			if err != nil {
 				return fmt.Errorf("ensure stream updating stream configuration: %w", err)
 			}
@@ -132,13 +159,13 @@ func EnsureStream(ctx context.Context, nc common.NatsConn, js nats.JetStreamCont
 }
 
 // EnsureBuckets creates a list of buckets if they do not exist
-func EnsureBuckets(cfg *NatsConfig, js nats.JetStreamContext, storageType nats.StorageType, ns string) error {
-	namespaceBucketNameFn := func(kvCfg *nats.KeyValueConfig) {
+func EnsureBuckets(ctx context.Context, cfg *NatsConfig, js jetstream.JetStream, storageType jetstream.StorageType, ns string) error {
+	namespaceBucketNameFn := func(kvCfg *jetstream.KeyValueConfig) {
 		kvCfg.Bucket = namespace.PrefixWith(ns, kvCfg.Bucket)
 	}
 
 	for i := range cfg.KeyValue {
-		if err := EnsureBucket(js, &cfg.KeyValue[i].Config, storageType, namespaceBucketNameFn); err != nil {
+		if err := EnsureBucket(ctx, js, cfg.KeyValue[i].Config, storageType, namespaceBucketNameFn); err != nil {
 			return fmt.Errorf("ensure key-value: %w", err)
 		}
 	}
@@ -146,12 +173,12 @@ func EnsureBuckets(cfg *NatsConfig, js nats.JetStreamContext, storageType nats.S
 }
 
 // EnsureBucket creates a bucket if it does not exist
-func EnsureBucket(js nats.JetStreamContext, cfg *nats.KeyValueConfig, storageType nats.StorageType, namespaceBucketNameFn func(*nats.KeyValueConfig)) error {
-	namespaceBucketNameFn(cfg)
+func EnsureBucket(ctx context.Context, js jetstream.JetStream, cfg jetstream.KeyValueConfig, storageType jetstream.StorageType, namespaceBucketNameFn func(*jetstream.KeyValueConfig)) error {
+	namespaceBucketNameFn(&cfg)
 	cfg.Storage = storageType
 
-	if _, err := js.KeyValue(cfg.Bucket); errors.Is(err, nats.ErrBucketNotFound) {
-		if _, err := js.CreateKeyValue(cfg); err != nil {
+	if _, err := js.KeyValue(ctx, cfg.Bucket); errors.Is(err, nats.ErrBucketNotFound) {
+		if _, err := js.CreateKeyValue(ctx, cfg); err != nil {
 			return fmt.Errorf("ensure buckets: %w", err)
 		}
 	} else if err != nil {

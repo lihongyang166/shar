@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/goccy/go-yaml"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
@@ -46,41 +47,41 @@ var NatsConfig string
 
 // NamespaceKvs defines all of the key value stores shar needs to operate
 type NamespaceKvs struct {
-	//### wfInstance        nats.KeyValue //unreferenced except at creation ???
-	wfExecution       nats.KeyValue
-	wfProcessInstance nats.KeyValue
-	//### wfMessageInterest nats.KeyValue //unreferenced except at creation ???
-	wfUserTasks   nats.KeyValue
-	wfVarState    nats.KeyValue
-	wfTaskSpec    nats.KeyValue
-	wfTaskSpecVer nats.KeyValue
-	wf            nats.KeyValue
-	wfVersion     nats.KeyValue
-	wfTracking    nats.KeyValue
-	job           nats.KeyValue
-	ownerName     nats.KeyValue
-	ownerID       nats.KeyValue
-	wfClientTask  nats.KeyValue
-	wfGateway     nats.KeyValue
-	wfName        nats.KeyValue
-	wfHistory     nats.KeyValue
-	wfLock        nats.KeyValue
-	wfMsgTypes    nats.KeyValue
-	wfProcess     nats.KeyValue
-	wfMessages    nats.KeyValue
-	wfClients     nats.KeyValue
+	//### wfInstance        jetstream.KeyValue //unreferenced except at creation ???
+	wfExecution       jetstream.KeyValue
+	wfProcessInstance jetstream.KeyValue
+	//### wfMessageInterest jetstream.KeyValue //unreferenced except at creation ???
+	wfUserTasks   jetstream.KeyValue
+	wfVarState    jetstream.KeyValue
+	wfTaskSpec    jetstream.KeyValue
+	wfTaskSpecVer jetstream.KeyValue
+	wf            jetstream.KeyValue
+	wfVersion     jetstream.KeyValue
+	wfTracking    jetstream.KeyValue
+	job           jetstream.KeyValue
+	ownerName     jetstream.KeyValue
+	ownerID       jetstream.KeyValue
+	wfClientTask  jetstream.KeyValue
+	wfGateway     jetstream.KeyValue
+	wfName        jetstream.KeyValue
+	wfHistory     jetstream.KeyValue
+	wfLock        jetstream.KeyValue
+	wfMsgTypes    jetstream.KeyValue
+	wfProcess     jetstream.KeyValue
+	wfMessages    jetstream.KeyValue
+	wfClients     jetstream.KeyValue
 }
 
 // Nats contains the engine functions that communicate with NATS.
 type Nats struct {
-	js                             nats.JetStreamContext
-	txJS                           nats.JetStreamContext
+	js                             jetstream.JetStream
+	txJS                           jetstream.JetStream
 	eventProcessor                 services.EventProcessorFunc
 	eventJobCompleteProcessor      services.CompleteJobProcessorFunc
 	traversalFunc                  services.TraversalFunc
 	launchFunc                     services.LaunchFunc
 	messageProcessor               services.MessageProcessorFunc
-	storageType                    nats.StorageType
+	storageType                    jetstream.StorageType
 	concurrency                    int
 	closing                        chan struct{}
 	conn                           common.NatsConn
@@ -104,7 +105,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 	errs := make(chan error, 1)
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		err2 := fmt.Errorf("ListWorkflows - failed to get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
@@ -113,7 +114,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 		return res, errs
 	}
 
-	ks, err := nsKVs.wfVersion.Keys()
+	ks, err := nsKVs.wfVersion.Keys(ctx)
 	if errors2.Is(err, nats.ErrNoKeysFound) {
 		ks = []string{}
 	} else if err != nil {
@@ -142,16 +143,16 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 }
 
 // New creates a new instance of the NATS communication layer.
-func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config) (*Nats, error) {
+func New(conn *nats.Conn, txConn *nats.Conn, storageType jetstream.StorageType, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config) (*Nats, error) {
 	if concurrency < 1 || concurrency > 200 {
 		return nil, fmt.Errorf("invalid concurrency: %w", errors2.New("invalid concurrency set"))
 	}
 
-	js, err := conn.JetStream()
+	js, err := jetstream.New(conn)
 	if err != nil {
 		return nil, fmt.Errorf("open jetstream: %w", err)
 	}
-	txJS, err := txConn.JetStream()
+	txJS, err := jetstream.New(txConn)
 	if err != nil {
 		return nil, fmt.Errorf("open jetstream: %w", err)
 	}
@@ -181,7 +182,7 @@ func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, 
 		return nil, fmt.Errorf("set up nats queue insfrastructure: %w", err)
 	}
 
-	nKvs, err2 := initNamespacedKvs(ns, js, storageType, NatsConfig)
+	nKvs, err2 := initNamespacedKvs(ctx, ns, js, storageType, NatsConfig)
 	if err2 != nil {
 		return nil, fmt.Errorf("failed to init kvs for ns %s, %w", ns, err2)
 	}
@@ -189,7 +190,7 @@ func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, 
 
 	msg := nats.NewMsg(messages.WorkflowMessageKick)
 	msg.Header.Set(header.SharNamespace, ns)
-	if err := common.PublishOnce(js, nKvs.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
+	if err := common.PublishOnce(ctx, js, nKvs.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
 		return nil, fmt.Errorf("ensure kick message: %w", err)
 	}
 
@@ -200,18 +201,18 @@ func New(conn *nats.Conn, txConn common.NatsConn, storageType nats.StorageType, 
 	return ms, nil
 }
 
-func initNamespacedKvs(ns string, js nats.JetStreamContext, storageType nats.StorageType, config string) (*NamespaceKvs, error) {
+func initNamespacedKvs(ctx context.Context, ns string, js jetstream.JetStream, storageType jetstream.StorageType, config string) (*NamespaceKvs, error) {
 	cfg := &setup.NatsConfig{}
 	if err := yaml.Unmarshal([]byte(config), cfg); err != nil {
 		return nil, fmt.Errorf("initNamespacedKvs - parse nats-config.yaml: %w", err)
 	}
-	err := setup.EnsureBuckets(cfg, js, storageType, ns)
+	err := setup.EnsureBuckets(ctx, cfg, js, storageType, ns)
 	if err != nil {
 		return nil, fmt.Errorf("initNamespacedKvs - EnsureBuckets: %w", err)
 	}
 
 	nKvs := NamespaceKvs{}
-	kvs := make(map[string]*nats.KeyValue)
+	kvs := make(map[string]*jetstream.KeyValue)
 
 	kvs[namespace.PrefixWith(ns, messages.KvWfName)] = &nKvs.wfName
 	kvs[namespace.PrefixWith(ns, messages.KvExecution)] = &nKvs.wfExecution
@@ -236,7 +237,7 @@ func initNamespacedKvs(ns string, js nats.JetStreamContext, storageType nats.Sto
 	kvs[namespace.PrefixWith(ns, messages.KvClients)] = &nKvs.wfClients
 
 	for k, v := range kvs {
-		kv, err := js.KeyValue(k)
+		kv, err := js.KeyValue(ctx, k)
 		if err != nil {
 			return nil, fmt.Errorf("open %s KV: %w", k, err)
 		}
@@ -247,12 +248,12 @@ func initNamespacedKvs(ns string, js nats.JetStreamContext, storageType nats.Sto
 
 // KvsFor retrieves the shar KVs for a given namespace. If they do not exist for a namespace,
 // it will initialise them and store them in a map for future lookup.
-func (s *Nats) KvsFor(ns string) (*NamespaceKvs, error) {
+func (s *Nats) KvsFor(ctx context.Context, ns string) (*NamespaceKvs, error) {
 	s.rwmx.RLock()
 	if nsKvs, exists := s.sharKvs[ns]; !exists {
 		s.rwmx.RUnlock()
 		s.rwmx.Lock()
-		kvs, err := initNamespacedKvs(ns, s.js, s.storageType, NatsConfig)
+		kvs, err := initNamespacedKvs(ctx, ns, s.js, s.storageType, NatsConfig)
 		if err != nil {
 			s.rwmx.Unlock()
 			return nil, fmt.Errorf("failed to initialise KVs for namespace %s: %w", ns, err)
@@ -312,9 +313,7 @@ func (s *Nats) StartProcessing(ctx context.Context) error {
 	if err := s.processGatewayExecute(ctx); err != nil {
 		return fmt.Errorf("start gateway execute handler: %w", err)
 	}
-	if err := s.messageKick(ctx); err != nil {
-		return fmt.Errorf("starting message kick: %w", err)
-	}
+
 	return nil
 }
 
@@ -322,13 +321,13 @@ func (s *Nats) validateUniqueProcessNameFor(ctx context.Context, wf *model.Workf
 	existingProcessWorkflowNames := make(map[string]string)
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("validateUniqueProcessNameFor - failed getting KVs for ns %s: %w", ns, err)
 	}
 
 	for processName := range wf.Process {
-		workFlowName, err := nsKVs.wfProcess.Get(processName)
+		workFlowName, err := nsKVs.wfProcess.Get(ctx, processName)
 		if errors2.Is(err, nats.ErrKeyNotFound) {
 			continue
 		}
@@ -370,15 +369,15 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 	// get this workflow name if it has already been registered
 	ns := subj.GetNS(ctx)
 
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("StoreWorkflow - failed getting KVs for ns %s: %w", ns, err)
 	}
 
-	_, err = nsKVs.wfName.Get(wf.Name)
+	_, err = nsKVs.wfName.Get(ctx, wf.Name)
 	if errors2.Is(err, nats.ErrKeyNotFound) {
 		wfNameID := ksuid.New().String()
-		_, err = nsKVs.wfName.Put(wf.Name, []byte(wfNameID))
+		_, err = nsKVs.wfName.Put(ctx, wf.Name, []byte(wfNameID))
 		if err != nil {
 			return "", fmt.Errorf("store the workflow id during store workflow: %w", err)
 		}
@@ -480,7 +479,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 			}
 		}
 
-		_, err = nsKVs.wfProcess.Put(i.Name, []byte(wf.Name))
+		_, err = nsKVs.wfProcess.Put(ctx, i.Name, []byte(wf.Name))
 		if err != nil {
 			return "", fmt.Errorf("store the process to workflow mapping: %w", err)
 		}
@@ -553,15 +552,15 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 // EnsureServiceTaskConsumer creates or updates a service task consumer.
 func (s *Nats) EnsureServiceTaskConsumer(ctx context.Context, uid string) error {
 	ns := subj.GetNS(ctx)
-	jxCfg := &nats.ConsumerConfig{
+	jxCfg := jetstream.ConsumerConfig{
 		Durable:       "ServiceTask_" + ns + "_" + uid,
 		Description:   "",
 		FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, subj.GetNS(ctx)) + "." + uid,
-		AckPolicy:     nats.AckExplicitPolicy,
-		MemoryStorage: s.storageType == nats.MemoryStorage,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		MemoryStorage: s.storageType == jetstream.MemoryStorage,
 	}
 
-	if err := ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
+	if _, err := s.js.CreateOrUpdateConsumer(ctx, "WORKFLOW", jxCfg); err != nil {
 		return fmt.Errorf("add service task consumer: %w", err)
 	}
 	return nil
@@ -580,21 +579,10 @@ func forEachTimedStartElement(pr *model.Process, fn func(element *model.Element)
 	return nil
 }
 
-func ensureConsumer(js nats.JetStreamContext, streamName string, consumerConfig *nats.ConsumerConfig) error {
-	if _, err := js.ConsumerInfo(streamName, consumerConfig.Durable); errors2.Is(err, nats.ErrConsumerNotFound) {
-		if _, err := js.AddConsumer(streamName, consumerConfig); err != nil {
-			panic(err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("call to get consumer info in ensure consumer: %w", err)
-	}
-	return nil
-}
-
 // GetWorkflow - retrieves a workflow model given its ID
 func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetWorkflow - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -612,7 +600,7 @@ func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workf
 // GetWorkflowNameFor - get the worflow name a process is associated with
 func (s *Nats) GetWorkflowNameFor(ctx context.Context, processName string) (string, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("GetWorkflowVersions - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -629,7 +617,7 @@ func (s *Nats) GetWorkflowNameFor(ctx context.Context, processName string) (stri
 // GetWorkflowVersions - returns a list of versions for a given workflow.
 func (s *Nats) GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetWorkflowVersions - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -653,7 +641,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	execution.ProcessInstanceId = []string{}
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("CreateExecution - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -667,10 +655,10 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 		return nil, fmt.Errorf("get workflow object from KV: %w", err)
 	}
 	for _, m := range wf.Messages {
-		if err := setup.EnsureBucket(s.js, &nats.KeyValueConfig{
+		if err := setup.EnsureBucket(ctx, s.js, jetstream.KeyValueConfig{
 			Bucket:      subj.NS("MsgTx_%s_", subj.GetNS(ctx)) + m.Name,
 			Description: "Message transmit for " + m.Name,
-		}, s.storageType, func(_ *nats.KeyValueConfig) {}); err != nil {
+		}, s.storageType, func(_ *jetstream.KeyValueConfig) {}); err != nil {
 			return nil, fmt.Errorf("ensuring bucket '%s':%w", m.Name, err)
 		}
 	}
@@ -680,7 +668,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 // GetExecution retrieves an execution given its ID.
 func (s *Nats) GetExecution(ctx context.Context, executionID string) (*model.Execution, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetExecution - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -700,7 +688,7 @@ func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.Workflo
 	log.Info("destroying process instance", slog.String(keys.ProcessInstanceID, state.ProcessInstanceId))
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("XDestroyProcessInstance - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -747,18 +735,18 @@ func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.Workflo
 
 func (s *Nats) deleteExecution(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("deleteExecution - failed to get KVs for ns %s: %w", ns, err)
 	}
 
-	if err := nsKVs.wfExecution.Delete(state.ExecutionId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := nsKVs.wfExecution.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 		return fmt.Errorf("delete workflow instance: %w", err)
 	}
 
 	//TODO: Loop through all messages checking for process subscription and remove
 
-	if err := nsKVs.wfTracking.Delete(state.ExecutionId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+	if err := nsKVs.wfTracking.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 		return fmt.Errorf("delete workflow tracking: %w", err)
 	}
 	if err := s.PublishWorkflowState(ctx, messages.ExecutionTerminated, state); err != nil {
@@ -770,7 +758,7 @@ func (s *Nats) deleteExecution(ctx context.Context, state *model.WorkflowState) 
 // GetLatestVersion queries the workflow versions table for the latest entry
 func (s *Nats) GetLatestVersion(ctx context.Context, workflowName string) (string, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("GetLatestVersion - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -788,7 +776,7 @@ func (s *Nats) GetLatestVersion(ctx context.Context, workflowName string) (strin
 // CreateJob stores a workflow task state.
 func (s *Nats) CreateJob(ctx context.Context, job *model.WorkflowState) (string, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("CreateJob - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -804,7 +792,7 @@ func (s *Nats) CreateJob(ctx context.Context, job *model.WorkflowState) (string,
 // GetJob gets a workflow task state.
 func (s *Nats) GetJob(ctx context.Context, trackingID string) (*model.WorkflowState, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetJob - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -824,12 +812,12 @@ func (s *Nats) GetJob(ctx context.Context, trackingID string) (*model.WorkflowSt
 // DeleteJob removes a workflow task state.
 func (s *Nats) DeleteJob(ctx context.Context, trackingID string) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("DeleteJob - failed to get KVs for ns %s: %w", ns, err)
 	}
 
-	if err := common.Delete(nsKVs.job, trackingID); err != nil {
+	if err := common.Delete(ctx, nsKVs.job, trackingID); err != nil {
 		return fmt.Errorf("delete job: %w", err)
 	}
 	return nil
@@ -842,7 +830,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 	wch := make(chan *model.ListExecutionItem, 100)
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		err2 := fmt.Errorf("ListExecution - failed to get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
@@ -862,7 +850,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 		ver[v.Id] = v
 	}
 
-	ks, err := nsKVs.wfExecution.Keys()
+	ks, err := nsKVs.wfExecution.Keys(ctx)
 	if errors2.Is(err, nats.ErrNoKeysFound) {
 		ks = []string{}
 	} else if err != nil {
@@ -895,7 +883,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 // ListExecutionProcesses gets the current processIDs for an execution.
 func (s *Nats) ListExecutionProcesses(ctx context.Context, id string) ([]string, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("ListExecutionProcesses - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -911,7 +899,7 @@ func (s *Nats) ListExecutionProcesses(ctx context.Context, id string) ([]string,
 // GetProcessInstanceStatus returns a list of workflow statuses for the specified process instance ID.
 func (s *Nats) GetProcessInstanceStatus(ctx context.Context, id string) ([]*model.WorkflowState, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetProcessInstanceStatus - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -984,8 +972,9 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 		return fmt.Errorf("add header to published workflow state: %w", err)
 	}
 
+	wrappedMessage := common.NewNatsMsgWrapper(msg)
 	for _, i := range s.sendMiddleware {
-		if err := i(ctx, msg); err != nil {
+		if err := i(ctx, wrappedMessage); err != nil {
 			return fmt.Errorf("apply middleware %s: %w", reflect.TypeOf(i), err)
 		}
 	}
@@ -1000,7 +989,7 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 		c.ID = ksuid.New().String()
 	}
 
-	if _, err := s.txJS.PublishMsg(msg, nats.Context(pubCtx), nats.MsgId(c.ID)); err != nil {
+	if _, err := s.txJS.PublishMsg(pubCtx, msg, jetstream.WithMsgID(c.ID)); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish message", err, slog.String("nats.msg.id", c.ID), slog.Any("state", state), slog.String("subject", msg.Subject))
 		return fmt.Errorf("publish workflow state message: %w", err)
@@ -1018,7 +1007,7 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 // GetElement gets the definition for the current element given a workflow state.
 func (s *Nats) GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetElement - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1035,9 +1024,9 @@ func (s *Nats) GetElement(ctx context.Context, state *model.WorkflowState) (*mod
 }
 
 func (s *Nats) processTraversals(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "traversal", s.closing, subj.NS(messages.WorkflowTraversalExecute, "*"), "Traversal", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "traversal", s.closing, subj.NS(messages.WorkflowTraversalExecute, "*"), "Traversal", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var traversal model.WorkflowState
-		if err := proto.Unmarshal(msg.Data, &traversal); err != nil {
+		if err := proto.Unmarshal(msg.Data(), &traversal); err != nil {
 			return false, fmt.Errorf("unmarshal traversal proto: %w", err)
 		}
 
@@ -1105,9 +1094,9 @@ func (s *Nats) processTracking(ctx context.Context) error {
 }
 
 func (s *Nats) processCompletedJobs(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "completedJob", s.closing, subj.NS(messages.WorkFlowJobCompleteAll, "*"), "JobCompleteConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "completedJob", s.closing, subj.NS(messages.WorkFlowJobCompleteAll, "*"), "JobCompleteConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var job model.WorkflowState
-		if err := proto.Unmarshal(msg.Data, &job); err != nil {
+		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed job state: %w", err)
 		}
 		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
@@ -1130,14 +1119,14 @@ func (s *Nats) processCompletedJobs(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) track(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+func (s *Nats) track(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return false, fmt.Errorf("track - failed to get KVs for ns %s: %w", ns, err)
 	}
 
-	sj := msg.Subject
+	sj := msg.Subject()
 	switch {
 	case
 		strings.HasSuffix(sj, ".State.Workflow.Execute"),
@@ -1146,7 +1135,7 @@ func (s *Nats) track(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool
 		strings.HasSuffix(sj, ".State.Activity.Execute"),
 		strings.Contains(sj, ".State.Job.Execute."):
 		st := &model.WorkflowState{}
-		if err := proto.Unmarshal(msg.Data, st); err != nil {
+		if err := proto.Unmarshal(msg.Data(), st); err != nil {
 			return false, fmt.Errorf("unmarshal failed during tracking 'execute' event: %w", err)
 		}
 		if err := common.SaveObj(ctx, nsKVs.wfTracking, st.ExecutionId, st); err != nil {
@@ -1159,10 +1148,10 @@ func (s *Nats) track(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool
 		strings.HasSuffix(sj, ".State.Activity.Complete"),
 		strings.Contains(sj, ".State.Job.Complete."):
 		st := &model.WorkflowState{}
-		if err := proto.Unmarshal(msg.Data, st); err != nil {
+		if err := proto.Unmarshal(msg.Data(), st); err != nil {
 			return false, fmt.Errorf("unmarshall failed during tracking 'complete' event: %w", err)
 		}
-		if err := nsKVs.wfTracking.Delete(st.ExecutionId); err != nil {
+		if err := nsKVs.wfTracking.Delete(ctx, st.ExecutionId); err != nil {
 			return false, fmt.Errorf("delete workflow instance upon completion: %w", err)
 		}
 	default:
@@ -1192,12 +1181,12 @@ func (s *Nats) Shutdown() {
 }
 
 func (s *Nats) processWorkflowEvents(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "workflowEvent", s.closing, subj.NS(messages.WorkflowExecutionAll, "*"), "WorkflowConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "workflowEvent", s.closing, subj.NS(messages.WorkflowExecutionAll, "*"), "WorkflowConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var job model.WorkflowState
-		if err := proto.Unmarshal(msg.Data, &job); err != nil {
+		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
 		}
-		if strings.HasSuffix(msg.Subject, ".State.Workflow.Complete") {
+		if strings.HasSuffix(msg.Subject(), ".State.Workflow.Complete") {
 			if _, err := s.hasValidExecution(ctx, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processWorkflowEvents aborted due to a missing process")
@@ -1218,13 +1207,13 @@ func (s *Nats) processWorkflowEvents(ctx context.Context) error {
 }
 
 func (s *Nats) processActivities(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "activity", s.closing, subj.NS(messages.WorkflowActivityAll, "*"), "ActivityConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "activity", s.closing, subj.NS(messages.WorkflowActivityAll, "*"), "ActivityConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var activity model.WorkflowState
 		switch {
-		case strings.HasSuffix(msg.Subject, ".State.Activity.Execute"):
+		case strings.HasSuffix(msg.Subject(), ".State.Activity.Execute"):
 
-		case strings.HasSuffix(msg.Subject, ".State.Activity.Complete"):
-			if err := proto.Unmarshal(msg.Data, &activity); err != nil {
+		case strings.HasSuffix(msg.Subject(), ".State.Activity.Complete"):
+			if err := proto.Unmarshal(msg.Data(), &activity); err != nil {
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
 
@@ -1248,12 +1237,12 @@ func (s *Nats) processActivities(ctx context.Context) error {
 
 func (s *Nats) deleteSavedState(ctx context.Context, activityID string) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("deleteSavedState - failed to get KVs for ns %s: %w", ns, err)
 	}
 
-	if err := common.Delete(nsKVs.wfVarState, activityID); err != nil {
+	if err := common.Delete(ctx, nsKVs.wfVarState, activityID); err != nil {
 		return fmt.Errorf("delete saved state: %w", err)
 	}
 	return nil
@@ -1262,7 +1251,7 @@ func (s *Nats) deleteSavedState(ctx context.Context, activityID string) error {
 // CloseUserTask removes a completed user task.
 func (s *Nats) CloseUserTask(ctx context.Context, trackingID string) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("CloseUserTask - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1288,7 +1277,7 @@ func (s *Nats) CloseUserTask(ctx context.Context, trackingID string) error {
 
 func (s *Nats) openUserTask(ctx context.Context, owner string, id string) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("openUserTask - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1305,7 +1294,7 @@ func (s *Nats) openUserTask(ctx context.Context, owner string, id string) error 
 // GetUserTaskIDs gets a list of tasks given an owner.
 func (s *Nats) GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetUserTaskIDs - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1320,7 +1309,7 @@ func (s *Nats) GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTas
 // OwnerID gets a unique identifier for a task owner.
 func (s *Nats) OwnerID(ctx context.Context, name string) (string, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("OwnerID - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1328,16 +1317,16 @@ func (s *Nats) OwnerID(ctx context.Context, name string) (string, error) {
 	if name == "" {
 		name = "AnyUser"
 	}
-	nm, err := nsKVs.ownerID.Get(name)
+	nm, err := nsKVs.ownerID.Get(ctx, name)
 	if err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
 		return "", fmt.Errorf("get owner id: %w", err)
 	}
 	if nm == nil {
 		id := ksuid.New().String()
-		if _, err := nsKVs.ownerID.Put(name, []byte(id)); err != nil {
+		if _, err := nsKVs.ownerID.Put(ctx, name, []byte(id)); err != nil {
 			return "", fmt.Errorf("write owner ID: %w", err)
 		}
-		if _, err = nsKVs.ownerName.Put(id, []byte(name)); err != nil {
+		if _, err = nsKVs.ownerName.Put(ctx, id, []byte(name)); err != nil {
 			return "", fmt.Errorf("store owner name in kv: %w", err)
 		}
 		return id, nil
@@ -1348,12 +1337,12 @@ func (s *Nats) OwnerID(ctx context.Context, name string) (string, error) {
 // OwnerName retrieves an owner name given an ID.
 func (s *Nats) OwnerName(ctx context.Context, id string) (string, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("OwnerName - failed to get KVs for ns %s: %w", ns, err)
 	}
 
-	nm, err := nsKVs.ownerName.Get(id)
+	nm, err := nsKVs.ownerName.Get(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("get owner name for id: %w", err)
 	}
@@ -1363,7 +1352,7 @@ func (s *Nats) OwnerName(ctx context.Context, id string) (string, error) {
 // GetOldState gets a task state given its tracking ID.
 func (s *Nats) GetOldState(ctx context.Context, id string) (*model.WorkflowState, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("SaveState - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1379,9 +1368,9 @@ func (s *Nats) GetOldState(ctx context.Context, id string) (*model.WorkflowState
 }
 
 func (s *Nats) processLaunch(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "launch", s.closing, subj.NS(messages.WorkflowJobLaunchExecute, "*"), "LaunchConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "launch", s.closing, subj.NS(messages.WorkflowJobLaunchExecute, "*"), "LaunchConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var job model.WorkflowState
-		if err := proto.Unmarshal(msg.Data, &job); err != nil {
+		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("unmarshal during process launch: %w", err)
 		}
 		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
@@ -1403,9 +1392,9 @@ func (s *Nats) processLaunch(ctx context.Context) error {
 }
 
 func (s *Nats) processJobAbort(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkFlowJobAbortAll, "*"), "JobAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkFlowJobAbortAll, "*"), "JobAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
-		if err := proto.Unmarshal(msg.Data, &state); err != nil {
+		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("job abort consumer failed to unmarshal state: %w", err)
 		}
 		if _, _, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
@@ -1417,7 +1406,7 @@ func (s *Nats) processJobAbort(ctx context.Context) error {
 		}
 		//TODO: Make these idempotently work given missing values
 		switch {
-		case strings.Contains(msg.Subject, ".State.Job.Abort.ServiceTask"), strings.Contains(msg.Subject, ".State.Job.Abort.Gateway"):
+		case strings.Contains(msg.Subject(), ".State.Job.Abort.ServiceTask"), strings.Contains(msg.Subject(), ".State.Job.Abort.Gateway"):
 			if err := s.deleteJob(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete job during service task abort: %w", err)
 			}
@@ -1433,9 +1422,9 @@ func (s *Nats) processJobAbort(ctx context.Context) error {
 }
 
 func (s *Nats) processProcessComplete(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "processComplete", s.closing, subj.NS(messages.WorkflowProcessComplete, "*"), "ProcessCompleteConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "processComplete", s.closing, subj.NS(messages.WorkflowProcessComplete, "*"), "ProcessCompleteConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
-		if err := proto.Unmarshal(msg.Data, &state); err != nil {
+		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
 		}
 		pi, wi, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId)
@@ -1460,18 +1449,18 @@ func (s *Nats) processProcessComplete(ctx context.Context) error {
 }
 
 func (s *Nats) processGeneralAbort(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
-		if err := proto.Unmarshal(msg.Data, &state); err != nil {
+		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
 		}
 		//TODO: Make these idempotently work given missing values
 		switch {
-		case strings.HasSuffix(msg.Subject, ".State.Activity.Abort"):
+		case strings.HasSuffix(msg.Subject(), ".State.Activity.Abort"):
 			if err := s.deleteActivity(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete activity during general abort processor: %w", err)
 			}
-		case strings.HasSuffix(msg.Subject, ".State.Workflow.Abort"):
+		case strings.HasSuffix(msg.Subject(), ".State.Workflow.Abort"):
 			abortState := common.CopyWorkflowState(&state)
 			abortState.State = model.CancellationState_terminated
 			if err := s.XDestroyProcessInstance(ctx, &state); err != nil {
@@ -1512,7 +1501,7 @@ func (s *Nats) deleteJob(ctx context.Context, state *model.WorkflowState) error 
 // SaveState saves the task state.
 func (s *Nats) SaveState(ctx context.Context, id string, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("SaveState - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1541,7 +1530,7 @@ func (s *Nats) CreateProcessInstance(ctx context.Context, executionId string, pa
 	}
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("CreateProcessInstance - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1571,7 +1560,7 @@ func (s *Nats) CreateProcessInstance(ctx context.Context, executionId string, pa
 // GetProcessInstance returns a process instance for a given process ID
 func (s *Nats) GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetProcessInstance - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1590,7 +1579,7 @@ func (s *Nats) GetProcessInstance(ctx context.Context, processInstanceID string)
 // DestroyProcessInstance deletes a process instance and removes the workflow instance dependent on all process instances being satisfied.
 func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, execution *model.Execution) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("DestroyProcessInstance - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1601,14 +1590,14 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 		return v, nil
 	})
 	if len(e.ProcessInstanceId) == 0 {
-		if err := common.Delete(nsKVs.wfExecution, execution.ExecutionId); err != nil {
+		if err := common.Delete(ctx, nsKVs.wfExecution, execution.ExecutionId); err != nil {
 			return fmt.Errorf("destroy process instance delete execution: %w", err)
 		}
 	}
 	if err != nil {
 		return fmt.Errorf("destroy process instance failed to update execution: %w", err)
 	}
-	err = common.Delete(nsKVs.wfProcessInstance, pi.ProcessInstanceId)
+	err = common.Delete(ctx, nsKVs.wfProcessInstance, pi.ProcessInstanceId)
 	// TODO: Key not found
 	if err != nil {
 		return fmt.Errorf("destroy process instance failed to delete process instance: %w", err)
@@ -1628,7 +1617,7 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 // DeprecateTaskSpec deprecates one or more task specs by ID.
 func (s *Nats) DeprecateTaskSpec(ctx context.Context, uid []string) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("DeprecateTaskSpec - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1662,7 +1651,7 @@ func (s *Nats) populateMetadata(wf *model.Workflow) {
 
 func (s *Nats) validateUniqueMessageNames(ctx context.Context, wf *model.Workflow) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("validateUniqueMessageNames - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1705,13 +1694,13 @@ func (s *Nats) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.
 // ListTaskSpecUIDs lists UIDs of active (and optionally deprecated) tasks specs.
 func (s *Nats) ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("ListTaskSpecUIDs - failed to get KVs for ns %s: %w", ns, err)
 	}
 
 	ret := make([]string, 0, 50)
-	vers, err := nsKVs.wfTaskSpecVer.Keys()
+	vers, err := nsKVs.wfTaskSpecVer.Keys(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get task spec version keys: %w", err)
 	}
@@ -1736,7 +1725,7 @@ func (s *Nats) ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string,
 // GetProcessIdFor retrieves the processId that a begun by a message start event
 func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string) (string, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("GetProcessIdFor - failed to get KVs for ns %s: %w", ns, err)
 	}
@@ -1760,7 +1749,7 @@ func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string
 // Heartbeat saves a client status to the client KV.
 func (s *Nats) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("Heartbeat - failed to get KVs for ns %s: %w", ns, err)
 	}

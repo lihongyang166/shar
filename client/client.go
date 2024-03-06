@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/client/api"
 	"gitlab.com/shar-workflow/shar/client/parser"
@@ -110,16 +111,16 @@ type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars) e
 type Client struct {
 	id                              string
 	host                            string
-	js                              nats.JetStreamContext
+	js                              jetstream.JetStream
 	SvcTasks                        map[string]ServiceFn
 	con                             *nats.Conn
 	MsgSender                       map[string]SenderFn
-	storageType                     nats.StorageType
+	storageType                     jetstream.StorageType
 	ns                              string
 	listenTasks                     map[string]struct{}
 	msgListenTasks                  map[string]struct{}
 	proCompleteTasks                map[string]ProcessTerminateFn
-	txJS                            nats.JetStreamContext
+	txJS                            jetstream.JetStream
 	txCon                           *nats.Conn
 	concurrency                     int
 	ExpectedCompatibleServerVersion *version.Version
@@ -151,7 +152,7 @@ func New(option ...ConfigurationOption) *Client {
 	client := &Client{
 		id:                              ksuid.New().String(),
 		host:                            host,
-		storageType:                     nats.FileStorage,
+		storageType:                     jetstream.FileStorage,
 		SvcTasks:                        make(map[string]ServiceFn),
 		MsgSender:                       make(map[string]SenderFn),
 		listenTasks:                     make(map[string]struct{}),
@@ -193,11 +194,11 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	if err != nil {
 		return c.clientErr(context.Background(), err)
 	}
-	js, err := n.JetStream()
+	js, err := jetstream.New(n)
 	if err != nil {
 		return c.clientErr(context.Background(), err)
 	}
-	txJS, err := txnc.JetStream()
+	txJS, err := jetstream.New(txnc)
 	if err != nil {
 		return c.clientErr(context.Background(), err)
 	}
@@ -211,16 +212,16 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 		return fmt.Errorf("server version: %w", err)
 	}
 
-	cdef := &nats.ConsumerConfig{
+	cdef := &jetstream.ConsumerConfig{
 		Durable:         "ProcessTerminateConsumer_" + c.ns,
 		Description:     "Processing queue for process end",
-		AckPolicy:       nats.AckExplicitPolicy,
+		AckPolicy:       jetstream.AckExplicitPolicy,
 		AckWait:         30 * time.Second,
 		FilterSubject:   subj.NS(messages.WorkflowProcessTerminated, c.ns),
 		MaxAckPending:   65535,
 		MaxRequestBatch: 1,
 	}
-	if err := setup.EnsureConsumer(js, "WORKFLOW", *cdef, false, c.storageType); err != nil {
+	if err := setup.EnsureConsumer(ctx, js, "WORKFLOW", *cdef, false, c.storageType); err != nil {
 		return fmt.Errorf("setting up end event queue")
 	}
 
@@ -297,12 +298,16 @@ func (c *Client) listen(ctx context.Context) error {
 	}
 	for k, v := range tasks {
 		cName := "ServiceTask_" + c.ns + "_" + k
-		cInf, err := c.js.ConsumerInfo("WORKFLOW", cName)
+		consumer, err := c.js.Consumer(ctx, "WORKFLOW", cName)
+		if err != nil {
+			return fmt.Errorf("get consumer '%s': %w", cName, err)
+		}
+		cInf, err := consumer.Info(ctx)
 		if err != nil {
 			return fmt.Errorf("listen obtaining consumer info for %s: %w", cName, err)
 		}
 		ackTimeout := cInf.Config.AckWait
-		err = common.Process(ctx, c.js, "WORKFLOW", "jobExecute", c.closer, v, cName, c.concurrency, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+		err = common.Process(ctx, c.js, "WORKFLOW", "jobExecute", c.closer, v, cName, c.concurrency, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 			c.processingMx.Lock()
 			c.processing++
 			c.processingMx.Unlock()
@@ -312,7 +317,7 @@ func (c *Client) listen(ctx context.Context) error {
 				c.processingMx.Unlock()
 			}()
 			// Check version compatibility of incoming call.
-			sharCompat := msg.Header.Get(header.NatsCompatHeader)
+			sharCompat := msg.Headers().Get(header.NatsCompatHeader)
 			if sharCompat != "" {
 				sVer, err := version.NewVersion(sharCompat)
 				if err != nil {
@@ -346,7 +351,7 @@ func (c *Client) listen(ctx context.Context) error {
 					return
 				default:
 				}
-				if err := msg.InProgress(nats.Context(ctx)); err != nil {
+				if err := msg.InProgress(); err != nil {
 					cancel()
 					fnMx.Unlock()
 					return
@@ -355,16 +360,16 @@ func (c *Client) listen(ctx context.Context) error {
 			}(ctx)
 
 			ut := &model.WorkflowState{}
-			if err := proto.Unmarshal(msg.Data, ut); err != nil {
+			if err := proto.Unmarshal(msg.Data(), ut); err != nil {
 				log.Error("unmarshalling", err)
 				return false, fmt.Errorf("service task listener: %w", err)
 			}
 
-			subj.SetNS(ctx, msg.Header.Get(header.SharNamespace))
+			subj.SetNS(ctx, msg.Headers().Get(header.SharNamespace))
 			ctx = context.WithValue(ctx, ctxkey.ExecutionID, ut.ExecutionId)
 			ctx = context.WithValue(ctx, ctxkey.ProcessInstanceID, ut.ProcessInstanceId)
 			ctx = ReParentSpan(ctx, ut)
-			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Header)
+			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Headers())
 			if err != nil {
 				return true, &errors2.ErrWorkflowFatal{Err: fmt.Errorf("obtain headers from message: %w", err)}
 			}
@@ -494,7 +499,7 @@ func (c *Client) listen(ctx context.Context) error {
 	return nil
 }
 
-// ReParentSpan reparents a span in the given context with the span ID obtained from the WorkflowState ID.
+// ReParentSpan re-parents a span in the given context with the span ID obtained from the WorkflowState ID.
 // If the span context in the context is valid, it replaces the span ID with the 64-bit representation
 // obtained from the WorkflowState ID. Otherwise, it returns the original context.
 //
@@ -515,9 +520,9 @@ func ReParentSpan(ctx context.Context, state *model.WorkflowState) context.Conte
 
 func (c *Client) listenProcessTerminate(ctx context.Context) error {
 	closer := make(chan struct{}, 1)
-	err := common.Process(ctx, c.js, "WORKFLOW", "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, c.js, "WORKFLOW", "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		st := &model.WorkflowState{}
-		if err := proto.Unmarshal(msg.Data, st); err != nil {
+		if err := proto.Unmarshal(msg.Data(), st); err != nil {
 			log.Error("proto unmarshal error", err)
 			return true, fmt.Errorf("listenProcessTerminate unmarshalling proto: %w", err)
 		}

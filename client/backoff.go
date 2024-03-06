@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/workflow"
@@ -19,9 +19,9 @@ import (
 	"time"
 )
 
-func (c *Client) backoff(ctx context.Context, msg *nats.Msg) error {
+func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	state := &model.WorkflowState{}
-	if err := proto.Unmarshal(msg.Data, state); err != nil {
+	if err := proto.Unmarshal(msg.Data(), state); err != nil {
 		slog.Error("unmarshalling state", err)
 		return fmt.Errorf("service task listener: %w", err)
 	}

@@ -2,8 +2,8 @@ package start
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/cli/util"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/namespace"
@@ -58,26 +58,26 @@ func run(cmd *cobra.Command, args []string) error {
 		nc, _ := nats.Connect(nats.DefaultURL)
 
 		// Get Jetstream
-		js, err := nc.JetStream()
+		js, err := jetstream.New(nc)
 		if err != nil {
 			panic(err)
 		}
 
-		if err := EnsureConsumer(js, "WORKFLOW", &nats.ConsumerConfig{
+		if _, err := js.CreateOrUpdateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
 			Durable:       "Tracing",
 			Description:   "Sequential Trace Consumer",
-			DeliverPolicy: nats.DeliverAllPolicy,
+			DeliverPolicy: jetstream.DeliverAllPolicy,
 			FilterSubject: subj.NS(messages.WorkflowStateAll, namespace.Default),
-			AckPolicy:     nats.AckExplicitPolicy,
+			AckPolicy:     jetstream.AckExplicitPolicy,
 		}); err != nil {
 			panic(err)
 		}
 
 		ctx = context.Background()
 		closer := make(chan struct{})
-		workflowMessages := make(chan *nats.Msg)
+		workflowMessages := make(chan jetstream.Msg)
 
-		err = common.Process(ctx, js, "WORKFLOW_TELEMETRY", "trace", closer, subj.NS(messages.WorkflowStateAll, "*"), "Tracing", 1, nil, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+		err = common.Process(ctx, js, "WORKFLOW_TELEMETRY", "trace", closer, subj.NS(messages.WorkflowStateAll, "*"), "Tracing", 1, nil, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 			workflowMessages <- msg
 			return true, nil
 		})
@@ -87,7 +87,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 		for msg := range workflowMessages {
 			var state = model.WorkflowState{}
-			err := proto.Unmarshal(msg.Data, &state)
+			err := proto.Unmarshal(msg.Data(), &state)
 			if err != nil {
 				log := logx.FromContext(ctx)
 				log.Error("unmarshal message", err)
@@ -111,16 +111,4 @@ func run(cmd *cobra.Command, args []string) error {
 func init() {
 	Cmd.PersistentFlags().BoolVarP(&flag.Value.DebugTrace, flag.DebugTrace, flag.DebugTraceShort, false, "enable debug trace for selected workflow")
 	Cmd.PersistentFlags().StringSliceVarP(&flag.Value.Vars, flag.Vars, flag.VarsShort, []string{}, "pass variables to given workflow, eg --vars \"orderId:int(78),serviceId:string(hello)\"")
-}
-
-// EnsureConsumer sets up the consumer in NATS if one doesn't exist already
-func EnsureConsumer(js nats.JetStreamContext, streamName string, consumerConfig *nats.ConsumerConfig) error {
-	if _, err := js.ConsumerInfo(streamName, consumerConfig.Durable); errors.Is(err, nats.ErrConsumerNotFound) {
-		if _, err := js.AddConsumer(streamName, consumerConfig); err != nil {
-			panic(err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("ensuring consumer: %w", err)
-	}
-	return nil
 }

@@ -12,7 +12,7 @@ import (
 // RecordHistoryProcessStart records the process start into the history object.
 func (s *Nats) RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("RecordHistoryProcessStart - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -38,7 +38,7 @@ func (s *Nats) RecordHistoryProcessStart(ctx context.Context, state *model.Workf
 // RecordHistoryActivityExecute records the activity execute into the history object.
 func (s *Nats) RecordHistoryActivityExecute(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("RecordHistoryActivityExecute - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -66,7 +66,7 @@ func (s *Nats) RecordHistoryActivityExecute(ctx context.Context, state *model.Wo
 // RecordHistoryActivityComplete records the activity completion into the history object.
 func (s *Nats) RecordHistoryActivityComplete(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("RecordHistoryActivityComplete - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -93,7 +93,7 @@ func (s *Nats) RecordHistoryActivityComplete(ctx context.Context, state *model.W
 // RecordHistoryProcessComplete records the process completion into the history object.
 func (s *Nats) RecordHistoryProcessComplete(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("RecordHistoryProcessComplete - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -119,7 +119,7 @@ func (s *Nats) RecordHistoryProcessComplete(ctx context.Context, state *model.Wo
 // RecordHistoryProcessSpawn records the process spawning a new process into the history object.
 func (s *Nats) RecordHistoryProcessSpawn(ctx context.Context, state *model.WorkflowState, newProcessInstanceID string) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("RecordHistoryProcessSpawn - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -145,7 +145,7 @@ func (s *Nats) RecordHistoryProcessSpawn(ctx context.Context, state *model.Workf
 // RecordHistoryProcessAbort records the process aborting into the history object.
 func (s *Nats) RecordHistoryProcessAbort(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("RecordHistoryProcessAbort - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -171,7 +171,7 @@ func (s *Nats) RecordHistoryProcessAbort(ctx context.Context, state *model.Workf
 // GetProcessHistory fetches the history object for a process.
 func (s *Nats) GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("GetProcessHistory - failed getting KVs for ns %s: %w", ns, err)
 	}

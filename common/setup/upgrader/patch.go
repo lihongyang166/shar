@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/go-version"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"log/slog"
 	"reflect"
@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type patch func(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext) error
+type patch func(ctx context.Context, nc common.NatsConn, js jetstream.JetStream) error
 
 /*
 To create a version patch, first add a patch function go file,
@@ -65,7 +65,7 @@ func GetCompatibleVersion() *version.Version {
 }
 
 // Patch cycles through all available upgrades and applies them in order.  Only the upgrades greater than the deployed version will be executed.
-func Patch(ctx context.Context, fromVersion string, n common.NatsConn, j nats.JetStreamContext) error {
+func Patch(ctx context.Context, fromVersion string, n common.NatsConn, j jetstream.JetStream) error {
 	v1, err := version.NewVersion(fromVersion)
 	if err != nil {
 		return fmt.Errorf("reading target version from '%s': %w", fromVersion, err)

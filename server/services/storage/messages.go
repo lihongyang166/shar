@@ -5,6 +5,7 @@ import (
 	errors2 "errors"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/expression"
@@ -19,7 +20,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"strings"
-	"time"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 
 func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("ensureMessageBuckets - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -59,89 +59,17 @@ func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) err
 			return fmt.Errorf("create a client task during workflow creation: %w", err)
 		}
 
-		jxCfg := &nats.ConsumerConfig{
+		jxCfg := jetstream.ConsumerConfig{
 			Durable:       "ServiceTask_" + subj.GetNS(ctx) + "_" + wf.Name + "_" + m.Name,
 			Description:   "",
 			FilterSubject: subj.NS(messages.WorkflowJobSendMessageExecute, subj.GetNS(ctx)) + "." + wf.Name + "_" + m.Name,
-			AckPolicy:     nats.AckExplicitPolicy,
+			AckPolicy:     jetstream.AckExplicitPolicy,
 			MaxAckPending: 65536,
 		}
-		if err := ensureConsumer(s.js, "WORKFLOW", jxCfg); err != nil {
+		if _, err := s.js.CreateOrUpdateConsumer(ctx, "WORKFLOW", jxCfg); err != nil {
 			return fmt.Errorf("add service task consumer: %w", err)
 		}
 	}
-	return nil
-}
-
-var messageKickInterval = time.Second * 10
-
-func (s *Nats) messageKick(ctx context.Context) error {
-	sub, err := s.js.PullSubscribe(messages.WorkflowMessageKick, "MessageKick")
-	if err != nil {
-		return fmt.Errorf("creating message kick subscription: %w", err)
-	}
-
-	go func() {
-		for {
-			select {
-			case <-s.closing:
-				return
-			default:
-				pctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-				msgs, err := sub.Fetch(1, nats.Context(pctx))
-
-				if err != nil || len(msgs) == 0 {
-					slog.Warn("pulling kick message")
-					cancel()
-					time.Sleep(20 * time.Second)
-					continue
-				}
-				msg := msgs[0]
-
-				//#########
-				var ns string
-				if ns = msg.Header.Get(header.SharNamespace); ns == "" {
-					slog.Error("messageKick - message without namespace", slog.Any("subject", msg.Subject))
-					cancel()
-					if err := msg.Ack(); err != nil {
-						slog.Error("messageKick - processing failed to ack", err)
-					}
-					continue
-				}
-
-				nsKVs, err := s.KvsFor(ns)
-				if err != nil {
-					slog.Error("messageKick - failed getting KVs for ns %s: %w", ns, err)
-					cancel()
-					continue
-				}
-				//#########
-
-				msgKeys, err := nsKVs.wfMessages.Keys()
-				if err != nil {
-					goto continueLoop
-				}
-
-				for _, k := range msgKeys {
-					exchange := &model.Exchange{}
-					err := common.LoadObj(ctx, nsKVs.wfMessages, k, exchange)
-					if err != nil {
-						slog.Warn(err.Error())
-					}
-					correlationKey, messageName := elementsFrom(k)
-					err = s.attemptMessageDelivery(ctx, exchange, "", senderParty, messageName, correlationKey)
-					if err != nil {
-						slog.Warn(err.Error())
-					}
-				}
-			continueLoop:
-				if err := msg.NakWithDelay(messageKickInterval); err != nil {
-					slog.Warn("message nak: " + err.Error())
-				}
-				cancel()
-			}
-		}
-	}()
 	return nil
 }
 
@@ -165,8 +93,8 @@ func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars
 	pubCtx, cancel := context.WithTimeout(ctx, s.publishTimeout)
 	defer cancel()
 	id := ksuid.New().String()
-	if _, err := s.txJS.PublishMsg(msg, nats.Context(pubCtx), nats.MsgId(id)); err != nil {
-		log := logx.FromContext(ctx)
+	if _, err := s.txJS.PublishMsg(ctx, msg, jetstream.WithMsgID(id)); err != nil {
+		log := logx.FromContext(pubCtx)
 		log.Error("publish message", err, slog.String("nats.msg.id", id), slog.Any("msg", sharMsg), slog.String("subject", msg.Subject))
 		return fmt.Errorf("publish message: %w", err)
 	}
@@ -181,10 +109,10 @@ func (s *Nats) processMessages(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	// Unpack the message Instance
 	instance := &model.MessageInstance{}
-	if err := proto.Unmarshal(msg.Data, instance); err != nil {
+	if err := proto.Unmarshal(msg.Data(), instance); err != nil {
 		return false, fmt.Errorf("unmarshal message proto: %w", err)
 	}
 
@@ -207,7 +135,7 @@ type setPartyFn func(exch *model.Exchange) (*model.Exchange, error)
 
 func (s *Nats) handleMessageExchange(ctx context.Context, party string, setPartyFn setPartyFn, elementId string, exchange *model.Exchange, messageName string, correlationKey string) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("handleMessageExchange - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -219,7 +147,7 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 		return fmt.Errorf("error serialising "+party+" message %w", err3)
 	}
 	//use optimistic locking capabilities on create/update to ensure no lost writes...
-	_, createErr := nsKVs.wfMessages.Create(messageKey, exchangeProto)
+	_, createErr := nsKVs.wfMessages.Create(ctx, messageKey, exchangeProto)
 
 	if errors2.Is(createErr, nats.ErrKeyExists) {
 		err3 := common.UpdateObj(ctx, nsKVs.wfMessages, messageKey, &model.Exchange{}, setPartyFn)
@@ -242,7 +170,7 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 
 func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, messageName string) (bool, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return false, fmt.Errorf("hasAllReceivers - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -270,7 +198,7 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Excha
 	slog.Debug("attemptMessageDelivery", "exchange", exchange, "messageName", messageName, "correlationKey", correlationKey)
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("attemptMessageDelivery - failed getting KVs for ns %s: %w", ns, err)
 	}
@@ -303,7 +231,7 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Excha
 
 		if exchange.Sender != nil && hasAllReceivers {
 			messageKey := messageKeyFrom([]string{messageName, correlationKey})
-			err := nsKVs.wfMessages.Delete(messageKey)
+			err := nsKVs.wfMessages.Delete(ctx, messageKey)
 			if err != nil {
 				return fmt.Errorf("error deleting exchange %w", err)
 			}
@@ -331,9 +259,9 @@ func elementsFrom(key string) (string, string) {
 }
 
 // awaitMessageProcessor waits for WORKFLOW.*.State.Job.AwaitMessage.Execute job and executes a delivery
-func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	job := &model.WorkflowState{}
-	if err := proto.Unmarshal(msg.Data, job); err != nil {
+	if err := proto.Unmarshal(msg.Data(), job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
 

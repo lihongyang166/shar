@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	middleware2 "gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
@@ -18,7 +19,7 @@ import (
 // Client implements a SHAR data client capable of retrieving raw data about workflow history
 type Client struct {
 	con                             *nats.Conn
-	storageType                     nats.StorageType
+	storageType                     jetstream.StorageType
 	ns                              string
 	concurrency                     int
 	ExpectedServerVersion           *version.Version
@@ -36,7 +37,7 @@ type Option interface {
 // New creates a new SHAR data client instance
 func New(option ...Option) *Client {
 	client := &Client{
-		storageType:       nats.FileStorage,
+		storageType:       jetstream.FileStorage,
 		ns:                namespace.Default,
 		concurrency:       10,
 		SendMiddleware:    make([]middleware2.Send, 0),

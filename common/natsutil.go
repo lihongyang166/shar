@@ -260,78 +260,81 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 					log.Error("message fetch error", err)
 					continue
 				}
-				m := <-msg.Messages()
-				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())
-				if x := m.Headers().Get(header.SharNamespace); x == "" {
-					log.Error("message without namespace", slog.Any("subject", m.Subject))
-					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
-					}
-					continue
-				}
-				if err != nil {
-					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
-					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
-					}
-					continue
-				}
-				//				log.Debug("Process:"+traceName, slog.String("subject", msg[0].Subject))
-				if embargo := m.Headers().Get("embargo"); embargo != "" && embargo != "0" {
-					e, err := strconv.Atoi(embargo)
-					if err != nil {
-						log.Error("bad embargo value", err)
-						continue
-					}
-					offset := time.Duration(int64(e) - time.Now().UnixNano())
-					if offset > 0 {
-						if err := m.NakWithDelay(offset); err != nil {
-							log.Warn("nak with delay")
+				for m := range msg.Messages() {
+					ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())
+					if x := m.Headers().Get(header.SharNamespace); x == "" {
+						log.Error("message without namespace", slog.Any("subject", m.Subject))
+						if err := m.Ack(); err != nil {
+							log.Error("processing failed to ack", err)
 						}
 						continue
 					}
-				}
-
-				executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Headers())
-				executeCtx = header.Copy(ctx, executeCtx)
-				executeCtx = subj.SetNS(executeCtx, m.Headers().Get(header.SharNamespace))
-
-				for _, i := range middleware {
-					var err error
-					if executeCtx, err = i(executeCtx, m); err != nil {
-						slog.Error("process middleware", "error", err, "subject", subject, "middleware", reflect.TypeOf(i).Name())
+					if err != nil {
+						log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
+						if err := m.Ack(); err != nil {
+							log.Error("processing failed to ack", err)
+						}
 						continue
 					}
-				}
+					//				log.Debug("Process:"+traceName, slog.String("subject", msg[0].Subject))
+					if embargo := m.Headers().Get("embargo"); embargo != "" && embargo != "0" {
+						e, err := strconv.Atoi(embargo)
+						if err != nil {
+							log.Error("bad embargo value", err)
+							continue
+						}
+						offset := time.Duration(int64(e) - time.Now().UnixNano())
+						if offset > 0 {
+							if err := m.NakWithDelay(offset); err != nil {
+								log.Warn("nak with delay")
+							}
+							continue
+						}
+					}
 
-				ack, err := fn(executeCtx, executeLog, m)
-				if err != nil {
-					if errors2.IsWorkflowFatal(err) {
-						executeLog.Error("workflow fatal error occurred processing function", err)
-						ack = true
-					} else {
-						wfe := &workflow.Error{}
-						if !errors.As(err, wfe) {
-							if set.BackoffCalc != nil {
-								executeLog.Error("processing error", err, "name", traceName)
-								err := set.BackoffCalc(executeCtx, m)
-								if err != nil {
-									slog.Error("backoff error", "error", err)
+					executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Headers())
+					executeCtx = header.Copy(ctx, executeCtx)
+					executeCtx = subj.SetNS(executeCtx, m.Headers().Get(header.SharNamespace))
+
+					for _, i := range middleware {
+						var err error
+						if executeCtx, err = i(executeCtx, m); err != nil {
+							slog.Error("process middleware", "error", err, "subject", subject, "middleware", reflect.TypeOf(i).Name())
+							continue
+						}
+					}
+
+					ack, err := fn(executeCtx, executeLog, m)
+					if err != nil {
+						if errors2.IsWorkflowFatal(err) {
+							executeLog.Error("workflow fatal error occurred processing function", err)
+							ack = true
+						} else {
+							wfe := &workflow.Error{}
+							if !errors.As(err, wfe) {
+								if set.BackoffCalc != nil {
+									executeLog.Error("processing error", err, "name", traceName)
+									err := set.BackoffCalc(executeCtx, m)
+									if err != nil {
+										slog.Error("backoff error", "error", err)
+									}
+									continue
 								}
-								continue
 							}
 						}
 					}
-				}
-				if ack {
-					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
+					if ack {
+						if err := m.Ack(); err != nil {
+							log.Error("processing failed to ack", err)
+						}
+					} else {
+						if err := m.Nak(); err != nil {
+							log.Error("processing failed to nak", err)
+						}
 					}
-				} else {
-					if err := m.Nak(); err != nil {
-						log.Error("processing failed to nak", err)
-					}
+
 				}
+
 			}
 		}()
 	}

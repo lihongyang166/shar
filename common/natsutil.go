@@ -227,30 +227,41 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 		i.Set(set)
 	}
 	log := logx.FromContext(ctx)
-	consumer, err := js.Consumer(ctx, streamName, durable)
-	if err != nil {
-		return fmt.Errorf("check durable consumer '%s'present: %w", durable, err)
-	}
-	if durable != "" {
-		if !strings.HasPrefix(durable, "ServiceTask_") {
-			conInfo, err := consumer.Info(ctx)
-			if err != nil || conInfo.Config.Durable == "" {
-				return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
+
+	receivers := make([]jetstream.MessagesContext, 0, concurrency)
+
+	for i := 0; i < concurrency; i++ {
+		//shared js.Consumer and consumer.Messages per unit of concurrency fails
+		//shared js.Consumer and shared consumer.Messages works
+		//js.Consumer and consumer.Messages per unit of concurrency works
+		consumer, err := js.Consumer(ctx, streamName, durable)
+		if err != nil {
+			return fmt.Errorf("check durable consumer '%s'present: %w", durable, err)
+		}
+		if durable != "" {
+			if !strings.HasPrefix(durable, "ServiceTask_") {
+				conInfo, err := consumer.Info(ctx)
+				if err != nil || conInfo.Config.Durable == "" {
+					return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
+				}
 			}
 		}
-	}
-	for i := 0; i < concurrency; i++ {
+		messagesContext, err := consumer.Messages(
+			jetstream.WithMessagesErrOnMissingHeartbeat(false),
+		)
+		receivers = append(receivers, messagesContext)
+		if err != nil {
+			return fmt.Errorf("process consumer %w", err)
+		}
+
 		go func() {
 			for {
-				select {
-				case <-closer:
-					return
-				default:
-				}
-				msg, err := consumer.Fetch(1, jetstream.FetchMaxWait(30*time.Second))
+				log.Info(fmt.Sprintf("### entering go routine loop for %s, concur-id %d", durable, i))
+				m, err := messagesContext.Next()
+				log.Info(fmt.Sprintf("### recv msg for %s concur-id %d, err %v", durable, i, err))
 				if err != nil {
-					if errors.Is(err, context.DeadlineExceeded) {
-						continue
+					if errors.Is(err, jetstream.ErrMsgIteratorClosed) {
+						return
 					}
 					// Horrible, but this isn't a typed error.  This test just stops the listener printing pointless errors.
 					if err.Error() == "nats: Server Shutdown" || err.Error() == "nats: connection closed" {
@@ -260,84 +271,86 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 					log.Error("message fetch error", err)
 					continue
 				}
-				for m := range msg.Messages() {
-					ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())
-					if x := m.Headers().Get(header.SharNamespace); x == "" {
-						log.Error("message without namespace", slog.Any("subject", m.Subject))
-						if err := m.Ack(); err != nil {
-							log.Error("processing failed to ack", err)
+				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())
+				if x := m.Headers().Get(header.SharNamespace); x == "" {
+					log.Error("message without namespace", slog.Any("subject", m.Subject))
+					if err := m.Ack(); err != nil {
+						log.Error("processing failed to ack", err)
+					}
+					continue
+				}
+				if err != nil {
+					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
+					if err := m.Ack(); err != nil {
+						log.Error("processing failed to ack", err)
+					}
+					continue
+				}
+				//          log.Debug("Process:"+traceName, slog.String("subject", msg[0].Subject))
+				if embargo := m.Headers().Get("embargo"); embargo != "" && embargo != "0" {
+					e, err := strconv.Atoi(embargo)
+					if err != nil {
+						log.Error("bad embargo value", err)
+						continue
+					}
+					offset := time.Duration(int64(e) - time.Now().UnixNano())
+					if offset > 0 {
+						if err := m.NakWithDelay(offset); err != nil {
+							log.Warn("nak with delay")
 						}
 						continue
 					}
-					if err != nil {
-						log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
-						if err := m.Ack(); err != nil {
-							log.Error("processing failed to ack", err)
-						}
-						continue
-					}
-					//				log.Debug("Process:"+traceName, slog.String("subject", msg[0].Subject))
-					if embargo := m.Headers().Get("embargo"); embargo != "" && embargo != "0" {
-						e, err := strconv.Atoi(embargo)
-						if err != nil {
-							log.Error("bad embargo value", err)
-							continue
-						}
-						offset := time.Duration(int64(e) - time.Now().UnixNano())
-						if offset > 0 {
-							if err := m.NakWithDelay(offset); err != nil {
-								log.Warn("nak with delay")
-							}
-							continue
-						}
-					}
-
-					executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Headers())
-					executeCtx = header.Copy(ctx, executeCtx)
-					executeCtx = subj.SetNS(executeCtx, m.Headers().Get(header.SharNamespace))
-
-					for _, i := range middleware {
-						var err error
-						if executeCtx, err = i(executeCtx, m); err != nil {
-							slog.Error("process middleware", "error", err, "subject", subject, "middleware", reflect.TypeOf(i).Name())
-							continue
-						}
-					}
-
-					ack, err := fn(executeCtx, executeLog, m)
-					if err != nil {
-						if errors2.IsWorkflowFatal(err) {
-							executeLog.Error("workflow fatal error occurred processing function", err)
-							ack = true
-						} else {
-							wfe := &workflow.Error{}
-							if !errors.As(err, wfe) {
-								if set.BackoffCalc != nil {
-									executeLog.Error("processing error", err, "name", traceName)
-									err := set.BackoffCalc(executeCtx, m)
-									if err != nil {
-										slog.Error("backoff error", "error", err)
-									}
-									continue
-								}
-							}
-						}
-					}
-					if ack {
-						if err := m.Ack(); err != nil {
-							log.Error("processing failed to ack", err)
-						}
-					} else {
-						if err := m.Nak(); err != nil {
-							log.Error("processing failed to nak", err)
-						}
-					}
-
 				}
 
+				executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Headers())
+				executeCtx = header.Copy(ctx, executeCtx)
+				executeCtx = subj.SetNS(executeCtx, m.Headers().Get(header.SharNamespace))
+
+				for _, i := range middleware {
+					var err error
+					if executeCtx, err = i(executeCtx, m); err != nil {
+						slog.Error("process middleware", "error", err, "subject", subject, "middleware", reflect.TypeOf(i).Name())
+						continue
+					}
+				}
+
+				ack, err := fn(executeCtx, executeLog, m)
+				if err != nil {
+					if errors2.IsWorkflowFatal(err) {
+						executeLog.Error("workflow fatal error occurred processing function", err)
+						ack = true
+					} else {
+						wfe := &workflow.Error{}
+						if !errors.As(err, wfe) {
+							if set.BackoffCalc != nil {
+								executeLog.Error("processing error", err, "name", traceName)
+								err := set.BackoffCalc(executeCtx, m)
+								if err != nil {
+									slog.Error("backoff error", "error", err)
+								}
+								continue
+							}
+						}
+					}
+				}
+				if ack {
+					if err := m.Ack(); err != nil {
+						log.Error("processing failed to ack", err)
+					}
+				} else {
+					if err := m.Nak(); err != nil {
+						log.Error("processing failed to nak", err)
+					}
+				}
 			}
 		}()
 	}
+	go func() {
+		<-closer
+		for _, i := range receivers {
+			i.Stop()
+		}
+	}()
 	return nil
 }
 

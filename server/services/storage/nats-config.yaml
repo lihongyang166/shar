@@ -42,135 +42,119 @@ streams:
           durable_name: JobAbortConsumer
           description: Abort job message queue
           deliver_policy: 0
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Abort.*
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: GeneralAbortConsumer
           description: Abort workflow instance and activity message queue
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.*.Abort
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: LaunchConsumer
           description: Sub workflow launch message queue
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Execute.Launch
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: Message
           description: Intra-workflow message queue
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.Message
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: WorkflowConsumer
           description: Workflow processing queue
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Execution.>
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: ProcessCompleteConsumer
           description: Process complete processing queue
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Process.Complete
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: JobCompleteConsumer
           description: Job complete processing queue
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Complete.*
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: ActivityConsumer
           description: Activity complete processing queue
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Activity.>
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: Traversal
           description: Traversal processing queue
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Traversal.Execute
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: Tracking
           description: Tracking queue for sequential processing
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.>
           max_ack_pending: 1
-          max_batch: 1
       - nats-config:
           durable_name: GatewayExecuteConsumer
           description: Tracking queue for gateway execution
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Execute.Gateway
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: GatewayActivateConsumer
           description: Tracking queue for gateway activation
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Activate.Gateway
           max_ack_pending: 1
-          max_batch: 1
       - nats-config:
           durable_name: GatewayReEnterConsumer
           description: Tracking queue for gateway activation
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.ReEnter.Gateway
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: AwaitMessageConsumer
           description: Tracking queue for gateway activation
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Execute.AwaitMessage
           max_ack_pending: 65535
-          max_batch: 1
       - nats-config:
           durable_name: MessageKickConsumer
           description: Message processing consumer timer
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 2m0s
           filter_subject: WORKFLOW.Message.Kick
           max_ack_pending: 1
-          max_batch: 1
       - nats-config:
           durable_name: TelemetryTimerConsumer
           description: Server telemetry timer
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 1s
           filter_subject: WORKFLOW.Message.Telemetry
           max_ack_pending: 1
-          max_batch: 1
       - nats-config:
           durable_name: UndeliveredMsgConsumer
           description: Undeliverable workflow message queue.  Messages should be looked up in the WORKFLOW-MIRROR stream to avoid disappointment.
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 1s
           filter_subject: $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>
   - nats-config:

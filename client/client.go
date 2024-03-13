@@ -213,13 +213,12 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	}
 
 	cdef := &jetstream.ConsumerConfig{
-		Durable:         "ProcessTerminateConsumer_" + c.ns,
-		Description:     "Processing queue for process end",
-		AckPolicy:       jetstream.AckExplicitPolicy,
-		AckWait:         30 * time.Second,
-		FilterSubject:   subj.NS(messages.WorkflowProcessTerminated, c.ns),
-		MaxAckPending:   65535,
-		MaxRequestBatch: 1,
+		Durable:       "ProcessTerminateConsumer_" + c.ns,
+		Description:   "Processing queue for process end",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		AckWait:       30 * time.Second,
+		FilterSubject: subj.NS(messages.WorkflowProcessTerminated, c.ns),
+		MaxAckPending: 65535,
 	}
 	if err := setup.EnsureConsumer(ctx, js, "WORKFLOW", *cdef, false, c.storageType); err != nil {
 		return fmt.Errorf("setting up end event queue")

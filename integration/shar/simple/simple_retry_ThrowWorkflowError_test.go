@@ -3,11 +3,12 @@ package simple
 import (
 	"context"
 	"fmt"
-	"github.com/segmentio/ksuid"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/segmentio/ksuid"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
@@ -29,9 +30,9 @@ func TestSimpleRetry_ThrowWorkflowError(t *testing.T) {
 
 	// Register a service task
 	d := &testSimpleRetryThrowWorkflowErrorHandlerDef{t: t, finished: make(chan struct{})}
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_retry_ThrowWorkflowError.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_retry_ThrowWorkflowError.yaml", d.integrationSimple)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_retry_ThrowWorkflowErrorHandle.yaml", d.integrationError)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_retry_ThrowWorkflowErrorHandle.yaml", d.integrationError)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)

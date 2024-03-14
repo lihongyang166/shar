@@ -3,6 +3,11 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,10 +15,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 //goland:noinspection GoNilness
@@ -32,11 +33,11 @@ func TestMultiWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_step1.yaml", handlers.step1)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_step2.yaml", handlers.step2)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_SimpleProcess.yaml", handlers.simpleProcess)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "multi_workflow_test_SimpleProcess.yaml", handlers.simpleProcess)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -66,9 +67,9 @@ func TestMultiWorkflow(t *testing.T) {
 	n := 100
 	mx := sync.Mutex{}
 	instances := make(map[string]struct{})
-	//wg := sync.WaitGroup{}
+	// wg := sync.WaitGroup{}
 	for inst := 0; inst < n; inst++ {
-		//wg.Add(1)
+		// wg.Add(1)
 		go func(inst int) {
 			// Launch the processes
 			if wfiID, _, err := cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {

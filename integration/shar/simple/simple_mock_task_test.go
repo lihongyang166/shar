@@ -2,6 +2,10 @@ package simple
 
 import (
 	"context"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -9,9 +13,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestSimpleMockTask(t *testing.T) {
@@ -28,7 +29,7 @@ func TestSimpleMockTask(t *testing.T) {
 	// Register a service task
 	d := &testSimpleMockTaskHandlerDef{t: t, finished: make(chan struct{})}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_mock_task_test.yaml", nil)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_mock_task_test.yaml", nil)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)

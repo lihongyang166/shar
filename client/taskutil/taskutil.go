@@ -3,25 +3,28 @@ package taskutil
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/goccy/go-yaml"
 	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
 )
 
 // RegisterTaskYamlFile registers a service task with a task spec.
-func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, yamlFile string, fn client.ServiceFn) error {
+func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, yamlFile string, fn client.ServiceFn) (uid string, err error) {
 	sb, err := os.ReadFile(yamlFile)
 	if err != nil {
-		return fmt.Errorf("register task yaml file: %w", err)
+		return uid, fmt.Errorf("register task yaml file: %w", err)
 	}
-	if err = RegisterTaskYaml(ctx, cl, sb, fn); err != nil {
-		return fmt.Errorf("RegisterTaskYamlFile: %w", err)
+	if uid, err = RegisterTaskYaml(ctx, cl, sb, fn); err != nil {
+		return uid, fmt.Errorf("RegisterTaskYamlFile: %w", err)
 	}
-	return nil
+	return uid, nil
 }
 
-func loadSpecFromBytes(c *client.Client, buf []byte) (*model.TaskSpec, error) {
+// LoadSpecFromBytes loads and parses a task.yaml file to a *model.TaskSpec type.
+func LoadSpecFromBytes(c *client.Client, buf []byte) (*model.TaskSpec, error) {
 	spec := &model.TaskSpec{}
 	err := yaml.Unmarshal(buf, spec)
 	if err != nil {
@@ -31,13 +34,16 @@ func loadSpecFromBytes(c *client.Client, buf []byte) (*model.TaskSpec, error) {
 }
 
 // RegisterTaskYaml registers a service task with a task spec.
-func RegisterTaskYaml(ctx context.Context, c *client.Client, taskYaml []byte, fn client.ServiceFn) error {
-	yml, err := loadSpecFromBytes(c, taskYaml)
+func RegisterTaskYaml(ctx context.Context, c *client.Client, taskYaml []byte, fn client.ServiceFn) (uid string, err error) {
+	yml, err := LoadSpecFromBytes(c, taskYaml)
 	if err != nil {
-		return fmt.Errorf("RegisterTaskFromYaml: %w", err)
+		return uid, fmt.Errorf("RegisterTaskFromYaml: %w", err)
 	}
 	if err := c.RegisterTask(ctx, yml, fn); err != nil {
-		return fmt.Errorf("RegisterTaskYaml: %w", err)
+		return uid, fmt.Errorf("RegisterTaskYaml: %w", err)
 	}
-	return nil
+	if uid, err = task.CreateUID(yml); err != nil {
+		return uid, fmt.Errorf("RegisterTaskYaml: %w", err)
+	}
+	return uid, nil
 }

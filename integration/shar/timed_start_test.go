@@ -3,6 +3,11 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,10 +15,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestTimedStart(t *testing.T) {
@@ -32,7 +33,7 @@ func TestTimedStart(t *testing.T) {
 	d := &timedStartHandlerDef{tst: tst, t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "timed_start_test_SimpleProcess.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "timed_start_test_SimpleProcess.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -72,7 +73,7 @@ type timedStartHandlerDef struct {
 
 func (d *timedStartHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
 	// TODO: Include for diagnosing timed start bug
-	//assert.Equal(d.t, 32768, vars["carried"])
+	// assert.Equal(d.t, 32768, vars["carried"])
 	d.mx.Lock()
 	defer d.mx.Unlock()
 	d.tst.FinalVars = vars

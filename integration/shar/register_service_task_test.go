@@ -3,16 +3,16 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
-	"testing"
 )
 
 func TestRegisterNil(t *testing.T) {
-
 	// Create a starting context
 	ctx := context.Background()
 
@@ -23,7 +23,7 @@ func TestRegisterNil(t *testing.T) {
 
 	// Register a service task
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", nil)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", nil)
 	assert.NoError(t, err)
 }
 
@@ -38,11 +38,11 @@ func TestReinstatementOfOldServiceTaskVersion(t *testing.T) {
 
 	// Register a service task
 	d := &testRegisterServiceTaskHandlerDef{}
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "register_service_task_v0.1.yaml", d.regSvcTask)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "register_service_task_v0.1.yaml", d.regSvcTask)
 	assert.NoError(t, err)
 
 	// Register a change to a service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "register_service_task_v0.2.yaml", d.regSvcTask)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "register_service_task_v0.2.yaml", d.regSvcTask)
 	assert.NoError(t, err)
 
 	cl.Shutdown()
@@ -53,7 +53,7 @@ func TestReinstatementOfOldServiceTaskVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register the original version of the service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "register_service_task_v0.1.yaml", d.regSvcTask)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "register_service_task_v0.1.yaml", d.regSvcTask)
 	assert.NoError(t, err)
 
 	// assert that the original service task has been saved
@@ -67,8 +67,7 @@ func TestReinstatementOfOldServiceTaskVersion(t *testing.T) {
 	assert.Equal(t, "0.1", latestTaskSpec.Metadata.Version)
 }
 
-type testRegisterServiceTaskHandlerDef struct {
-}
+type testRegisterServiceTaskHandlerDef struct{}
 
 func (d *testRegisterServiceTaskHandlerDef) regSvcTask(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")

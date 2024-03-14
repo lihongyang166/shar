@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
-	"os"
 )
 
 var finished = make(chan struct{})
@@ -26,13 +27,13 @@ func main() {
 	}
 
 	// Register the service tasks
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.BeforeCallingSubProcess.yaml", beforeCallingSubProcess); err != nil {
+	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.BeforeCallingSubProcess.yaml", beforeCallingSubProcess); err != nil {
 		panic(err)
 	}
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.DuringSubProcess.yaml", duringSubProcess); err != nil {
+	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.DuringSubProcess.yaml", duringSubProcess); err != nil {
 		panic(err)
 	}
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.AfterCallingSubProcess.yaml", afterCallingSubProcess); err != nil {
+	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.AfterCallingSubProcess.yaml", afterCallingSubProcess); err != nil {
 		panic(err)
 	}
 

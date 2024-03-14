@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
 	zensvr "gitlab.com/shar-workflow/shar/zen-shar/server"
-	"os"
-	"time"
 )
 
 var cl *client.Client
@@ -31,10 +32,10 @@ func main() {
 	}
 
 	// Register a service task
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/message-manual/task.step1.yaml", step1); err != nil {
+	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/message-manual/task.step1.yaml", step1); err != nil {
 		panic(err)
 	}
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/message-manual/task.step2.yaml", step2); err != nil {
+	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/message-manual/task.step2.yaml", step2); err != nil {
 		panic(err)
 	}
 	workflowName := "MessageManualDemo"

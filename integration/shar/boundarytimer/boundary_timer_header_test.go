@@ -3,6 +3,11 @@ package boundarytimer
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,10 +16,6 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestBoundaryTimerHeaders(t *testing.T) {
@@ -82,13 +83,13 @@ func executeBoundaryTimerHeaderTest(t *testing.T, complete chan *model.WorkflowI
 	require.NoError(t, err)
 
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_CanTimeout.yaml", d.canTimeout)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_CanTimeout.yaml", d.canTimeout)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_TimedOut.yaml", d.timedOut)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_TimedOut.yaml", d.timedOut)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_CheckResult.yaml", d.checkResult)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_CheckResult.yaml", d.checkResult)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_NoTimeout.yaml", d.noTimeout)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "boundary_timer_header_test_NoTimeout.yaml", d.noTimeout)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

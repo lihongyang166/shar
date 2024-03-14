@@ -3,6 +3,10 @@ package error
 import (
 	"context"
 	"errors"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,9 +15,6 @@ import (
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestHandledError(t *testing.T) {
@@ -32,9 +33,9 @@ func TestHandledError(t *testing.T) {
 	d := errorHandledHandlerDef{test: t, finished: make(chan struct{})}
 
 	// Register service tasks
-	err := taskutil.RegisterTaskYamlFile(ctx, cl, "error_handled_test_couldThrowError.yaml", d.mayFail)
+	_, err := taskutil.RegisterTaskYamlFile(ctx, cl, "error_handled_test_couldThrowError.yaml", d.mayFail)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "error_handled_test_fixSituation.yaml", d.fixSituation)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "error_handled_test_fixSituation.yaml", d.fixSituation)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -76,7 +77,7 @@ type errorHandledHandlerDef struct {
 
 // A "Hello World" service task
 func (d *errorHandledHandlerDef) mayFail(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
-	//Throw handled error
+	// Throw handled error
 	return model.Vars{"success": false, "myVar": 69}, workflow.Error{Code: "101", WrappedError: errors.New("things went badly")}
 }
 

@@ -3,10 +3,11 @@ package simple
 import (
 	"context"
 	"fmt"
-	"github.com/segmentio/ksuid"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/segmentio/ksuid"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func TestSimple(t *testing.T) {
 	// Register a service task
 	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{})}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)

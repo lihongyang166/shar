@@ -30,7 +30,7 @@ func _TestTelemetryStream(t *testing.T) {
 	// Register a service task
 	d := &testTelemetryStreamDef{t: t, finished: make(chan struct{})}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)

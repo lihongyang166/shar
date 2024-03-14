@@ -3,6 +3,9 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,8 +13,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"testing"
 )
 
 func TestWorkflowChanged(t *testing.T) {
@@ -33,7 +34,7 @@ func TestWorkflowChanged(t *testing.T) {
 	d := &workflowChangedHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "workflow_changed_SimpleProcess.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "workflow_changed_SimpleProcess.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

@@ -3,15 +3,16 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestStartingVariable(t *testing.T) {
@@ -29,7 +30,7 @@ func TestStartingVariable(t *testing.T) {
 	d := &testStartingVariableHandlerDef{finished: make(chan struct{})}
 
 	// Register a service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "starting_variable_test_DummyTask.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "starting_variable_test_DummyTask.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("", d.processEnd)

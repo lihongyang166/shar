@@ -3,6 +3,12 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,11 +16,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"strconv"
-	"sync"
-	"testing"
-	"time"
 )
 
 //goland:noinspection GoNilness
@@ -32,9 +33,9 @@ func TestConcurrentMessaging2(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "concurrent_messaging_2_test_step1.yaml", handlers.step1)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "concurrent_messaging_2_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "concurrent_messaging_2_test_step2.yaml", handlers.step2)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "concurrent_messaging_2_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

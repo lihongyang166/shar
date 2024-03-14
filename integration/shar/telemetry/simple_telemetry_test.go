@@ -2,13 +2,14 @@ package telemetry
 
 import (
 	"context"
+	"os"
+	"testing"
+	"time"
+
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
-	"os"
-	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ func TestSimpleTelemetry(t *testing.T) {
 	ctx := context.Background()
 
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithOpenTelemetry()) //client.Experimental_WithNamespace("fooNS"),
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithOpenTelemetry()) // client.Experimental_WithNamespace("fooNS"),
 
 	err = cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
@@ -55,7 +56,7 @@ func TestSimpleTelemetry(t *testing.T) {
 		originalTrace: sctx.TraceID(),
 	}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)

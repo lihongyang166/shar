@@ -253,10 +253,10 @@ func messageKeyFrom(keyElements []string) string {
 	return strings.Join(keyElements, "-")
 }
 
-func elementsFrom(key string) (string, string) {
-	eles := strings.Split(key, "-")
-	return eles[0], eles[1]
-}
+//func elementsFrom(key string) (string, string) {
+//	eles := strings.Split(key, "-")
+//	return eles[0], eles[1]
+//}
 
 // awaitMessageProcessor waits for WORKFLOW.*.State.Job.AwaitMessage.Execute job and executes a delivery
 func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {

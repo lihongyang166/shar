@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
+	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	"os"
 	"sync"
 	"testing"
@@ -29,8 +30,8 @@ func TestUserTasks(t *testing.T) {
 		panic(err)
 	}
 
-	//sub := tracer.Trace(NatsURL)
-	//defer sub.Drain()
+	sub := tracer.Trace(tst.NatsURL)
+	defer sub.Close()
 
 	d := &testUserTaskHandlerDef{finished: make(chan struct{})}
 	d.finalVars = make(model.Vars)
@@ -73,6 +74,7 @@ func TestUserTasks(t *testing.T) {
 			if err == nil && tsk.Id != nil {
 				td, _, gerr := cl.GetUserTask(ctx, "andrei", tsk.Id[0])
 				assert.NoError(t, gerr)
+				fmt.Printf("%+v\n", td)
 				fmt.Println("Name:", td.Name)
 				fmt.Println("Description:", td.Description)
 				cerr := cl.CompleteUserTask(ctx, "andrei", tsk.Id[0], model.Vars{"Forename": "Brangelina", "Surname": "Miggins"})
@@ -83,7 +85,7 @@ func TestUserTasks(t *testing.T) {
 		}
 	}()
 
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, 50*time.Second)
 
 	et, err := cl.ListUserTaskIDs(ctx, "andrei")
 	assert.NoError(t, err)

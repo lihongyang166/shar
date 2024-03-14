@@ -254,11 +254,9 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 			return fmt.Errorf("process consumer %w", err)
 		}
 
-		go func() {
+		go func(i int) {
 			for {
-				log.Info(fmt.Sprintf("### entering go routine loop for %s, concur-id %d", durable, i))
 				m, err := messagesContext.Next()
-				log.Info(fmt.Sprintf("### recv msg for %s concur-id %d, err %v", durable, i, err))
 				if err != nil {
 					if errors.Is(err, jetstream.ErrMsgIteratorClosed) {
 						return
@@ -343,7 +341,7 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 					}
 				}
 			}
-		}()
+		}(i)
 	}
 	go func() {
 		<-closer

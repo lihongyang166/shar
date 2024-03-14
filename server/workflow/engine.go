@@ -186,7 +186,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 		telemetry.CtxWithTraceParentToWfState(ctx, wiState)
 
 		ctx, log = common.ContextLoggerWithWfState(ctx, wiState)
-		log.Debug("just after adding wfState details to log ctx")
+		//log.Debug("just after adding wfState details to log ctx")
 
 		// fire off the new workflow state
 		if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowExecutionExecute, wiState); err != nil {
@@ -301,7 +301,7 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 				exec.TraceParent = ctx.Value(ctxkey.Traceparent).(string)
 			}
 			ctx, log := common.ContextLoggerWithWfState(ctx, exec)
-			log.Debug("just prior to publishing start msg")
+			//log.Debug("just prior to publishing start msg")
 
 			processWfState := proto.Clone(exec).(*model.WorkflowState)
 			processTrackingId := ID.Push(executionId).Push(pi.ProcessInstanceId)

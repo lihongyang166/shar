@@ -386,10 +386,6 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 	}
 
 	wfID := ksuid.New().String()
-	hash, err2 := workflow.GetHash(wf)
-	if err2 != nil {
-		return "", fmt.Errorf("store workflow failed to get the workflow hash: %w", err2)
-	}
 
 	for _, i := range wf.Process {
 		for _, j := range i.Elements {
@@ -485,7 +481,13 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 		}
 	}
 
+	hash, err2 := workflow.GetHash(wf)
+	if err2 != nil {
+		return "", fmt.Errorf("store workflow failed to get the workflow hash: %w", err2)
+	}
+
 	var newWf bool
+	log := logx.FromContext(ctx)
 	if err := common.UpdateObj(ctx, nsKVs.wfVersion, wf.Name, &model.WorkflowVersions{}, func(v *model.WorkflowVersions) (*model.WorkflowVersions, error) {
 		n := len(v.Version)
 		if v.Version == nil || n == 0 {
@@ -493,6 +495,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 		} else {
 			if bytes.Equal(hash, v.Version[n-1].Sha256) {
 				wfID = v.Version[n-1].Id
+				log.Info("workflow version already exists", keys.WorkflowID, v.Version[n-1].Sha256)
 				return v, nil
 			}
 		}
@@ -502,6 +505,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 			return nil, fmt.Errorf("save workflow: %s", wf.Name)
 		}
 		v.Version = append(v.Version, &model.WorkflowVersion{Id: wfID, Sha256: hash, Number: int32(n) + 1})
+		log.Info("workflow version created", keys.WorkflowID, hash)
 		return v, nil
 	}); err != nil {
 		return "", fmt.Errorf("update workflow version for: %s", wf.Name)

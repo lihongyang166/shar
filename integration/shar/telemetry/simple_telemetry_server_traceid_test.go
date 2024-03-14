@@ -2,10 +2,11 @@ package telemetry
 
 import (
 	"context"
-	"gitlab.com/shar-workflow/shar/common/namespace"
 	"os"
 	"testing"
 	"time"
+
+	"gitlab.com/shar-workflow/shar/common/namespace"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
@@ -25,7 +26,7 @@ func TestSimpleTelemetryServerTrace(t *testing.T) {
 
 	ctx := context.Background()
 	// Dial shar
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithOpenTelemetry()) //client.Experimental_WithNamespace("fooNS"),
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithOpenTelemetry()) // client.Experimental_WithNamespace("fooNS"),
 
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
@@ -33,7 +34,7 @@ func TestSimpleTelemetryServerTrace(t *testing.T) {
 	// Register a service task
 	d := &testSimpleTelemetrySvrTraceHandlerDef{t: t, finished: make(chan struct{})}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
@@ -64,16 +65,16 @@ type testSimpleTelemetrySvrTraceHandlerDef struct {
 }
 
 func (d *testSimpleTelemetrySvrTraceHandlerDef) integrationSimple(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
-	//sc := trace.SpanContextFromContext(ctx)
-	//assert.True(d.t, sc.IsValid(), "Invalid span context")
-	//assert.Equal(d.t, 32768, vars["carried"].(int))
-	//assert.Equal(d.t, 42, vars["localVar"].(int))
+	// sc := trace.SpanContextFromContext(ctx)
+	// assert.True(d.t, sc.IsValid(), "Invalid span context")
+	// assert.Equal(d.t, 32768, vars["carried"].(int))
+	// assert.Equal(d.t, 42, vars["localVar"].(int))
 	vars["Success"] = true
 	return vars, nil
 }
 
 func (d *testSimpleTelemetrySvrTraceHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	//sc := trace.SpanContextFromContext(ctx)
-	//assert.True(d.t, sc.IsValid(), "Invalid span context")
+	// sc := trace.SpanContextFromContext(ctx)
+	// assert.True(d.t, sc.IsValid(), "Invalid span context")
 	close(d.finished)
 }

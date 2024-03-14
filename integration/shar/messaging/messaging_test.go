@@ -3,6 +3,12 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,11 +16,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"log/slog"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 //goland:noinspection GoNilness
@@ -29,9 +30,9 @@ func TestMessaging(t *testing.T) {
 	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -73,9 +74,9 @@ func TestMessageNameGlobalUniqueness(t *testing.T) {
 	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -106,14 +107,14 @@ func TestMessageNameGlobalUniquenessAcrossVersions(t *testing.T) {
 		t:         t,
 	}
 
-	//reg svc task
-	err2 := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
-	require.NoError(t, err2)
+	// reg svc task
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
 	require.NoError(t, err)
 
-	//load bpmn
+	// load bpmn
 	b, err := os.ReadFile("../../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
@@ -138,33 +139,33 @@ func TestMessageStartEvent(t *testing.T) {
 		t:         t,
 	}
 
-	//reg svc task
-	err2 := taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
-	require.NoError(t, err2)
+	// reg svc task
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
 	require.NoError(t, err)
 
-	//load bpmn
+	// load bpmn
 	b, err := os.ReadFile("../../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
 	require.NoError(t, err)
 
-	//send message
-	err2 = cl.SendMessage(ctx, "startDemoMsg", "", model.Vars{"customerID": 333})
-	require.NoError(t, err2)
+	// send message
+	err = cl.SendMessage(ctx, "startDemoMsg", "", model.Vars{"customerID": 333})
+	require.NoError(t, err)
 
-	//listen for events from shar svr
+	// listen for events from shar svr
 	go func() {
 		err := cl.Listen(ctx)
 		require.NoError(t, err)
 	}()
 
-	//wait for completion
+	// wait for completion
 	support.WaitForChan(t, messageEventHandlers.completed, time.Second*10)
 
-	//assert empty KV
+	// assert empty KV
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
@@ -209,7 +210,6 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client
 }
 
 func (x *testMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-
 	assert.Equal(x.t, "carried1value", vars["carried"])
 	assert.Equal(x.t, "carried2value", vars["carried2"])
 	close(x.finished)

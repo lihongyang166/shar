@@ -4,6 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/golang-jwt/jwt"
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
@@ -14,20 +19,18 @@ import (
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
-	"os"
-	"strings"
-	"testing"
-	"time"
 )
 
 // All HS256
-const testUserSimpleWorkflowJWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJnby13b3JrZmxvdy5jb20iLCJleHAiOjI1NTQ3MzAwNzEsImdyYW50IjoiU2ltcGxlUHJvY2VzczpSWFdTLFNpbXBsZVdvcmtmbG93VGVzdDpSWFdTIiwiaWF0IjoxNjcxMTE3MjcxLCJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIifQ.YHLtRgue2DEcW4UtGMwAKbbnQvdA8gPt55PeQgxRr-U"
-const testUserReadOnlyJWT = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIiLCJncmFudCI6IlNpbXBsZVdvcmtmbG93VGVzdDpSIiwiZXhwIjoyNTU0NzMwMDcxLCJpYXQiOjE2NzExMTcyNzEsImF1ZCI6ImdvLXdvcmtmbG93LmNvbSJ9.marPR5Cl3EZe9jDGCa3Y8r8q8svOHDKeYaer9SkFwLI"
-const randomUserJWT = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIiLCJncmFudCI6IlNpbXBsZVdvcmtmbG93VGVzdDpSWFdTIiwiZXhwIjoyNTU0NzMwMDcxLCJpYXQiOjE2NzExMTcyNzEsImF1ZCI6Imp3dC5pbyJ9.0tK1B68thRKXiW6tLvWgGQfZDZjjDv2pM81Hru0toNk"
-const testJWTKey = "SuperSecretKey"
-const testIssuer = "SharIntegration"
-const testAlg = "HS256"
-const testAud = "go-workflow.com"
+const (
+	testUserSimpleWorkflowJWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJnby13b3JrZmxvdy5jb20iLCJleHAiOjI1NTQ3MzAwNzEsImdyYW50IjoiU2ltcGxlUHJvY2VzczpSWFdTLFNpbXBsZVdvcmtmbG93VGVzdDpSWFdTIiwiaWF0IjoxNjcxMTE3MjcxLCJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIifQ.YHLtRgue2DEcW4UtGMwAKbbnQvdA8gPt55PeQgxRr-U"
+	testUserReadOnlyJWT       = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIiLCJncmFudCI6IlNpbXBsZVdvcmtmbG93VGVzdDpSIiwiZXhwIjoyNTU0NzMwMDcxLCJpYXQiOjE2NzExMTcyNzEsImF1ZCI6ImdvLXdvcmtmbG93LmNvbSJ9.marPR5Cl3EZe9jDGCa3Y8r8q8svOHDKeYaer9SkFwLI"
+	randomUserJWT             = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJTaGFySW50ZWdyYXRpb24iLCJ1c2VyIjoiVGVzdFVzZXIiLCJncmFudCI6IlNpbXBsZVdvcmtmbG93VGVzdDpSWFdTIiwiZXhwIjoyNTU0NzMwMDcxLCJpYXQiOjE2NzExMTcyNzEsImF1ZCI6Imp3dC5pbyJ9.0tK1B68thRKXiW6tLvWgGQfZDZjjDv2pM81Hru0toNk"
+	testJWTKey                = "SuperSecretKey"
+	testIssuer                = "SharIntegration"
+	testAlg                   = "HS256"
+	testAud                   = "go-workflow.com"
+)
 
 func TestSimpleAuthZ(t *testing.T) {
 	t.Parallel()
@@ -47,7 +50,7 @@ func TestSimpleAuthZ(t *testing.T) {
 	d := &testSimpleAuthHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -88,9 +91,8 @@ func TestNoAuthN(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	assert.ErrorContains(t, err, "authenticate")
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_auth_test_SimpleProcess.yaml", nil)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_auth_test_SimpleProcess.yaml", nil)
 	require.Error(t, err)
-
 }
 
 func TestSimpleNoAuthZ(t *testing.T) {
@@ -98,7 +100,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 	tst := support.NewIntegrationT(t, testAuthZFn, testAuthNFn, false, func() (bool, string) {
 		return !support.IsSharContainerised(), "authZ test not runnable with containerised Shar"
 	}, nil)
-	//tst.WithTrace = true
+	// tst.WithTrace = true
 	tst.Setup()
 	defer tst.Teardown()
 

@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
 	zensvr "gitlab.com/shar-workflow/shar/zen-shar/server"
-	"os"
 )
 
 var finished = make(chan struct{})
@@ -36,10 +37,10 @@ func main() {
 	}
 
 	// Register a service task
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/messaging/task.step1.yaml", step1); err != nil {
+	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/messaging/task.step1.yaml", step1); err != nil {
 		panic(err)
 	}
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/messaging/task.step2.yaml", step2); err != nil {
+	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/messaging/task.step2.yaml", step2); err != nil {
 		panic(err)
 	}
 	if err := cl.RegisterMessageSender(ctx, "MessageDemo", "continueMessage", sendMessage); err != nil {

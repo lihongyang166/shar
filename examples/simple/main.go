@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
-
-	"os"
 )
 
 var finished = make(chan struct{})
@@ -25,7 +25,7 @@ func main() {
 
 	// Register a service task
 	fmt.Println(os.Getwd())
-	if err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/simple/task.SimpleProcess.yaml", simpleProcess); err != nil {
+	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/simple/task.SimpleProcess.yaml", simpleProcess); err != nil {
 		panic(err)
 	}
 

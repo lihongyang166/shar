@@ -3,6 +3,11 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,10 +15,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestUserTasks(t *testing.T) {
@@ -29,16 +30,16 @@ func TestUserTasks(t *testing.T) {
 		panic(err)
 	}
 
-	//sub := tracer.Trace(NatsURL)
-	//defer sub.Drain()
+	// sub := tracer.Trace(NatsURL)
+	// defer sub.Drain()
 
 	d := &testUserTaskHandlerDef{finished: make(chan struct{})}
 	d.finalVars = make(model.Vars)
 
 	// Register service tasks
-	err := taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
+	_, err := taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Complete.yaml", d.complete)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Complete.yaml", d.complete)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

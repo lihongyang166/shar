@@ -258,6 +258,7 @@ func (c *Client) RegisterTask(ctx context.Context, spec *model.TaskSpec, fn Serv
 		c.SvcTasks[id] = fn
 		c.listenTasks[id] = struct{}{}
 	}
+	slog.Info("registered service task", "type", spec.Metadata.Type, "id", spec.Metadata.Uid)
 	return nil
 }
 
@@ -297,6 +298,7 @@ func (c *Client) listen(ctx context.Context) error {
 	}
 	for k, v := range tasks {
 		cName := "ServiceTask_" + c.ns + "_" + k
+		slog.Info("listening for tasks", "subject", cName)
 		consumer, err := c.js.Consumer(ctx, "WORKFLOW", cName)
 		if err != nil {
 			return fmt.Errorf("get consumer '%s': %w", cName, err)

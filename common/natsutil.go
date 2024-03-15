@@ -48,7 +48,7 @@ func updateKV(ctx context.Context, wf jetstream.KeyValue, k string, msg proto.Me
 		if err != nil {
 			maxJitter := &big.Int{}
 			maxJitter.SetInt64(5000)
-			testErr := &nats.APIError{}
+			testErr := &jetstream.APIError{}
 			if errors.As(err, &testErr) {
 				if testErr.ErrorCode == JSErrCodeStreamWrongLastSequence {
 					dur, err := rand.Int(rand.Reader, maxJitter) // Jitter

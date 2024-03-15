@@ -648,6 +648,12 @@ func (c *Client) HasWorkflowDefinitionChanged(ctx context.Context, name string, 
 	if err != nil {
 		return false, c.clientErr(ctx, err)
 	}
+
+	wf, err = c.ResolveWorkflow(ctx, wf)
+	if err != nil {
+		return false, c.clientErr(ctx, err)
+	}
+
 	hash, err := workflow.GetHash(wf)
 	if err != nil {
 		return false, c.clientErr(ctx, err)
@@ -940,6 +946,19 @@ func (c *Client) ListTaskSpecs(ctx context.Context, includeDeprecated bool) ([]*
 		ret = append(ret, ts)
 	}
 	return ret, nil
+}
+
+// ResolveWorkflow - returns a list of versions for a given workflow.
+func (c *Client) ResolveWorkflow(ctx context.Context, workflow *model.Workflow) (*model.Workflow, error) {
+	req := &model.ResolveWorkflowRequest{
+		Workflow: workflow,
+	}
+	res := &model.ResolveWorkflowResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIResolveWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return res.Workflow, nil
 }
 
 func (c *Client) heartbeat(ctx context.Context) error {

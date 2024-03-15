@@ -35,6 +35,7 @@ service Shar {
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
   rpc Log(LogRequest) returns (LogResponse);
   rpc GetJob (GetJobRequest) returns (GetJobResponse);
+  rpc ResolveWorkflow (ResolveWorkflowRequest) returns (ResolveWorkflowResponse);
 }
 
 message StoreWorkflowRequest {
@@ -608,6 +609,14 @@ message GetJobRequest {
 
 message GetJobResponse {
   WorkflowState job = 1;
+}
+
+message ResolveWorkflowRequest {
+  Workflow workflow = 1;
+}
+
+message ResolveWorkflowResponse {
+  Workflow workflow = 1;
 }
 
 message WorkflowStats {

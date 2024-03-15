@@ -16,6 +16,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"gitlab.com/shar-workflow/shar/server/vars"
 )
 
@@ -534,4 +535,13 @@ func (s *SharServer) log(ctx context.Context, req *model.LogRequest) (*model.Log
 		return nil, fmt.Errorf("log: %w", err)
 	}
 	return &model.LogResponse{}, nil
+}
+
+func (s *SharServer) resolveWorkflow(ctx context.Context, req *model.ResolveWorkflowRequest) (*model.ResolveWorkflowResponse, error) {
+	workflow := req.Workflow
+	if err := s.ns.ProcessServiceTasks(ctx, workflow, storage.NoOpServiceTaskConsumerFn, storage.NoOpWorkFlowProcessMappingFn); err != nil {
+		return nil, fmt.Errorf("resolveWorkflow: %w", err)
+	}
+
+	return &model.ResolveWorkflowResponse{Workflow: workflow}, nil
 }

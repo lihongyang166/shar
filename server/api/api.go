@@ -194,6 +194,10 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
 	}
 
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIResolveWorkflow, s.receiveApiMiddleware, &model.ResolveWorkflowRequest{}, s.resolveWorkflow); err != nil {
+		return fmt.Errorf("APIResolveWorkflow failed: %w", err)
+	}
+
 	slog.Info("shar api listener started")
 	return nil
 }

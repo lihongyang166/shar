@@ -115,5 +115,8 @@ func (s *SharServer) Listen(con *nats.Conn, middleware []core.Handler, errorHand
     if err := core.Listen(con, s.panicRecovery, s.subs, middleware, errorHandler, "WORKFLOW.Api.GetJob", &model.GetJobRequest{}, s.server.GetJob); err != nil {
         return fmt.Errorf("WORKFLOW.Api.GetJob: %w", err)
     }
+    if err := core.Listen(con, s.panicRecovery, s.subs, middleware, errorHandler, "WORKFLOW.Api.ResolveWorkflow", &model.ResolveWorkflowRequest{}, s.server.ResolveWorkflow); err != nil {
+        return fmt.Errorf("WORKFLOW.Api.ResolveWorkflow: %w", err)
+    }
     return nil
 }

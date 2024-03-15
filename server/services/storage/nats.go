@@ -387,98 +387,13 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 
 	wfID := ksuid.New().String()
 
-	for _, i := range wf.Process {
-		for _, j := range i.Elements {
-			if j.Type == element.ServiceTask {
-				id, err := s.GetTaskSpecUID(ctx, j.Execute)
-				if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
-					return "", fmt.Errorf("task %s is not registered: %w", j.Execute, err)
-				}
-				j.Version = &id
+	createWorkflowProcessMappingFn := func(ctx context.Context, wf *model.Workflow, i *model.Process) (uint64, error) {
+		return nsKVs.wfProcess.Put(ctx, i.Name, []byte(wf.Name))
+	}
 
-				def, err := s.GetTaskSpecByUID(ctx, id)
-				if err != nil {
-					return "", fmt.Errorf("look up task spec for '%s': %w", j.Execute, err)
-				}
-
-				// Validate the input parameters
-				if def.Parameters != nil && def.Parameters.Input != nil {
-					for _, val := range def.Parameters.Input {
-						if !val.Mandatory {
-							continue
-						}
-						if _, ok := j.InputTransform[val.Name]; !ok {
-							return "", fmt.Errorf("mandatory input parameter %s was expected for service task %s", val.Name, j.Id)
-						}
-					}
-				}
-
-				// Validate the output parameters
-				// Collate all the variables from the output transforms
-				outVars := make(map[string]struct{})
-				for varN, exp := range j.OutputTransform {
-					vars, err := expression.GetVariables(exp)
-					if err != nil {
-						return "", fmt.Errorf("an error occurred getting the variables from the output expression for %s in service task %s", varN, j.Id)
-					}
-					// Take the variables and add them to the list
-					maps.Copy(outVars, vars)
-				}
-				if def.Parameters != nil && def.Parameters.Output != nil {
-					for _, val := range def.Parameters.Output {
-						if !val.Mandatory {
-							continue
-						}
-						if _, ok := outVars[val.Name]; !ok {
-							return "", fmt.Errorf("mandatory output parameter %s was expected for service task %s", val.Name, j.Id)
-						}
-					}
-				}
-
-				// Merge default retry policy.
-				if r := j.RetryBehaviour; r == nil { // No behaviour given in the BPMN
-					if def.Behaviour.DefaultRetry != nil { // Behaviour defined by
-						j.RetryBehaviour = def.Behaviour.DefaultRetry
-					}
-				} else {
-					retry := j.RetryBehaviour.Number
-					j.RetryBehaviour = def.Behaviour.DefaultRetry
-					if retry != 0 {
-						j.RetryBehaviour.Number = retry
-					}
-				}
-
-				// Check to make sure errors can't set variable values that are not handled.
-				if j.RetryBehaviour.DefaultExceeded.Action == model.RetryErrorAction_SetVariableValue {
-					if _, ok := outVars[j.RetryBehaviour.DefaultExceeded.Variable]; !ok {
-						return "", fmt.Errorf("retry exceeded output parameter %s was expected for service task %s, but is not handled", j.RetryBehaviour.DefaultExceeded.VariableValue, j.Id)
-					}
-				}
-
-				// Check to make sure workflow errors exist and are handled in the service task.
-				if j.RetryBehaviour.DefaultExceeded.Action == model.RetryErrorAction_ThrowWorkflowError {
-					errCode := j.RetryBehaviour.DefaultExceeded.ErrorCode
-					errIndex := slices.IndexFunc(wf.Errors, func(e *model.Error) bool { return e.Code == errCode })
-					if errIndex == -1 {
-						return "", fmt.Errorf("%s retry exceeded error code %s is not declared", j.Id, errCode)
-					}
-					wfErr := wf.Errors[errIndex]
-					handleIndex := slices.IndexFunc(j.Errors, func(e *model.CatchError) bool { return e.ErrorId == wfErr.Id })
-					if handleIndex == -1 {
-						return "", fmt.Errorf("%s retry exceeded error code %s can be thrown but is not handled", j.Id, errCode)
-					}
-				}
-
-				if err := s.EnsureServiceTaskConsumer(ctx, id); err != nil {
-					return "", fmt.Errorf("ensure consumer for service task %s:%w", j.Execute, err)
-				}
-			}
-		}
-
-		_, err = nsKVs.wfProcess.Put(ctx, i.Name, []byte(wf.Name))
-		if err != nil {
-			return "", fmt.Errorf("store the process to workflow mapping: %w", err)
-		}
+	err3 := s.ProcessServiceTasks(ctx, wf, s.EnsureServiceTaskConsumer, createWorkflowProcessMappingFn)
+	if err3 != nil {
+		return "", err3
 	}
 
 	hash, err2 := workflow.GetHash(wf)
@@ -551,6 +466,120 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 	}
 
 	return wfID, nil
+}
+
+// ProcessServiceTasks iterates over service tasks in the processes of a given workflow setting, validating them and setting their uid into their element definitions
+func (s *Nats) ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error {
+	for _, i := range wf.Process {
+		for _, j := range i.Elements {
+			if j.Type == element.ServiceTask {
+				id, err := s.GetTaskSpecUID(ctx, j.Execute)
+				if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
+					return fmt.Errorf("task %s is not registered: %w", j.Execute, err)
+				}
+				j.Version = &id
+
+				def, err := s.GetTaskSpecByUID(ctx, id)
+				if err != nil {
+					return fmt.Errorf("look up task spec for '%s': %w", j.Execute, err)
+				}
+
+				// Validate the input parameters
+				if def.Parameters != nil && def.Parameters.Input != nil {
+					for _, val := range def.Parameters.Input {
+						if !val.Mandatory {
+							continue
+						}
+						if _, ok := j.InputTransform[val.Name]; !ok {
+							return fmt.Errorf("mandatory input parameter %s was expected for service task %s", val.Name, j.Id)
+						}
+					}
+				}
+
+				// Validate the output parameters
+				// Collate all the variables from the output transforms
+				outVars := make(map[string]struct{})
+				for varN, exp := range j.OutputTransform {
+					vars, err := expression.GetVariables(exp)
+					if err != nil {
+						return fmt.Errorf("an error occurred getting the variables from the output expression for %s in service task %s", varN, j.Id)
+					}
+					// Take the variables and add them to the list
+					maps.Copy(outVars, vars)
+				}
+				if def.Parameters != nil && def.Parameters.Output != nil {
+					for _, val := range def.Parameters.Output {
+						if !val.Mandatory {
+							continue
+						}
+						if _, ok := outVars[val.Name]; !ok {
+							return fmt.Errorf("mandatory output parameter %s was expected for service task %s", val.Name, j.Id)
+						}
+					}
+				}
+
+				// Merge default retry policy.
+				if r := j.RetryBehaviour; r == nil { // No behaviour given in the BPMN
+					if def.Behaviour.DefaultRetry != nil { // Behaviour defined by
+						j.RetryBehaviour = def.Behaviour.DefaultRetry
+					}
+				} else {
+					retry := j.RetryBehaviour.Number
+					j.RetryBehaviour = def.Behaviour.DefaultRetry
+					if retry != 0 {
+						j.RetryBehaviour.Number = retry
+					}
+				}
+
+				// Check to make sure errors can't set variable values that are not handled.
+				if j.RetryBehaviour.DefaultExceeded.Action == model.RetryErrorAction_SetVariableValue {
+					if _, ok := outVars[j.RetryBehaviour.DefaultExceeded.Variable]; !ok {
+						return fmt.Errorf("retry exceeded output parameter %s was expected for service task %s, but is not handled", j.RetryBehaviour.DefaultExceeded.VariableValue, j.Id)
+					}
+				}
+
+				// Check to make sure workflow errors exist and are handled in the service task.
+				if j.RetryBehaviour.DefaultExceeded.Action == model.RetryErrorAction_ThrowWorkflowError {
+					errCode := j.RetryBehaviour.DefaultExceeded.ErrorCode
+					errIndex := slices.IndexFunc(wf.Errors, func(e *model.Error) bool { return e.Code == errCode })
+					if errIndex == -1 {
+						return fmt.Errorf("%s retry exceeded error code %s is not declared", j.Id, errCode)
+					}
+					wfErr := wf.Errors[errIndex]
+					handleIndex := slices.IndexFunc(j.Errors, func(e *model.CatchError) bool { return e.ErrorId == wfErr.Id })
+					if handleIndex == -1 {
+						return fmt.Errorf("%s retry exceeded error code %s can be thrown but is not handled", j.Id, errCode)
+					}
+				}
+
+				if err := svcTaskConsFn(ctx, id); err != nil {
+					return fmt.Errorf("ensure consumer for service task %s:%w", j.Execute, err)
+				}
+			}
+		}
+
+		_, err := wfProcessMappingFn(ctx, wf, i)
+		if err != nil {
+			return fmt.Errorf("store the process to workflow mapping: %w", err)
+		}
+	}
+	return nil
+}
+
+// WorkflowProcessMappingFn defines the type of a function that creates a workflow to process mapping
+type WorkflowProcessMappingFn func(ctx context.Context, wf *model.Workflow, i *model.Process) (uint64, error)
+
+// NoOpWorkFlowProcessMappingFn no op workflow to process mapping fn
+func NoOpWorkFlowProcessMappingFn(_ context.Context, _ *model.Workflow, _ *model.Process) (uint64, error) {
+	return 0, nil
+}
+
+// ServiceTaskConsumerFn defines the type of a function that ensures existence of a service task consumer
+type ServiceTaskConsumerFn func(ctx context.Context, id string) error
+
+// NoOpServiceTaskConsumerFn no op service task consumer fn
+func NoOpServiceTaskConsumerFn(_ context.Context, _ string) error {
+	return nil
 }
 
 // EnsureServiceTaskConsumer creates or updates a service task consumer.

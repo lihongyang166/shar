@@ -575,11 +575,17 @@ func PublishObj(ctx context.Context, conn NatsConn, subject string, prot proto.M
 	return nil
 }
 
+// KeyPrefixResultOpts represents the options for KeyPrefixSearch function.
+// Sort field indicates whether the returned values should be sorted.
+// ExcludeDeleted field filters out deleted key-values from the result.
 type KeyPrefixResultOpts struct {
 	Sort           bool // Sort the returned values
 	ExcludeDeleted bool // ExcludeDeleted filters deleted key-values from the result (cost penalty)¬.
 }
 
+// KeyPrefixSearch searches for keys in a key-value store that have a specified prefix.
+// It retrieves the keys by querying the JetStream stream associated with the key-value store.
+// It returns a slice of strings containing the keys, and an error if any.
 func KeyPrefixSearch(ctx context.Context, js jetstream.JetStream, kv jetstream.KeyValue, prefix string, opts KeyPrefixResultOpts) ([]string, error) {
 	kvName := kv.Bucket()
 	streamName := "KV_" + kvName
@@ -595,7 +601,7 @@ func KeyPrefixSearch(ctx context.Context, js jetstream.JetStream, kv jetstream.K
 	}
 	ret := make([]string, 0, len(nfo.State.Subjects))
 	trim := len(subjectTrim)
-	for s, _ := range nfo.State.Subjects {
+	for s := range nfo.State.Subjects {
 		if len(s) >= trim {
 			ret = append(ret, s[trim:])
 		}

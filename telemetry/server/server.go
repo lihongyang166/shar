@@ -478,14 +478,14 @@ func SetupMetrics(ctx context.Context, cfg *config.Settings, serviceName string)
 	}
 
 	// labels/tags/resources that are common to all metrics.
-	resource := resource.NewWithAttributes(
+	res := resource.NewWithAttributes(
 		semconv2.SchemaURL,
 		semconv2.ServiceNameKey.String(serviceName),
 		attribute.String("app", "shar-telemetry"),
 	)
 
 	mp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithResource(resource),
+		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(
 			// collects and exports metric data every N seconds.
 			sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(10*time.Second)),

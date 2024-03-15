@@ -137,7 +137,7 @@ func (s *Integration) Setup() {
 	}
 
 	//zensvrOptions = append(zensvrOptions,zensvr.WithSharServerTelemetry("console"))
-	ss, ns, err := zensvr.GetServers(20, s.authZFn, s.authNFn, zensvrOptions...)
+	ss, nmSpc, err := zensvr.GetServers(20, s.authZFn, s.authNFn, zensvrOptions...)
 
 	level := slog.LevelDebug
 
@@ -156,7 +156,7 @@ func (s *Integration) Setup() {
 
 	logx.SetDefault("shar-Integration-tests", multiHandler)
 
-	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
+	s.NatsURL = fmt.Sprintf("nats://%s", nmSpc.GetEndPoint())
 
 	if err != nil {
 		panic(err)
@@ -186,7 +186,7 @@ func (s *Integration) Setup() {
 	}
 
 	s.testSharServer = ss
-	s.testNatsServer = ns
+	s.testNatsServer = nmSpc
 
 	fmt.Printf("Starting test support for " + s.testableUnitName + "\n")
 	fmt.Printf("\033[1;36m%s\033[0m", "> Setup completed\n")

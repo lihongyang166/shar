@@ -388,7 +388,11 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 	wfID := ksuid.New().String()
 
 	createWorkflowProcessMappingFn := func(ctx context.Context, wf *model.Workflow, i *model.Process) (uint64, error) {
-		return nsKVs.wfProcess.Put(ctx, i.Name, []byte(wf.Name))
+		ret, err := nsKVs.wfProcess.Put(ctx, i.Name, []byte(wf.Name))
+		if err != nil {
+			return 0, fmt.Errorf("store the workflow process mapping: %w", err)
+		}
+		return ret, nil
 	}
 
 	err3 := s.ProcessServiceTasks(ctx, wf, s.EnsureServiceTaskConsumer, createWorkflowProcessMappingFn)

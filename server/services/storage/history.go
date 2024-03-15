@@ -88,6 +88,9 @@ func (s *Nats) RecordHistoryProcessAbort(ctx context.Context, state *model.Workf
 func (s *Nats) GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
+	if err != nil {
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
+	}
 	wfHistory := nsKVs.wfHistory
 	keys, err := common.KeyPrefixSearch(ctx, s.js, wfHistory, processInstanceId, common.KeyPrefixResultOpts{Sort: true})
 	if err != nil {

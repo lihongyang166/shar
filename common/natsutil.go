@@ -14,6 +14,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"math/big"
@@ -572,4 +573,54 @@ func PublishObj(ctx context.Context, conn NatsConn, subject string, prot proto.M
 		return fmt.Errorf("publish message: %w", err)
 	}
 	return nil
+}
+
+type KeyPrefixResultOpts struct {
+	Sort           bool // Sort the returned values
+	ExcludeDeleted bool // ExcludeDeleted filters deleted key-values from the result (cost penalty)¬.
+}
+
+func KeyPrefixSearch(ctx context.Context, js jetstream.JetStream, kv jetstream.KeyValue, prefix string, opts KeyPrefixResultOpts) ([]string, error) {
+	kvName := kv.Bucket()
+	streamName := "KV_" + kvName
+	subjectTrim := fmt.Sprintf("$KV.%s.", kvName)
+	subjectPrefix := fmt.Sprintf("%s%s.", subjectTrim, prefix)
+	kvs, err := js.Stream(ctx, streamName)
+	if err != nil {
+		return nil, fmt.Errorf("get stream: %w", err)
+	}
+	nfo, err := kvs.Info(ctx, jetstream.WithSubjectFilter(subjectPrefix+">"))
+	if err != nil {
+		return nil, fmt.Errorf("get stream info: %w", err)
+	}
+	ret := make([]string, 0, len(nfo.State.Subjects))
+	trim := len(subjectTrim)
+	for s, _ := range nfo.State.Subjects {
+		if len(s) >= trim {
+			ret = append(ret, s[trim:])
+		}
+	}
+
+	if opts.Sort {
+		slices.Sort(ret)
+	}
+	if opts.ExcludeDeleted {
+		var fnErr error
+		ret = slices.DeleteFunc(ret, func(k string) bool {
+			_, err := kv.Get(ctx, k)
+			if err != nil {
+				if errors.Is(err, jetstream.ErrKeyNotFound) {
+					return true
+				} else {
+					fnErr = err
+					return true
+				}
+			}
+			return false
+		})
+		if fnErr != nil {
+			return nil, fmt.Errorf("get key value: %w", fnErr)
+		}
+	}
+	return ret, nil
 }

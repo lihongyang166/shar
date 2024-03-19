@@ -33,7 +33,7 @@ func (s *Nats) GetTaskSpecVersions(ctx context.Context, name string) (*model.Tas
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetTaskSpecVersions - failed getting KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	tskVer := &model.TaskSpecVersions{}
@@ -48,7 +48,7 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("PutTaskSpec - failed getting KVs for ns %s: %w", ns, err)
+		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	uid, err := task.CreateUID(spec)
@@ -94,7 +94,7 @@ func (s *Nats) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpe
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("PutTaskSpec - failed getting KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	spec := &model.TaskSpec{}
@@ -109,7 +109,7 @@ func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetTaskSpecUsageByName - failed getting KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("getKVs for ns %s: %w", ns, err)
 	}
 
 	taskSpecVersions, err := s.GetTaskSpecVersions(ctx, name)
@@ -193,12 +193,12 @@ func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskS
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetTaskSpecUsage - failed getting KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	wfKeys, err := s.GetExecutableWorkflowIds(ctx)
 	if !errors.Is(err, jetstream.ErrNoKeysFound) && err != nil {
-		return nil, fmt.Errorf("task spec usage get executasble workflows: %w", err)
+		return nil, fmt.Errorf("get executable workflows: %w", err)
 	}
 	rptWf := make(map[string]struct{})
 	rptPr := make(map[string]struct{})

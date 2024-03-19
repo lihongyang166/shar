@@ -15,7 +15,7 @@ func (s *Nats) RecordHistory(ctx context.Context, state *model.WorkflowState, hi
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("RecordHistoryProcessStart - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	e := &model.ProcessHistoryEntry{

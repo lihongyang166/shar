@@ -107,7 +107,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		err2 := fmt.Errorf("ListWorkflows - failed to get KVs for ns %s: %w", ns, err)
+		err2 := fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
 		log.Error("ListWorkflows get KVs", err)
 		errs <- err2
@@ -323,7 +323,7 @@ func (s *Nats) validateUniqueProcessNameFor(ctx context.Context, wf *model.Workf
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("validateUniqueProcessNameFor - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	for processName := range wf.Process {
@@ -371,7 +371,7 @@ func (s *Nats) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, e
 
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("StoreWorkflow - failed getting KVs for ns %s: %w", ns, err)
+		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	_, err = nsKVs.wfName.Get(ctx, wf.Name)
@@ -621,7 +621,7 @@ func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workf
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetWorkflow - failed getting KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	wf := &model.Workflow{}
@@ -639,7 +639,7 @@ func (s *Nats) GetWorkflowNameFor(ctx context.Context, processName string) (stri
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("GetWorkflowVersions - failed getting KVs for ns %s: %w", ns, err)
+		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if entry, err := common.Load(ctx, nsKVs.wfProcess, processName); errors2.Is(err, jetstream.ErrKeyNotFound) {
@@ -656,7 +656,7 @@ func (s *Nats) GetWorkflowVersions(ctx context.Context, workflowName string) (*m
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetWorkflowVersions - failed getting KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	ver := &model.WorkflowVersions{}
@@ -680,7 +680,7 @@ func (s *Nats) CreateExecution(ctx context.Context, execution *model.Execution) 
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("CreateExecution - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	wf, err := s.GetWorkflow(ctx, execution.WorkflowId)
@@ -707,7 +707,7 @@ func (s *Nats) GetExecution(ctx context.Context, executionID string) (*model.Exe
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetExecution - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	e := &model.Execution{}
@@ -727,7 +727,7 @@ func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.Workflo
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("XDestroyProcessInstance - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	// TODO: soft error
@@ -746,7 +746,9 @@ func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.Workflo
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
 	}
-
+	if err := s.deleteProcessHistory(ctx, pi.ProcessInstanceId); err != nil {
+		return fmt.Errorf("x destroy process instance, delete process history: %w", err)
+	}
 	// Get the workflow
 	wf := &model.Workflow{}
 	if execution.WorkflowId != "" {
@@ -774,7 +776,7 @@ func (s *Nats) deleteExecution(ctx context.Context, state *model.WorkflowState) 
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("deleteExecution - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if err := nsKVs.wfExecution.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
@@ -797,7 +799,7 @@ func (s *Nats) GetLatestVersion(ctx context.Context, workflowName string) (strin
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("GetLatestVersion - failed to get KVs for ns %s: %w", ns, err)
+		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	v := &model.WorkflowVersions{}
@@ -815,7 +817,7 @@ func (s *Nats) CreateJob(ctx context.Context, job *model.WorkflowState) (string,
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("CreateJob - failed to get KVs for ns %s: %w", ns, err)
+		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	tid := ksuid.New().String()
@@ -831,7 +833,7 @@ func (s *Nats) GetJob(ctx context.Context, trackingID string) (*model.WorkflowSt
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetJob - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	job := &model.WorkflowState{}
@@ -851,7 +853,7 @@ func (s *Nats) DeleteJob(ctx context.Context, trackingID string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("DeleteJob - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if err := common.Delete(ctx, nsKVs.job, trackingID); err != nil {
@@ -869,7 +871,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		err2 := fmt.Errorf("ListExecution - failed to get KVs for ns %s: %w", ns, err)
+		err2 := fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
 		log.Error("list exec get KVs", err)
 		errs <- err2
@@ -922,7 +924,7 @@ func (s *Nats) ListExecutionProcesses(ctx context.Context, id string) ([]string,
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("ListExecutionProcesses - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	v := &model.Execution{}
@@ -938,7 +940,7 @@ func (s *Nats) GetProcessInstanceStatus(ctx context.Context, id string) ([]*mode
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetProcessInstanceStatus - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	v := &model.WorkflowState{}
@@ -1046,7 +1048,7 @@ func (s *Nats) GetElement(ctx context.Context, state *model.WorkflowState) (*mod
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetElement - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	wf := &model.Workflow{}
@@ -1160,7 +1162,7 @@ func (s *Nats) track(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return false, fmt.Errorf("track - failed to get KVs for ns %s: %w", ns, err)
+		return false, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	sj := msg.Subject()
@@ -1276,7 +1278,7 @@ func (s *Nats) deleteSavedState(ctx context.Context, activityID string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("deleteSavedState - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if err := common.Delete(ctx, nsKVs.wfVarState, activityID); err != nil {
@@ -1290,7 +1292,7 @@ func (s *Nats) CloseUserTask(ctx context.Context, trackingID string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("CloseUserTask - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	job := &model.WorkflowState{}
@@ -1316,7 +1318,7 @@ func (s *Nats) openUserTask(ctx context.Context, owner string, id string) error 
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("openUserTask - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if err := common.UpdateObj(ctx, nsKVs.wfUserTasks, owner, &model.UserTasks{}, func(msg *model.UserTasks) (*model.UserTasks, error) {
@@ -1333,7 +1335,7 @@ func (s *Nats) GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTas
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetUserTaskIDs - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	ut := &model.UserTasks{}
@@ -1348,7 +1350,7 @@ func (s *Nats) OwnerID(ctx context.Context, name string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("OwnerID - failed to get KVs for ns %s: %w", ns, err)
+		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if name == "" {
@@ -1376,7 +1378,7 @@ func (s *Nats) OwnerName(ctx context.Context, id string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("OwnerName - failed to get KVs for ns %s: %w", ns, err)
+		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	nm, err := nsKVs.ownerName.Get(ctx, id)
@@ -1391,7 +1393,7 @@ func (s *Nats) GetOldState(ctx context.Context, id string) (*model.WorkflowState
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("SaveState - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	oldState := &model.WorkflowState{}
@@ -1540,7 +1542,7 @@ func (s *Nats) SaveState(ctx context.Context, id string, state *model.WorkflowSt
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("SaveState - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	saveState := proto.Clone(state).(*model.WorkflowState)
@@ -1569,7 +1571,7 @@ func (s *Nats) CreateProcessInstance(ctx context.Context, executionId string, pa
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("CreateProcessInstance - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	wfi, err := s.GetExecution(ctx, executionId)
@@ -1599,7 +1601,7 @@ func (s *Nats) GetProcessInstance(ctx context.Context, processInstanceID string)
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetProcessInstance - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	pi := &model.ProcessInstance{}
@@ -1618,7 +1620,7 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("DestroyProcessInstance - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	e := &model.Execution{}
@@ -1656,7 +1658,7 @@ func (s *Nats) DeprecateTaskSpec(ctx context.Context, uid []string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("DeprecateTaskSpec - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	for _, u := range uid {
@@ -1690,7 +1692,7 @@ func (s *Nats) validateUniqueMessageNames(ctx context.Context, wf *model.Workflo
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("validateUniqueMessageNames - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	existingMessageTypes := map[string]struct{}{}
@@ -1733,7 +1735,7 @@ func (s *Nats) ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string,
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("ListTaskSpecUIDs - failed to get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	ret := make([]string, 0, 50)
@@ -1764,7 +1766,7 @@ func (s *Nats) GetProcessIdFor(ctx context.Context, startEventMessageName string
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("GetProcessIdFor - failed to get KVs for ns %s: %w", ns, err)
+		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	messageReceivers := &model.MessageReceivers{}
@@ -1788,7 +1790,7 @@ func (s *Nats) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("Heartbeat - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if err := common.SaveObj(ctx, nsKVs.wfClients, req.Host+"-"+req.Id, req); err != nil {
@@ -1801,6 +1803,45 @@ func (s *Nats) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error
 func (s *Nats) Log(ctx context.Context, req *model.LogRequest) error {
 	if err := common.PublishObj(ctx, s.conn, messages.WorkflowTelemetryLog, req, nil); err != nil {
 		return fmt.Errorf("publish object: %w", err)
+	}
+	return nil
+}
+
+// deleteProcessHistory deletes the process history for a given process ID in A SHAR namespace.
+func (s *Nats) deleteProcessHistory(ctx context.Context, processId string) error {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.KvsFor(ctx, ns)
+	if err != nil {
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
+	}
+	ks, err := common.KeyPrefixSearch(ctx, s.js, nsKVs.wfHistory, processId, common.KeyPrefixResultOpts{})
+	if err != nil {
+		return fmt.Errorf("keyPrefixSearch: %w", err)
+	}
+	for _, k := range ks {
+		if err := nsKVs.wfHistory.Delete(ctx, k); errors2.Is(err, jetstream.ErrKeyNotFound) {
+			slog.Warn("key already deleted", "key", k)
+		} else if err != nil {
+			return fmt.Errorf("delete key %s: %w", k, err)
+		}
+	}
+	return nil
+}
+
+// DeleteNamespace deletes the key-value store for the specified namespace in SHAR.
+// It iterates over all the key-value stores and deletes them one by one.
+// The function returns nil if all key-value stores are successfully deleted.
+func (s *Nats) DeleteNamespace(ctx context.Context, ns string) error {
+	lister := s.js.KeyValueStores(ctx)
+	toDelete := make([]string, 0)
+	for i := range lister.Status() {
+		toDelete = append(toDelete, i.Bucket())
+	}
+	for _, bucket := range toDelete {
+		err := s.js.DeleteKeyValue(ctx, bucket)
+		if err != nil {
+			return fmt.Errorf("delete key value %s: %w", bucket, err)
+		}
 	}
 	return nil
 }

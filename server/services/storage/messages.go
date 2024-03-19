@@ -31,7 +31,7 @@ func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) err
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("ensureMessageBuckets - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	for _, m := range wf.Messages {
@@ -137,7 +137,7 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("handleMessageExchange - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	messageKey := messageKeyFrom([]string{messageName, correlationKey})
@@ -172,13 +172,13 @@ func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, me
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return false, fmt.Errorf("hasAllReceivers - failed getting KVs for ns %s: %w", ns, err)
+		return false, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	expectedMessageReceivers := &model.MessageReceivers{}
 	err = common.LoadObj(ctx, nsKVs.wfMsgTypes, messageName, expectedMessageReceivers)
 	if err != nil {
-		return false, fmt.Errorf("failed loading expected receivers: %w", err)
+		return false, fmt.Errorf("load expected receivers: %w", err)
 	}
 
 	var allMessagesReceived bool
@@ -200,7 +200,7 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Excha
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("attemptMessageDelivery - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if exchange.Sender != nil && exchange.Receivers != nil {

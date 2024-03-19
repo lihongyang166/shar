@@ -190,6 +190,9 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	if err != nil {
 		return c.clientErr(context.Background(), err)
 	}
+	if err := common.CheckVersion(ctx, n); err != nil {
+		return fmt.Errorf("check NATS version: %w", err)
+	}
 	txnc, err := nats.Connect(natsURL, opts...)
 	if err != nil {
 		return c.clientErr(context.Background(), err)

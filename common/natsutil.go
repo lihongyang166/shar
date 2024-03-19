@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	version2 "github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	version3 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -629,4 +631,17 @@ func KeyPrefixSearch(ctx context.Context, js jetstream.JetStream, kv jetstream.K
 		}
 	}
 	return ret, nil
+}
+
+// CheckVersion checks the NATS server version against a minimum supported version
+func CheckVersion(ctx context.Context, nc *nats.Conn) error {
+	nvStr := nc.ConnectedServerVersion()
+	nv, err := version2.NewVersion(nvStr)
+	if err != nil {
+		return fmt.Errorf("parse nats version: %w", err)
+	}
+	if nv.LessThan(version3.NatsVersion) {
+		return fmt.Errorf("nats version %s not supported.  The minimum supported version is %s", nvStr, version3.NatsVersion)
+	}
+	return nil
 }

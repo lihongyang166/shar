@@ -20,7 +20,7 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("processTelemetryTimer - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 	consumer, err := s.js.CreateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
 		Name:          "server_telemetry_trigger",
@@ -88,7 +88,7 @@ func (s *Nats) startTelemetry(ctx context.Context, ns string) error {
 
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("startTelemetry - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	if err := common.PublishOnce(ctx, s.js, nsKVs.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {

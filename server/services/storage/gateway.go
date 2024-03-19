@@ -22,7 +22,7 @@ func (s *Nats) processGatewayActivation(ctx context.Context) error {
 		ns := subj.GetNS(ctx)
 		nsKVs, err := s.KvsFor(ctx, ns)
 		if err != nil {
-			return false, fmt.Errorf("StoreWorkflow - failed getting KVs for ns %s: %w", ns, err)
+			return false, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		}
 
 		var job model.WorkflowState
@@ -108,7 +108,7 @@ func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg j
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return false, fmt.Errorf("gatewayExecProcessor - failed getting KVs for ns %s: %w", ns, err)
+		return false, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	gw := &model.Gateway{}
@@ -162,7 +162,7 @@ func (s *Nats) GetGatewayInstance(ctx context.Context, gatewayInstanceID string)
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetGatewayInstance - failed getting KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	gw := &model.Gateway{}
@@ -223,7 +223,7 @@ func (s *Nats) completeGateway(ctx context.Context, job *model.WorkflowState) er
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("completeGateway - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	// Record that we have closed this gateway.

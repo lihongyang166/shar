@@ -3,7 +3,7 @@ package upgrader
 import (
 	"context"
 	"fmt"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/model"
@@ -19,13 +19,13 @@ In this upgrade the database changes are as follows:
 */
 
 //goland:noinspection GoSnakeCaseUsage
-func v1_1_503(ctx context.Context, nc common.NatsConn, js nats.JetStreamContext) error {
+func v1_1_503(ctx context.Context, nc common.NatsConn, js jetstream.JetStream) error {
 	// *Upgrade data in service task registry
-	kv, err := js.KeyValue(messages.KvClientTaskID)
+	kv, err := js.KeyValue(ctx, messages.KvClientTaskID)
 	if err != nil {
 		return fmt.Errorf("upgrade %s getting service task key value store: %w", ver, err)
 	}
-	keys, err := kv.Keys()
+	keys, err := kv.Keys(ctx)
 	if err != nil {
 		return fmt.Errorf("upgrade %s getting keys: %w", ver, err)
 	}

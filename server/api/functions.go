@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-version"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -16,6 +16,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"gitlab.com/shar-workflow/shar/server/vars"
 )
 
@@ -325,7 +326,7 @@ func (s *SharServer) listUserTaskIDs(ctx context.Context, req *model.ListUserTas
 		return nil, fmt.Errorf("get owner ID: %w", err)
 	}
 	ut, err := s.ns.GetUserTaskIDs(ctx, oid)
-	if errors.Is(err, nats.ErrKeyNotFound) {
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return &model.UserTasks{Id: []string{}}, nil
 	}
 	if err != nil {
@@ -534,4 +535,13 @@ func (s *SharServer) log(ctx context.Context, req *model.LogRequest) (*model.Log
 		return nil, fmt.Errorf("log: %w", err)
 	}
 	return &model.LogResponse{}, nil
+}
+
+func (s *SharServer) resolveWorkflow(ctx context.Context, req *model.ResolveWorkflowRequest) (*model.ResolveWorkflowResponse, error) {
+	workflow := req.Workflow
+	if err := s.ns.ProcessServiceTasks(ctx, workflow, storage.NoOpServiceTaskConsumerFn, storage.NoOpWorkFlowProcessMappingFn); err != nil {
+		return nil, fmt.Errorf("resolveWorkflow: %w", err)
+	}
+
+	return &model.ResolveWorkflowResponse{Workflow: workflow}, nil
 }

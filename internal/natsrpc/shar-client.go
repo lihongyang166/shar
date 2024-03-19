@@ -247,3 +247,11 @@ func (c *SharClient) GetJob(ctx context.Context, req *model.GetJobRequest) (*mod
     }
 	return res, nil
 }
+// ResolveWorkflow - The ResolveWorkflow method.
+func (c *SharClient) ResolveWorkflow(ctx context.Context, req *model.ResolveWorkflowRequest) (*model.ResolveWorkflowResponse, error) {
+	res := &model.ResolveWorkflowResponse{}
+    if err := core.Call(ctx, c.txConn, c.middleware, c.customErrorHandler, "WORKFLOW.Api.ResolveWorkflow", req, res); err != nil {
+        return nil, fmt.Errorf("client call to WORKFLOW.Api.ResolveWorkflow: %w", err)
+    }
+	return res, nil
+}

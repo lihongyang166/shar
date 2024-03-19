@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/subj"
@@ -17,41 +18,43 @@ import (
 
 func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("processTelemetryTimer - failed to get KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
+	}
+	consumer, err := s.js.CreateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
+		Name:          "server_telemetry_trigger",
+		Durable:       "server_telemetry_trigger",
+		FilterSubject: messages.WorkflowTelemetryTimer,
+	})
+	if err != nil {
+		return fmt.Errorf("processTelemetryTimer: create consumer for ns %s: %w", ns, err)
 	}
 
-	sub, err := s.js.PullSubscribe(messages.WorkflowTelemetryTimer, "server_telemetry_trigger")
-	if err != nil {
-		return fmt.Errorf("creating server telemetry subscription: %w", err)
-	}
 	go func() {
 		for {
 			select {
 			case <-s.closing:
 				return
 			default:
-				var telmsg *nats.Msg
-				pctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-				msgs, err := sub.Fetch(1, nats.Context(pctx))
-				if err != nil || len(msgs) == 0 {
+				var telMsg *nats.Msg
+				msgs, err := consumer.Fetch(1)
+				if err != nil || len(msgs.Messages()) == 0 {
 					slog.Warn("pulling kick message")
-					cancel()
 					time.Sleep(20 * time.Second)
 					continue
 				}
-				msg := msgs[0]
+				msg := <-msgs.Messages()
 				clientKeys, err := nsKVs.wfClients.Keys(nats.Context(ctx))
 				var (
 					b    []byte
 					body *model.TelemetryClients
 				)
-				if errors.Is(err, nats.ErrNoKeysFound) {
+				if errors.Is(err, jetstream.ErrNoKeysFound) {
 					goto continueLoop
 				}
 
-				if errors.Is(err, nats.ErrNoKeysFound) {
+				if errors.Is(err, jetstream.ErrNoKeysFound) {
 					clientKeys = []string{}
 				} else if err != nil {
 					slog.Error("get client KV keys", "error", err)
@@ -64,16 +67,15 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 					slog.Error("marshal client telemetry", "error", err)
 					goto continueLoop
 				}
-				telmsg = nats.NewMsg(messages.WorkflowTelemetryClientCount)
-				telmsg.Data = b
-				if err := s.conn.PublishMsg(telmsg); err != nil {
+				telMsg = nats.NewMsg(messages.WorkflowTelemetryClientCount)
+				telMsg.Data = b
+				if err := s.conn.PublishMsg(telMsg); err != nil {
 					slog.Error("publish client telemetry", "error", err)
 				}
 			continueLoop:
 				if err := msg.NakWithDelay(time.Second * 1); err != nil {
 					slog.Warn("message nak: " + err.Error())
 				}
-				cancel()
 			}
 		}
 	}()
@@ -84,12 +86,12 @@ func (s *Nats) startTelemetry(ctx context.Context, ns string) error {
 	msg := nats.NewMsg(messages.WorkflowTelemetryTimer)
 	msg.Header.Set(header.SharNamespace, ns)
 
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("startTelemetry - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	if err := common.PublishOnce(s.js, nsKVs.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
+	if err := common.PublishOnce(ctx, s.js, nsKVs.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
 		return fmt.Errorf("ensure telemetry timer message: %w", err)
 	}
 	if err := s.processTelemetryTimer(ctx); err != nil {

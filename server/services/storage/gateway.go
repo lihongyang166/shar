@@ -4,7 +4,7 @@ import (
 	"context"
 	errors2 "errors"
 	"fmt"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
@@ -18,15 +18,15 @@ import (
 )
 
 func (s *Nats) processGatewayActivation(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+	err := common.Process(ctx, s.js, "WORKFLOW", "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		ns := subj.GetNS(ctx)
-		nsKVs, err := s.KvsFor(ns)
+		nsKVs, err := s.KvsFor(ctx, ns)
 		if err != nil {
-			return false, fmt.Errorf("StoreWorkflow - failed getting KVs for ns %s: %w", ns, err)
+			return false, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		}
 
 		var job model.WorkflowState
-		if err := proto.Unmarshal(msg.Data, &job); err != nil {
+		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed gateway activation state: %w", err)
 		}
 		if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
@@ -39,7 +39,7 @@ func (s *Nats) processGatewayActivation(ctx context.Context) error {
 		gwIID, _, _ := s.GetGatewayInstanceID(&job)
 		job.Id = common.TrackingID(job.Id).Push(gwIID)
 		gw := &model.Gateway{}
-		if err := common.LoadObj(ctx, nsKVs.wfGateway, gwIID, gw); errors2.Is(err, nats.ErrKeyNotFound) {
+		if err := common.LoadObj(ctx, nsKVs.wfGateway, gwIID, gw); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			// create a new gateway job
 			gw = &model.Gateway{
 				MetExpectations: make(map[string]string),
@@ -78,9 +78,9 @@ func (s *Nats) processGatewayExecute(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
+func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	var job model.WorkflowState
-	if err := proto.Unmarshal(msg.Data, &job); err != nil {
+	if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
 	if _, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
@@ -106,9 +106,9 @@ func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg *
 	job.Execute = &gatewayIID
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return false, fmt.Errorf("gatewayExecProcessor - failed getting KVs for ns %s: %w", ns, err)
+		return false, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	gw := &model.Gateway{}
@@ -160,9 +160,9 @@ func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg *
 // GetGatewayInstance - returns a gateway instance from the KV store.
 func (s *Nats) GetGatewayInstance(ctx context.Context, gatewayInstanceID string) (*model.Gateway, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("GetGatewayInstance - failed getting KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	gw := &model.Gateway{}
@@ -221,9 +221,9 @@ func (s *Nats) mergeGatewayVars(ctx context.Context, gw *model.Gateway) ([]byte,
 // TODO: make resillient through message
 func (s *Nats) completeGateway(ctx context.Context, job *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ns)
+	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("completeGateway - failed getting KVs for ns %s: %w", ns, err)
+		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	// Record that we have closed this gateway.
@@ -239,7 +239,7 @@ func (s *Nats) completeGateway(ctx context.Context, job *model.WorkflowState) er
 	if err := s.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskComplete, job); err != nil {
 		return err
 	}
-	if err := common.Delete(nsKVs.wfGateway, *job.Execute); err != nil {
+	if err := common.Delete(ctx, nsKVs.wfGateway, *job.Execute); err != nil {
 		return fmt.Errorf("complete gateway failed with: %w", err)
 	}
 	return nil

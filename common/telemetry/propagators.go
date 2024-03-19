@@ -2,7 +2,7 @@ package telemetry
 
 import (
 	"context"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/model"
@@ -10,10 +10,10 @@ import (
 )
 
 // CtxWithSpanToNatsMsg injects traceID and spanID into a NATS message based on the provided context.
-func CtxWithSpanToNatsMsg(ctx context.Context, msg *nats.Msg) {
+func CtxWithSpanToNatsMsg(ctx context.Context, msg jetstream.Msg) {
 	// If telemetry is enabled in the host application
 	// We can utilise it to inject the traceID and spanID
-	car := NewNatsCarrier(msg)
+	car := NewJetStreamCarrier(msg)
 	prop := autoprop.NewTextMapPropagator()
 	prop.Inject(ctx, car)
 }
@@ -33,8 +33,8 @@ func WithNewDefaultTraceId() PropagateOption {
 }
 
 // NatsMsgToCtxWithSpan injects traceID and spanID into a context based on the provided NATS message.
-func NatsMsgToCtxWithSpan(ctx context.Context, msg *nats.Msg) context.Context {
-	car := NewNatsCarrier(msg)
+func NatsMsgToCtxWithSpan(ctx context.Context, msg jetstream.Msg) context.Context {
+	car := NewJetStreamCarrier(msg)
 	prop := autoprop.NewTextMapPropagator()
 	return prop.Extract(ctx, car)
 }
@@ -47,15 +47,15 @@ type TraceParams struct {
 // CtxWithTraceParentFromNatsMsgMiddleware is a middleware function that wraps the receive function in order to inject traceparent into the context based on the NATS message.
 // The receive function should have the signature func(ctx context.Context, msg *nats.Msg) (context.Context, error).
 func CtxWithTraceParentFromNatsMsgMiddleware() middleware.Receive {
-	return func(ctx context.Context, msg *nats.Msg) (context.Context, error) {
+	return func(ctx context.Context, msg jetstream.Msg) (context.Context, error) {
 		return CtxWithTraceParentFromNatsMsg(ctx, msg), nil
 	}
 }
 
 // CtxWithTraceParentFromNatsMsg injects the traceparent value from a NATS message into the provided context. If the traceparent value is present in the message header, it is set as the value for the ctxkey.Traceparent key in the context.
 // If the traceparent value is not present, a new traceparent value is generated with an empty spanID and set as the value for the ctxkey.Traceparent key in the context.
-func CtxWithTraceParentFromNatsMsg(ctx context.Context, msg *nats.Msg) context.Context {
-	if tp := msg.Header.Get("traceparent"); tp != "" {
+func CtxWithTraceParentFromNatsMsg(ctx context.Context, msg jetstream.Msg) context.Context {
+	if tp := msg.Headers().Get("traceparent"); tp != "" {
 		return context.WithValue(ctx, ctxkey.Traceparent, tp)
 	}
 	return context.WithValue(ctx, ctxkey.Traceparent, NewTraceParentWithEmptySpan(NewTraceID()))

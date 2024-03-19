@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/nats-io/nats.go/jetstream"
 	"log/slog"
 	"strings"
 	"time"
@@ -96,8 +97,8 @@ var endStartActionMapping = map[string]string{
 
 // Server is the shar server type responsible for hosting the telemetry server.
 type Server struct {
-	js     nats.JetStreamContext
-	spanKV nats.KeyValue
+	js     jetstream.JetStream
+	spanKV jetstream.KeyValue
 	res    *resource.Resource
 	exp    Exporter
 
@@ -106,7 +107,7 @@ type Server struct {
 }
 
 // New creates a new telemetry server.
-func New(ctx context.Context, nc *nats.Conn, js nats.JetStreamContext, storageType nats.StorageType, exp Exporter) *Server {
+func New(ctx context.Context, nc *nats.Conn, js jetstream.JetStream, storageType jetstream.StorageType, exp Exporter) *Server {
 	// Define our resource
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
@@ -160,7 +161,7 @@ func (s *Server) Listen() error {
 	ctx := context.Background()
 	closer := make(chan struct{})
 
-	kv, err := s.js.KeyValue(namespace.PrefixWith(namespace.Default, messages.KvTracking))
+	kv, err := s.js.KeyValue(ctx, namespace.PrefixWith(namespace.Default, messages.KvTracking))
 	if err != nil {
 		return fmt.Errorf("listen failed to attach to tracking key value database: %w", err)
 	}
@@ -174,14 +175,14 @@ func (s *Server) Listen() error {
 
 var empty8 = [8]byte{}
 
-func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error) {
-	state, done, err2 := s.decodeState(ctx, msg)
+func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	state, done, err2 := s.decodeState(ctx, msg.Data())
 	if done {
 		return done, err2
 	}
 
 	switch {
-	case strings.HasSuffix(msg.Subject, stateExecutionExecute):
+	case strings.HasSuffix(msg.Subject(), stateExecutionExecute):
 		s.incrementActionCounter(ctx, stateExecutionExecute)
 		s.changeActionUpDownCounter(ctx, 1, stateExecutionExecute)
 		// TODO: we should add a trace ID field and change this in future
@@ -200,29 +201,29 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 		if err := s.saveSpan(ctx, "Execution Start", state, state); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, stateProcessExecute):
+	case strings.HasSuffix(msg.Subject(), stateProcessExecute):
 		s.incrementActionCounter(ctx, stateProcessExecute)
 		s.changeActionUpDownCounter(ctx, 1, stateProcessExecute)
 
 		if err := s.saveSpan(ctx, "Process Start", state, state); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, stateTraversalExecute):
-	case strings.HasSuffix(msg.Subject, stateActivityExecute):
-		if err := s.spanStart(ctx, state, msg.Subject); err != nil {
+	case strings.HasSuffix(msg.Subject(), stateTraversalExecute):
+	case strings.HasSuffix(msg.Subject(), stateActivityExecute):
+		if err := s.spanStart(ctx, state, msg.Subject()); err != nil {
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, stateJobExecuteServiceTask),
-		strings.HasSuffix(msg.Subject, stateJobExecuteUserTask),
-		strings.HasSuffix(msg.Subject, stateJobExecuteManualTask),
-		strings.Contains(msg.Subject, stateJobExecuteSendMessage):
-		if err := s.spanStart(ctx, state, msg.Subject); err != nil {
+	case strings.Contains(msg.Subject(), stateJobExecuteServiceTask),
+		strings.HasSuffix(msg.Subject(), stateJobExecuteUserTask),
+		strings.HasSuffix(msg.Subject(), stateJobExecuteManualTask),
+		strings.Contains(msg.Subject(), stateJobExecuteSendMessage):
+		if err := s.spanStart(ctx, state, msg.Subject()); err != nil {
 			return true, nil
 		}
-	case strings.HasSuffix(msg.Subject, stateTraversalComplete):
-	case strings.HasSuffix(msg.Subject, stateActivityComplete),
-		strings.HasSuffix(msg.Subject, stateActivityAbort):
-		if err := s.spanEnd(ctx, "Activity: "+state.ElementId, state, msg.Subject); err != nil {
+	case strings.HasSuffix(msg.Subject(), stateTraversalComplete):
+	case strings.HasSuffix(msg.Subject(), stateActivityComplete),
+		strings.HasSuffix(msg.Subject(), stateActivityAbort):
+		if err := s.spanEnd(ctx, "Activity: "+state.ElementId, state, msg.Subject()); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("saving Activity.Complete operation abandoned", err,
@@ -235,13 +236,13 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 			}
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, stateJobCompleteServiceTask),
-		strings.Contains(msg.Subject, stateJobAbortServiceTask),
-		strings.Contains(msg.Subject, stateJobCompleteUserTask),
-		strings.Contains(msg.Subject, stateJobCompleteManualTask),
-		strings.Contains(msg.Subject, stateJobCompleteSendMessage):
+	case strings.Contains(msg.Subject(), stateJobCompleteServiceTask),
+		strings.Contains(msg.Subject(), stateJobAbortServiceTask),
+		strings.Contains(msg.Subject(), stateJobCompleteUserTask),
+		strings.Contains(msg.Subject(), stateJobCompleteManualTask),
+		strings.Contains(msg.Subject(), stateJobCompleteSendMessage):
 
-		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state, msg.Subject); err != nil {
+		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state, msg.Subject()); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
 				log.Error("span end", err,
@@ -249,22 +250,22 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg *nats.
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
 					slog.String(keys.ElementType, state.ElementType),
-					slog.String("msg.Subject", msg.Subject),
+					slog.String("msg.Subject", msg.Subject()),
 				)
 				return true, err
 			}
 			return true, nil
 		}
-	case strings.Contains(msg.Subject, stateExecutionComplete),
-		strings.Contains(msg.Subject, stateProcessTerminated):
+	case strings.Contains(msg.Subject(), stateExecutionComplete),
+		strings.Contains(msg.Subject(), stateProcessTerminated):
 
-		endAction := actionFrom(msg.Subject, endActions)
+		endAction := actionFrom(msg.Subject(), endActions)
 		s.changeActionUpDownCounter(ctx, -1, startActionFor(endAction))
-	case strings.Contains(msg.Subject, stateJobCompleteSendMessage):
-	case strings.Contains(msg.Subject, stateLog):
+	case strings.Contains(msg.Subject(), stateJobCompleteSendMessage):
+	case strings.Contains(msg.Subject(), stateLog):
 
-	// case strings.HasSuffix(msg.Subject, ".State.Execution.Complete"):
-	// case strings.HasSuffix(msg.Subject, ".State.Execution.Terminated"):
+	// case strings.HasSuffix(msg.Subject(), ".State.Execution.Complete"):
+	// case strings.HasSuffix(msg.Subject(), ".State.Execution.Terminated"):
 	default:
 
 	}
@@ -289,10 +290,10 @@ func (s *Server) changeActionUpDownCounter(ctx context.Context, incr int64, acti
 	)
 }
 
-func (s *Server) decodeState(ctx context.Context, msg *nats.Msg) (*model.WorkflowState, bool, error) {
+func (s *Server) decodeState(ctx context.Context, data []byte) (*model.WorkflowState, bool, error) {
 	log := logx.FromContext(ctx)
 	state := &model.WorkflowState{}
-	err := proto.Unmarshal(msg.Data, state)
+	err := proto.Unmarshal(data, state)
 	if err != nil {
 		log.Error("unmarshal span", err)
 		return &model.WorkflowState{}, true, abandon(err)
@@ -434,7 +435,7 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 	if err != nil {
 		return fmt.Errorf("export spans failed: %w", err)
 	}
-	err = s.spanKV.Delete(common.TrackingID(oldState.Id).ID())
+	err = s.spanKV.Delete(ctx, common.TrackingID(oldState.Id).ID())
 	if err != nil {
 		id := common.TrackingID(oldState.Id).ID()
 		log.Warn("delete the cached span", err, slog.String(keys.TrackingID, id))
@@ -477,14 +478,14 @@ func SetupMetrics(ctx context.Context, cfg *config.Settings, serviceName string)
 	}
 
 	// labels/tags/resources that are common to all metrics.
-	resource := resource.NewWithAttributes(
+	res := resource.NewWithAttributes(
 		semconv2.SchemaURL,
 		semconv2.ServiceNameKey.String(serviceName),
 		attribute.String("app", "shar-telemetry"),
 	)
 
 	mp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithResource(resource),
+		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(
 			// collects and exports metric data every N seconds.
 			sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(10*time.Second)),

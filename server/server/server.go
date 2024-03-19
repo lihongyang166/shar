@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/nats-io/nats.go/jetstream"
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -205,7 +207,10 @@ func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool,
 		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsURL))
 		panic(err)
 	}
-
+	ctx := context.Background()
+	if err := common.CheckVersion(ctx, txConn); err != nil {
+		panic(fmt.Errorf("check NATS version: %w", err))
+	}
 	if js, err := conn.JetStream(); err != nil {
 		panic(errors.New("cannot form JetSteram connection"))
 	} else {
@@ -214,9 +219,9 @@ func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool,
 		}
 	}
 
-	var store = nats.FileStorage
+	var store = jetstream.FileStorage
 	if ephemeral {
-		store = nats.MemoryStorage
+		store = jetstream.MemoryStorage
 	}
 	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks, s.telemetryConfig)
 	if err != nil {

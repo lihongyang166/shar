@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -48,16 +49,18 @@ var RootCmd = &cobra.Command{
 			panic(err)
 		}
 
+		ctx := context.Background()
+
 		// Get JetStream
-		js, err := nc.JetStream()
+		js, err := jetstream.New(nc)
 		if err != nil {
 			panic(err)
 		}
 
 		if len(os.Args) > 1 && os.Args[1] == "--remove" {
 			// Attempt both in case one failed last time, and deal with errors after
-			err1 := js.DeleteConsumer("WORKFLOW_TELEMETRY", "Tracing")
-			err2 := js.DeleteKeyValue(messages.KvTracking)
+			err1 := js.DeleteConsumer(ctx, "WORKFLOW_TELEMETRY", "Tracing")
+			err2 := js.DeleteKeyValue(ctx, messages.KvTracking)
 			if err1 != nil {
 				panic(err1)
 			}
@@ -66,8 +69,6 @@ var RootCmd = &cobra.Command{
 			}
 			return
 		}
-
-		ctx := context.Background()
 
 		mp, err := server.SetupMetrics(ctx, cfg, "shar-telemetry-processor")
 		if err != nil {
@@ -102,7 +103,7 @@ var RootCmd = &cobra.Command{
 		logx.SetDefault("shar", common.NewTextHandler(lev, addSource))
 
 		// Start the server
-		svr := server.New(ctx, nc, js, nats.FileStorage, exp)
+		svr := server.New(ctx, nc, js, jetstream.FileStorage, exp)
 		if err := svr.Listen(); err != nil {
 			panic(err)
 		}

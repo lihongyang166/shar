@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/common"
@@ -21,20 +22,21 @@ func TestLargeSaveLoad(t *testing.T) {
 	require.NoError(t, err)
 	nc, err := nats.Connect(NatsURL)
 	require.NoError(t, err)
-	js, err := nc.JetStream()
-	require.NoError(t, err)
-	kv, err := js.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:  "testlock",
-		TTL:     time.Second * 2,
-		Storage: nats.MemoryStorage,
-	})
-	require.NoError(t, err)
-	ds, err := js.CreateObjectStore(&nats.ObjectStoreConfig{
-		Bucket:  "testobj",
-		Storage: nats.MemoryStorage,
-	})
+	js, err := jetstream.New(nc)
 	require.NoError(t, err)
 	ctx := context.Background()
+	kv, err := js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
+		Bucket:  "testlock",
+		TTL:     time.Second * 2,
+		Storage: jetstream.MemoryStorage,
+	})
+	require.NoError(t, err)
+
+	ds, err := js.CreateObjectStore(ctx, jetstream.ObjectStoreConfig{
+		Bucket:  "testobj",
+		Storage: jetstream.MemoryStorage,
+	})
+	require.NoError(t, err)
 	rctx, cancel := context.WithTimeout(ctx, time.Second*1)
 	defer cancel()
 	err = common.SaveLarge(rctx, ds, kv, "testKey", []byte("hello"))
@@ -54,17 +56,19 @@ func TestLargeObjSaveLoad(t *testing.T) {
 	require.NoError(t, err)
 	nc, err := nats.Connect(NatsURL)
 	require.NoError(t, err)
-	js, err := nc.JetStream()
+	js, err := jetstream.New(nc)
 	require.NoError(t, err)
-	kv, err := js.CreateKeyValue(&nats.KeyValueConfig{
+	ctx := context.Background()
+	kv, err := js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
 		Bucket:  "testlock",
 		TTL:     time.Second * 2,
-		Storage: nats.MemoryStorage,
+		Storage: jetstream.MemoryStorage,
 	})
 	require.NoError(t, err)
-	ds, err := js.CreateObjectStore(&nats.ObjectStoreConfig{
+
+	ds, err := js.CreateObjectStore(ctx, jetstream.ObjectStoreConfig{
 		Bucket:  "testobj",
-		Storage: nats.MemoryStorage,
+		Storage: jetstream.MemoryStorage,
 	})
 	require.NoError(t, err)
 
@@ -74,7 +78,6 @@ func TestLargeObjSaveLoad(t *testing.T) {
 		Visits:          0,
 	}
 
-	ctx := context.Background()
 	rctx, cancel := context.WithTimeout(ctx, time.Second*1)
 	defer cancel()
 	err = common.SaveLargeObj(rctx, ds, kv, "testKey", testThing)
@@ -92,22 +95,23 @@ func TestLargeObjUpdate(t *testing.T) {
 	ss, ns, err := zensvr.GetServers(10, nil, nil)
 	NatsURL := ns.GetEndPoint()
 
+	ctx := context.Background()
 	defer ss.Shutdown()
 	defer ns.Shutdown()
 	require.NoError(t, err)
 	nc, err := nats.Connect(NatsURL)
 	require.NoError(t, err)
-	js, err := nc.JetStream()
+	js, err := jetstream.New(nc)
 	require.NoError(t, err)
-	kv, err := js.CreateKeyValue(&nats.KeyValueConfig{
+	kv, err := js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
 		Bucket:  "testlock",
 		TTL:     time.Second * 2,
-		Storage: nats.MemoryStorage,
+		Storage: jetstream.MemoryStorage,
 	})
 	require.NoError(t, err)
-	ds, err := js.CreateObjectStore(&nats.ObjectStoreConfig{
+	ds, err := js.CreateObjectStore(ctx, jetstream.ObjectStoreConfig{
 		Bucket:  "testobj",
-		Storage: nats.MemoryStorage,
+		Storage: jetstream.MemoryStorage,
 	})
 	require.NoError(t, err)
 
@@ -117,7 +121,6 @@ func TestLargeObjUpdate(t *testing.T) {
 		Visits:          0,
 	}
 
-	ctx := context.Background()
 	rctx, cancel := context.WithTimeout(ctx, time.Second*1)
 	defer cancel()
 	err = common.SaveLargeObj(rctx, ds, kv, "testKey", testThing)
@@ -146,17 +149,18 @@ func TestLargeObjDelete(t *testing.T) {
 	require.NoError(t, err)
 	nc, err := nats.Connect(NatsURL)
 	require.NoError(t, err)
-	js, err := nc.JetStream()
+	js, err := jetstream.New(nc)
 	require.NoError(t, err)
-	kv, err := js.CreateKeyValue(&nats.KeyValueConfig{
+	ctx := context.Background()
+	kv, err := js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
 		Bucket:  "testlock",
 		TTL:     time.Second * 2,
-		Storage: nats.MemoryStorage,
+		Storage: jetstream.MemoryStorage,
 	})
 	require.NoError(t, err)
-	ds, err := js.CreateObjectStore(&nats.ObjectStoreConfig{
+	ds, err := js.CreateObjectStore(ctx, jetstream.ObjectStoreConfig{
 		Bucket:  "testobj",
-		Storage: nats.MemoryStorage,
+		Storage: jetstream.MemoryStorage,
 	})
 	require.NoError(t, err)
 
@@ -166,7 +170,6 @@ func TestLargeObjDelete(t *testing.T) {
 		Visits:          0,
 	}
 
-	ctx := context.Background()
 	rctx, cancel := context.WithTimeout(ctx, time.Second*1)
 	defer cancel()
 	err = common.SaveLargeObj(rctx, ds, kv, "testKey", testThing)
@@ -175,6 +178,6 @@ func TestLargeObjDelete(t *testing.T) {
 	defer cancel2()
 	err = common.DeleteLarge(rctx, ds, kv, "testKey")
 	require.NoError(t, err)
-	_, err = ds.List()
-	assert.ErrorIs(t, err, nats.ErrNoObjectsFound)
+	_, err = ds.List(ctx)
+	assert.ErrorIs(t, err, jetstream.ErrNoObjectsFound)
 }

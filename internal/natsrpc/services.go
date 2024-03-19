@@ -36,4 +36,5 @@ type Shar interface {
 	Heartbeat(ctx context.Context, req *model.HeartbeatRequest) (*model.HeartbeatResponse, error)
 	Log(ctx context.Context, req *model.LogRequest) (*model.LogResponse, error)
 	GetJob(ctx context.Context, req *model.GetJobRequest) (*model.GetJobResponse, error)
+	ResolveWorkflow(ctx context.Context, req *model.ResolveWorkflowRequest) (*model.ResolveWorkflowResponse, error)
 }

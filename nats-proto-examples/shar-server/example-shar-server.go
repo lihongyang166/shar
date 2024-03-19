@@ -152,6 +152,11 @@ func (a SharAPI) GetJob(ctx context.Context, req *model.GetJobRequest) (*model.G
     //TODO: implement Shar:GetJob
     panic("implement Shar:GetJob")
 }
+// ResolveWorkflow - The ResolveWorkflow method.
+func (a SharAPI) ResolveWorkflow(ctx context.Context, req *model.ResolveWorkflowRequest) (*model.ResolveWorkflowResponse, error) {
+    //TODO: implement Shar:ResolveWorkflow
+    panic("implement Shar:ResolveWorkflow")
+}
 
 func main() {
     con, err := nats.Connect("nats://127.0.0.1:4222")

@@ -5,6 +5,7 @@
       <bpmn:extensionElements>
         <zeebe:ioMapping>
           <zeebe:output source="= 32767" target="carried" />
+          <zeebe:output source="= 56" target="processVar" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_1f45p7m</bpmn:outgoing>
@@ -16,6 +17,7 @@
         <zeebe:taskDefinition type="SimpleProcess" />
         <zeebe:ioMapping>
           <zeebe:input source="= carried" target="carried" />
+          <zeebe:input source="= processVar" target="localVar" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1f45p7m</bpmn:incoming>

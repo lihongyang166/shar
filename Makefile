@@ -79,6 +79,11 @@ test: proto generated-code server tracing examples .FORCE
 	go clean -testcache
 	@echo "\033[92mRunning tests\033[0m"
 	CGO_ENABLED=0 gotestsum --junitfile report.xml --format testname
+profile: proto generated-code server tracing examples .FORCE
+	@echo "\033[92mCleaning test cache\033[0m"
+	go clean -testcache
+	@echo "\033[92mRunning tests\033[0m"
+	cd integration/shar/simple && CGO_ENABLED=0 go test -cpuprofile cpu.out -memprofile mem.out -mutexprofile mutex.out
 race: proto server tracing .FORCE
 	@echo "\033[92mCleaning test cache\033[0m"
 	go clean -testcache

@@ -240,4 +240,12 @@ func main() {
         panic(err)
     }
     fmt.Println(resGetJob)
+
+    // Call ResolveWorkflow
+    reqResolveWorkflow := &model.ResolveWorkflowRequest{}
+    resResolveWorkflow, err := api.ResolveWorkflow(ctx, reqResolveWorkflow)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(resResolveWorkflow)
 }

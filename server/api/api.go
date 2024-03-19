@@ -194,6 +194,10 @@ func (s *SharServer) Listen() error {
 		return fmt.Errorf("APIGetTaskSpec failed: %w", err)
 	}
 
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIResolveWorkflow, s.receiveApiMiddleware, &model.ResolveWorkflowRequest{}, s.resolveWorkflow); err != nil {
+		return fmt.Errorf("APIResolveWorkflow failed: %w", err)
+	}
+
 	slog.Info("shar api listener started")
 	return nil
 }
@@ -216,7 +220,7 @@ func listen[T proto.Message, U proto.Message](con common.NatsConn, panicRecovery
 		ctx = subj.SetNS(ctx, msg.Header.Get(header.SharNamespace))
 		for _, i := range receiveApiMiddleware {
 			var err error
-			ctx, err = i(ctx, msg)
+			ctx, err = i(ctx, common.NewNatsMsgWrapper(msg))
 			if err != nil {
 				errorResponse(msg, codes.Internal, fmt.Sprintf("receive middleware %s: %s", reflect.TypeOf(i), err.Error()))
 				return

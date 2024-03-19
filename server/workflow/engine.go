@@ -4,7 +4,7 @@ import (
 	"context"
 	errors2 "errors"
 	"fmt"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/client/parser"
 	"gitlab.com/shar-workflow/shar/common"
@@ -186,7 +186,7 @@ func (c *Engine) launch(ctx context.Context, processName string, ID common.Track
 		telemetry.CtxWithTraceParentToWfState(ctx, wiState)
 
 		ctx, log = common.ContextLoggerWithWfState(ctx, wiState)
-		log.Debug("just after adding wfState details to log ctx")
+		//log.Debug("just after adding wfState details to log ctx")
 
 		// fire off the new workflow state
 		if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowExecutionExecute, wiState); err != nil {
@@ -301,7 +301,7 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 				exec.TraceParent = ctx.Value(ctxkey.Traceparent).(string)
 			}
 			ctx, log := common.ContextLoggerWithWfState(ctx, exec)
-			log.Debug("just prior to publishing start msg")
+			//log.Debug("just prior to publishing start msg")
 
 			processWfState := proto.Clone(exec).(*model.WorkflowState)
 			processTrackingId := ID.Push(executionId).Push(pi.ProcessInstanceId)
@@ -477,7 +477,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 
 	// get the corresponding process instance
 	pi, err := c.ns.GetProcessInstance(ctx, traversal.ProcessInstanceId)
-	if errors2.Is(err, errors.ErrProcessInstanceNotFound) || errors2.Is(err, nats.ErrKeyNotFound) {
+	if errors2.Is(err, errors.ErrProcessInstanceNotFound) || errors2.Is(err, jetstream.ErrKeyNotFound) {
 		// if the workflow instance has been removed kill any activity and exit
 		log.Warn("process instance not found, cancelling activity", err, slog.String(keys.ProcessInstanceID, traversal.ProcessInstanceId))
 		return nil
@@ -587,7 +587,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	case element.ServiceTask:
 		if el.Version == nil {
 			v, err := c.ns.GetTaskSpecUID(ctx, el.Execute)
-			if errors2.Is(err, nats.ErrKeyNotFound) {
+			if errors2.Is(err, jetstream.ErrKeyNotFound) {
 				return fmt.Errorf("engine failed to get task spec id: %w", &errors.ErrWorkflowFatal{Err: err})
 			}
 			el.Version = &v
@@ -1163,15 +1163,15 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 					return fmt.Errorf("activity complete processor failed to publish job launch complete: %w", err)
 				}
 			}
-			if err := c.ns.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+			if err := c.ns.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 				return fmt.Errorf("activity complete processor failed to delete job %s: %w", jobID, err)
 			}
 			execution, eerr := c.ns.GetExecution(ctx, state.ExecutionId)
-			if eerr != nil && !errors2.Is(eerr, nats.ErrKeyNotFound) {
+			if eerr != nil && !errors2.Is(eerr, jetstream.ErrKeyNotFound) {
 				return fmt.Errorf("activity complete processor failed to get execution: %w", err)
 			}
 			if pierr == nil {
-				if err := c.ns.DestroyProcessInstance(ctx, state, pi, execution); err != nil && !errors2.Is(err, nats.ErrKeyNotFound) {
+				if err := c.ns.DestroyProcessInstance(ctx, state, pi, execution); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 					return fmt.Errorf("activity complete processor failed to destroy execution: %w", err)
 				}
 			}

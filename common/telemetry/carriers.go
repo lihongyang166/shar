@@ -1,6 +1,9 @@
 package telemetry
 
-import "github.com/nats-io/nats.go"
+import (
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+)
 
 // MapCarrier defines an open telemetry carrier that serialises to a go map[string]string
 type MapCarrier struct {
@@ -57,9 +60,34 @@ func (c *NatsCarrier) Keys() []string {
 	return ret
 }
 
-// NewNatsCarrier creates a new instance of NatsCarrier
-func NewNatsCarrier(msg *nats.Msg) *NatsCarrier {
-	return &NatsCarrier{
+// NewJetStreamCarrier creates a new instance of NatsCarrier
+func NewJetStreamCarrier(msg jetstream.Msg) *JetStreamCarrier {
+	return &JetStreamCarrier{
 		msg: msg,
 	}
+}
+
+// JetStreamCarrier defines an open telemetry carrier that serialises to NATS headers
+type JetStreamCarrier struct {
+	msg jetstream.Msg
+}
+
+// Get a header value
+func (c *JetStreamCarrier) Get(key string) string {
+	return c.msg.Headers().Get(key)
+}
+
+// Set a header value
+func (c *JetStreamCarrier) Set(key string, value string) {
+	c.msg.Headers().Set(key, value)
+}
+
+// Keys - returns all header keys
+func (c *JetStreamCarrier) Keys() []string {
+	headers := c.msg.Headers()
+	ret := make([]string, 0, len(headers))
+	for k := range headers {
+		ret = append(ret, headers.Get(k))
+	}
+	return ret
 }

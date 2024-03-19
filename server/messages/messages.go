@@ -163,6 +163,7 @@ const (
 	APIHeartbeat                = "WORKFLOW.Api.Heartbeat"                // APIHeartbeat // is the heartbeat API message subject.
 	APILog                      = "WORKFLOW.Api.Log"                      // APILog // is the client logging message subject.
 	APIGetJob                   = "WORKFLOW.Api.GetJob"                   // APIGetJob is the get job API subject.
+	APIResolveWorkflow          = "WORKFLOW.Api.ResolveWorkflow"          // APIResolveWorkflow is the resolve workflow API subject.
 )
 
 var (

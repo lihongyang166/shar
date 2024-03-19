@@ -47,7 +47,7 @@ var RootCmd = &cobra.Command{
 			panic(err)
 		}
 
-		handlerFactoryFns := map[string](func() slog.Handler){
+		handlerFactoryFns := map[string]func() slog.Handler{
 			"text": func() slog.Handler {
 				return common.NewTextHandler(lev, addSource)
 			},
@@ -57,7 +57,7 @@ var RootCmd = &cobra.Command{
 		}
 
 		cfgHandlers := strings.Split(cfg.LogHandler, ",")
-		handlers := []slog.Handler{}
+		handlers := make([]slog.Handler, 0, len(cfgHandlers))
 		for _, h := range cfgHandlers {
 			handlers = append(handlers, handlerFactoryFns[h]())
 		}

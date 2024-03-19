@@ -1,0 +1,49 @@
+version: "1.0"
+kind: ServiceTask
+metadata:
+  type: GetCapitalData
+  version: 0.0.1
+  short: Gets capital data
+  description: Uses an API to get data about a given city.
+  labels:
+    - city
+behaviour:
+  estimatedMaxDuration: 2343255
+  defaultRetry:
+    number: 30
+    strategy: 30000
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
+      action: 3
+parameters:
+  parameterGroup:
+    - name: city1
+      short: City parameters
+      description: City parameters
+  input:
+    - name: city
+      short: capital city name
+      description: capital city name as known by restcountries API
+      type: string
+      group: city1
+      example: "\"dublin\""
+  output:
+    - name: region
+      description: region name
+      type: string
+    - name: population
+      type: int
+    - name: language
+      type: string
+    - name: latitude
+      description: capital city latitude
+      type: int
+    - name: longitude
+      description: capital city longitude
+      type: int
+events:
+  taskError:
+    - name: ServerError
+      code: "500"

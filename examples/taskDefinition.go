@@ -8,7 +8,7 @@ import (
 
 func main() {
 	grp1 := "address1"
-	td := model.TaskSpec{
+	td := &model.TaskSpec{
 		Version: "1.0",
 		Kind:    "ServiceTask",
 		Metadata: &model.TaskMetadata{

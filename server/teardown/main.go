@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"os"
 )
@@ -14,21 +16,22 @@ func main() {
 	} else {
 		natsURI = os.Args[1]
 	}
+	ctx := context.Background()
 	con, err := nats.Connect(natsURI)
 	if err != nil {
 		panic(err)
 	}
-	js, err := con.JetStream()
+	js, err := jetstream.New(con)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := js.DeleteStream("WORKFLOW"); err != nil {
+	if err := js.DeleteStream(ctx, "WORKFLOW"); err != nil {
 		fmt.Printf("*Not Deleted Stream WORKFLOW: %s\n", err.Error())
 	} else {
 		fmt.Printf("Deleted stream WORKFLOW\n")
 	}
-	kvDelete(js,
+	kvDelete(ctx, js,
 		messages.KvUserTask,
 		messages.KvInstance,
 		messages.KvDefinition,
@@ -39,9 +42,9 @@ func main() {
 
 }
 
-func kvDelete(js nats.JetStreamContext, buckets ...string) {
+func kvDelete(ctx context.Context, js jetstream.JetStream, buckets ...string) {
 	for _, v := range buckets {
-		if err := js.DeleteKeyValue(v); err != nil {
+		if err := js.DeleteKeyValue(ctx, v); err != nil {
 			fmt.Printf("*Not Deleted %s: %s\n", v, err.Error())
 		} else {
 			fmt.Printf("Deleted %s\n", v)

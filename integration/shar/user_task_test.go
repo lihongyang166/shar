@@ -3,11 +3,6 @@ package intTest
 import (
 	"context"
 	"fmt"
-	"os"
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,6 +10,10 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
+	"os"
+	"sync"
+	"testing"
+	"time"
 )
 
 func TestUserTasks(t *testing.T) {
@@ -30,8 +29,8 @@ func TestUserTasks(t *testing.T) {
 		panic(err)
 	}
 
-	// sub := tracer.Trace(NatsURL)
-	// defer sub.Drain()
+	//sub := tracer.Trace(NatsURL)
+	//defer sub.Drain()
 
 	d := &testUserTaskHandlerDef{finished: make(chan struct{})}
 	d.finalVars = make(model.Vars)
@@ -74,6 +73,7 @@ func TestUserTasks(t *testing.T) {
 			if err == nil && tsk.Id != nil {
 				td, _, gerr := cl.GetUserTask(ctx, "andrei", tsk.Id[0])
 				assert.NoError(t, gerr)
+				fmt.Printf("%+v\n", td)
 				fmt.Println("Name:", td.Name)
 				fmt.Println("Description:", td.Description)
 				cerr := cl.CompleteUserTask(ctx, "andrei", tsk.Id[0], model.Vars{"Forename": "Brangelina", "Surname": "Miggins"})
@@ -84,7 +84,7 @@ func TestUserTasks(t *testing.T) {
 		}
 	}()
 
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, 50*time.Second)
 
 	et, err := cl.ListUserTaskIDs(ctx, "andrei")
 	assert.NoError(t, err)

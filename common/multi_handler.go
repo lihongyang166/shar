@@ -32,7 +32,7 @@ func (mh *MultiHandler) Handle(ctx context.Context, r slog.Record) error {
 
 // WithAttrs adds the supplied attrs slice to the delegated handler attrs and returns new instances of them
 func (mh *MultiHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	handlersWithAttrs := []slog.Handler{}
+	handlersWithAttrs := make([]slog.Handler, 0, len(mh.Handlers))
 	for _, h := range mh.Handlers {
 		handlersWithAttrs = append(handlersWithAttrs, h.WithAttrs(attrs))
 	}

@@ -1,6 +1,6 @@
 package data
 
-import "github.com/nats-io/nats.go"
+import "github.com/nats-io/nats.go/jetstream"
 
 // WithEphemeralStorage specifies a client store the result of all operations in memory.
 func WithEphemeralStorage() ephemeralStorage { //nolint
@@ -10,7 +10,7 @@ func WithEphemeralStorage() ephemeralStorage { //nolint
 type ephemeralStorage struct{}
 
 func (o ephemeralStorage) configure(client *Client) {
-	client.storageType = nats.MemoryStorage
+	client.storageType = jetstream.MemoryStorage
 }
 
 // WithConcurrency specifies the number of threads to process each service task.

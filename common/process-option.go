@@ -2,7 +2,7 @@ package common
 
 import (
 	"context"
-	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 // ProcessOpts holds the settings for message processing.
@@ -16,7 +16,7 @@ type ProcessOption interface {
 }
 
 // BackoffFn represents a function that completely handles the backoff for a message including ACK/NAK
-type BackoffFn func(ctx context.Context, msg *nats.Msg) error
+type BackoffFn func(ctx context.Context, msg jetstream.Msg) error
 
 // BackoffProcessOption holds the backoff function.  Don't use this directly.  Use the convenience function WithBackoffFn
 type BackoffProcessOption struct {

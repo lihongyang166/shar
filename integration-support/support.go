@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -136,7 +137,7 @@ func (s *Integration) Setup() {
 	}
 
 	//zensvrOptions = append(zensvrOptions,zensvr.WithSharServerTelemetry("console"))
-	ss, ns, err := zensvr.GetServers(20, s.authZFn, s.authNFn, zensvrOptions...)
+	ss, nmSpc, err := zensvr.GetServers(20, s.authZFn, s.authNFn, zensvrOptions...)
 
 	level := slog.LevelDebug
 
@@ -155,7 +156,7 @@ func (s *Integration) Setup() {
 
 	logx.SetDefault("shar-Integration-tests", multiHandler)
 
-	s.NatsURL = fmt.Sprintf("nats://%s", ns.GetEndPoint())
+	s.NatsURL = fmt.Sprintf("nats://%s", nmSpc.GetEndPoint())
 
 	if err != nil {
 		panic(err)
@@ -168,7 +169,7 @@ func (s *Integration) Setup() {
 		ctx := context.Background()
 		n, err := nats.Connect(s.NatsURL)
 		s.telemtryFailedHandlerFn(err)
-		js, err := n.JetStream()
+		js, err := jetstream.New(n)
 		s.telemtryFailedHandlerFn(err)
 		cfg, err := config.GetEnvironment()
 		s.telemtryFailedHandlerFn(err)
@@ -178,14 +179,14 @@ func (s *Integration) Setup() {
 			slog.Error("###failed to init metrics", "err", err.Error())
 		}
 
-		s.testTelemetry = server2.New(ctx, n, js, nats.MemoryStorage, s.WithTelemetry)
+		s.testTelemetry = server2.New(ctx, n, js, jetstream.MemoryStorage, s.WithTelemetry)
 
 		err = s.testTelemetry.Listen()
 		s.telemtryFailedHandlerFn(err)
 	}
 
 	s.testSharServer = ss
-	s.testNatsServer = ns
+	s.testNatsServer = nmSpc
 
 	fmt.Printf("Starting test support for " + s.testableUnitName + "\n")
 	fmt.Printf("\033[1;36m%s\033[0m", "> Setup completed\n")
@@ -258,7 +259,7 @@ func (s *Integration) AssertCleanKV(namespce string, t *testing.T, cooldown time
 				cancel()
 				return
 			}
-			err = s.checkCleanKVFor(namespce, t)
+			err = s.checkCleanKVFor(ctx, namespce, t)
 			if err == nil {
 				cancel()
 				close(errs)
@@ -288,21 +289,21 @@ func (s *Integration) AssertCleanKV(namespce string, t *testing.T, cooldown time
 	}
 }
 
-func (s *Integration) checkCleanKVFor(namespace string, t *testing.T) error {
+func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *testing.T) error {
 	js, err := s.GetJetstream()
 	require.NoError(t, err)
 
-	for n := range js.KeyValueStores() {
+	for n := range js.KeyValueStores(ctx).Status() {
 
 		name := n.Bucket()
 		if !strings.HasPrefix(name, namespace) {
 			continue
 		}
 
-		kvs, err := js.KeyValue(name)
+		kvs, err := js.KeyValue(ctx, name)
 		require.NoError(t, err)
-		keys, err := kvs.Keys()
-		if err != nil && errors.Is(err, nats.ErrNoKeysFound) {
+		keys, err := kvs.Keys(ctx)
+		if err != nil && errors.Is(err, jetstream.ErrNoKeysFound) {
 			continue
 		}
 		require.NoError(t, err)
@@ -341,7 +342,7 @@ func (s *Integration) checkCleanKVFor(namespace string, t *testing.T) error {
 				}
 
 				for _, i := range keys {
-					p, err := kvs.Get(i)
+					p, err := kvs.Get(ctx, i)
 					if err == nil {
 						str := &model.WorkflowState{}
 						err := proto.Unmarshal(p.Value(), str)
@@ -363,24 +364,24 @@ func (s *Integration) checkCleanKVFor(namespace string, t *testing.T) error {
 		}
 	}
 
-	b, err := js.KeyValue(ns.PrefixWith(namespace, "WORKFLOW_USERTASK"))
-	if err != nil && errors.Is(err, nats.ErrNoKeysFound) {
+	b, err := js.KeyValue(ctx, ns.PrefixWith(namespace, "WORKFLOW_USERTASK"))
+	if err != nil && errors.Is(err, jetstream.ErrNoKeysFound) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("checkCleanKV failed to get usertasks: %w", err)
 	}
 
-	keys, err := b.Keys()
+	keys, err := b.Keys(ctx)
 	if err != nil {
-		if errors.Is(err, nats.ErrNoKeysFound) {
+		if errors.Is(err, jetstream.ErrNoKeysFound) {
 			return nil
 		}
 		return fmt.Errorf("checkCleanKV failed to get user task keys: %w", err)
 	}
 
 	for _, k := range keys {
-		bts, err := b.Get(k)
+		bts, err := b.Get(ctx, k)
 		if err != nil {
 			return fmt.Errorf("checkCleanKV failed to get user task value: %w", err)
 		}
@@ -413,12 +414,12 @@ func (s *Integration) Teardown() {
 // GetJetstream - fetches the test framework jetstream server for making test calls.
 //
 //goland:noinspection GoUnnecessarilyExportedIdentifiers
-func (s *Integration) GetJetstream() (nats.JetStreamContext, error) { //nolint:ireturn
+func (s *Integration) GetJetstream() (jetstream.JetStream, error) { //nolint:ireturn
 	con, err := s.GetNats()
 	if err != nil {
 		return nil, fmt.Errorf("get NATS: %w", err)
 	}
-	js, err := con.JetStream()
+	js, err := jetstream.New(con)
 	if err != nil {
 		return nil, fmt.Errorf("obtain JetStream connection: %w", err)
 	}

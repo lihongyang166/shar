@@ -5,14 +5,18 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	version2 "github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/middleware"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	version3 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"math/big"
@@ -22,18 +26,17 @@ import (
 	"time"
 )
 
-// NatsConn is the trimmad down NATS Connection interface that only emcompasses the methods used by SHAR
+// NatsConn is the trimmed down NATS Connection interface that only encompasses the methods used by SHAR
 type NatsConn interface {
-	JetStream(opts ...nats.JSOpt) (nats.JetStreamContext, error)
 	QueueSubscribe(subj string, queue string, cb nats.MsgHandler) (*nats.Subscription, error)
 	Publish(subj string, bytes []byte) error
 	PublishMsg(msg *nats.Msg) error
 }
 
-func updateKV(wf nats.KeyValue, k string, msg proto.Message, updateFn func(v []byte, msg proto.Message) ([]byte, error)) error {
+func updateKV(ctx context.Context, wf jetstream.KeyValue, k string, msg proto.Message, updateFn func(v []byte, msg proto.Message) ([]byte, error)) error {
 	const JSErrCodeStreamWrongLastSequence = 10071
 	for {
-		entry, err := wf.Get(k)
+		entry, err := wf.Get(ctx, k)
 		if err != nil {
 			return fmt.Errorf("get value to update: %w", err)
 		}
@@ -42,12 +45,12 @@ func updateKV(wf nats.KeyValue, k string, msg proto.Message, updateFn func(v []b
 		if err != nil {
 			return fmt.Errorf("update function: %w", err)
 		}
-		_, err = wf.Update(k, uv, rev)
+		_, err = wf.Update(ctx, k, uv, rev)
 
 		if err != nil {
 			maxJitter := &big.Int{}
 			maxJitter.SetInt64(5000)
-			testErr := &nats.APIError{}
+			testErr := &jetstream.APIError{}
 			if errors.As(err, &testErr) {
 				if testErr.ErrorCode == JSErrCodeStreamWrongLastSequence {
 					dur, err := rand.Int(rand.Reader, maxJitter) // Jitter
@@ -66,24 +69,24 @@ func updateKV(wf nats.KeyValue, k string, msg proto.Message, updateFn func(v []b
 }
 
 // Save saves a value to a key value store
-func Save(ctx context.Context, wf nats.KeyValue, k string, v []byte) error {
+func Save(ctx context.Context, wf jetstream.KeyValue, k string, v []byte) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.VerboseLevel) {
 		log.Log(ctx, errors2.VerboseLevel, "Set KV", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.String("val", string(v)))
 	}
-	if _, err := wf.Put(k, v); err != nil {
+	if _, err := wf.Put(ctx, k, v); err != nil {
 		return fmt.Errorf("save kv: %w", err)
 	}
 	return nil
 }
 
 // Load loads a value from a key value store
-func Load(ctx context.Context, wf nats.KeyValue, k string) ([]byte, error) {
+func Load(ctx context.Context, wf jetstream.KeyValue, k string) ([]byte, error) {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.VerboseLevel) {
 		log.Log(ctx, errors2.VerboseLevel, "Get KV", slog.Any("bucket", wf.Bucket()), slog.String("key", k))
 	}
-	b, err := wf.Get(k)
+	b, err := wf.Get(ctx, k)
 	if err == nil {
 		return b.Value(), nil
 	}
@@ -91,7 +94,7 @@ func Load(ctx context.Context, wf nats.KeyValue, k string) ([]byte, error) {
 }
 
 // SaveObj save an protobuf message to a key value store
-func SaveObj(ctx context.Context, wf nats.KeyValue, k string, v proto.Message) error {
+func SaveObj(ctx context.Context, wf jetstream.KeyValue, k string, v proto.Message) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "save KV object", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.Any("val", v))
@@ -104,7 +107,7 @@ func SaveObj(ctx context.Context, wf nats.KeyValue, k string, v proto.Message) e
 }
 
 // LoadObj loads a protobuf message from a key value store
-func LoadObj(ctx context.Context, wf nats.KeyValue, k string, v proto.Message) error {
+func LoadObj(ctx context.Context, wf jetstream.KeyValue, k string, v proto.Message) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "load KV object", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.Any("val", v))
@@ -120,17 +123,17 @@ func LoadObj(ctx context.Context, wf nats.KeyValue, k string, v proto.Message) e
 }
 
 // UpdateObj saves an protobuf message to a key value store after using updateFN to update the message.
-func UpdateObj[T proto.Message](ctx context.Context, wf nats.KeyValue, k string, msg T, updateFn func(v T) (T, error)) error {
+func UpdateObj[T proto.Message](ctx context.Context, wf jetstream.KeyValue, k string, msg T, updateFn func(v T) (T, error)) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "update KV object", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.Any("fn", reflect.TypeOf(updateFn)))
 	}
-	if oldk, err := wf.Get(k); errors.Is(err, nats.ErrKeyNotFound) || (err == nil && oldk.Value() == nil) {
+	if oldk, err := wf.Get(ctx, k); errors.Is(err, jetstream.ErrKeyNotFound) || (err == nil && oldk.Value() == nil) {
 		if err := SaveObj(ctx, wf, k, msg); err != nil {
 			return fmt.Errorf("save during update object: %w", err)
 		}
 	}
-	return updateKV(wf, k, msg, func(bv []byte, msg proto.Message) ([]byte, error) {
+	return updateKV(ctx, wf, k, msg, func(bv []byte, msg proto.Message) ([]byte, error) {
 		if err := proto.Unmarshal(bv, msg); err != nil {
 			return nil, fmt.Errorf("unmarshal proto for KV update: %w", err)
 		}
@@ -147,20 +150,20 @@ func UpdateObj[T proto.Message](ctx context.Context, wf nats.KeyValue, k string,
 }
 
 // UpdateObjIsNew saves an protobuf message to a key value store after using updateFN to update the message, and returns true if this is a new value.
-func UpdateObjIsNew[T proto.Message](ctx context.Context, wf nats.KeyValue, k string, msg T, updateFn func(v T) (T, error)) (bool, error) {
+func UpdateObjIsNew[T proto.Message](ctx context.Context, wf jetstream.KeyValue, k string, msg T, updateFn func(v T) (T, error)) (bool, error) {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "update KV object", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.Any("fn", reflect.TypeOf(updateFn)))
 	}
 	isNew := false
-	if oldk, err := wf.Get(k); errors.Is(err, nats.ErrKeyNotFound) || (err == nil && oldk.Value() == nil) {
+	if oldk, err := wf.Get(ctx, k); errors.Is(err, jetstream.ErrKeyNotFound) || (err == nil && oldk.Value() == nil) {
 		if err := SaveObj(ctx, wf, k, msg); err != nil {
 			return false, fmt.Errorf("save during update object: %w", err)
 		}
 		isNew = true
 	}
 
-	if err := updateKV(wf, k, msg, func(bv []byte, msg proto.Message) ([]byte, error) {
+	if err := updateKV(ctx, wf, k, msg, func(bv []byte, msg proto.Message) ([]byte, error) {
 		if err := proto.Unmarshal(bv, msg); err != nil {
 			return nil, fmt.Errorf("unmarshal proto for KV update: %w", err)
 		}
@@ -180,15 +183,15 @@ func UpdateObjIsNew[T proto.Message](ctx context.Context, wf nats.KeyValue, k st
 }
 
 // Delete deletes an item from a key value store.
-func Delete(kv nats.KeyValue, key string) error {
-	if err := kv.Delete(key); err != nil {
+func Delete(ctx context.Context, kv jetstream.KeyValue, key string) error {
+	if err := kv.Delete(ctx, key); err != nil {
 		return fmt.Errorf("delete key: %w", err)
 	}
 	return nil
 }
 
 // EnsureBuckets ensures that a list of key value stores exist
-func EnsureBuckets(js nats.JetStreamContext, storageType nats.StorageType, names []string) error {
+func EnsureBuckets(ctx context.Context, js jetstream.JetStream, storageType jetstream.StorageType, names []string) error {
 	for _, i := range names {
 		var ttl time.Duration
 		if i == messages.KvLock {
@@ -197,7 +200,7 @@ func EnsureBuckets(js nats.JetStreamContext, storageType nats.StorageType, names
 		if i == messages.KvClients {
 			ttl = time.Millisecond * 1500
 		}
-		if err := EnsureBucket(js, storageType, i, ttl); err != nil {
+		if err := EnsureBucket(ctx, js, storageType, i, ttl); err != nil {
 			return fmt.Errorf("ensure bucket: %w", err)
 		}
 	}
@@ -205,9 +208,9 @@ func EnsureBuckets(js nats.JetStreamContext, storageType nats.StorageType, names
 }
 
 // EnsureBucket creates a bucket if it does not exist
-func EnsureBucket(js nats.JetStreamContext, storageType nats.StorageType, name string, ttl time.Duration) error {
-	if _, err := js.KeyValue(name); errors.Is(err, nats.ErrBucketNotFound) {
-		if _, err := js.CreateKeyValue(&nats.KeyValueConfig{
+func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetstream.StorageType, name string, ttl time.Duration) error {
+	if _, err := js.KeyValue(ctx, name); errors.Is(err, jetstream.ErrBucketNotFound) {
+		if _, err := js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
 			Bucket:  name,
 			Storage: storageType,
 			TTL:     ttl,
@@ -221,76 +224,74 @@ func EnsureBucket(js nats.JetStreamContext, storageType nats.StorageType, name s
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(ctx context.Context, js nats.JetStreamContext, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg *nats.Msg) (bool, error), opts ...ProcessOption) error {
+func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), opts ...ProcessOption) error {
 	set := &ProcessOpts{}
 	for _, i := range opts {
 		i.Set(set)
 	}
 	log := logx.FromContext(ctx)
 
-	if durable != "" {
-		if !strings.HasPrefix(durable, "ServiceTask_") {
-			conInfo, err := js.ConsumerInfo(streamName, durable)
-			if err != nil || conInfo.Config.Durable == "" {
-				return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
+	receivers := make([]jetstream.MessagesContext, 0, concurrency)
+
+	for i := 0; i < concurrency; i++ {
+		//shared js.Consumer and consumer.Messages per unit of concurrency fails
+		//shared js.Consumer and shared consumer.Messages works
+		//js.Consumer and consumer.Messages per unit of concurrency works
+		consumer, err := js.Consumer(ctx, streamName, durable)
+		if err != nil {
+			return fmt.Errorf("check durable consumer '%s'present: %w", durable, err)
+		}
+		if durable != "" {
+			if !strings.HasPrefix(durable, "ServiceTask_") {
+				conInfo, err := consumer.Info(ctx)
+				if err != nil || conInfo.Config.Durable == "" {
+					return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
+				}
 			}
 		}
-	}
-	sub, err := js.PullSubscribe(subject, durable, nats.BindStream(streamName))
-	if err != nil {
-		log.Error("process pull subscribe error", err, "subject", subject, "durable", durable)
-		return fmt.Errorf("process pull subscribe error subject:%s durable:%s: %w", subject, durable, err)
-	}
-	for i := 0; i < concurrency; i++ {
-		go func() {
+		messagesContext, err := consumer.Messages(
+			jetstream.WithMessagesErrOnMissingHeartbeat(false),
+		)
+		receivers = append(receivers, messagesContext)
+		if err != nil {
+			return fmt.Errorf("process consumer %w", err)
+		}
+
+		go func(i int) {
 			for {
-				select {
-				case <-closer:
-					return
-				default:
-				}
-				reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-				msg, err := sub.Fetch(1, nats.Context(reqCtx))
+				m, err := messagesContext.Next()
 				if err != nil {
-					if errors.Is(err, context.DeadlineExceeded) {
-						cancel()
-						continue
+					if errors.Is(err, jetstream.ErrMsgIteratorClosed) {
+						return
 					}
 					// Horrible, but this isn't a typed error.  This test just stops the listener printing pointless errors.
 					if err.Error() == "nats: Server Shutdown" || err.Error() == "nats: connection closed" {
-						cancel()
 						continue
 					}
 					// Log Error
 					log.Error("message fetch error", err)
-					cancel()
 					continue
 				}
-				m := msg[0]
-				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Header)
-				if x := msg[0].Header.Get(header.SharNamespace); x == "" {
+				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())
+				if x := m.Headers().Get(header.SharNamespace); x == "" {
 					log.Error("message without namespace", slog.Any("subject", m.Subject))
-					if err := msg[0].Ack(); err != nil {
+					if err := m.Ack(); err != nil {
 						log.Error("processing failed to ack", err)
 					}
-					cancel()
 					continue
 				}
 				if err != nil {
 					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
-					if err := msg[0].Ack(); err != nil {
+					if err := m.Ack(); err != nil {
 						log.Error("processing failed to ack", err)
 					}
-					cancel()
 					continue
 				}
-				//				log.Debug("Process:"+traceName, slog.String("subject", msg[0].Subject))
-				cancel()
-				if embargo := m.Header.Get("embargo"); embargo != "" && embargo != "0" {
+				//          log.Debug("Process:"+traceName, slog.String("subject", msg[0].Subject))
+				if embargo := m.Headers().Get("embargo"); embargo != "" && embargo != "0" {
 					e, err := strconv.Atoi(embargo)
 					if err != nil {
 						log.Error("bad embargo value", err)
-						cancel()
 						continue
 					}
 					offset := time.Duration(int64(e) - time.Now().UnixNano())
@@ -298,14 +299,13 @@ func Process(ctx context.Context, js nats.JetStreamContext, streamName string, t
 						if err := m.NakWithDelay(offset); err != nil {
 							log.Warn("nak with delay")
 						}
-						cancel()
 						continue
 					}
 				}
 
-				executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Header)
+				executeCtx, executeLog := logx.NatsMessageLoggingEntrypoint(context.Background(), "server", m.Headers())
 				executeCtx = header.Copy(ctx, executeCtx)
-				executeCtx = subj.SetNS(executeCtx, m.Header.Get(header.SharNamespace))
+				executeCtx = subj.SetNS(executeCtx, m.Headers().Get(header.SharNamespace))
 
 				for _, i := range middleware {
 					var err error
@@ -315,38 +315,43 @@ func Process(ctx context.Context, js nats.JetStreamContext, streamName string, t
 					}
 				}
 
-				ack, err := fn(executeCtx, executeLog, msg[0])
+				ack, err := fn(executeCtx, executeLog, m)
 				if err != nil {
 					if errors2.IsWorkflowFatal(err) {
-						executeLog.Error("workflow fatal error occured processing function", err)
+						executeLog.Error("workflow fatal error occurred processing function", err)
 						ack = true
 					} else {
 						wfe := &workflow.Error{}
 						if !errors.As(err, wfe) {
 							if set.BackoffCalc != nil {
 								executeLog.Error("processing error", err, "name", traceName)
-								err := set.BackoffCalc(executeCtx, msg[0])
+								err := set.BackoffCalc(executeCtx, m)
 								if err != nil {
 									slog.Error("backoff error", "error", err)
 								}
-								cancel()
 								continue
 							}
 						}
 					}
 				}
 				if ack {
-					if err := msg[0].Ack(); err != nil {
+					if err := m.Ack(); err != nil {
 						log.Error("processing failed to ack", err)
 					}
 				} else {
-					if err := msg[0].Nak(); err != nil {
+					if err := m.Nak(); err != nil {
 						log.Error("processing failed to nak", err)
 					}
 				}
 			}
-		}()
+		}(i)
 	}
+	go func() {
+		<-closer
+		for _, i := range receivers {
+			i.Stop()
+		}
+	}()
 	return nil
 }
 
@@ -355,9 +360,9 @@ const jsErrCodeStreamWrongLastSequence = 10071
 var lockVal = make([]byte, 0)
 
 // Lock ensures a lock on a given ID, it returns true if a lock was granted.
-func Lock(kv nats.KeyValue, lockID string) (bool, error) {
-	_, err := kv.Create(lockID, lockVal)
-	if errors.Is(err, nats.ErrKeyExists) {
+func Lock(ctx context.Context, kv jetstream.KeyValue, lockID string) (bool, error) {
+	_, err := kv.Create(ctx, lockID, lockVal)
+	if errors.Is(err, jetstream.ErrKeyExists) {
 		return false, nil
 	} else if err != nil {
 		return false, fmt.Errorf("querying lock: %w", err)
@@ -366,15 +371,15 @@ func Lock(kv nats.KeyValue, lockID string) (bool, error) {
 }
 
 // ExtendLock extends the lock past its stale time.
-func ExtendLock(kv nats.KeyValue, lockID string) error {
-	v, err := kv.Get(lockID)
-	if errors.Is(err, nats.ErrKeyNotFound) {
+func ExtendLock(ctx context.Context, kv jetstream.KeyValue, lockID string) error {
+	v, err := kv.Get(ctx, lockID)
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("hold lock found no lock: %w", err)
 	} else if err != nil {
 		return fmt.Errorf("querying lock: %w", err)
 	}
 	rev := v.Revision()
-	_, err = kv.Update(lockID, lockVal, rev)
+	_, err = kv.Update(ctx, lockID, lockVal, rev)
 	testErr := &nats.APIError{}
 	if errors.As(err, &testErr) {
 		if testErr.ErrorCode == jsErrCodeStreamWrongLastSequence {
@@ -387,20 +392,20 @@ func ExtendLock(kv nats.KeyValue, lockID string) error {
 }
 
 // UnLock closes an existing lock.
-func UnLock(kv nats.KeyValue, lockID string) error {
-	_, err := kv.Get(lockID)
-	if errors.Is(err, nats.ErrKeyNotFound) {
+func UnLock(ctx context.Context, kv jetstream.KeyValue, lockID string) error {
+	_, err := kv.Get(ctx, lockID)
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("unlocking found no lock: %w", err)
 	} else if err != nil {
 		return fmt.Errorf("unlocking get lock: %w", err)
 	}
-	if err := kv.Delete(lockID); err != nil {
+	if err := kv.Delete(ctx, lockID); err != nil {
 		return fmt.Errorf("unlocking: %w", err)
 	}
 	return nil
 }
 
-func largeObjLock(ctx context.Context, lockKV nats.KeyValue, key string) error {
+func largeObjLock(ctx context.Context, lockKV jetstream.KeyValue, key string) error {
 	for {
 		cErr := ctx.Err()
 		if cErr != nil {
@@ -413,7 +418,7 @@ func largeObjLock(ctx context.Context, lockKV nats.KeyValue, key string) error {
 			}
 		}
 
-		lock, err := Lock(lockKV, key)
+		lock, err := Lock(ctx, lockKV, key)
 		if err != nil {
 			return fmt.Errorf("load large locking: %w", err)
 		}
@@ -427,16 +432,16 @@ func largeObjLock(ctx context.Context, lockKV nats.KeyValue, key string) error {
 }
 
 // LoadLarge load a large binary from the object store
-func LoadLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, key string, opt ...nats.GetObjectOpt) ([]byte, error) {
+func LoadLarge(ctx context.Context, ds jetstream.ObjectStore, mutex jetstream.KeyValue, key string, opt ...jetstream.GetObjectOpt) ([]byte, error) {
 	if err := largeObjLock(ctx, mutex, key); err != nil {
 		return nil, fmt.Errorf("load large locking: %w", err)
 	}
 	defer func() {
-		if err := UnLock(mutex, key); err != nil {
+		if err := UnLock(ctx, mutex, key); err != nil {
 			slog.Error("load large unlocking", "error", err.Error())
 		}
 	}()
-	ret, err := ds.GetBytes(key, opt...)
+	ret, err := ds.GetBytes(ctx, key, opt...)
 	if err != nil {
 		return nil, fmt.Errorf("load large get: %w", err)
 	}
@@ -444,17 +449,16 @@ func LoadLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, ke
 }
 
 // SaveLarge saves a large binary from the object store
-func SaveLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, key string, data []byte, opt ...nats.ObjectOpt) error {
-	opt = append(opt, nats.Context(ctx))
+func SaveLarge(ctx context.Context, ds jetstream.ObjectStore, mutex jetstream.KeyValue, key string, data []byte) error {
 	if err := largeObjLock(ctx, mutex, key); err != nil {
 		return fmt.Errorf("save large locking: %w", err)
 	}
 	defer func() {
-		if err := UnLock(mutex, key); err != nil {
+		if err := UnLock(ctx, mutex, key); err != nil {
 			slog.Error("save large unlocking", "error", err.Error())
 		}
 	}()
-	if _, err := ds.PutBytes(key, data, opt...); err != nil {
+	if _, err := ds.PutBytes(ctx, key, data); err != nil {
 
 		return fmt.Errorf("save large put: %w", err)
 	}
@@ -462,20 +466,20 @@ func SaveLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, ke
 }
 
 // SaveLargeObj save an protobuf message to a document store
-func SaveLargeObj(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, k string, v proto.Message, opt ...nats.ObjectOpt) error {
+func SaveLargeObj(ctx context.Context, ds jetstream.ObjectStore, mutex jetstream.KeyValue, k string, v proto.Message, opt ...nats.ObjectOpt) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "save object", slog.String("key", k), slog.Any("val", v))
 	}
 	b, err := proto.Marshal(v)
 	if err == nil {
-		return SaveLarge(ctx, ds, mutex, k, b, opt...)
+		return SaveLarge(ctx, ds, mutex, k, b)
 	}
 	return fmt.Errorf("save object into KV: %w", err)
 }
 
 // LoadLargeObj loads a protobuf message from a key value store
-func LoadLargeObj(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, k string, v proto.Message, opt ...nats.GetObjectOpt) error {
+func LoadLargeObj(ctx context.Context, ds jetstream.ObjectStore, mutex jetstream.KeyValue, k string, v proto.Message, opt ...jetstream.GetObjectOpt) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "load object", slog.String("key", k), slog.Any("val", v))
@@ -491,7 +495,7 @@ func LoadLargeObj(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue,
 }
 
 // UpdateLargeObj saves an protobuf message to a document store after using updateFN to update the message.
-func UpdateLargeObj[T proto.Message](ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, k string, msg T, updateFn func(v T) (T, error)) (T, error) { //nolint
+func UpdateLargeObj[T proto.Message](ctx context.Context, ds jetstream.ObjectStore, mutex jetstream.KeyValue, k string, msg T, updateFn func(v T) (T, error)) (T, error) { //nolint
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
 		log.Log(ctx, errors2.TraceLevel, "update object", slog.String("key", k), slog.Any("fn", reflect.TypeOf(updateFn)))
@@ -511,38 +515,42 @@ func UpdateLargeObj[T proto.Message](ctx context.Context, ds nats.ObjectStore, m
 }
 
 // DeleteLarge deletes a large binary from the object store
-func DeleteLarge(ctx context.Context, ds nats.ObjectStore, mutex nats.KeyValue, k string) error {
+func DeleteLarge(ctx context.Context, ds jetstream.ObjectStore, mutex jetstream.KeyValue, k string) error {
 	if err := largeObjLock(ctx, mutex, k); err != nil {
 		return fmt.Errorf("delete large locking: %w", err)
 	}
 	defer func() {
-		if err := UnLock(mutex, k); err != nil {
+		if err := UnLock(ctx, mutex, k); err != nil {
 			slog.Error("load large unlocking", "error", err.Error())
 		}
 	}()
-	if err := ds.Delete(k); err != nil && errors.Is(err, nats.ErrNoObjectsFound) && !errors.Is(err, nats.ErrKeyNotFound) {
+	if err := ds.Delete(ctx, k); err != nil && errors.Is(err, jetstream.ErrNoObjectsFound) && !errors.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete large removing: %w", err)
 	}
 	return nil
 }
 
 // PublishOnce sets up a single message to be used as a timer.
-func PublishOnce(js nats.JetStreamContext, lockingKV nats.KeyValue, streamName string, consumerName string, msg *nats.Msg) error {
-	consumer, err := js.ConsumerInfo(streamName, consumerName)
+func PublishOnce(ctx context.Context, js jetstream.JetStream, lockingKV jetstream.KeyValue, streamName string, consumerName string, msg *nats.Msg) error {
+	consumer, err := js.Consumer(ctx, streamName, consumerName)
+	if err != nil {
+		return fmt.Errorf("get consumer: %w", err)
+	}
+	cInfo, err := consumer.Info(ctx)
 	if err != nil {
 		return fmt.Errorf("obtaining publish once consumer information: %w", err)
 	}
-	if int(consumer.NumPending)+consumer.NumAckPending+consumer.NumWaiting == 0 {
-		if lock, err := Lock(lockingKV, consumerName); err != nil {
+	if int(cInfo.NumPending)+cInfo.NumAckPending+cInfo.NumWaiting == 0 {
+		if lock, err := Lock(ctx, lockingKV, consumerName); err != nil {
 			return fmt.Errorf("obtaining lock for publish once consumer: %w", err)
 		} else if lock {
 			defer func() {
 				// clear the lock out of courtesy
-				if err := UnLock(lockingKV, consumerName); err != nil {
+				if err := UnLock(ctx, lockingKV, consumerName); err != nil {
 					slog.Warn("releasing lock for publish once consumer")
 				}
 			}()
-			if _, err := js.PublishMsg(msg); err != nil {
+			if _, err := js.PublishMsg(ctx, msg); err != nil {
 				return fmt.Errorf("starting publish once message: %w", err)
 			}
 		}
@@ -565,6 +573,75 @@ func PublishObj(ctx context.Context, conn NatsConn, subject string, prot proto.M
 	}
 	if err = conn.PublishMsg(msg); err != nil {
 		return fmt.Errorf("publish message: %w", err)
+	}
+	return nil
+}
+
+// KeyPrefixResultOpts represents the options for KeyPrefixSearch function.
+// Sort field indicates whether the returned values should be sorted.
+// ExcludeDeleted field filters out deleted key-values from the result.
+type KeyPrefixResultOpts struct {
+	Sort           bool // Sort the returned values
+	ExcludeDeleted bool // ExcludeDeleted filters deleted key-values from the result (cost penalty)¬.
+}
+
+// KeyPrefixSearch searches for keys in a key-value store that have a specified prefix.
+// It retrieves the keys by querying the JetStream stream associated with the key-value store.
+// It returns a slice of strings containing the keys, and an error if any.
+func KeyPrefixSearch(ctx context.Context, js jetstream.JetStream, kv jetstream.KeyValue, prefix string, opts KeyPrefixResultOpts) ([]string, error) {
+	kvName := kv.Bucket()
+	streamName := "KV_" + kvName
+	subjectTrim := fmt.Sprintf("$KV.%s.", kvName)
+	subjectPrefix := fmt.Sprintf("%s%s.", subjectTrim, prefix)
+	kvs, err := js.Stream(ctx, streamName)
+	if err != nil {
+		return nil, fmt.Errorf("get stream: %w", err)
+	}
+	nfo, err := kvs.Info(ctx, jetstream.WithSubjectFilter(subjectPrefix+">"))
+	if err != nil {
+		return nil, fmt.Errorf("get stream info: %w", err)
+	}
+	ret := make([]string, 0, len(nfo.State.Subjects))
+	trim := len(subjectTrim)
+	for s := range nfo.State.Subjects {
+		if len(s) >= trim {
+			ret = append(ret, s[trim:])
+		}
+	}
+
+	if opts.Sort {
+		slices.Sort(ret)
+	}
+	if opts.ExcludeDeleted {
+		var fnErr error
+		ret = slices.DeleteFunc(ret, func(k string) bool {
+			_, err := kv.Get(ctx, k)
+			if err != nil {
+				if errors.Is(err, jetstream.ErrKeyNotFound) {
+					return true
+				} else {
+					fnErr = err
+					return true
+				}
+			}
+			return false
+		})
+		if fnErr != nil {
+			return nil, fmt.Errorf("get key value: %w", fnErr)
+		}
+	}
+	return ret, nil
+}
+
+// CheckVersion checks the NATS server version against a minimum supported version
+func CheckVersion(ctx context.Context, nc *nats.Conn) error {
+	nvStr := nc.ConnectedServerVersion()
+	nv, err := version2.NewVersion(nvStr)
+	if err != nil {
+		return fmt.Errorf("parse nats version: %w", err)
+	}
+	if nv.LessThan(version3.NatsVersion) {
+		return fmt.Errorf("nats version %s not supported.  The minimum supported version is %s", nvStr, version3.NatsVersion)
 	}
 	return nil
 }

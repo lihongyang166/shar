@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/client/api"
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -48,7 +49,8 @@ func Call[T proto.Message, U proto.Message](ctx context.Context, con *nats.Conn,
 		msg.Header.Add(header.NatsCompatHeader, "v0.0.0")
 	}
 	for _, i := range sendMiddleware {
-		if err := i(ctx, msg); err != nil {
+		mwrap := common.NewNatsMsgWrapper(msg)
+		if err := i(ctx, mwrap); err != nil {
 			return fmt.Errorf("send middleware %s: %w", reflect.TypeOf(i).Name(), err)
 		}
 	}

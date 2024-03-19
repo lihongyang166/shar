@@ -6,7 +6,6 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"log"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -86,7 +85,7 @@ func runContainer(client *client.Client, imagename string, containername string,
 	}
 
 	// Run the actual container
-	err = client.ContainerStart(context.Background(), cont.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(context.Background(), cont.ID, container.StartOptions{})
 	if err != nil {
 		return fmt.Errorf("container start: %w", err)
 	}

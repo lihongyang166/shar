@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,9 +17,6 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestExclusiveParse(t *testing.T) {
@@ -70,11 +71,11 @@ func TestExclusiveRun(t *testing.T) {
 	g := &gatewayTest{finished: make(chan struct{})}
 
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.stage2)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.stage2)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -97,7 +98,6 @@ func TestExclusiveRun(t *testing.T) {
 
 	support.WaitForChan(t, g.finished, time.Second*20)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
-
 }
 
 func TestInclusiveRun(t *testing.T) {
@@ -116,11 +116,11 @@ func TestInclusiveRun(t *testing.T) {
 	g := &gatewayTest{finished: make(chan struct{})}
 
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.stage2)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.stage2)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -143,7 +143,6 @@ func TestInclusiveRun(t *testing.T) {
 
 	support.WaitForChan(t, g.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
-
 }
 
 type gatewayTest struct {

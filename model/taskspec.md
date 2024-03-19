@@ -96,14 +96,6 @@
 |------|------|-------------|------------|
 | error | TaskError | Error workflow events that can be returned from the task. |  -  |
 | message | Message | Message workflow events that can be returned from the task. |  -  |
-### Message
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| name | string | Name - Message name for a workflow message. | arbitrary string |
-| correlationKey | string | CorrelationKey - the workflow message correlation key. | NATS-safe identifier |
-| short | string | Short description of the parameter. | arbitrary string |
-| description | string | Description - a long description of the parameter. | arbitrary string |
 ### TaskError
 
 | name | type | description | validation |
@@ -112,3 +104,11 @@
 | code | string | Code a unique code for the error. | NATS-safe identifier |
 | short | string | Short description of the error. | arbitrary string |
 | description | string | Description - a long description of the error. | arbitrary string |
+### Message
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| name | string | Name - Message name for a workflow message. | arbitrary string |
+| correlationKey | string | CorrelationKey - the workflow message correlation key. | NATS-safe identifier |
+| short | string | Short description of the parameter. | arbitrary string |
+| description | string | Description - a long description of the parameter. | arbitrary string |

@@ -3,6 +3,11 @@ package error
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,10 +15,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"log/slog"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestEndEventError(t *testing.T) {
@@ -31,9 +32,9 @@ func TestEndEventError(t *testing.T) {
 	d := &testErrorEndEventHandlerDef{finished: make(chan struct{}), t: t}
 
 	// Register service tasks
-	err := taskutil.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_couldThrowError.yaml", d.mayFail3)
+	_, err := taskutil.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_couldThrowError.yaml", d.mayFail3)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_fixSituation.yaml", d.fixSituation)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_fixSituation.yaml", d.fixSituation)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -84,6 +85,7 @@ func (d *testErrorEndEventHandlerDef) fixSituation(_ context.Context, _ client.J
 	fmt.Println("carried", vars["carried"])
 	panic("this event should not fire")
 }
+
 func (d *testErrorEndEventHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	assert.Equal(d.t, "103", wfError.Code)
 	assert.Equal(d.t, "CatastrophicError", wfError.Name)

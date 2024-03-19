@@ -188,12 +188,6 @@ func New(conn *nats.Conn, txConn *nats.Conn, storageType jetstream.StorageType, 
 	}
 	ms.sharKvs[ns] = nKvs
 
-	msg := nats.NewMsg(messages.WorkflowMessageKick)
-	msg.Header.Set(header.SharNamespace, ns)
-	if err := common.PublishOnce(ctx, js, nKvs.wfLock, "WORKFLOW", "MessageKickConsumer", msg); err != nil {
-		return nil, fmt.Errorf("ensure kick message: %w", err)
-	}
-
 	if err := ms.startTelemetry(ctx, ns); err != nil {
 		return nil, fmt.Errorf("start telemetry: %w", err)
 	}

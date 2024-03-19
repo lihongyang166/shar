@@ -3,10 +3,11 @@ package intTest
 import (
 	"context"
 	"fmt"
-	"github.com/segmentio/ksuid"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/segmentio/ksuid"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,7 @@ func TestShutdownSimple(t *testing.T) {
 	// Register a service task
 	d := &testShutdownHandlerDef{t: t, finished: make(chan struct{})}
 
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)
@@ -54,7 +55,7 @@ func TestShutdownSimple(t *testing.T) {
 	stopwatch := time.Now()
 	cl.Shutdown()
 	assert.Greater(t, time.Since(stopwatch), time.Millisecond*2500)
-	//support.WaitForChan(t, d.finished, 20*time.Second)
+	// support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 

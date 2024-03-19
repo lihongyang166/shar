@@ -33,7 +33,6 @@ streams:
         - WORKFLOW.*.State.Job.Activate.Gateway
         - WORKFLOW.*.State.Job.ReEnter.Gateway
         - WORKFLOW.Message.Telemetry
-        - WORKFLOW.Message.Kick
         - $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>
       retention: 1
       storage: 1

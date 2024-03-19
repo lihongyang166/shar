@@ -3,6 +3,12 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,11 +16,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"log/slog"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 //goland:noinspection GoNilness
@@ -33,11 +34,11 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register service tasks
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step3.yaml", handlers.step3)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step3.yaml", handlers.step3)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -112,7 +113,6 @@ func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, 
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-
 	assert.Equal(x.t, "carried1value", vars["carried"])
 	assert.Equal(x.t, "carried2value", vars["carried2"])
 	close(x.finished)

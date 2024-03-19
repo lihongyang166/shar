@@ -10,7 +10,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
-	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	"os"
 	"sync"
 	"testing"
@@ -30,16 +29,16 @@ func TestUserTasks(t *testing.T) {
 		panic(err)
 	}
 
-	sub := tracer.Trace(tst.NatsURL)
-	defer sub.Close()
+	//sub := tracer.Trace(NatsURL)
+	//defer sub.Drain()
 
 	d := &testUserTaskHandlerDef{finished: make(chan struct{})}
 	d.finalVars = make(model.Vars)
 
 	// Register service tasks
-	err := taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
+	_, err := taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
 	require.NoError(t, err)
-	err = taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Complete.yaml", d.complete)
+	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Complete.yaml", d.complete)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

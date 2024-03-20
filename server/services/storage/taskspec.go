@@ -76,7 +76,7 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 			return nil, fmt.Errorf("marshal %s system message: %w", subj, err)
 		}
 		msg.Data = b
-		msg.Header.Set(header.SharNamespace, "*")
+		msg.Header.Set(header.SharNamespace, ns)
 		if err := s.conn.PublishMsg(msg); err != nil {
 			return nil, fmt.Errorf("send %s system message: %w", subj, err)
 		}

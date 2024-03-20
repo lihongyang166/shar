@@ -45,13 +45,16 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	executionId, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
 		require.NoError(t, err)
 	}()
+
+	tst.AssertTrackingFor(ns, executionId, 10*time.Second, t)
+
 	support.WaitForChan(t, d.finished, 20*time.Second)
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)

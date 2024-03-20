@@ -437,6 +437,33 @@ func (s *Integration) GetNats() (*nats.Conn, error) {
 	return con, nil
 }
 
+func (s *Integration) AssertTrackingFor(namespace string, executionId string, duration time.Duration, t *testing.T) {
+	jetStream, err := s.GetJetstream()
+	require.NoError(t, err)
+	ctx := context.Background()
+	timeOutChannel := time.After(duration)
+
+	for {
+		select {
+		case <-timeOutChannel:
+			assert.Fail(t, "tracking expected")
+			return
+		default:
+			trackingKv, err := jetStream.KeyValue(ctx, ns.PrefixWith(namespace, messages.KvTracking))
+			if errors.Is(err, jetstream.ErrBucketNotFound) {
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			_, err = trackingKv.Get(ctx, executionId)
+			if errors.Is(err, jetstream.ErrKeyNotFound) {
+				time.Sleep(500 * time.Millisecond)
+			} else {
+				return
+			}
+		}
+	}
+}
+
 // WaitForChan waits for a chan struct{} with a duration timeout.
 func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
 	select {

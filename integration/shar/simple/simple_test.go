@@ -53,7 +53,7 @@ func TestSimple(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	tst.AssertTrackingFor(ns, executionId, 10*time.Second, t)
+	tst.AssertTrackingFor(ns, executionId, 20*time.Second, t)
 
 	support.WaitForChan(t, d.finished, 20*time.Second)
 

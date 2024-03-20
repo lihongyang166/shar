@@ -437,6 +437,7 @@ func (s *Integration) GetNats() (*nats.Conn, error) {
 	return con, nil
 }
 
+// AssertTrackingFor asserts tracking exists for a given namespace and execution id
 func (s *Integration) AssertTrackingFor(namespace string, executionId string, duration time.Duration, t *testing.T) {
 	jetStream, err := s.GetJetstream()
 	require.NoError(t, err)

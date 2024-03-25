@@ -49,7 +49,7 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	go func() {
-		tst.GetTrackingUpdatesFor(ns, executionId, d.trackingReceived, 20*time.Second, t)
+		tst.TrackingUpdatesFor(ns, executionId, d.trackingReceived, 20*time.Second, t)
 	}()
 
 	// Listen for service tasks

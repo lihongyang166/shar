@@ -30,7 +30,7 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register a service task
-	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{})}
+	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{}), trackingReceived: make(chan struct{}, 1)}
 
 	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
@@ -47,22 +47,27 @@ func TestSimple(t *testing.T) {
 	// Launch the workflow
 	executionId, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 	require.NoError(t, err)
+
+	go func() {
+		tst.GetTrackingUpdatesFor(ns, executionId, d.trackingReceived, 20*time.Second, t)
+	}()
+
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
 		require.NoError(t, err)
 	}()
 
-	tst.AssertTrackingFor(ns, executionId, 20*time.Second, t)
-
+	support.WaitForChan(t, d.trackingReceived, 20*time.Second)
 	support.WaitForChan(t, d.finished, 20*time.Second)
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type testSimpleHandlerDef struct {
-	t        *testing.T
-	finished chan struct{}
+	t                *testing.T
+	finished         chan struct{}
+	trackingReceived chan struct{}
 }
 
 func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {

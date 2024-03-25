@@ -437,8 +437,8 @@ func (s *Integration) GetNats() (*nats.Conn, error) {
 	return con, nil
 }
 
-// AssertTrackingFor asserts tracking exists for a given namespace and execution id
-func (s *Integration) AssertTrackingFor(namespace string, executionId string, duration time.Duration, t *testing.T) {
+// GetTrackingUpdatesFor listens for tracking updates for a given namespace and execution id
+func (s *Integration) GetTrackingUpdatesFor(namespace string, executionId string, received chan struct{}, duration time.Duration, t *testing.T) {
 	jetStream, err := s.GetJetstream()
 	require.NoError(t, err)
 	ctx := context.Background()
@@ -447,20 +447,19 @@ func (s *Integration) AssertTrackingFor(namespace string, executionId string, du
 	for {
 		select {
 		case <-timeOutChannel:
-			assert.Fail(t, "tracking expected")
-			return
+			assert.Fail(t, "failed to get tracking update channel")
 		default:
 			trackingKv, err := jetStream.KeyValue(ctx, ns.PrefixWith(namespace, messages.KvTracking))
+
 			if errors.Is(err, jetstream.ErrBucketNotFound) {
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
-			_, err = trackingKv.Get(ctx, executionId)
-			if errors.Is(err, jetstream.ErrKeyNotFound) {
-				time.Sleep(500 * time.Millisecond)
-			} else {
-				return
-			}
+
+			watch, _ := trackingKv.Watch(ctx, executionId, jetstream.UpdatesOnly())
+			<-watch.Updates()
+			received <- struct{}{}
+			return
 		}
 	}
 }

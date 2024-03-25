@@ -437,8 +437,8 @@ func (s *Integration) GetNats() (*nats.Conn, error) {
 	return con, nil
 }
 
-// GetTrackingUpdatesFor listens for tracking updates for a given namespace and execution id
-func (s *Integration) GetTrackingUpdatesFor(namespace string, executionId string, received chan struct{}, duration time.Duration, t *testing.T) {
+// TrackingUpdatesFor sends to the received channel when tracking updates for a given namespace and execution id are received
+func (s *Integration) TrackingUpdatesFor(namespace string, executionId string, received chan struct{}, duration time.Duration, t *testing.T) {
 	jetStream, err := s.GetJetstream()
 	require.NoError(t, err)
 	ctx := context.Background()
@@ -456,7 +456,8 @@ func (s *Integration) GetTrackingUpdatesFor(namespace string, executionId string
 				continue
 			}
 
-			watch, _ := trackingKv.Watch(ctx, executionId, jetstream.UpdatesOnly())
+			watch, err := trackingKv.Watch(ctx, executionId, jetstream.UpdatesOnly())
+			require.NoError(t, err)
 			<-watch.Updates()
 			received <- struct{}{}
 			return

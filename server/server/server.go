@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
@@ -12,12 +18,9 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
-	"net"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/hashicorp/go-version"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/authn"
 	"gitlab.com/shar-workflow/shar/common/authz"
@@ -28,7 +31,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/services/storage"
 	gogrpc "google.golang.org/grpc"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
-	"log/slog"
 )
 
 // Server is the shar server type responsible for hosting the SHAR API.
@@ -82,6 +84,16 @@ func New(options ...Option) *Server {
 		s.apiAuthenticator = noopAuthN
 	}
 
+	// Show some details about the newly configured server:
+	fmt.Printf(`███████╗██╗  ██╗ █████╗ ██████╗
+	██╔════╝██║  ██║██╔══██╗██╔══██╗
+	███████╗███████║███████║██████╔╝
+	╚════██║██╔══██║██╔══██║██╔══██╗
+	███████║██║  ██║██║  ██║██║  ██║
+	╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝\n\n`)
+
+	s.Details()
+
 	return s
 }
 
@@ -96,6 +108,27 @@ func noopAuthZ(_ context.Context, _ *model.ApiAuthorizationRequest) (*model.ApiA
 	return &model.ApiAuthorizationResponse{
 		Authorized: true,
 	}, nil
+}
+
+// Details prints the details to stdout of the current SHAR server.
+func (s *Server) Details() {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"PROPERTY", "VALUE"})
+	t.AppendRows([]table.Row{
+		{"GrpcServer             ", s.grpcServer},
+		{"EphemeralStorage       ", s.ephemeralStorage},
+		{"PanicRecovery          ", s.panicRecovery},
+		{"AllowOrphanServiceTasks", s.allowOrphanServiceTasks},
+		{"Concurrency            ", s.concurrency},
+		{"SharVersion            ", s.SharVersion},
+		{"NatsUrl                ", s.natsUrl},
+		{"GrpcPort               ", s.grpcPort},
+		{"TelemetryEnabled       ", s.telemetryConfig.Enabled},
+		{"TelemetryEndpoint      ", s.telemetryConfig.Endpoint},
+	})
+	t.AppendSeparator()
+	t.Render()
 }
 
 // Listen starts the GRPC server for both serving requests, and the GRPC health endpoint.
@@ -160,7 +193,7 @@ func (s *Server) Listen() {
 }
 
 func setupTelemetry(s *Server) {
-	var traceName = "shar"
+	traceName := "shar"
 	switch s.telemetryConfig.Endpoint {
 	case "console":
 		exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
@@ -185,7 +218,6 @@ setProvider:
 
 // Shutdown gracefully shuts down the GRPC server, and requests that
 func (s *Server) Shutdown() {
-
 	s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 
 	s.api.Shutdown()
@@ -197,11 +229,11 @@ func (s *Server) Shutdown() {
 
 // GetEndPoint will return the URL of the GRPC health endpoint for the shar server
 func (s *Server) GetEndPoint() string {
-	return "TODO" //can we discover the grpc endpoint listen address??
+	return "TODO" // can we discover the grpc endpoint listen address??
 }
 
 func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool, allowOrphanServiceTasks bool) *storage.Nats {
-	//TODO why do we need a separate txConn?
+	// TODO why do we need a separate txConn?
 	txConn, err := nats.Connect(natsURL)
 	if err != nil {
 		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsURL))
@@ -219,7 +251,7 @@ func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool,
 		}
 	}
 
-	var store = jetstream.FileStorage
+	store := jetstream.FileStorage
 	if ephemeral {
 		store = jetstream.MemoryStorage
 	}

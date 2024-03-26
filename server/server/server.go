@@ -117,17 +117,18 @@ func (s *Server) Details() {
 	t := table.NewWriter()
 	t.SetStyle(table.StyleLight)
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"SHAR SERVER CONFIGURATION"})
+	t.AppendHeader(table.Row{"SHAR SERVER CONFIGURATION", "VALUE"})
+	t.Style().Options.SeparateRows = true
 	t.AppendRows([]table.Row{
-		{"SharVersion            ", s.SharVersion},
-		{"NatsUrl                ", s.natsUrl},
+		{"Version                ", s.SharVersion},
+		{"Nats URL               ", s.natsUrl},
 		{"Concurrency            ", s.concurrency},
-		{"EphemeralStorage       ", s.ephemeralStorage},
-		{"PanicRecovery          ", s.panicRecovery},
+		{"Ephemeral Storage      ", s.ephemeralStorage},
+		{"Panic Recovery         ", s.panicRecovery},
 		{"AllowOrphanServiceTasks", s.allowOrphanServiceTasks},
-		{"GrpcPort               ", s.grpcPort},
-		{"TelemetryEnabled       ", s.telemetryConfig.Enabled},
-		{"TelemetryEndpoint      ", s.telemetryConfig.Endpoint},
+		{"Grpc Port              ", s.grpcPort},
+		{"Telemetry Enabled      ", s.telemetryConfig.Enabled},
+		{"Telemetry Endpoint     ", s.telemetryConfig.Endpoint},
 	}, table.RowConfig{AutoMerge: false})
 	t.AppendSeparator()
 	t.Render()

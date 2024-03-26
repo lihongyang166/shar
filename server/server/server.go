@@ -85,12 +85,14 @@ func New(options ...Option) *Server {
 	}
 
 	// Show some details about the newly configured server:
-	fmt.Printf(`███████╗██╗  ██╗ █████╗ ██████╗
+	fmt.Printf(`
+	███████╗██╗  ██╗ █████╗ ██████╗
 	██╔════╝██║  ██║██╔══██╗██╔══██╗
 	███████╗███████║███████║██████╔╝
 	╚════██║██╔══██║██╔══██║██╔══██╗
 	███████║██║  ██║██║  ██║██║  ██║
-	╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝\n\n`)
+	╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
+	`)
 
 	s.Details()
 
@@ -113,20 +115,20 @@ func noopAuthZ(_ context.Context, _ *model.ApiAuthorizationRequest) (*model.ApiA
 // Details prints the details to stdout of the current SHAR server.
 func (s *Server) Details() {
 	t := table.NewWriter()
+	t.SetStyle(table.StyleLight)
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"PROPERTY", "VALUE"})
+	t.AppendHeader(table.Row{"SHAR SERVER CONFIGURATION"})
 	t.AppendRows([]table.Row{
-		{"GrpcServer             ", s.grpcServer},
+		{"SharVersion            ", s.SharVersion},
+		{"NatsUrl                ", s.natsUrl},
+		{"Concurrency            ", s.concurrency},
 		{"EphemeralStorage       ", s.ephemeralStorage},
 		{"PanicRecovery          ", s.panicRecovery},
 		{"AllowOrphanServiceTasks", s.allowOrphanServiceTasks},
-		{"Concurrency            ", s.concurrency},
-		{"SharVersion            ", s.SharVersion},
-		{"NatsUrl                ", s.natsUrl},
 		{"GrpcPort               ", s.grpcPort},
 		{"TelemetryEnabled       ", s.telemetryConfig.Enabled},
 		{"TelemetryEndpoint      ", s.telemetryConfig.Endpoint},
-	})
+	}, table.RowConfig{AutoMerge: false})
 	t.AppendSeparator()
 	t.Render()
 }

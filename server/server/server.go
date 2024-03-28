@@ -112,6 +112,13 @@ func noopAuthZ(_ context.Context, _ *model.ApiAuthorizationRequest) (*model.ApiA
 	}, nil
 }
 
+// The following variables are set by -ldflags at build time.
+var (
+	VersionTag string
+	CommitHash string
+	BuildDate  string
+)
+
 // Details prints the details to stdout of the current SHAR server.
 func (s *Server) Details() {
 	t := table.NewWriter()
@@ -120,7 +127,9 @@ func (s *Server) Details() {
 	t.AppendHeader(table.Row{"SHAR SERVER CONFIGURATION", "VALUE"})
 	t.Style().Options.SeparateRows = true
 	t.AppendRows([]table.Row{
-		{"Version                ", s.SharVersion},
+		{"Version                ", VersionTag},
+		{"Commit Hash            ", CommitHash},
+		{"Build Time             ", BuildDate},
 		{"Nats URL               ", s.natsUrl},
 		{"Concurrency            ", s.concurrency},
 		{"Ephemeral Storage      ", s.ephemeralStorage},

@@ -5,6 +5,13 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math/big"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
 	version2 "github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -18,12 +25,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
-	"math/big"
-	"reflect"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // NatsConn is the trimmed down NATS Connection interface that only encompasses the methods used by SHAR
@@ -46,7 +47,6 @@ func updateKV(ctx context.Context, wf jetstream.KeyValue, k string, msg proto.Me
 			return fmt.Errorf("update function: %w", err)
 		}
 		_, err = wf.Update(ctx, k, uv, rev)
-
 		if err != nil {
 			maxJitter := &big.Int{}
 			maxJitter.SetInt64(5000)
@@ -224,7 +224,19 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), opts ...ProcessOption) error {
+func Process(
+	ctx context.Context,
+	js jetstream.JetStream,
+	streamName string,
+	traceName string,
+	closer chan struct{},
+	subject string,
+	durable string,
+	concurrency int,
+	middleware []middleware.Receive,
+	fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error),
+	opts ...ProcessOption,
+) error {
 	set := &ProcessOpts{}
 	for _, i := range opts {
 		i.Set(set)
@@ -234,9 +246,9 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 	receivers := make([]jetstream.MessagesContext, 0, concurrency)
 
 	for i := 0; i < concurrency; i++ {
-		//shared js.Consumer and consumer.Messages per unit of concurrency fails
-		//shared js.Consumer and shared consumer.Messages works
-		//js.Consumer and consumer.Messages per unit of concurrency works
+		// shared js.Consumer and consumer.Messages per unit of concurrency fails
+		// shared js.Consumer and shared consumer.Messages works
+		// js.Consumer and consumer.Messages per unit of concurrency works
 		consumer, err := js.Consumer(ctx, streamName, durable)
 		if err != nil {
 			return fmt.Errorf("check durable consumer '%s'present: %w", durable, err)
@@ -257,7 +269,8 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 			return fmt.Errorf("process consumer %w", err)
 		}
 
-		go func(i int) {
+		// This spawns the goroutine which will asynchronously process the messages as pulled from nats.
+		go func() {
 			for {
 				m, err := messagesContext.Next()
 				if err != nil {
@@ -344,7 +357,7 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 					}
 				}
 			}
-		}(i)
+		}()
 	}
 	go func() {
 		<-closer
@@ -459,7 +472,6 @@ func SaveLarge(ctx context.Context, ds jetstream.ObjectStore, mutex jetstream.Ke
 		}
 	}()
 	if _, err := ds.PutBytes(ctx, key, data); err != nil {
-
 		return fmt.Errorf("save large put: %w", err)
 	}
 	return nil

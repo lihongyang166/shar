@@ -22,6 +22,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
@@ -75,7 +76,7 @@ func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, a
 	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
 }
 
-// MessageClient represents a client which supports logging and sending Workflow Messages to the underlying SHAR instrastructure.
+// MessageClient represents a client which supports logging and sending Workflow Messages to the underlying SHAR infrastructure.
 type MessageClient interface {
 	LogClient
 	// SendMessage sends a Workflow Message
@@ -107,7 +108,7 @@ type ProcessTerminateFn func(ctx context.Context, vars model.Vars, wfError *mode
 // SenderFn provides the signature for functions that can act as Workflow Message senders.
 type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars) error
 
-// Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and interating with the API
+// Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and integrating with the API
 type Client struct {
 	id                              string
 	host                            string
@@ -246,22 +247,37 @@ func (c *Client) DeprecateTaskSpec(ctx context.Context, name string) error {
 	return nil
 }
 
-// RegisterTask registers a task spec with SHAR.
-func (c *Client) RegisterTask(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
+// StoreTask stores a task specification, and assigns the generated ID to the task metadata.
+func (c *Client) StoreTask(ctx context.Context, spec *model.TaskSpec) error {
 	id, err := c.registerServiceTask(ctx, spec)
 	if err != nil {
-		return fmt.Errorf("register service task: %w", err)
+		return fmt.Errorf("store task: %w", err)
 	}
 	spec.Metadata.Uid = id
+	slog.Info("stored task", "type", spec.Metadata.Type, "id", spec.Metadata.Uid)
+	return nil
+}
 
+// RegisterTaskFunction registers a service task function.
+// If the service task spec has no UID then it will be calculated and written to the Metadata.Uid field.
+func (c *Client) RegisterTaskFunction(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
+	if spec.Metadata == nil {
+		return fmt.Errorf("task metadata is nil")
+	}
+	if spec.Metadata.Uid == "" {
+		uid, err := task.CreateUID(spec)
+		if err != nil {
+			return fmt.Errorf("create uid: %w", err)
+		}
+		spec.Metadata.Uid = uid
+	}
 	if fn != nil {
-		if _, ok := c.SvcTasks[id]; ok {
+		if _, ok := c.SvcTasks[spec.Metadata.Uid]; ok {
 			return fmt.Errorf("service task '%s' already registered: %w", spec.Metadata.Type, errors2.ErrServiceTaskAlreadyRegistered)
 		}
-		c.SvcTasks[id] = fn
-		c.listenTasks[id] = struct{}{}
+		c.SvcTasks[spec.Metadata.Uid] = fn
+		c.listenTasks[spec.Metadata.Uid] = struct{}{}
 	}
-	slog.Info("registered service task", "type", spec.Metadata.Type, "id", spec.Metadata.Uid)
 	return nil
 }
 
@@ -557,7 +573,7 @@ func (c *Client) ListUserTaskIDs(ctx context.Context, owner string) (*model.User
 	return res, nil
 }
 
-// GetTaskSpecVersions returns all of the version IDs associated with the named task spec.
+// GetTaskSpecVersions returns the version IDs associated with the named task spec.
 func (c *Client) GetTaskSpecVersions(ctx context.Context, name string) ([]string, error) {
 	res := &model.GetTaskSpecVersionsResponse{}
 	req := &model.GetTaskSpecVersionsRequest{Name: name}

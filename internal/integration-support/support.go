@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"gitlab.com/shar-workflow/shar/client"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -516,4 +518,21 @@ func GetPackageName(packageNameStruct any) string {
 	packageNameSegments := strings.Split(fullPackageName, "/")
 	packageName := packageNameSegments[len(packageNameSegments)-1]
 	return packageName
+}
+
+// RegisterTaskYamlFile is used by integration tests to register a service task and function from a YAML file.
+// It first loads and registers the task using taskutil.LoadTaskFromYamlFile,
+// and then registers the task function using taskutil.RegisterTaskFunctionFromYamlFile.
+// It is not recommended to call the functions in succession in real world scenarios as it will cause a task version race condition.
+// Instead, call taskutil.LoadTaskFromYamlFile from an external application, and use taskutil.RegisterTaskFunctionFromYamlFile
+// inside the service task to register the function
+func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename string, fn client.ServiceFn) (string, error) {
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, filename); err != nil {
+		return "", fmt.Errorf("load task from yaml file: %w", err)
+	}
+	ret, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, filename, fn)
+	if err != nil {
+		return "", fmt.Errorf("register task function from yaml file: %w", err)
+	}
+	return ret, nil
 }

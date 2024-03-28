@@ -27,7 +27,7 @@ func TestSimpleTelemetry(t *testing.T) {
 	defer cl.Shutdown()
 
 	// Register a service task
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "telemetry_simple_test_SimpleProcess.yaml", d.integrationSimple)
+	_, err = integration_support.RegisterTaskYamlFile(ctx, cl, "telemetry_simple_test_SimpleProcess.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)

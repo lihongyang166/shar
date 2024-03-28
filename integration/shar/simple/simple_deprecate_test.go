@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 	"time"
@@ -13,8 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -31,7 +30,7 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 	// Register a service task
 	d := &testSimpleDeprecateHandlerDef{t: t, finished: make(chan struct{})}
 
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_deprecate_test.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple_deprecate_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	v, err := cl.GetTaskSpecVersions(ctx, "SimpleProcess")
@@ -72,7 +71,7 @@ func TestDeprecateExecuting(t *testing.T) {
 	// Register a service task
 	d := &testSimpleDeprecateHandlerDef{t: t, finished: make(chan struct{}), wait: make(chan struct{})}
 
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_deprecate_test.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple_deprecate_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
@@ -120,7 +119,7 @@ func TestGetUsage(t *testing.T) {
 	// Register a service task
 	d := &testSimpleDeprecateHandlerDef{t: t, finished: make(chan struct{}), wait: make(chan struct{})}
 
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_deprecate_test.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple_deprecate_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)

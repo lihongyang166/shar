@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"os"
 
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 )
@@ -27,14 +27,25 @@ func main() {
 	}
 
 	// Register the service tasks
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.BeforeCallingSubProcess.yaml", beforeCallingSubProcess); err != nil {
-		panic(err)
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "./examples/sub-workflow/task.BeforeCallingSubProcess.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
 	}
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.DuringSubProcess.yaml", duringSubProcess); err != nil {
-		panic(err)
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "./examples/sub-workflow/task.BeforeCallingSubProcess.yaml", beforeCallingSubProcess); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
 	}
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/sub-workflow/task.AfterCallingSubProcess.yaml", afterCallingSubProcess); err != nil {
-		panic(err)
+
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "./examples/sub-workflow/task.DuringSubProcess.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
+	}
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "./examples/sub-workflow/task.DuringSubProcess.yaml", duringSubProcess); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
+	}
+
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "./examples/sub-workflow/task.AfterCallingSubProcess.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
+	}
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "./examples/sub-workflow/task.AfterCallingSubProcess.yaml", afterCallingSubProcess); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
 	}
 
 	// Load the workflows

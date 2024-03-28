@@ -25,11 +25,18 @@ func main() {
 	}
 
 	// Register service tasks
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.Prepare.yaml", prepare); err != nil {
-		panic(err)
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "task.Prepare.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
 	}
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "task.Complete.yaml", complete); err != nil {
-		panic(err)
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "task.Prepare.yaml", prepare); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
+	}
+
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "task.Complete.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
+	}
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "task.Complete.yaml", prepare); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
 	}
 
 	// Load BPMN workflow

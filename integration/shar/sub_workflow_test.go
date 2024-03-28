@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 	"time"
@@ -10,8 +11,6 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -30,11 +29,11 @@ func TestSubWorkflow(t *testing.T) {
 	d := &testSubWorkflowHandlerDef{finished: make(chan struct{})}
 
 	// Register service tasks
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_BeforeCallingSubProcess.yaml", d.beforeCallingSubProcess)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_BeforeCallingSubProcess.yaml", d.beforeCallingSubProcess)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_DuringSubProcess.yaml", d.duringSubProcess)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_DuringSubProcess.yaml", d.duringSubProcess)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_AfterCallingSubProcess.yaml", d.afterCallingSubProcess)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_AfterCallingSubProcess.yaml", d.afterCallingSubProcess)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("WorkflowDemo", d.processEnd)

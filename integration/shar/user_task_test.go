@@ -7,8 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
 	"sync"
@@ -36,9 +35,9 @@ func TestUserTasks(t *testing.T) {
 	d.finalVars = make(model.Vars)
 
 	// Register service tasks
-	_, err := taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
+	_, err := support.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "user_task_test_Complete.yaml", d.complete)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "user_task_test_Complete.yaml", d.complete)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

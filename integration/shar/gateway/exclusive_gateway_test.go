@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 	"time"
@@ -11,8 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -31,11 +30,11 @@ func TestExclusiveGatewayDecision(t *testing.T) {
 	d := &testExclusiveGatewayDecisionDef{t: t, gameResult: "Win", finished: make(chan struct{})}
 
 	// Register service tasks
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_PlayGame.yaml", d.playGame)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_PlayGame.yaml", d.playGame)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveTrophy.yaml", d.win)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveTrophy.yaml", d.win)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveCommiserations.yaml", d.lose)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_test_ReceiveCommiserations.yaml", d.lose)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/segmentio/ksuid"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -30,7 +29,7 @@ func TestTaskVersion(t *testing.T) {
 	// Register a service task
 	d := &testSTVersionDef{t: t, finished: make(chan struct{})}
 
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "GetCapitalData.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "GetCapitalData.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("GetCapitalData_test", d.processEnd)
 	require.NoError(t, err)
@@ -56,7 +55,7 @@ func TestTaskVersion(t *testing.T) {
 
 	err = cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "GetCapitalDataV2.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "GetCapitalDataV2.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "GetCapitalData", b)
 	require.NoError(t, err)

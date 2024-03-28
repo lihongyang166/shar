@@ -127,10 +127,11 @@ func (s *Server) Details() {
 	t.AppendHeader(table.Row{"SHAR SERVER CONFIGURATION", "VALUE"})
 	t.Style().Options.SeparateRows = true
 	t.AppendRows([]table.Row{
-		{"Version                ", VersionTag},
-		{"Commit Hash            ", CommitHash},
+		{"Version                ", version2.Version},
 		{"Build Time             ", BuildDate},
+		{"Commit SHA             ", CommitHash},
 		{"Nats URL               ", s.natsUrl},
+		{"Nats Client Version    ", version2.NatsVersion},
 		{"Concurrency            ", s.concurrency},
 		{"Ephemeral Storage      ", s.ephemeralStorage},
 		{"Panic Recovery         ", s.panicRecovery},

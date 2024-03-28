@@ -139,10 +139,10 @@ package_container_stage:
   script:
     - 'if [ $CI_COMMIT_BRANCH = "release" ]; then export REPO_DESCRIPTOR=""; else export REPO_DESCRIPTOR="dev/"; fi'
     - docker buildx create --use
-    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 --build-arg COMMIT_HASH=${CI_COMMIT_SHORT_SHA} --build-arg CI_JOB_STARTED_AT=${CI_JOB_STARTED_AT} --build-arg CI_COMMIT_TAG=${CI_COMMIT_TAG} -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:latest --push --target server .
-    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 --build-arg COMMIT_HASH=${CI_COMMIT_SHORT_SHA} --build-arg CI_JOB_STARTED_AT=${CI_JOB_STARTED_AT} --build-arg CI_COMMIT_TAG=${CI_COMMIT_TAG} -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}telemetry:latest --push --target telemetry .
-    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 --build-arg COMMIT_HASH=${CI_COMMIT_SHORT_SHA} --build-arg CI_JOB_STARTED_AT=${CI_JOB_STARTED_AT} --build-arg CI_COMMIT_TAG=${CI_COMMIT_TAG} -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:$VER.${CI_VERSION} --push --target server .
-    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 --build-arg COMMIT_HASH=${CI_COMMIT_SHORT_SHA} --build-arg CI_JOB_STARTED_AT=${CI_JOB_STARTED_AT} --build-arg CI_COMMIT_TAG=${CI_COMMIT_TAG} -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}telemetry:$VER.${CI_VERSION} --push --target telemetry .
+    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 --build-arg COMMIT_HASH=${CI_COMMIT_SHA} --build-arg CI_JOB_STARTED_AT=${CI_JOB_STARTED_AT} --build-arg CI_COMMIT_TAG=${CI_COMMIT_TAG} -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:latest --push --target server .
+    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 --build-arg COMMIT_HASH=${CI_COMMIT_SHA} --build-arg CI_JOB_STARTED_AT=${CI_JOB_STARTED_AT} --build-arg CI_COMMIT_TAG=${CI_COMMIT_TAG} -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}telemetry:latest --push --target telemetry .
+    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 --build-arg COMMIT_HASH=${CI_COMMIT_SHA} --build-arg CI_JOB_STARTED_AT=${CI_JOB_STARTED_AT} --build-arg CI_COMMIT_TAG=${CI_COMMIT_TAG} -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:$VER.${CI_VERSION} --push --target server .
+    - docker buildx build --platform linux/amd64,linux/arm64,linux/386 --build-arg COMMIT_HASH=${CI_COMMIT_SHA} --build-arg CI_JOB_STARTED_AT=${CI_JOB_STARTED_AT} --build-arg CI_COMMIT_TAG=${CI_COMMIT_TAG} -t registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}telemetry:$VER.${CI_VERSION} --push --target telemetry .
 package_binary_stage:
   # Ref: https://www.docker.com/blog/multi-arch-build-what-about-gitlab-ci/
   #  can update from this image to get later buildx version if test works;

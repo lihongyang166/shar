@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"os"
 
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -24,9 +24,11 @@ func main() {
 	}
 
 	// Register a service task
-	fmt.Println(os.Getwd())
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/simple/task.SimpleProcess.yaml", simpleProcess); err != nil {
-		panic(err)
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "./examples/simple/task.SimpleProcess.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
+	}
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "./examples/simple/task.SimpleProcess.yaml", simpleProcess); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
 	}
 
 	// Load BPMN workflow

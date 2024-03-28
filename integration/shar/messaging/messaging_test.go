@@ -3,6 +3,7 @@ package messaging
 import (
 	"context"
 	"fmt"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"log/slog"
 	"os"
 	"sync"
@@ -13,8 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -30,9 +29,9 @@ func TestMessaging(t *testing.T) {
 	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
 	// Register service tasks
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -74,9 +73,9 @@ func TestMessageNameGlobalUniqueness(t *testing.T) {
 	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{})}
 
 	// Register service tasks
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -108,7 +107,7 @@ func TestMessageNameGlobalUniquenessAcrossVersions(t *testing.T) {
 	}
 
 	// reg svc task
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)
@@ -140,7 +139,7 @@ func TestMessageStartEvent(t *testing.T) {
 	}
 
 	// reg svc task
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_simple_service_step.yaml", messageEventHandlers.simpleServiceTaskHandler)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0w6dssp", messageEventHandlers.processEnd)

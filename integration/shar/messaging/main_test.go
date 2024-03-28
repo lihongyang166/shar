@@ -2,7 +2,7 @@ package messaging
 
 import (
 	"fmt"
-	support "gitlab.com/shar-workflow/shar/integration-support"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 )

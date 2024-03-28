@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	support "gitlab.com/shar-workflow/shar/integration-support"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
 	"testing"

@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 	"time"
@@ -12,8 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -30,7 +29,7 @@ func TestSimpleRetry_SetVariable(t *testing.T) {
 	// Register a service task
 	d := &testSimpleRetrySetVariableHandlerDef{t: t, finished: make(chan struct{})}
 
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_retry_SetVariable.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple_retry_SetVariable.yaml", d.integrationSimple)
 	require.NoError(t, err)
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
 	require.NoError(t, err)

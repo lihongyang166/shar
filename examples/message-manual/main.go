@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"os"
 	"time"
 
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/model"
 	zensvr "gitlab.com/shar-workflow/shar/zen-shar/server"
 )
@@ -32,12 +32,21 @@ func main() {
 	}
 
 	// Register a service task
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/message-manual/task.step1.yaml", step1); err != nil {
-		panic(err)
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "./examples/message-manual/task.step1.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
 	}
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/message-manual/task.step2.yaml", step2); err != nil {
-		panic(err)
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "./examples/message-manual/task.step1.yaml", step1); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
 	}
+
+	// Register a service task
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "./examples/message-manual/task.step2.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
+	}
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "./examples/message-manual/task.step2.yaml", step2); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
+	}
+
 	workflowName := "MessageManualDemo"
 
 	if err := cl.RegisterMessageSender(ctx, workflowName, "continueMessage", sendMessage); err != nil {

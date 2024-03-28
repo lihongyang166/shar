@@ -2,13 +2,13 @@ package simple
 
 import (
 	"context"
+	"gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
 )
 
 func TestProcessPersistenceNonUniqueName(t *testing.T) {
@@ -24,7 +24,7 @@ func TestProcessPersistenceNonUniqueName(t *testing.T) {
 
 	// Register a service task
 	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{})}
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	_, err = integration_support.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

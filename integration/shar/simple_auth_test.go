@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"strings"
 	"testing"
@@ -14,9 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common/header"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 )
@@ -50,7 +49,7 @@ func TestSimpleAuthZ(t *testing.T) {
 	d := &testSimpleAuthHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -91,7 +90,7 @@ func TestNoAuthN(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	assert.ErrorContains(t, err, "authenticate")
 
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "simple_auth_test_SimpleProcess.yaml", nil)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple_auth_test_SimpleProcess.yaml", nil)
 	require.Error(t, err)
 }
 

@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 	"time"
@@ -10,8 +11,6 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -30,11 +29,11 @@ func TestExclusiveGatewayDefault(t *testing.T) {
 	d := &testExclusiveGatewayDefaultDef{t: t, gameResult: "Win", finished: make(chan struct{})}
 
 	// Register service tasks
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_default_Default.yaml", d.defaultOption)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_default_Default.yaml", d.defaultOption)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_default_Option1.yaml", d.option1)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_default_Option1.yaml", d.option1)
 	require.NoError(t, err)
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_default_Option2.yaml", d.option2)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "exclusive_gateway_default_Option2.yaml", d.option2)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

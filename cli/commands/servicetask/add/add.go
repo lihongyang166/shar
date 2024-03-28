@@ -29,11 +29,12 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	_, err := taskutil.RegisterTaskYamlFile(ctx, shar, args[0], nil)
-	if err != nil {
-		return fmt.Errorf("register service task failed: %w", err)
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, shar, args[0]); err != nil {
+		return fmt.Errorf("load service task: %w", err)
 	}
-
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, shar, args[0], nil); err != nil {
+		return fmt.Errorf("register service task function: %w", err)
+	}
 	// output.Current.OutputSuccess()
 	return nil
 }

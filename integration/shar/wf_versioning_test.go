@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
 
@@ -11,9 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common/namespace"
-	support "gitlab.com/shar-workflow/shar/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 )
@@ -36,7 +35,7 @@ func TestWfVersioning(t *testing.T) {
 
 	// Load service task
 	d := &wfTeestandlerDef{t: t, finished: make(chan struct{})}
-	_, err = taskutil.RegisterTaskYamlFile(ctx, cl, "wf_versioning_SimpleProcess.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "wf_versioning_SimpleProcess.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow

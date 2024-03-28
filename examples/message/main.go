@@ -37,12 +37,20 @@ func main() {
 	}
 
 	// Register a service task
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/messaging/task.step1.yaml", step1); err != nil {
-		panic(err)
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "task.step1.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
 	}
-	if _, err := taskutil.RegisterTaskYamlFile(ctx, cl, "./examples/messaging/task.step2.yaml", step2); err != nil {
-		panic(err)
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "task.step1.yaml", step1); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
 	}
+
+	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, "task.step2.yaml"); err != nil {
+		panic(fmt.Errorf("load service task: %w", err))
+	}
+	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, "task.step2.yaml", step2); err != nil {
+		panic(fmt.Errorf("register service task function: %w", err))
+	}
+
 	if err := cl.RegisterMessageSender(ctx, "MessageDemo", "continueMessage", sendMessage); err != nil {
 		panic(err)
 	}

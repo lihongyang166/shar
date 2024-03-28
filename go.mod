@@ -17,6 +17,7 @@ require (
 	github.com/goccy/go-yaml v1.11.3
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/hashicorp/go-version v1.6.0
+	github.com/jedib0t/go-pretty/v6 v6.5.6
 	github.com/nats-io/nats-server/v2 v2.10.12
 	github.com/nats-io/nats.go v1.33.1
 	github.com/opencontainers/image-spec v1.1.0

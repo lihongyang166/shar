@@ -13,6 +13,8 @@
 FROM --platform=$BUILDPLATFORM golang:1.22.0-alpine as build-stage
 ARG BINARY_VERSION="0.1.0"
 ARG COMMIT_HASH="12345abcd"
+ARG CI_JOB_STARTED_AT
+ARG CI_COMMIT_TAG
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 ARG TARGETOS TARGETARCH
@@ -40,8 +42,8 @@ RUN ls model/gitlab.com/shar-workflow/shar/model && \
     rm -rf model/gitlab.com
 
 # Platform specific binary builds:
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'main.ServerVersion=$BINARY_VERSION' -X 'main.CommitHash=$COMMIT_HASH' -X 'main.BuildDate=$(date)'" -o build/server/server ./server/cmd/shar/main.go
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'main.ServerVersion=$BINARY_VERSION' -X 'main.CommitHash=$COMMIT_HASH' -X 'main.BuildDate=$(date)'" -o build/telemetry/telemetry ./telemetry/cmd/shar-telemetry/main.go
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'gitlab.com/shar-workflow/shar/server/server.VersionTag=$CI_COMMIT_TAG' -X 'gitlab.com/shar-workflow/shar/server/server.ServerVersion=$BINARY_VERSION' -X 'gitlab.com/shar-workflow/shar/server/server.CommitHash=$COMMIT_HASH' -X 'gitlab.com/shar-workflow/shar/server/server.BuildDate=$CI_JOB_STARTED_AT'" -o build/server/server ./server/cmd/shar/main.go
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags "-X 'gitlab.com/shar-workflow/shar/server/server.VersionTag=$CI_COMMIT_TAG' -X 'gitlab.com/shar-workflow/shar/server/server.ServerVersion=$BINARY_VERSION' -X 'gitlab.com/shar-workflow/shar/server/server.CommitHash=$COMMIT_HASH' -X 'gitlab.com/shar-workflow/shar/server/server.BuildDate=$CI_JOB_STARTED_AT'" -o build/telemetry/telemetry ./telemetry/cmd/shar-telemetry/main.go
 
 # Secure containerisation:
 FROM --platform=$BUILDPLATFORM gcr.io/distroless/static:nonroot as server

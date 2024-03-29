@@ -645,3 +645,159 @@ func CheckVersion(ctx context.Context, nc *nats.Conn) error {
 	}
 	return nil
 }
+
+const (
+	strErrHeader    = "STR_ERR"
+	strCancelHeader = "STR_CANCEL"
+	strEOF          = "STR_EOF"
+)
+
+// StreamingReplyClient establishes a streaming reply client. It creates a subscription
+// for replies and invokes a callback function for each received message.
+func StreamingReplyClient(ctx context.Context, nc *nats.Conn, msg *nats.Msg, fn func(msg *nats.Msg) error) error {
+	// call
+	ctx, ctxCancel := context.WithCancel(ctx)
+	ret := make(chan *nats.Msg)
+	errs := make(chan error, 1)
+	cancel := make(chan struct{})
+	msg.Reply = nats.NewInbox()
+	cancelInbox := nats.NewInbox()
+
+	// listener
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-cancel:
+				m := nats.NewMsg(cancelInbox)
+				if err := nc.PublishMsg(m); err != nil {
+					fmt.Println("send cancel msg: %w", err)
+				}
+				ctxCancel()
+				return
+			}
+		}
+	}()
+	// create subscription for replies
+	sub, err := nc.Subscribe(msg.Reply, func(m *nats.Msg) {
+		if eHdr := m.Header.Get(strErrHeader); eHdr != "" {
+			if eHdr != strEOF {
+				errs <- fmt.Errorf("%s", eHdr)
+			}
+			close(ret)
+			close(errs)
+			close(cancel)
+			ctxCancel()
+			return
+		}
+		ret <- m
+	})
+	if err != nil {
+		ctxCancel()
+		return fmt.Errorf("subscribe: %s", err)
+	}
+
+	defer func() {
+		if err := sub.Unsubscribe(); err != nil {
+			slog.Error("unsubscribe", "subject", msg.Subject, "error", err)
+		}
+	}()
+
+	msg.Header.Set(strCancelHeader, cancelInbox)
+	if err := nc.PublishMsg(msg); err != nil {
+		ctxCancel()
+		return fmt.Errorf("publish: %s", err)
+	}
+	for r := range ret {
+		if err := fn(r); err != nil {
+			close(cancel)
+			if errors.Is(err, ErrStreamCancel) {
+				ctxCancel()
+				return nil
+			} else {
+				ctxCancel()
+				return fmt.Errorf("StreamingReplyClient client: %w", err)
+			}
+		}
+	}
+	if err := <-errs; err != nil {
+		ctxCancel()
+		return fmt.Errorf("StreamingReplyClient server: %w", err)
+	}
+	ctxCancel()
+	return nil
+}
+
+// ErrStreamCancel is an error variable that represents a stream cancellation.
+var ErrStreamCancel = errors.New("stream cancelled")
+
+type streamNatsReplyconnection interface {
+	QueueSubscribe(subj, queue string, cb nats.MsgHandler) (*nats.Subscription, error)
+	PublishMsg(m *nats.Msg) error
+	Subscribe(subj string, cb nats.MsgHandler) (*nats.Subscription, error)
+}
+
+// StreamingReplyServer is a function that sets up a NATS subscription to handle streaming reply messages.
+// When a message is received, it begins streaming by creating channels for return messages and error messages.
+// It then executes the provided function to process the request and send the response messages.
+// The function runs in a separate goroutine.
+// It continuously listens for return messages and error messages, and publishes them to the reply inbox.
+// It exits when an error or cancellation occurs.
+// The function returns the NATS subscription and any error that occurred during setup.
+func StreamingReplyServer(nc streamNatsReplyconnection, subject string, fn func(req *nats.Msg, ret chan *nats.Msg, errs chan error)) (*nats.Subscription, error) {
+	sub, err := nc.QueueSubscribe(subject, subject, func(msg *nats.Msg) {
+		// Begin streaming
+		ret := make(chan *nats.Msg)
+		retErr := make(chan error, 1)
+		replyInbox := msg.Reply
+		cancelInbox := msg.Header.Get(strCancelHeader)
+		cSub, err := nc.Subscribe(cancelInbox, func(msg *nats.Msg) {
+			retErr <- ErrStreamCancel
+		})
+		if err != nil {
+			slog.Error("subscribe to cancel inbox", "error", err, "subject", cancelInbox)
+			return
+		}
+		defer func() {
+			if err := cSub.Unsubscribe(); err != nil {
+				slog.Error("unsubscribe from cancel inbox", "error", err, "subject", cancelInbox)
+			}
+		}()
+
+		go func() {
+			fn(msg, ret, retErr)
+			close(retErr)
+		}()
+		exit := false
+		for {
+			select {
+			case r := <-ret:
+				r.Subject = replyInbox
+				if err := nc.PublishMsg(r); err != nil {
+					slog.Error("publish streaming message", "error", err, "subject", replyInbox)
+				}
+			case e, ok := <-retErr:
+				retM := nats.NewMsg(replyInbox)
+				if !ok {
+					retM.Header.Set(strErrHeader, strEOF)
+				} else if errors.Is(e, ErrStreamCancel) {
+					close(retErr)
+				} else {
+					retM.Header.Set(strErrHeader, e.Error())
+				}
+				exit = true
+				if err := nc.PublishMsg(retM); err != nil {
+					slog.Error("publish error message", "error", err, "subject", replyInbox, "code", retM.Header.Get(strErrHeader))
+				}
+			}
+			if exit {
+				break
+			}
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("queue subscribe: %s", err)
+	}
+	return sub, nil
+}

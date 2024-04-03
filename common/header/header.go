@@ -1,14 +1,12 @@
 package header
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/gob"
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/server/errors"
+	"strings"
 )
 
 // Values is a container for SHAR header values
@@ -76,34 +74,31 @@ func toCtx(ctx context.Context, values Values) context.Context {
 }
 
 // fromMsg extracts SHAR headers from a NATS message
-func fromMsg(ctx context.Context, header nats.Header) (Values, error) {
-	hdr := header.Get(natsSharHeader)
-	bin, err := base64.StdEncoding.DecodeString(hdr)
-	if err != nil {
-		return nil, fmt.Errorf("decode base 64 header: %w", err)
-	}
-	if len(bin) == 0 {
-		return make(Values), nil
-	}
-	dec := gob.NewDecoder(bytes.NewBuffer(bin))
+func fromMsg(_ context.Context, header nats.Header) (Values, error) {
 	m := make(Values)
-	err = dec.Decode(&m)
-	if err != nil {
-		return nil, fmt.Errorf("decode gob header: %w", err)
+	for k, _ := range header {
+		if strings.HasPrefix(k, natsSharHeader) {
+			m[suffixOfSharHeader(k)] = header.Get(k)
+		}
 	}
+
 	return m, nil
+}
+
+func prefixSharHeader(key string) string {
+	return fmt.Sprintf("%s_%s", natsSharHeader, key)
+}
+
+func suffixOfSharHeader(key string) string {
+	suffix, _ := strings.CutPrefix(key, fmt.Sprintf("%s_", natsSharHeader))
+	return suffix
 }
 
 // toMsg inserts SHAR headers into a nats message
 func toMsg(values Values, header *nats.Header) error {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(values)
-	if err != nil {
-		return fmt.Errorf("encode gob header: %w", err)
+	for k, v := range values {
+		header.Set(prefixSharHeader(k), v)
 	}
-	b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
-	header.Set(natsSharHeader, b64)
 	return nil
 }
 

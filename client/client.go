@@ -740,17 +740,17 @@ func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInst
 
 // LaunchProcess launches a new process within a workflow/BPMN definition. It returns the execution Id of the launched process and the workflow id of the
 // BPMN definition containing the process
-func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars model.Vars) (executionId string, workflowId string, err error) {
+func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars model.Vars) (executionId string, workflowId string, er error) {
 	ev, err := vars.Encode(ctx, mvars)
 	if err != nil {
-		err = fmt.Errorf("encode variables for launch workflow: %w", err)
+		er = fmt.Errorf("encode variables for launch workflow: %w", err)
 		return
 	}
 	req := &model.LaunchWorkflowRequest{ProcessId: processId, Vars: ev}
 	res := &model.LaunchWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
-		err = c.clientErr(ctx, err)
+		er = c.clientErr(ctx, err)
 		return
 	}
 	executionId = res.ExecutionId

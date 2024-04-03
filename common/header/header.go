@@ -76,7 +76,7 @@ func toCtx(ctx context.Context, values Values) context.Context {
 // fromMsg extracts SHAR headers from a NATS message
 func fromMsg(_ context.Context, header nats.Header) (Values, error) {
 	m := make(Values)
-	for k, _ := range header {
+	for k := range header {
 		if strings.HasPrefix(k, natsSharHeader) {
 			m[suffixOfSharHeader(k)] = header.Get(k)
 		}

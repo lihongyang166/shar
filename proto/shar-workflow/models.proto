@@ -415,7 +415,7 @@ message ApiAuthenticationResponse {
 }
 
 message LaunchWorkflowRequest {
-  string name = 1;
+  string processId = 1;
   bytes vars = 2;
 }
 

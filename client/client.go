@@ -745,7 +745,7 @@ func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars mode
 	if err != nil {
 		return "", "", fmt.Errorf("encode variables for launch workflow: %w", err)
 	}
-	req := &model.LaunchWorkflowRequest{Name: processId, Vars: ev}
+	req := &model.LaunchWorkflowRequest{ProcessId: processId, Vars: ev}
 	res := &model.LaunchWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {

@@ -79,7 +79,7 @@ func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequ
 			if err != nil {
 				return nil, fmt.Errorf("failed to launch process with message: %w", err)
 			}
-			executionId := launchWorkflowResponse.InstanceId
+			executionId := launchWorkflowResponse.ExecutionId
 			workflowId := launchWorkflowResponse.WorkflowId
 			return &model.SendMessageResponse{ExecutionId: executionId, WorkflowId: workflowId}, nil
 		}
@@ -156,7 +156,7 @@ func (s *SharServer) launchProcess(ctx context.Context, req *model.LaunchWorkflo
 	if err != nil {
 		return nil, fmt.Errorf("launch execution kv: %w", err)
 	}
-	return &model.LaunchWorkflowResponse{WorkflowId: wfID, InstanceId: executionID}, nil
+	return &model.LaunchWorkflowResponse{WorkflowId: wfID, ExecutionId: executionID}, nil
 }
 
 func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.CancelProcessInstanceRequest) (*model.CancelProcessInstanceResponse, error) {

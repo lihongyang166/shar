@@ -72,8 +72,8 @@ func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequ
 			return nil, fmt.Errorf("error retrieving process id for message name: %w", err)
 		} else {
 			launchWorkflowRequest := &model.LaunchWorkflowRequest{
-				Name: processId,
-				Vars: req.Vars,
+				ProcessId: processId,
+				Vars:      req.Vars,
 			}
 			launchWorkflowResponse, err := s.launchProcess(ctx, launchWorkflowRequest)
 			if err != nil {
@@ -148,11 +148,11 @@ func (s *SharServer) storeWorkflow(ctx context.Context, wf *model.StoreWorkflowR
 }
 
 func (s *SharServer) launchProcess(ctx context.Context, req *model.LaunchWorkflowRequest) (*model.LaunchWorkflowResponse, error) {
-	ctx, err2 := s.authForNamedWorkflow(ctx, req.Name)
+	ctx, err2 := s.authForNamedWorkflow(ctx, req.ProcessId)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	executionID, wfID, err := s.engine.Launch(ctx, req.Name, req.Vars)
+	executionID, wfID, err := s.engine.Launch(ctx, req.ProcessId, req.Vars)
 	if err != nil {
 		return nil, fmt.Errorf("launch execution kv: %w", err)
 	}

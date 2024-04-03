@@ -738,20 +738,24 @@ func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInst
 	return nil
 }
 
-// LaunchProcess launches a new process withing a workflow/BPMN definition. It returns the execution Id of the launched process and the workflow id of the
+// LaunchProcess launches a new process within a workflow/BPMN definition. It returns the execution Id of the launched process and the workflow id of the
 // BPMN definition containing the process
-func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars model.Vars) (string, string, error) {
+func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars model.Vars) (executionId string, workflowId string, err error) {
 	ev, err := vars.Encode(ctx, mvars)
 	if err != nil {
-		return "", "", fmt.Errorf("encode variables for launch workflow: %w", err)
+		err = fmt.Errorf("encode variables for launch workflow: %w", err)
+		return
 	}
 	req := &model.LaunchWorkflowRequest{ProcessId: processId, Vars: ev}
 	res := &model.LaunchWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
-		return "", "", c.clientErr(ctx, err)
+		err = c.clientErr(ctx, err)
+		return
 	}
-	return res.ExecutionId, res.WorkflowId, nil
+	executionId = res.ExecutionId
+	workflowId = res.WorkflowId
+	return
 }
 
 // ListExecution gets a list of running executions by workflow name.

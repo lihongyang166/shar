@@ -104,9 +104,6 @@ tag_stage:
     - echo -e "machine gitlab.com\nlogin gitlab-ci-token\npassword ${TAG_KEY}" > ~/.netrc
     - project_url=$(echo $CI_PROJECT_URL | sed 's/https:\/\///')
     - git remote set-url origin https://oauth2:${TAG_KEY}@${project_url}
-    - git config --list
-    - cat ~/.netrc
-    - env | grep TAG
     - git checkout ${CI_COMMIT_BRANCH}
     - tag=v${VER}.${CI_VERSION}
     - authName="$(git log -1 --pretty=format:"%an")"

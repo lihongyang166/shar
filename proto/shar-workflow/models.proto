@@ -256,7 +256,7 @@ message WorkflowState {
   string executionId = 2; // executionId - The id of the Execution this workflow state is for
   string elementId = 3; // ElementId - the currently executing element withing the workflow state machine.
   string elementType = 4; // ElementType - the currently executing element type, cached here to reduce lookups.
-  repeated string id = 5; // Id - a stack of IDs that descibe the state and its parents up to the original workflow instance ID.
+  repeated string id = 5; // Id - a stack of IDs that descibe the state and its parents up to the original execution ID.
   string executeVersion = 22; // ExecuteVersion specifies a particular version to execute.
   optional string execute = 7; // Execute - additional information required to execute depending on the element type.
   CancellationState state = 8; // State - the current execution state of the state machine.
@@ -280,7 +280,7 @@ message WorkflowStateSummary {
   string executionId = 2; // ExecutionId - the execution that this state belongs to.
   string elementId = 3; // ElementId - the currently executing element withing the workflow state machine.
   string elementType = 4; // ElementType - the currently executing element type, cached here to reduce lookups.
-  repeated string id = 5; // Id - a stack of IDs that describe the state and its parents up to the original workflow instance ID.
+  repeated string id = 5; // Id - a stack of IDs that describe the state and its parents up to the original execution ID.
   optional string execute = 7; // Execute - additional information required to execute depending on the element type.
   CancellationState state = 8; // State - the current execution state of the state machine.
   optional string condition = 9; // Condition - a message condition that needs to be fulfilled before proceeding.
@@ -358,13 +358,13 @@ message Execution {
   string executionId = 1; // executionId - The id of this particular BPMExecution
   string workflowId = 2; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 5; // WorkflowName - name of this workflow to avoid lookups.
-  repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this workflow instance.
+  repeated string processInstanceId = 6; // ProcessInstance - process instances berlonging to this execution.
 }
 
 message ProcessInstance {
   string processInstanceId = 1; // ProcessInstanceId - the unique ID for the process instance.
   string executionId = 2; // executionId - The id of this particular BPMExecution
-  optional string parentProcessId = 3; // ParentProcessInstanceId - the parent process instance that launched this process - if nil, the workflow instance launched the process instance.
+  optional string parentProcessId = 3; // ParentProcessInstanceId - the parent process instance that launched this process - if nil, the execution launched the process instance.
   optional string parentElementId = 4; // ParentElementId - the ID of the element in the parent process that triggered the launch of this process instance.
   string workflowId = 5; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 6; // WorkflowName - name of this workflow to avoid lookups.
@@ -415,12 +415,12 @@ message ApiAuthenticationResponse {
 }
 
 message LaunchWorkflowRequest {
-  string name = 1;
+  string processId = 1;
   bytes vars = 2;
 }
 
 message LaunchWorkflowResponse {
-  string instanceId = 1;
+  string executionId = 1;
   string workflowId = 2;
 }
 
@@ -443,7 +443,7 @@ message ListExecutionProcessesRequest {
 }
 
 message ListExecutionProcessesResponse {
-  repeated string processInstanceId = 1; // ProcessInstance - process instances belonging to this workflow instance.
+  repeated string processInstanceId = 1; // ProcessInstance - process instances belonging to this execution.
 }
 
 message GetProcessInstanceStatusRequest {
@@ -451,7 +451,7 @@ message GetProcessInstanceStatusRequest {
 }
 
 message GetProcessInstanceStatusResult {
-  repeated WorkflowState processState = 1; // ProcessInstance - process instances belonging to this workflow instance.
+  repeated WorkflowState processState = 1; // ProcessInstance - process instances belonging to this execution.
 }
 
 message ListExecutionRequest {

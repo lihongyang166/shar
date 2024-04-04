@@ -627,7 +627,7 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 	return nil
 }
 
-// LoadBPMNWorkflowFromBytes loads, parses, and stores a BPMN workflow in SHAR.
+// LoadBPMNWorkflowFromBytes loads, parses, and stores a BPMN workflow in SHAR. Returns the uuid uniquely identifying the workflow.
 func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b []byte) (string, error) {
 	rdr := bytes.NewReader(b)
 	wf, err := parser.Parse(name, rdr)
@@ -738,19 +738,24 @@ func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInst
 	return nil
 }
 
-// LaunchProcess launches a new workflow instance.
-func (c *Client) LaunchProcess(ctx context.Context, processName string, mvars model.Vars) (string, string, error) {
+// LaunchProcess launches a new process within a workflow/BPMN definition. It returns the execution Id of the launched process and the workflow id of the
+// BPMN definition containing the process
+func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars model.Vars) (executionId string, workflowId string, er error) {
 	ev, err := vars.Encode(ctx, mvars)
 	if err != nil {
-		return "", "", fmt.Errorf("encode variables for launch workflow: %w", err)
+		er = fmt.Errorf("encode variables for launch workflow: %w", err)
+		return
 	}
-	req := &model.LaunchWorkflowRequest{Name: processName, Vars: ev}
+	req := &model.LaunchWorkflowRequest{ProcessId: processId, Vars: ev}
 	res := &model.LaunchWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
-		return "", "", c.clientErr(ctx, err)
+		er = c.clientErr(ctx, err)
+		return
 	}
-	return res.InstanceId, res.WorkflowId, nil
+	executionId = res.ExecutionId
+	workflowId = res.WorkflowId
+	return
 }
 
 // ListExecution gets a list of running executions by workflow name.

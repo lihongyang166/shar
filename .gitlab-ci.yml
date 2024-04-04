@@ -117,6 +117,7 @@ tag_stage:
     - echo "" >> common/version/version.go
     - echo "const Version = \"$tag\"" >> common/version/version.go
     - git add common/version/version.go
+    - git remote show origin
     - git push -f -o ci.skip
     - git commit --amend --no-edit
     - git tag $tag

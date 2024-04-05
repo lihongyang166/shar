@@ -4,11 +4,14 @@
 
 # docker login -u <username> -p <password>
 # docker buildx create --use
-# docker buildx build --provenance false --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/dev/server:latest --push --target server .
-# docker buildx build --provenance false --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/vitrifi/workflow/shar/dev/telemetry:latest --push --target telemetry .
+# docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/shar-workflow/shar/dev/server:latest --push --target server .
+# docker buildx build --platform linux/amd64,linux/arm64,linux/386 -t registry.gitlab.com/vitrifi/workflow/shar/dev/telemetry:latest --push --target telemetry .
 
 # ^This will build a multi-platform image for linux/amd64,linux/arm64 and linux/386 platforms.
 # Reference: https://www.docker.com/blog/faster-multi-platform-builds-dockerfile-cross-compilation-guide/
+# NOTE: 
+# There is an open issue for the display problem on Gitlab where the image pushed from the above commands will show as 0B in size;
+# https://gitlab.com/gitlab-org/gitlab/-/issues/431048
 
 FROM --platform=$BUILDPLATFORM golang:1.22.0-alpine as build-stage
 ARG BINARY_VERSION="0.1.0"

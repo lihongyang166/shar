@@ -26,6 +26,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
+	"gitlab.com/shar-workflow/shar/server/services/cache"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	maps2 "golang.org/x/exp/maps"
@@ -95,6 +96,7 @@ type Nats struct {
 	receiveMiddleware              []middleware.Receive
 	tr                             trace.Tracer
 	rwmx                           sync.RWMutex
+	sCache                         *cache.SharCache
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
@@ -155,6 +157,12 @@ func New(conn *nats.Conn, txConn *nats.Conn, storageType jetstream.StorageType, 
 		return nil, fmt.Errorf("open jetstream: %w", err)
 	}
 
+	ristrettoCache, err := cache.NewRistrettoCacheBackend()
+	if err != nil {
+		return nil, fmt.Errorf("create ristretto cache: %w", ristrettoCache)
+	}
+	sharCache := cache.NewSharCache(ristrettoCache)
+
 	ms := &Nats{
 		conn:                    conn,
 		txConn:                  txConn,
@@ -168,6 +176,7 @@ func New(conn *nats.Conn, txConn *nats.Conn, storageType jetstream.StorageType, 
 		sharKvs:                 make(map[string]*NamespaceKvs),
 		telCfg:                  telCfg,
 		tr:                      otel.GetTracerProvider().Tracer("shar-workflow/nats-storage"),
+		sCache:                  sharCache,
 	}
 
 	ns := namespace.Default
@@ -610,20 +619,26 @@ func forEachTimedStartElement(pr *model.Process, fn func(element *model.Element)
 
 // GetWorkflow - retrieves a workflow model given its ID
 func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error) {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ctx, ns)
-	if err != nil {
-		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
+	getWorkflowFn := func() (interface{}, error) {
+		ns := subj.GetNS(ctx)
+		nsKVs, err := s.KvsFor(ctx, ns)
+		if err != nil {
+			return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
+		}
 
-	wf := &model.Workflow{}
-	if err := common.LoadObj(ctx, nsKVs.wf, workflowID, wf); errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return nil, fmt.Errorf("get workflow failed to load object: %w", errors.ErrWorkflowNotFound)
+		wf := &model.Workflow{}
+		if err := common.LoadObj(ctx, nsKVs.wf, workflowID, wf); errors2.Is(err, jetstream.ErrKeyNotFound) {
+			return nil, fmt.Errorf("get workflow failed to load object: %w", errors.ErrWorkflowNotFound)
 
-	} else if err != nil {
-		return nil, fmt.Errorf("load workflow from KV: %w", err)
+		} else if err != nil {
+			return nil, fmt.Errorf("load workflow from KV: %w", err)
+		}
+		return wf, nil
+
 	}
-	return wf, nil
+	//workflow, err := getWorkflowFn()
+	workflow, err := s.sCache.Cacheable(workflowID, getWorkflowFn)
+	return workflow.(*model.Workflow), err
 }
 
 // GetWorkflowNameFor - get the worflow name a process is associated with

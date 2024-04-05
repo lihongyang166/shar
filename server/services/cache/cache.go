@@ -25,14 +25,17 @@ func (rcb *RistrettoCacheBackend) Set(key interface{}, value interface{}) bool {
 	return rcb.c.Set(key, value, 1)
 }
 
-func NewRistrettoCacheBackend() *RistrettoCacheBackend {
-	cache, _ := ristretto.NewCache(
+func NewRistrettoCacheBackend() (*RistrettoCacheBackend, error) {
+	cache, err := ristretto.NewCache(
 		&ristretto.Config{
 			NumCounters: 1e7,
 			MaxCost:     1 << 30,
 			BufferItems: 64,
 		})
-	return &RistrettoCacheBackend{c: cache}
+	if err != nil {
+		return nil, fmt.Errorf("error initialising ristretto cache: %w", err)
+	}
+	return &RistrettoCacheBackend{c: cache}, nil
 }
 
 type SharCache struct {
@@ -51,7 +54,7 @@ func (c *SharCache) Cacheable(key interface{}, fn func() (interface{}, error)) (
 	if !cacheHit {
 		retrievedVal, err := fn()
 		if err != nil {
-			return nil, fmt.Errorf("error retrieving value for key %s: %w", key, err)
+			return nil, fmt.Errorf("error retrieving cacheable value for key %s: %w", key, err)
 		}
 		val = retrievedVal
 		c.cacheBackend.Set(key, retrievedVal)

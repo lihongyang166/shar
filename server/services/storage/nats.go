@@ -47,29 +47,27 @@ var NatsConfig string
 
 // NamespaceKvs defines all of the key value stores shar needs to operate
 type NamespaceKvs struct {
-	//### wfInstance        jetstream.KeyValue //unreferenced except at creation ???
 	wfExecution       jetstream.KeyValue
 	wfProcessInstance jetstream.KeyValue
-	//### wfMessageInterest jetstream.KeyValue //unreferenced except at creation ???
-	wfUserTasks   jetstream.KeyValue
-	wfVarState    jetstream.KeyValue
-	wfTaskSpec    jetstream.KeyValue
-	wfTaskSpecVer jetstream.KeyValue
-	wf            jetstream.KeyValue
-	wfVersion     jetstream.KeyValue
-	wfTracking    jetstream.KeyValue
-	job           jetstream.KeyValue
-	ownerName     jetstream.KeyValue
-	ownerID       jetstream.KeyValue
-	wfClientTask  jetstream.KeyValue
-	wfGateway     jetstream.KeyValue
-	wfName        jetstream.KeyValue
-	wfHistory     jetstream.KeyValue
-	wfLock        jetstream.KeyValue
-	wfMsgTypes    jetstream.KeyValue
-	wfProcess     jetstream.KeyValue
-	wfMessages    jetstream.KeyValue
-	wfClients     jetstream.KeyValue
+	wfUserTasks       jetstream.KeyValue
+	wfVarState        jetstream.KeyValue
+	wfTaskSpec        jetstream.KeyValue
+	wfTaskSpecVer     jetstream.KeyValue
+	wf                jetstream.KeyValue
+	wfVersion         jetstream.KeyValue
+	wfTracking        jetstream.KeyValue
+	job               jetstream.KeyValue
+	ownerName         jetstream.KeyValue
+	ownerID           jetstream.KeyValue
+	wfClientTask      jetstream.KeyValue
+	wfGateway         jetstream.KeyValue
+	wfName            jetstream.KeyValue
+	wfHistory         jetstream.KeyValue
+	wfLock            jetstream.KeyValue
+	wfMsgTypes        jetstream.KeyValue
+	wfProcess         jetstream.KeyValue
+	wfMessages        jetstream.KeyValue
+	wfClients         jetstream.KeyValue
 }
 
 // Nats contains the engine functions that communicate with NATS.

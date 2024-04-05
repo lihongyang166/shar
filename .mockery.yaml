@@ -12,3 +12,6 @@ packages:
   gitlab.com/shar-workflow/shar/telemetry/server:
     Exporter:
       recursive: True
+  gitlab.com/shar-workflow/shar/server/services/cache:
+    CacheBackend:
+      recursive: True

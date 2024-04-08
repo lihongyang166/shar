@@ -640,7 +640,7 @@ func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workf
 	if err != nil {
 		return nil, fmt.Errorf("error caching GetWorkflow: %w", err)
 	}
-	return workflow.(*model.Workflow), err
+	return workflow.(*model.Workflow), nil
 }
 
 // GetWorkflowNameFor - get the worflow name a process is associated with

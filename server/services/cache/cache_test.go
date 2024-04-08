@@ -8,7 +8,7 @@ import (
 
 func TestCacheHit(t *testing.T) {
 	var backend = &MockCacheBackend{}
-	cache := NewSharCache(backend)
+	cche := NewSharCache(backend)
 
 	isCachableFnCalled := false
 	key := "key"
@@ -20,7 +20,7 @@ func TestCacheHit(t *testing.T) {
 		return nil, nil
 	}
 
-	v, err := cache.Cacheable(key, cacheableFn)
+	v, err := Cacheable(key, cacheableFn, cche)
 
 	backend.AssertExpectations(t)
 	assert.NoError(t, err)
@@ -43,7 +43,7 @@ func TestCacheMiss(t *testing.T) {
 		return val, nil
 	}
 
-	v, err := cache.Cacheable(key, cacheableFn)
+	v, err := Cacheable(key, cacheableFn, cache)
 
 	backend.AssertExpectations(t)
 	assert.NoError(t, err)
@@ -64,7 +64,7 @@ func TestCacheMissError(t *testing.T) {
 		return nil, errors.New("cacheableFn err")
 	}
 
-	v, err := cache.Cacheable(key, cacheableFn)
+	v, err := Cacheable(key, cacheableFn, cache)
 
 	backend.AssertExpectations(t)
 	backend.AssertNotCalled(t, "Set")

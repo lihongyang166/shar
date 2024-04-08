@@ -5,33 +5,31 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-// CacheBackend defines interface for a CacheBackend
+// Backend defines interface for a Backend
 //
 //go:generate mockery
-type CacheBackend interface {
+type Backend interface {
 	Get(key interface{}) (interface{}, bool)
 	Set(key interface{}, value interface{}) bool
 }
 
-// RistrettoCacheBackend is a RistrettoCache implemenentation of CacheBackend
-type RistrettoCacheBackend struct {
+// ristrettoCacheBackend is a RistrettoCache implemenentation of Backend
+type ristrettoCacheBackend struct {
 	c *ristretto.Cache
 }
 
 // Get a value from the cache
-func (rcb *RistrettoCacheBackend) Get(key interface{}) (interface{}, bool) {
+func (rcb *ristrettoCacheBackend) Get(key interface{}) (interface{}, bool) {
 	return rcb.c.Get(key)
 }
 
 // Set a value in the cache
-func (rcb *RistrettoCacheBackend) Set(key interface{}, value interface{}) bool {
-	// TODO what do we want to do about cost...seems to be a Ristretto specific property
-	// need to understand this further...
+func (rcb *ristrettoCacheBackend) Set(key interface{}, value interface{}) bool {
 	return rcb.c.Set(key, value, 1)
 }
 
-// NewRistrettoCacheBackend construct an instance of a RistrettoCacheBackend
-func NewRistrettoCacheBackend() (*RistrettoCacheBackend, error) {
+// NewRistrettoCacheBackend construct an instance of a ristrettoCacheBackend
+func NewRistrettoCacheBackend() (*ristrettoCacheBackend, error) {
 	cache, err := ristretto.NewCache(
 		&ristretto.Config{
 			NumCounters: 1e7,
@@ -41,33 +39,36 @@ func NewRistrettoCacheBackend() (*RistrettoCacheBackend, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error initialising ristretto cache: %w", err)
 	}
-	return &RistrettoCacheBackend{c: cache}, nil
+	return &ristrettoCacheBackend{c: cache}, nil
 }
 
 // SharCache provides caching capabilities
 type SharCache struct {
-	cacheBackend CacheBackend
+	cacheBackend Backend
 }
 
 // NewSharCache constructs a new SharCache
-func NewSharCache(backend CacheBackend) *SharCache {
+func NewSharCache(backend Backend) *SharCache {
 	return &SharCache{
 		cacheBackend: backend,
 	}
 }
 
 // Cacheable makes a function cacheable by the given key
-func (c *SharCache) Cacheable(key interface{}, fn func() (interface{}, error)) (interface{}, error) {
-	val, cacheHit := c.cacheBackend.Get(key)
-
+//
+//nolint:ireturn
+func Cacheable[K any, V any](key K, fn func() (V, error), c *SharCache) (V, error) {
+	var val V
+	tmpVal, cacheHit := c.cacheBackend.Get(key)
 	if !cacheHit {
 		retrievedVal, err := fn()
 		if err != nil {
-			return nil, fmt.Errorf("error retrieving cacheable value for key %s: %w", key, err)
+			return val, fmt.Errorf("error retrieving cacheable value for key %v: %w", key, err)
 		}
-		val = retrievedVal
 		c.cacheBackend.Set(key, retrievedVal)
+		val = retrievedVal
+	} else {
+		val = tmpVal.(V)
 	}
-
 	return val, nil
 }

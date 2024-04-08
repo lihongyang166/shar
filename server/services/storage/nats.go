@@ -619,7 +619,7 @@ func forEachTimedStartElement(pr *model.Process, fn func(element *model.Element)
 
 // GetWorkflow - retrieves a workflow model given its ID
 func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error) {
-	getWorkflowFn := func() (interface{}, error) {
+	getWorkflowFn := func() (*model.Workflow, error) {
 		ns := subj.GetNS(ctx)
 		nsKVs, err := s.KvsFor(ctx, ns)
 		if err != nil {
@@ -636,11 +636,11 @@ func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workf
 		return wf, nil
 	}
 
-	workflow, err := s.sCache.Cacheable(workflowID, getWorkflowFn)
+	workflow, err := cache.Cacheable(workflowID, getWorkflowFn, s.sCache)
 	if err != nil {
 		return nil, fmt.Errorf("error caching GetWorkflow: %w", err)
 	}
-	return workflow.(*model.Workflow), nil
+	return workflow, nil
 }
 
 // GetWorkflowNameFor - get the worflow name a process is associated with

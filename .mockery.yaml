@@ -13,5 +13,5 @@ packages:
     Exporter:
       recursive: True
   gitlab.com/shar-workflow/shar/server/services/cache:
-    CacheBackend:
+    Backend:
       recursive: True

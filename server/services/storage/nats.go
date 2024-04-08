@@ -159,7 +159,7 @@ func New(conn *nats.Conn, txConn *nats.Conn, storageType jetstream.StorageType, 
 
 	ristrettoCache, err := cache.NewRistrettoCacheBackend()
 	if err != nil {
-		return nil, fmt.Errorf("create ristretto cache: %w", ristrettoCache)
+		return nil, fmt.Errorf("create ristretto cache: %w", err)
 	}
 	sharCache := cache.NewSharCache(ristrettoCache)
 
@@ -634,10 +634,12 @@ func (s *Nats) GetWorkflow(ctx context.Context, workflowID string) (*model.Workf
 			return nil, fmt.Errorf("load workflow from KV: %w", err)
 		}
 		return wf, nil
-
 	}
-	//workflow, err := getWorkflowFn()
+
 	workflow, err := s.sCache.Cacheable(workflowID, getWorkflowFn)
+	if err != nil {
+		return nil, fmt.Errorf("error caching GetWorkflow: %w", err)
+	}
 	return workflow.(*model.Workflow), err
 }
 

@@ -123,8 +123,8 @@ tag_stage:
     - git push -f origin $tag
 package_container_stage:
   # Ref: https://www.docker.com/blog/multi-arch-build-what-about-gitlab-ci/
-  # https://forum.gitlab.com/t/its-2023-how-do-i-build-multiplatform-docker-images-in-my-gitlab-com-ci-pipeline/83972
-  image: docker:stable
+  #  can update from this image to get later buildx version if test works;
+  image: jdrouet/docker-with-buildx:stable
   stage: package
   services:
     - docker:dind

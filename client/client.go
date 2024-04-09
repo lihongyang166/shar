@@ -985,6 +985,15 @@ func (c *Client) ResolveWorkflow(ctx context.Context, workflow *model.Workflow) 
 	return res.Workflow, nil
 }
 
+// GetTaskUIDFromSpec returns a UID (string) based on a deterministic algorithm from a TaskSpec.
+func (c *Client) GetTaskUIDFromSpec(spec *model.TaskSpec) (string, error) {
+	uid, err := task.CreateUID(spec)
+	if err != nil {
+		return "", fmt.Errorf("create uid: %w", err)
+	}
+	return uid, nil
+}
+
 func (c *Client) heartbeat(ctx context.Context) error {
 	req := &model.HeartbeatRequest{
 		Host: c.host,

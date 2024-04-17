@@ -40,27 +40,13 @@ func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.List
 	return &model.ListExecutionProcessesResponse{ProcessInstanceId: res}, nil
 }
 
-func (s *SharServer) listWorkflows(ctx context.Context, _ *model.ListWorkflowsRequest) (*model.ListWorkflowsResponse, error) {
+func (s *SharServer) listWorkflows(ctx context.Context, _ *model.ListWorkflowsRequest, res chan *model.ListWorkflowResponse, errs chan error) {
 	ctx, err2 := s.authForNonWorkflow(ctx)
 	if err2 != nil {
-		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+		return
 	}
-	res, errs := s.ns.ListWorkflows(ctx)
-	ret := make([]*model.ListWorkflowResponse, 0)
-	for {
-		select {
-		case winf := <-res:
-			if winf == nil {
-				return &model.ListWorkflowsResponse{Result: ret}, nil
-			}
-			ret = append(ret, &model.ListWorkflowResponse{
-				Name:    winf.Name,
-				Version: winf.Version,
-			})
-		case err := <-errs:
-			return nil, fmt.Errorf("list workflowsr: %w", err)
-		}
-	}
+	s.ns.ListWorkflows(ctx, res, errs)
 }
 
 func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*model.SendMessageResponse, error) {
@@ -177,27 +163,12 @@ func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.Cance
 	return &model.CancelProcessInstanceResponse{}, nil
 }
 
-func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecutionRequest) (*model.ListExecutionResponse, error) {
+func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecutionRequest, ret chan *model.ListExecutionItem, errs chan error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.WorkflowName)
 	if err2 != nil {
-		return nil, fmt.Errorf("authorize complete user task: %w", err2)
+		errs <- fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	wch, errs := s.ns.ListExecutions(ctx, req.WorkflowName)
-	ret := make([]*model.ListExecutionItem, 0)
-	for {
-		select {
-		case winf := <-wch:
-			if winf == nil {
-				return &model.ListExecutionResponse{Result: ret}, nil
-			}
-			ret = append(ret, &model.ListExecutionItem{
-				Id:      winf.Id,
-				Version: winf.Version,
-			})
-		case err := <-errs:
-			return nil, fmt.Errorf("list executions: %w", err)
-		}
-	}
+	s.ns.ListExecutions(ctx, req.WorkflowName, ret, errs)
 }
 
 func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleWorkflowErrorRequest) (*model.HandleWorkflowErrorResponse, error) {

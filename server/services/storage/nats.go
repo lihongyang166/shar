@@ -100,9 +100,7 @@ type Nats struct {
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
-func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResponse, chan error) {
-	res := make(chan *model.ListWorkflowResponse, 100)
-	errs := make(chan error, 1)
+func (s *Nats) ListWorkflows(ctx context.Context, res chan *model.ListWorkflowResponse, errs chan error) {
 
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
@@ -111,7 +109,7 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 		log := logx.FromContext(ctx)
 		log.Error("ListWorkflows get KVs", err)
 		errs <- err2
-		return res, errs
+		return
 	}
 
 	ks, err := nsKVs.wfVersion.Keys(ctx)
@@ -119,27 +117,26 @@ func (s *Nats) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowRespo
 		ks = []string{}
 	} else if err != nil {
 		errs <- err
-		return res, errs
+		return
 	}
-	go func() {
-		for _, k := range ks {
-			v := &model.WorkflowVersions{}
-			err := common.LoadObj(ctx, nsKVs.wfVersion, k, v)
-			if errors2.Is(err, jetstream.ErrNoKeysFound) {
-				continue
-			}
-			if err != nil {
-				errs <- err
-			}
-			res <- &model.ListWorkflowResponse{
-				Name:    k,
-				Version: v.Version[len(v.Version)-1].Number,
-			}
 
+	for _, k := range ks {
+		v := &model.WorkflowVersions{}
+		err := common.LoadObj(ctx, nsKVs.wfVersion, k, v)
+		if errors2.Is(err, jetstream.ErrNoKeysFound) {
+			continue
 		}
-		close(res)
-	}()
-	return res, errs
+		if err != nil {
+			errs <- err
+		}
+		res <- &model.ListWorkflowResponse{
+			Name:    k,
+			Version: v.Version[len(v.Version)-1].Number,
+		}
+
+	}
+	close(res)
+	return
 }
 
 // New creates a new instance of the NATS communication layer.
@@ -872,10 +869,8 @@ func (s *Nats) DeleteJob(ctx context.Context, trackingID string) error {
 }
 
 // ListExecutions returns a list of running workflows and versions given a workflow Name
-func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionItem, chan error) {
+func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan *model.ListExecutionItem, errs chan error) {
 	log := logx.FromContext(ctx)
-	errs := make(chan error, 1)
-	wch := make(chan *model.ListExecutionItem, 100)
 
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
@@ -884,13 +879,14 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 		log := logx.FromContext(ctx)
 		log.Error("list exec get KVs", err)
 		errs <- err2
-		return nil, errs
+		return
 	}
 
 	wfv := &model.WorkflowVersions{}
 	if err := common.LoadObj(ctx, nsKVs.wfVersion, workflowName, wfv); err != nil {
 		errs <- err
-		return wch, errs
+		close(errs)
+		return
 	}
 
 	ver := make(map[string]*model.WorkflowVersion)
@@ -904,7 +900,9 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 	} else if err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("obtaining keys", err)
-		return nil, errs
+		errs <- err
+		close(errs)
+		return
 	}
 	go func(keys []string) {
 		for _, k := range keys {
@@ -925,7 +923,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string) (chan *m
 		}
 		close(wch)
 	}(ks)
-	return wch, errs
+	return
 }
 
 // ListExecutionProcesses gets the current processIDs for an execution.

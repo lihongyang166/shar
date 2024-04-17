@@ -29,7 +29,7 @@ proto: .FORCE
 	mv model/gitlab.com/shar-workflow/shar/model/models.pb.go model/
 	@echo "\033[92mRemove proto working directories\033[0m"
 	rm -rf model/gitlab.com
-	build/nats-proto-gen-go proto/shar-workflow/models.proto --module-namespace="gitlab.com/shar-workflow/shar" --output-package="internal/natsrpc" --message-prefix "WORKFLOW.Api."
+	#build/nats-proto-gen-go proto/shar-workflow/models.proto --module-namespace="gitlab.com/shar-workflow/shar" --output-package="internal/natsrpc" --message-prefix "WORKFLOW.Api."
 	cd model/protodoc && go build
 	model/protodoc/protodoc
 server: .FORCE proto

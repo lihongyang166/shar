@@ -32,6 +32,7 @@ type NatsConn interface {
 	QueueSubscribe(subj string, queue string, cb nats.MsgHandler) (*nats.Subscription, error)
 	Publish(subj string, bytes []byte) error
 	PublishMsg(msg *nats.Msg) error
+	Subscribe(subj string, cb nats.MsgHandler) (*nats.Subscription, error)
 }
 
 func updateKV(ctx context.Context, wf jetstream.KeyValue, k string, msg proto.Message, updateFn func(v []byte, msg proto.Message) ([]byte, error)) error {

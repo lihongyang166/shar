@@ -27,7 +27,6 @@ import (
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	api2 "gitlab.com/shar-workflow/shar/internal/client/api"
-	"gitlab.com/shar-workflow/shar/internal/natsrpc"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -128,7 +127,6 @@ type Client struct {
 	ExpectedServerVersion           *version.Version
 	version                         *version.Version
 	noRecovery                      bool
-	shar                            natsrpc.SharClient
 	closer                          chan struct{}
 	shutdownOnce                    sync.Once
 	sig                             chan os.Signal
@@ -210,7 +208,6 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	c.txJS = txJS
 	c.con = n
 	c.txCon = txnc
-	c.shar = natsrpc.NewSharClient(c.con, nil, nil)
 	_, err = c.GetServerVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("server version: %w", err)
@@ -772,12 +769,17 @@ func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListE
 // ListWorkflows gets a list of launchable workflow in SHAR.
 func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResponse, error) {
 	req := &model.ListWorkflowsRequest{}
-	res := &model.ListWorkflowsResponse{}
+	res := &model.ListWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.ListWorkflowResponse, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ListWorkflowResponse) error {
+		result = append(result, val)
+		return nil
+	})
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res.Result, nil
+	return result, nil
 }
 
 // ListExecutionProcesses lists the current process IDs for an Execution.

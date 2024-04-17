@@ -1424,36 +1424,9 @@ func (_c *MockNatsService_ListExecutionProcesses_Call) RunAndReturn(run func(con
 	return _c
 }
 
-// ListExecutions provides a mock function with given fields: ctx, workflowName
-func (_m *MockNatsService) ListExecutions(ctx context.Context, workflowName string) (chan *model.ListExecutionItem, chan error) {
-	ret := _m.Called(ctx, workflowName)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ListExecutions")
-	}
-
-	var r0 chan *model.ListExecutionItem
-	var r1 chan error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (chan *model.ListExecutionItem, chan error)); ok {
-		return rf(ctx, workflowName)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) chan *model.ListExecutionItem); ok {
-		r0 = rf(ctx, workflowName)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chan *model.ListExecutionItem)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) chan error); ok {
-		r1 = rf(ctx, workflowName)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(chan error)
-		}
-	}
-
-	return r0, r1
+// ListExecutions provides a mock function with given fields: ctx, id, res, errs
+func (_m *MockNatsService) ListExecutions(ctx context.Context, id string, res chan *model.ListExecutionItem, errs chan error) {
+	_m.Called(ctx, id, res, errs)
 }
 
 // MockNatsService_ListExecutions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListExecutions'
@@ -1463,58 +1436,33 @@ type MockNatsService_ListExecutions_Call struct {
 
 // ListExecutions is a helper method to define mock.On call
 //   - ctx context.Context
-//   - workflowName string
-func (_e *MockNatsService_Expecter) ListExecutions(ctx interface{}, workflowName interface{}) *MockNatsService_ListExecutions_Call {
-	return &MockNatsService_ListExecutions_Call{Call: _e.mock.On("ListExecutions", ctx, workflowName)}
+//   - id string
+//   - res chan *model.ListExecutionItem
+//   - errs chan error
+func (_e *MockNatsService_Expecter) ListExecutions(ctx interface{}, id interface{}, res interface{}, errs interface{}) *MockNatsService_ListExecutions_Call {
+	return &MockNatsService_ListExecutions_Call{Call: _e.mock.On("ListExecutions", ctx, id, res, errs)}
 }
 
-func (_c *MockNatsService_ListExecutions_Call) Run(run func(ctx context.Context, workflowName string)) *MockNatsService_ListExecutions_Call {
+func (_c *MockNatsService_ListExecutions_Call) Run(run func(ctx context.Context, id string, res chan *model.ListExecutionItem, errs chan error)) *MockNatsService_ListExecutions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(chan *model.ListExecutionItem), args[3].(chan error))
 	})
 	return _c
 }
 
-func (_c *MockNatsService_ListExecutions_Call) Return(_a0 chan *model.ListExecutionItem, _a1 chan error) *MockNatsService_ListExecutions_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *MockNatsService_ListExecutions_Call) Return() *MockNatsService_ListExecutions_Call {
+	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockNatsService_ListExecutions_Call) RunAndReturn(run func(context.Context, string) (chan *model.ListExecutionItem, chan error)) *MockNatsService_ListExecutions_Call {
+func (_c *MockNatsService_ListExecutions_Call) RunAndReturn(run func(context.Context, string, chan *model.ListExecutionItem, chan error)) *MockNatsService_ListExecutions_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// ListWorkflows provides a mock function with given fields: ctx
-func (_m *MockNatsService) ListWorkflows(ctx context.Context) (chan *model.ListWorkflowResponse, chan error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ListWorkflows")
-	}
-
-	var r0 chan *model.ListWorkflowResponse
-	var r1 chan error
-	if rf, ok := ret.Get(0).(func(context.Context) (chan *model.ListWorkflowResponse, chan error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) chan *model.ListWorkflowResponse); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chan *model.ListWorkflowResponse)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) chan error); ok {
-		r1 = rf(ctx)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(chan error)
-		}
-	}
-
-	return r0, r1
+// ListWorkflows provides a mock function with given fields: ctx, res, errs
+func (_m *MockNatsService) ListWorkflows(ctx context.Context, res chan *model.ListWorkflowResponse, errs chan error) {
+	_m.Called(ctx, res, errs)
 }
 
 // MockNatsService_ListWorkflows_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListWorkflows'
@@ -1524,23 +1472,25 @@ type MockNatsService_ListWorkflows_Call struct {
 
 // ListWorkflows is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockNatsService_Expecter) ListWorkflows(ctx interface{}) *MockNatsService_ListWorkflows_Call {
-	return &MockNatsService_ListWorkflows_Call{Call: _e.mock.On("ListWorkflows", ctx)}
+//   - res chan *model.ListWorkflowResponse
+//   - errs chan error
+func (_e *MockNatsService_Expecter) ListWorkflows(ctx interface{}, res interface{}, errs interface{}) *MockNatsService_ListWorkflows_Call {
+	return &MockNatsService_ListWorkflows_Call{Call: _e.mock.On("ListWorkflows", ctx, res, errs)}
 }
 
-func (_c *MockNatsService_ListWorkflows_Call) Run(run func(ctx context.Context)) *MockNatsService_ListWorkflows_Call {
+func (_c *MockNatsService_ListWorkflows_Call) Run(run func(ctx context.Context, res chan *model.ListWorkflowResponse, errs chan error)) *MockNatsService_ListWorkflows_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
+		run(args[0].(context.Context), args[1].(chan *model.ListWorkflowResponse), args[2].(chan error))
 	})
 	return _c
 }
 
-func (_c *MockNatsService_ListWorkflows_Call) Return(_a0 chan *model.ListWorkflowResponse, _a1 chan error) *MockNatsService_ListWorkflows_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *MockNatsService_ListWorkflows_Call) Return() *MockNatsService_ListWorkflows_Call {
+	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockNatsService_ListWorkflows_Call) RunAndReturn(run func(context.Context) (chan *model.ListWorkflowResponse, chan error)) *MockNatsService_ListWorkflows_Call {
+func (_c *MockNatsService_ListWorkflows_Call) RunAndReturn(run func(context.Context, chan *model.ListWorkflowResponse, chan error)) *MockNatsService_ListWorkflows_Call {
 	_c.Call.Return(run)
 	return _c
 }

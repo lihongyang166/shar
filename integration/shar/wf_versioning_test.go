@@ -18,11 +18,6 @@ import (
 )
 
 func TestWfVersioning(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, func() (bool, string) {
-		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
-	}, nil)
-	tst.Setup()
-	defer tst.Teardown()
 
 	// Create a starting context
 	ctx := context.Background()
@@ -51,6 +46,7 @@ func TestWfVersioning(t *testing.T) {
 	require.NoError(t, err)
 	res2, err := cl.ListWorkflows(ctx)
 	require.NoError(t, err)
+	t.Log(len(res2))
 	assert.Equal(t, int32(1), res2[0].Version)
 	nc, err := nats.Connect(tst.NatsURL)
 	require.NoError(t, err)
@@ -69,6 +65,7 @@ func TestWfVersioning(t *testing.T) {
 	require.NoError(t, err)
 	res3, err := cl.ListWorkflows(ctx)
 	require.NoError(t, err)
+	t.Log(len(res2))
 	assert.Equal(t, int32(2), res3[0].Version)
 	vers, err := cl.GetWorkflowVersions(ctx, "SimpleWorkflowTest")
 	require.NoError(t, err)

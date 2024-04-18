@@ -120,8 +120,8 @@ func (s *Nats) ListWorkflows(ctx context.Context, res chan *model.ListWorkflowRe
 		return
 	}
 
+	v := &model.WorkflowVersions{}
 	for _, k := range ks {
-		v := &model.WorkflowVersions{}
 		err := common.LoadObj(ctx, nsKVs.wfVersion, k, v)
 		if errors2.Is(err, jetstream.ErrNoKeysFound) {
 			continue
@@ -135,8 +135,6 @@ func (s *Nats) ListWorkflows(ctx context.Context, res chan *model.ListWorkflowRe
 		}
 
 	}
-	close(res)
-	return
 }
 
 // New creates a new instance of the NATS communication layer.
@@ -658,21 +656,22 @@ func (s *Nats) GetWorkflowNameFor(ctx context.Context, processName string) (stri
 }
 
 // GetWorkflowVersions - returns a list of versions for a given workflow.
-func (s *Nats) GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error) {
+func (s *Nats) GetWorkflowVersions(ctx context.Context, workflowName string, wch chan *model.WorkflowVersion, errs chan error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
-		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
+		errs <- fmt.Errorf("get KVs for ns %s: %w", ns, err)
+		return
 	}
 
 	ver := &model.WorkflowVersions{}
 	if err := common.LoadObj(ctx, nsKVs.wfVersion, workflowName, ver); errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return nil, fmt.Errorf("get workflow versions failed to load object: %w", errors.ErrWorkflowVersionNotFound)
-
+		errs <- fmt.Errorf("get workflow versions failed to load object: %w", errors.ErrWorkflowVersionNotFound)
+		return
 	} else if err != nil {
-		return nil, fmt.Errorf("load workflow from KV: %w", err)
+		errs <- fmt.Errorf("load workflow from KV: %w", err)
+		return
 	}
-	return ver, nil
 }
 
 // CreateExecution given a workflow, starts a new execution and returns its ID
@@ -901,29 +900,23 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 		log := logx.FromContext(ctx)
 		log.Error("obtaining keys", err)
 		errs <- err
-		close(errs)
 		return
 	}
-	go func(keys []string) {
-		for _, k := range keys {
-			v := &model.Execution{}
-			err := common.LoadObj(ctx, nsKVs.wfExecution, k, v)
-			if wv, ok := ver[v.WorkflowId]; ok {
-				if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
-					errs <- err
-					log.Error("loading object", err)
-					close(errs)
-					return
-				}
-				wch <- &model.ListExecutionItem{
-					Id:      k,
-					Version: wv.Number,
-				}
+	for _, k := range ks {
+		v := &model.Execution{}
+		err := common.LoadObj(ctx, nsKVs.wfExecution, k, v)
+		if wv, ok := ver[v.WorkflowId]; ok {
+			if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
+				errs <- err
+				log.Error("loading object", err)
+				return
+			}
+			wch <- &model.ListExecutionItem{
+				Id:      k,
+				Version: wv.Number,
 			}
 		}
-		close(wch)
-	}(ks)
-	return
+	}
 }
 
 // ListExecutionProcesses gets the current processIDs for an execution.

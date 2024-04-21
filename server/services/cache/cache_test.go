@@ -2,6 +2,7 @@ package cache
 
 import (
 	"errors"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -61,7 +62,7 @@ func TestCacheMissError(t *testing.T) {
 
 	cacheableFn := func() (interface{}, error) {
 		isCachableFnCalled = true
-		return nil, errors.New("cacheableFn err")
+		return nil, fmt.Errorf("test chache missL %w", errors.New("cacheableFn err"))
 	}
 
 	v, err := Cacheable(key, cacheableFn, cache)

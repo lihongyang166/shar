@@ -229,12 +229,12 @@ func TestStreamingAPI(t *testing.T) {
 	})
 	assert.ErrorContains(t, err, "code 13: test error")
 	err = api2.CallReturnStream(ctx, nc, topic, v, []middleware.Send{telemetry.CtxSpanToNatsMsgMiddleware()}, req, &model.Execution{}, func(ret *model.Execution) error {
-		return errors.New("one bang and the client is gone")
+		return fmt.Errorf("call and return stream: %w", errors.New("one bang and the client is gone"))
 	})
 	assert.Error(t, err)
 }
 
-func testAPIFunc(ctx context.Context, req *model.ListExecutionRequest, res chan *model.Execution, errs chan error) {
+func testAPIFunc(ctx context.Context, req *model.ListExecutionRequest, res chan<- *model.Execution, errs chan<- error) {
 	for i := 0; i < 5; i++ {
 		ret := &model.Execution{}
 		ret.ExecutionId = strconv.Itoa(i)
@@ -244,7 +244,7 @@ func testAPIFunc(ctx context.Context, req *model.ListExecutionRequest, res chan 
 	}
 }
 
-func testAPIFuncErr(ctx context.Context, req *model.ListExecutionRequest, res chan *model.Execution, errs chan error) {
+func testAPIFuncErr(ctx context.Context, req *model.ListExecutionRequest, res chan<- *model.Execution, errs chan<- error) {
 	for i := 0; i < 5; i++ {
 		ret := &model.Execution{}
 		ret.ExecutionId = strconv.Itoa(i)

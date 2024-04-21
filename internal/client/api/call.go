@@ -127,10 +127,13 @@ func CallReturnStream[T proto.Message, U proto.Message](ctx context.Context, con
 			}
 			return ae
 		}
-		if err := proto.Unmarshal(res.Data, container); err != nil {
+		// Create new proto instance of the return variable
+		ct := container.ProtoReflect().New().Interface().(U)
+
+		if err := proto.Unmarshal(res.Data, ct); err != nil {
 			return fmt.Errorf("unmarshal proto for call API: %w", err)
 		}
-		err := fn(container)
+		err := fn(ct)
 		// TODO: trigger cancellation on error
 		if err != nil {
 			// TODO: translate error

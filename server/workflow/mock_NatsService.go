@@ -909,34 +909,9 @@ func (_c *MockNatsService_GetOldState_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
-// GetProcessHistory provides a mock function with given fields: ctx, processInstanceId
-func (_m *MockNatsService) GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error) {
-	ret := _m.Called(ctx, processInstanceId)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetProcessHistory")
-	}
-
-	var r0 []*model.ProcessHistoryEntry
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) ([]*model.ProcessHistoryEntry, error)); ok {
-		return rf(ctx, processInstanceId)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) []*model.ProcessHistoryEntry); ok {
-		r0 = rf(ctx, processInstanceId)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*model.ProcessHistoryEntry)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, processInstanceId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+// GetProcessHistory provides a mock function with given fields: ctx, processInstanceId, wch, errs
+func (_m *MockNatsService) GetProcessHistory(ctx context.Context, processInstanceId string, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
+	_m.Called(ctx, processInstanceId, wch, errs)
 }
 
 // MockNatsService_GetProcessHistory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProcessHistory'
@@ -947,23 +922,25 @@ type MockNatsService_GetProcessHistory_Call struct {
 // GetProcessHistory is a helper method to define mock.On call
 //   - ctx context.Context
 //   - processInstanceId string
-func (_e *MockNatsService_Expecter) GetProcessHistory(ctx interface{}, processInstanceId interface{}) *MockNatsService_GetProcessHistory_Call {
-	return &MockNatsService_GetProcessHistory_Call{Call: _e.mock.On("GetProcessHistory", ctx, processInstanceId)}
+//   - wch chan<- *model.ProcessHistoryEntry
+//   - errs chan<- error
+func (_e *MockNatsService_Expecter) GetProcessHistory(ctx interface{}, processInstanceId interface{}, wch interface{}, errs interface{}) *MockNatsService_GetProcessHistory_Call {
+	return &MockNatsService_GetProcessHistory_Call{Call: _e.mock.On("GetProcessHistory", ctx, processInstanceId, wch, errs)}
 }
 
-func (_c *MockNatsService_GetProcessHistory_Call) Run(run func(ctx context.Context, processInstanceId string)) *MockNatsService_GetProcessHistory_Call {
+func (_c *MockNatsService_GetProcessHistory_Call) Run(run func(ctx context.Context, processInstanceId string, wch chan<- *model.ProcessHistoryEntry, errs chan<- error)) *MockNatsService_GetProcessHistory_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(chan<- *model.ProcessHistoryEntry), args[3].(chan<- error))
 	})
 	return _c
 }
 
-func (_c *MockNatsService_GetProcessHistory_Call) Return(_a0 []*model.ProcessHistoryEntry, _a1 error) *MockNatsService_GetProcessHistory_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *MockNatsService_GetProcessHistory_Call) Return() *MockNatsService_GetProcessHistory_Call {
+	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockNatsService_GetProcessHistory_Call) RunAndReturn(run func(context.Context, string) ([]*model.ProcessHistoryEntry, error)) *MockNatsService_GetProcessHistory_Call {
+func (_c *MockNatsService_GetProcessHistory_Call) RunAndReturn(run func(context.Context, string, chan<- *model.ProcessHistoryEntry, chan<- error)) *MockNatsService_GetProcessHistory_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1259,34 +1236,9 @@ func (_c *MockNatsService_GetWorkflowNameFor_Call) RunAndReturn(run func(context
 	return _c
 }
 
-// GetWorkflowVersions provides a mock function with given fields: ctx, workflowName
-func (_m *MockNatsService) GetWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error) {
-	ret := _m.Called(ctx, workflowName)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetWorkflowVersions")
-	}
-
-	var r0 *model.WorkflowVersions
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.WorkflowVersions, error)); ok {
-		return rf(ctx, workflowName)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *model.WorkflowVersions); ok {
-		r0 = rf(ctx, workflowName)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.WorkflowVersions)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, workflowName)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+// GetWorkflowVersions provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *MockNatsService) GetWorkflowVersions(_a0 context.Context, _a1 string, _a2 chan<- *model.WorkflowVersion, _a3 chan<- error) {
+	_m.Called(_a0, _a1, _a2, _a3)
 }
 
 // MockNatsService_GetWorkflowVersions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowVersions'
@@ -1295,25 +1247,27 @@ type MockNatsService_GetWorkflowVersions_Call struct {
 }
 
 // GetWorkflowVersions is a helper method to define mock.On call
-//   - ctx context.Context
-//   - workflowName string
-func (_e *MockNatsService_Expecter) GetWorkflowVersions(ctx interface{}, workflowName interface{}) *MockNatsService_GetWorkflowVersions_Call {
-	return &MockNatsService_GetWorkflowVersions_Call{Call: _e.mock.On("GetWorkflowVersions", ctx, workflowName)}
+//   - _a0 context.Context
+//   - _a1 string
+//   - _a2 chan<- *model.WorkflowVersion
+//   - _a3 chan<- error
+func (_e *MockNatsService_Expecter) GetWorkflowVersions(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}) *MockNatsService_GetWorkflowVersions_Call {
+	return &MockNatsService_GetWorkflowVersions_Call{Call: _e.mock.On("GetWorkflowVersions", _a0, _a1, _a2, _a3)}
 }
 
-func (_c *MockNatsService_GetWorkflowVersions_Call) Run(run func(ctx context.Context, workflowName string)) *MockNatsService_GetWorkflowVersions_Call {
+func (_c *MockNatsService_GetWorkflowVersions_Call) Run(run func(_a0 context.Context, _a1 string, _a2 chan<- *model.WorkflowVersion, _a3 chan<- error)) *MockNatsService_GetWorkflowVersions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(chan<- *model.WorkflowVersion), args[3].(chan<- error))
 	})
 	return _c
 }
 
-func (_c *MockNatsService_GetWorkflowVersions_Call) Return(_a0 *model.WorkflowVersions, _a1 error) *MockNatsService_GetWorkflowVersions_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *MockNatsService_GetWorkflowVersions_Call) Return() *MockNatsService_GetWorkflowVersions_Call {
+	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockNatsService_GetWorkflowVersions_Call) RunAndReturn(run func(context.Context, string) (*model.WorkflowVersions, error)) *MockNatsService_GetWorkflowVersions_Call {
+func (_c *MockNatsService_GetWorkflowVersions_Call) RunAndReturn(run func(context.Context, string, chan<- *model.WorkflowVersion, chan<- error)) *MockNatsService_GetWorkflowVersions_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1425,7 +1379,7 @@ func (_c *MockNatsService_ListExecutionProcesses_Call) RunAndReturn(run func(con
 }
 
 // ListExecutions provides a mock function with given fields: ctx, id, res, errs
-func (_m *MockNatsService) ListExecutions(ctx context.Context, id string, res chan *model.ListExecutionItem, errs chan error) {
+func (_m *MockNatsService) ListExecutions(ctx context.Context, id string, res chan<- *model.ListExecutionItem, errs chan<- error) {
 	_m.Called(ctx, id, res, errs)
 }
 
@@ -1437,15 +1391,15 @@ type MockNatsService_ListExecutions_Call struct {
 // ListExecutions is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-//   - res chan *model.ListExecutionItem
-//   - errs chan error
+//   - res chan<- *model.ListExecutionItem
+//   - errs chan<- error
 func (_e *MockNatsService_Expecter) ListExecutions(ctx interface{}, id interface{}, res interface{}, errs interface{}) *MockNatsService_ListExecutions_Call {
 	return &MockNatsService_ListExecutions_Call{Call: _e.mock.On("ListExecutions", ctx, id, res, errs)}
 }
 
-func (_c *MockNatsService_ListExecutions_Call) Run(run func(ctx context.Context, id string, res chan *model.ListExecutionItem, errs chan error)) *MockNatsService_ListExecutions_Call {
+func (_c *MockNatsService_ListExecutions_Call) Run(run func(ctx context.Context, id string, res chan<- *model.ListExecutionItem, errs chan<- error)) *MockNatsService_ListExecutions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(chan *model.ListExecutionItem), args[3].(chan error))
+		run(args[0].(context.Context), args[1].(string), args[2].(chan<- *model.ListExecutionItem), args[3].(chan<- error))
 	})
 	return _c
 }
@@ -1455,13 +1409,13 @@ func (_c *MockNatsService_ListExecutions_Call) Return() *MockNatsService_ListExe
 	return _c
 }
 
-func (_c *MockNatsService_ListExecutions_Call) RunAndReturn(run func(context.Context, string, chan *model.ListExecutionItem, chan error)) *MockNatsService_ListExecutions_Call {
+func (_c *MockNatsService_ListExecutions_Call) RunAndReturn(run func(context.Context, string, chan<- *model.ListExecutionItem, chan<- error)) *MockNatsService_ListExecutions_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListWorkflows provides a mock function with given fields: ctx, res, errs
-func (_m *MockNatsService) ListWorkflows(ctx context.Context, res chan *model.ListWorkflowResponse, errs chan error) {
+func (_m *MockNatsService) ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error) {
 	_m.Called(ctx, res, errs)
 }
 
@@ -1472,15 +1426,15 @@ type MockNatsService_ListWorkflows_Call struct {
 
 // ListWorkflows is a helper method to define mock.On call
 //   - ctx context.Context
-//   - res chan *model.ListWorkflowResponse
-//   - errs chan error
+//   - res chan<- *model.ListWorkflowResponse
+//   - errs chan<- error
 func (_e *MockNatsService_Expecter) ListWorkflows(ctx interface{}, res interface{}, errs interface{}) *MockNatsService_ListWorkflows_Call {
 	return &MockNatsService_ListWorkflows_Call{Call: _e.mock.On("ListWorkflows", ctx, res, errs)}
 }
 
-func (_c *MockNatsService_ListWorkflows_Call) Run(run func(ctx context.Context, res chan *model.ListWorkflowResponse, errs chan error)) *MockNatsService_ListWorkflows_Call {
+func (_c *MockNatsService_ListWorkflows_Call) Run(run func(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error)) *MockNatsService_ListWorkflows_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(chan *model.ListWorkflowResponse), args[2].(chan error))
+		run(args[0].(context.Context), args[1].(chan<- *model.ListWorkflowResponse), args[2].(chan<- error))
 	})
 	return _c
 }
@@ -1490,7 +1444,7 @@ func (_c *MockNatsService_ListWorkflows_Call) Return() *MockNatsService_ListWork
 	return _c
 }
 
-func (_c *MockNatsService_ListWorkflows_Call) RunAndReturn(run func(context.Context, chan *model.ListWorkflowResponse, chan error)) *MockNatsService_ListWorkflows_Call {
+func (_c *MockNatsService_ListWorkflows_Call) RunAndReturn(run func(context.Context, chan<- *model.ListWorkflowResponse, chan<- error)) *MockNatsService_ListWorkflows_Call {
 	_c.Call.Return(run)
 	return _c
 }

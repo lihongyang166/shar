@@ -742,7 +742,6 @@ func StreamingReplyClient(ctx context.Context, nc *nats.Conn, msg *nats.Msg, fn 
 			return nil
 		}
 	}
-	return nil
 }
 
 // ErrStreamCancel is an error variable that represents a stream cancellation.

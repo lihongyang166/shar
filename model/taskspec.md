@@ -8,6 +8,35 @@
 | behaviour | TaskBehaviour | Behaviour documents instance behaviour. |  -  |
 | parameters | TaskParameters | Parameters document input and output parameters for the task. |  -  |
 | events | TaskEvents | Events document errors and messages that can be emitted from the task. |  -  |
+### TaskParameters
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| parameterGroup | ParameterGroup | ParameterGroup is a list of parameters with their categorization.  This is useful for display. | arbitrary string |
+| input | Parameter | Input documents input parameters to the task. |  -  |
+| output | Parameter | Output documents output parameters for the task. |  -  |
+### ParameterGroup
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| name | string | Name of the parameter group. | arbitrary string |
+| short | string | Short description of the parameter group. | arbitrary string |
+| description | string | Description - a long description of the parameter group. | arbitrary string |
+### Parameter
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| name | string | Name of the parameter. | arbitrary string |
+| short | string | Short description of the parameter. | arbitrary string |
+| description | string | Description - a long description of the parameter. | arbitrary string |
+| type | string | Type of the parameter. | "string", "int", "float", "bool" |
+| customTypeExtension | string | Subtype describing the use of the type. | eg. "IPAddress" |
+| collection | bool | Collection specifies the parameter is an array. | bool |
+| group | string | Group declares this parameter as part of a named parameter group. | parameter group name. |
+| extensionData | map[string]string | ExtensionData - a map of values that can be used by third party tools. | arbitrary map of string/string |
+| mandatory | bool | Mandatory specifies that this parameter is required. | bool |
+| validateExpr | string | ValidateExpr - an EXPR that is used to validate the field value. | a valid EXPR expression prefixed by'=' |
+| example | string | Example - an example EXPR that is used to provide a hint to a user on the nature of a task.  It is also used when the task is being used as a mock before implementation. | a valid EXPR expression prefixed by'=' |
 ### TaskEvents
 
 | name | type | description | validation |
@@ -83,32 +112,3 @@
 |------|------|-------------|
 | Linear | 0 | Retry at regular intervals. |
 | Incremental | 1 | Retry at increasingly large intervals. |
-### TaskParameters
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| parameterGroup | ParameterGroup | ParameterGroup is a list of parameters with their categorization.  This is useful for display. | arbitrary string |
-| input | Parameter | Input documents input parameters to the task. |  -  |
-| output | Parameter | Output documents output parameters for the task. |  -  |
-### ParameterGroup
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| name | string | Name of the parameter group. | arbitrary string |
-| short | string | Short description of the parameter group. | arbitrary string |
-| description | string | Description - a long description of the parameter group. | arbitrary string |
-### Parameter
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| name | string | Name of the parameter. | arbitrary string |
-| short | string | Short description of the parameter. | arbitrary string |
-| description | string | Description - a long description of the parameter. | arbitrary string |
-| type | string | Type of the parameter. | "string", "int", "float", "bool" |
-| customTypeExtension | string | Subtype describing the use of the type. | eg. "IPAddress" |
-| collection | bool | Collection specifies the parameter is an array. | bool |
-| group | string | Group declares this parameter as part of a named parameter group. | parameter group name. |
-| extensionData | map[string]string | ExtensionData - a map of values that can be used by third party tools. | arbitrary map of string/string |
-| mandatory | bool | Mandatory specifies that this parameter is required. | bool |
-| validateExpr | string | ValidateExpr - an EXPR that is used to validate the field value. | a valid EXPR expression prefixed by'=' |
-| example | string | Example - an example EXPR that is used to provide a hint to a user on the nature of a task.  It is also used when the task is being used as a mock before implementation. | a valid EXPR expression prefixed by'=' |

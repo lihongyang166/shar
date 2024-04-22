@@ -55,7 +55,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	for _, pi := range pis.ProcessInstanceId {
 		ps, err := cl.GetProcessInstanceStatus(ctx, pi)
 		require.NoError(t, err)
-		assert.Equal(t, "SimpleProcess", *ps.ProcessState[0].Execute)
+		assert.Equal(t, "SimpleProcess", *ps[0].Execute)
 	}
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 120*time.Second)

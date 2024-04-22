@@ -20,12 +20,14 @@ import (
 	"gitlab.com/shar-workflow/shar/server/vars"
 )
 
-func (s *SharServer) getProcessInstanceStatus(ctx context.Context, req *model.GetProcessInstanceStatusRequest) (*model.GetProcessInstanceStatusResult, error) {
-	ps, err := s.ns.GetProcessInstanceStatus(ctx, req.Id)
-	if err != nil {
-		return nil, fmt.Errorf("getProcessInstanceStatus failed with: %w", err)
+func (s *SharServer) getProcessInstanceStatus(ctx context.Context, req *model.GetProcessInstanceStatusRequest, wch chan<- *model.WorkflowState, errs chan<- error) {
+	// TODO: Auth for process
+	ctx, _, err2 := s.authFromProcessInstanceID(ctx, req.Id)
+	if err2 != nil {
+		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+		return
 	}
-	return &model.GetProcessInstanceStatusResult{ProcessState: ps}, nil
+	s.ns.GetProcessInstanceStatus(ctx, req.Id, wch, errs)
 }
 
 func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.ListExecutionProcessesRequest) (*model.ListExecutionProcessesResponse, error) {
@@ -40,27 +42,22 @@ func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.List
 	return &model.ListExecutionProcessesResponse{ProcessInstanceId: res}, nil
 }
 
-func (s *SharServer) listWorkflows(ctx context.Context, _ *model.ListWorkflowsRequest) (*model.ListWorkflowsResponse, error) {
+func (s *SharServer) listWorkflows(ctx context.Context, _ *model.ListWorkflowsRequest, res chan<- *model.ListWorkflowResponse, errs chan<- error) {
 	ctx, err2 := s.authForNonWorkflow(ctx)
 	if err2 != nil {
-		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+		return
 	}
-	res, errs := s.ns.ListWorkflows(ctx)
-	ret := make([]*model.ListWorkflowResponse, 0)
-	for {
-		select {
-		case winf := <-res:
-			if winf == nil {
-				return &model.ListWorkflowsResponse{Result: ret}, nil
-			}
-			ret = append(ret, &model.ListWorkflowResponse{
-				Name:    winf.Name,
-				Version: winf.Version,
-			})
-		case err := <-errs:
-			return nil, fmt.Errorf("list workflowsr: %w", err)
-		}
+	s.ns.ListWorkflows(ctx, res, errs)
+}
+
+func (s *SharServer) listExecutableProcesses(ctx context.Context, req *model.ListExecutableProcessesRequest, res chan<- *model.ListExecutableProcessesItem, errs chan<- error) {
+	ctx, err2 := s.authForNonWorkflow(ctx)
+	if err2 != nil {
+		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+		return
 	}
+	s.ns.ListExecutableProcesses(ctx, res, errs)
 }
 
 func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*model.SendMessageResponse, error) {
@@ -177,27 +174,12 @@ func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.Cance
 	return &model.CancelProcessInstanceResponse{}, nil
 }
 
-func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecutionRequest) (*model.ListExecutionResponse, error) {
+func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecutionRequest, ret chan<- *model.ListExecutionItem, errs chan<- error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.WorkflowName)
 	if err2 != nil {
-		return nil, fmt.Errorf("authorize complete user task: %w", err2)
+		errs <- fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	wch, errs := s.ns.ListExecutions(ctx, req.WorkflowName)
-	ret := make([]*model.ListExecutionItem, 0)
-	for {
-		select {
-		case winf := <-wch:
-			if winf == nil {
-				return &model.ListExecutionResponse{Result: ret}, nil
-			}
-			ret = append(ret, &model.ListExecutionItem{
-				Id:      winf.Id,
-				Version: winf.Version,
-			})
-		case err := <-errs:
-			return nil, fmt.Errorf("list executions: %w", err)
-		}
-	}
+	s.ns.ListExecutions(ctx, req.WorkflowName, ret, errs)
 }
 
 func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleWorkflowErrorRequest) (*model.HandleWorkflowErrorResponse, error) {
@@ -367,16 +349,13 @@ func (s *SharServer) getJob(ctx context.Context, req *model.GetJobRequest) (*mod
 	}, nil
 }
 
-func (s *SharServer) getWorkflowVersions(ctx context.Context, req *model.GetWorkflowVersionsRequest) (*model.GetWorkflowVersionsResponse, error) {
+func (s *SharServer) getWorkflowVersions(ctx context.Context, req *model.GetWorkflowVersionsRequest, wch chan<- *model.WorkflowVersion, errs chan<- error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, req.Name)
 	if err2 != nil {
-		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+		return
 	}
-	ret, err := s.ns.GetWorkflowVersions(ctx, req.Name)
-	if err != nil {
-		return nil, fmt.Errorf("get workflow versions: %w", err)
-	}
-	return &model.GetWorkflowVersionsResponse{Versions: ret}, nil
+	s.ns.GetWorkflowVersions(ctx, req.Name, wch, errs)
 }
 
 func (s *SharServer) getWorkflow(ctx context.Context, req *model.GetWorkflowRequest) (*model.GetWorkflowResponse, error) {
@@ -391,16 +370,13 @@ func (s *SharServer) getWorkflow(ctx context.Context, req *model.GetWorkflowRequ
 	return &model.GetWorkflowResponse{Definition: ret}, nil
 }
 
-func (s *SharServer) getProcessHistory(ctx context.Context, req *model.GetProcessHistoryRequest) (*model.GetProcessHistoryResponse, error) {
+func (s *SharServer) getProcessHistory(ctx context.Context, req *model.GetProcessHistoryRequest, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
 	ctx, _, err := s.authFromProcessInstanceID(ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+		return
 	}
-	ret, err := s.ns.GetProcessHistory(ctx, req.Id)
-	if err != nil {
-		return nil, fmt.Errorf("get process history: %w", err)
-	}
-	return &model.GetProcessHistoryResponse{Entry: ret}, nil
+	s.ns.GetProcessHistory(ctx, req.Id, wch, errs)
 }
 
 func (s *SharServer) versionInfo(ctx context.Context, req *model.GetVersionInfoRequest) (*model.GetVersionInfoResponse, error) {

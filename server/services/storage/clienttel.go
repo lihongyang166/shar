@@ -40,7 +40,7 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 				var telMsg *nats.Msg
 				msgs, err := consumer.Fetch(1)
 				if err != nil || len(msgs.Messages()) == 0 {
-					slog.Warn("pulling kick message")
+					slog.Debug("pulling client telemetry message")
 					time.Sleep(20 * time.Second)
 					continue
 				}

@@ -41,7 +41,7 @@ func run(cmd *cobra.Command, args []string) error {
 		if errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			continue
 		}
-		states[i] = res.ProcessState
+		states[i] = res
 	}
 	output.Current.OutputExecutionStatus(executionID, states)
 	return nil

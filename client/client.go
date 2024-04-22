@@ -27,7 +27,6 @@ import (
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	api2 "gitlab.com/shar-workflow/shar/internal/client/api"
-	"gitlab.com/shar-workflow/shar/internal/natsrpc"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -128,7 +127,6 @@ type Client struct {
 	ExpectedServerVersion           *version.Version
 	version                         *version.Version
 	noRecovery                      bool
-	shar                            natsrpc.SharClient
 	closer                          chan struct{}
 	shutdownOnce                    sync.Once
 	sig                             chan os.Signal
@@ -210,7 +208,6 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	c.txJS = txJS
 	c.con = n
 	c.txCon = txnc
-	c.shar = natsrpc.NewSharClient(c.con, nil, nil)
 	_, err = c.GetServerVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("server version: %w", err)
@@ -677,20 +674,25 @@ func (c *Client) HasWorkflowDefinitionChanged(ctx context.Context, name string, 
 	if err != nil {
 		return false, c.clientErr(ctx, err)
 	}
-	return !bytes.Equal(versions.Version[len(versions.Version)-1].Sha256, hash), nil
+	return !bytes.Equal(versions[len(versions)-1].Sha256, hash), nil
 }
 
 // GetWorkflowVersions - returns a list of versions for a given workflow.
-func (c *Client) GetWorkflowVersions(ctx context.Context, name string) (*model.WorkflowVersions, error) {
+func (c *Client) GetWorkflowVersions(ctx context.Context, name string) ([]*model.WorkflowVersion, error) {
 	req := &model.GetWorkflowVersionsRequest{
 		Name: name,
 	}
-	res := &model.GetWorkflowVersionsResponse{}
+	res := &model.WorkflowVersion{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflowVersions, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.WorkflowVersion, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetWorkflowVersions, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.WorkflowVersion) error {
+		result = append(result, val)
+		return nil
+	})
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res.Versions, nil
+	return result, nil
 }
 
 // GetWorkflow - retrieves a workflow model given its ID
@@ -761,23 +763,52 @@ func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars mode
 // ListExecution gets a list of running executions by workflow name.
 func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListExecutionItem, error) {
 	req := &model.ListExecutionRequest{WorkflowName: name}
-	res := &model.ListExecutionResponse{}
+	res := &model.ListExecutionItem{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.ListExecutionItem, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ListExecutionItem) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res.Result, nil
+	return result, nil
+}
+
+// ListExecutableProcesses gets a list of executable processes.
+func (c *Client) ListExecutableProcesses(ctx context.Context) ([]*model.ListExecutableProcessesItem, error) {
+	req := &model.ListExecutableProcessesRequest{}
+	res := &model.ListExecutableProcessesItem{}
+	ctx = subj.SetNS(ctx, c.ns)
+	result := make([]*model.ListExecutableProcessesItem, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIListExecutableProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ListExecutableProcessesItem) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return result, nil
 }
 
 // ListWorkflows gets a list of launchable workflow in SHAR.
 func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResponse, error) {
 	req := &model.ListWorkflowsRequest{}
-	res := &model.ListWorkflowsResponse{}
+	res := &model.ListWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.ListWorkflowResponse, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ListWorkflowResponse) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res.Result, nil
+	return result, nil
 }
 
 // ListExecutionProcesses lists the current process IDs for an Execution.
@@ -792,14 +823,21 @@ func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.
 }
 
 // GetProcessInstanceStatus lists the current workflow states for a process instance.
-func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) (*model.GetProcessInstanceStatusResult, error) {
+func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) ([]*model.WorkflowState, error) {
 	req := &model.GetProcessInstanceStatusRequest{Id: id}
-	res := &model.GetProcessInstanceStatusResult{}
+	res := &model.WorkflowState{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+
+	result := make([]*model.WorkflowState, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.WorkflowState) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res, nil
+	return result, nil
 }
 
 // GetUserTask fetches details for a user task based upon an ID obtained from, ListUserTasks
@@ -850,14 +888,20 @@ func (c *Client) RegisterProcessComplete(processId string, fn ProcessTerminateFn
 }
 
 // GetProcessHistory gets the history for a process.
-func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string) (*model.GetProcessHistoryResponse, error) {
+func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error) {
 	req := &model.GetProcessHistoryRequest{Id: processInstanceId}
-	res := &model.GetProcessHistoryResponse{}
+	res := &model.ProcessHistoryEntry{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessHistory, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.ProcessHistoryEntry, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetProcessHistory, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ProcessHistoryEntry) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res, nil
+	return result, nil
 }
 
 func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Level, message string, attrs map[string]string) error {

@@ -32,6 +32,7 @@ type NatsConn interface {
 	QueueSubscribe(subj string, queue string, cb nats.MsgHandler) (*nats.Subscription, error)
 	Publish(subj string, bytes []byte) error
 	PublishMsg(msg *nats.Msg) error
+	Subscribe(subj string, cb nats.MsgHandler) (*nats.Subscription, error)
 }
 
 func updateKV(ctx context.Context, wf jetstream.KeyValue, k string, msg proto.Message, updateFn func(v []byte, msg proto.Message) ([]byte, error)) error {
@@ -697,9 +698,7 @@ func StreamingReplyClient(ctx context.Context, nc *nats.Conn, msg *nats.Msg, fn 
 			if eHdr != strEOF {
 				errs <- fmt.Errorf("%s", eHdr)
 			}
-			close(ret)
 			close(errs)
-			close(cancel)
 			ctxCancel()
 			return
 		}
@@ -721,24 +720,28 @@ func StreamingReplyClient(ctx context.Context, nc *nats.Conn, msg *nats.Msg, fn 
 		ctxCancel()
 		return fmt.Errorf("publish: %s", err)
 	}
-	for r := range ret {
-		if err := fn(r); err != nil {
-			close(cancel)
-			if errors.Is(err, ErrStreamCancel) {
-				ctxCancel()
-				return nil
-			} else {
-				ctxCancel()
-				return fmt.Errorf("StreamingReplyClient client: %w", err)
+	for {
+		select {
+		case r := <-ret:
+			if err := fn(r); err != nil {
+				close(cancel)
+				if errors.Is(err, ErrStreamCancel) {
+					ctxCancel()
+					return nil
+				} else {
+					ctxCancel()
+					return fmt.Errorf("StreamingReplyClient client: %w", err)
+				}
 			}
+		case err := <-errs:
+			if err != nil {
+				ctxCancel()
+				return fmt.Errorf("StreamingReplyClient server: %w", err)
+			}
+			ctxCancel()
+			return nil
 		}
 	}
-	if err := <-errs; err != nil {
-		ctxCancel()
-		return fmt.Errorf("StreamingReplyClient server: %w", err)
-	}
-	ctxCancel()
-	return nil
 }
 
 // ErrStreamCancel is an error variable that represents a stream cancellation.
@@ -794,7 +797,9 @@ func StreamingReplyServer(nc streamNatsReplyconnection, subject string, fn func(
 				if !ok {
 					retM.Header.Set(strErrHeader, strEOF)
 				} else if errors.Is(e, ErrStreamCancel) {
-					close(retErr)
+					exit = true
+					slog.Debug("client cancelled stream", "subject", msg.Subject)
+					break
 				} else {
 					retM.Header.Set(strErrHeader, e.Error())
 				}

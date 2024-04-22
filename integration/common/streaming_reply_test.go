@@ -6,8 +6,17 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
+	client2 "gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/ctxkey"
+	"gitlab.com/shar-workflow/shar/common/middleware"
+	"gitlab.com/shar-workflow/shar/common/telemetry"
+	api2 "gitlab.com/shar-workflow/shar/internal/client/api"
 	integration_support "gitlab.com/shar-workflow/shar/internal/integration-support"
+	"gitlab.com/shar-workflow/shar/model"
+	"gitlab.com/shar-workflow/shar/server/api"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
@@ -182,4 +191,69 @@ func TestStreamingReplyServerError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, sent, received)
 	assert.Equal(t, received, 10)
+}
+
+func TestStreamingAPI(t *testing.T) {
+	it := integration_support.NewIntegration(false, "common", nil)
+	it.Setup()
+	defer it.Teardown()
+	nc, err := it.GetNats()
+	assert.NoError(t, err)
+	client := client2.New()
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, ctxkey.SharNamespace, "default")
+	err = client.Dial(ctx, it.NatsURL)
+	assert.NoError(t, err)
+	var topic = "Test.Topic"
+	var topic2 = "Test.Topic.Err"
+	subList := sync.Map{}
+	serverMW := []middleware.Receive{
+		telemetry.CtxWithTraceParentFromNatsMsgMiddleware(),
+		telemetry.NatsMsgToCtxWithSpanMiddleware(),
+	}
+	err = api.ListenReturnStream(nc, true, &subList, topic, serverMW, &model.ListExecutionRequest{}, testAPIFunc)
+	assert.NoError(t, err)
+	err = api.ListenReturnStream(nc, true, &subList, topic2, serverMW, &model.ListExecutionRequest{}, testAPIFuncErr)
+	assert.NoError(t, err)
+	req := &model.ListExecutionRequest{}
+	v := client.ExpectedCompatibleServerVersion
+	assert.NoError(t, err)
+	err = api2.CallReturnStream(ctx, nc, topic, v, []middleware.Send{telemetry.CtxSpanToNatsMsgMiddleware()}, req, &model.Execution{}, func(ret *model.Execution) error {
+		fmt.Printf("%v\n", ret)
+		return nil
+	})
+	assert.NoError(t, err)
+	err = api2.CallReturnStream(ctx, nc, topic2, v, []middleware.Send{telemetry.CtxSpanToNatsMsgMiddleware()}, req, &model.Execution{}, func(ret *model.Execution) error {
+		fmt.Printf("%v\n", ret)
+		return nil
+	})
+	assert.ErrorContains(t, err, "code 13: test error")
+	err = api2.CallReturnStream(ctx, nc, topic, v, []middleware.Send{telemetry.CtxSpanToNatsMsgMiddleware()}, req, &model.Execution{}, func(ret *model.Execution) error {
+		return fmt.Errorf("call and return stream: %w", errors.New("one bang and the client is gone"))
+	})
+	assert.Error(t, err)
+}
+
+func testAPIFunc(ctx context.Context, req *model.ListExecutionRequest, res chan<- *model.Execution, errs chan<- error) {
+	for i := 0; i < 5; i++ {
+		ret := &model.Execution{}
+		ret.ExecutionId = strconv.Itoa(i)
+		ret.WorkflowId = strconv.Itoa(i)
+		ret.ProcessInstanceId = []string{strconv.Itoa(i)}
+		res <- ret
+	}
+}
+
+func testAPIFuncErr(ctx context.Context, req *model.ListExecutionRequest, res chan<- *model.Execution, errs chan<- error) {
+	for i := 0; i < 5; i++ {
+		ret := &model.Execution{}
+		ret.ExecutionId = strconv.Itoa(i)
+		ret.WorkflowId = strconv.Itoa(i)
+		ret.ProcessInstanceId = []string{strconv.Itoa(i)}
+		if i == 4 {
+			errs <- errors.New("test error")
+			continue
+		}
+		res <- ret
+	}
 }

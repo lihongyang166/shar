@@ -81,8 +81,21 @@ message GetTaskSpecUsageResponse {
 
 }
 
+message ListExecutableProcessesRequest{
+
+}
+message ListExecutableProcessesItem{
+  string processName = 1;
+  string workflowName = 2;
+  repeated ExecutableStartParameter parameter = 3;
+}
+
+message ExecutableStartParameter {
+  string name = 1;
+}
+
 message HeartbeatRequest {
-  string Host = 1;
+  string host = 1;
   string id = 2;
   int64 time = 3;
 }

@@ -147,6 +147,7 @@ const (
 	APICompleteUserTask         = "WORKFLOW.Api.CompleteUserTask"         // APICompleteUserTask is the complete user task API subject.
 	APICompleteSendMessageTask  = "WORKFLOW.Api.CompleteSendMessageTask"  // APICompleteSendMessageTask is the complete send message task API subject.
 	APIDeprecateServiceTask     = "WORKFLOW.Api.DeprecateServiceTask"     // APIDeprecateServiceTask is the deprecate service task API subject.
+	APIListExecutableProcess    = "WORKFLOW.Api.APIListExecutableProcess" // APIListExecutableProcess is the list executable process API subject.
 	APIListUserTaskIDs          = "WORKFLOW.Api.ListUserTaskIDs"          // APIListUserTaskIDs is the list user task IDs API subject.
 	APIGetUserTask              = "WORKFLOW.Api.GetUserTask"              // APIGetUserTask is the get user task API subject.
 	APIGetTaskSpecVersions      = "WORKFLOW.Api.GetTaskSpecVersions"      // APIGetTaskSpecVersions is the get task versions API subject.

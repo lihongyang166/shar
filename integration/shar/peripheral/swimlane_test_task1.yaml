@@ -1,0 +1,26 @@
+version: '1.0'
+kind: ServiceTask
+metadata:
+  uid: 312dc5f2-0cca-4eb6-82d8-908c718bf53a
+  category: functions
+  type: step1-1-0-0
+  short: Step 1
+  description: Step 1
+  labels:
+    - template
+    - mock
+    - step1
+  version: 1.0.0
+behaviour:
+  defaultRetry:
+    number: 30
+    strategy: 30000
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
+      action: 3
+  estimatedMaxDuration: 2343255
+  mock: true
+parameters: {}
+events: {}

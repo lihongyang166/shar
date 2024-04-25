@@ -1,0 +1,49 @@
+version: '1.0'
+kind: ServiceTask
+metadata:
+  uid: cdb35b61-12fc-4cac-845c-4bc548f89018
+  category: functions
+  type: step2-1-0-0
+  short: Step 2
+  description: Step 2
+  labels:
+    - template
+    - mock
+    - step2
+  version: 1.0.0
+behaviour:
+  defaultRetry:
+    number: 30
+    strategy: 30000
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
+      action: 3
+  estimatedMaxDuration: 2343255
+  mock: true
+parameters:
+  parameterGroup:
+    - name: inputs
+      short: Inputs
+      description: Inputs
+  input:
+    - name: carried
+      short: Carried
+      description: Carried
+      type: string
+      group: inputs
+      example: carriedExample
+    - name: carried2
+      short: Carried 2
+      description: Carried 2
+      type: string
+      group: inputs
+      example: carried2Example
+    - name: orderID
+      short: OrderID
+      description: Order ID
+      type: string
+      group: inputs
+      example: order1
+events: {}

@@ -8,7 +8,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/vars"
 	"google.golang.org/protobuf/proto"
-	"strings"
+	"regexp"
 )
 
 // OpenTrace represents a running trace.
@@ -28,8 +28,10 @@ func (o *OpenTrace) Close() {
 func Trace(natsURL string) *OpenTrace {
 	ctx := context.Background()
 	nc, _ := nats.Connect(natsURL)
+	r, _ := regexp.Compile(`^WORKFLOW\.[0-9a-zA-Z]+\.State\..*$`)
+
 	sub, err := nc.Subscribe("WORKFLOW.>", func(msg *nats.Msg) {
-		if strings.HasPrefix(msg.Subject, "WORKFLOW.default.State.") {
+		if r.MatchString(msg.Subject) {
 			d := &model.WorkflowState{}
 			err := proto.Unmarshal(msg.Data, d)
 			if err != nil {

@@ -857,13 +857,7 @@ func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID strin
 
 // SendMessage sends a Workflow Message to a specific workflow instance
 func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars model.Vars) error {
-	var skey string
-	switch key.(type) {
-	case string:
-		skey = "\"" + fmt.Sprintf("%+v", key) + "\""
-	default:
-		skey = fmt.Sprintf("%+v", key)
-	}
+	skey := fmt.Sprintf("%+v", key)
 	b, err := vars.Encode(ctx, mvars)
 	if err != nil {
 		return fmt.Errorf("encode variables for send message: %w", err)

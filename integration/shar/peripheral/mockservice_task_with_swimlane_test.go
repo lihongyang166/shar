@@ -2,6 +2,7 @@ package simple
 
 import (
 	"context"
+	"fmt"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -14,7 +15,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 )
 
-func TestSwimlane(t *testing.T) {
+func TestMockServiceTaskWithSwimlane(t *testing.T) {
 	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
@@ -33,7 +34,10 @@ func TestSwimlane(t *testing.T) {
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "swimlane_test_task2.yaml", nil)
 	require.NoError(t, err)
-	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
+	err = cl.RegisterProcessComplete("testSwimlaneProcess-0-0-5-process-2", d.processEnd)
+	require.NoError(t, err)
+
+	err = cl.RegisterMessageSender(ctx, "swimlane_test", "continueMessage", d.sendMessage)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
@@ -43,18 +47,18 @@ func TestSwimlane(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "swimlane_test", b)
 	require.NoError(t, err)
 
+	// Listen for service tasks
+	go func() {
+		err := cl.Listen(ctx)
+		require.NoError(t, err)
+	}()
+
 	// Launch the workflow
 	executionId, _, err := cl.LaunchProcess(ctx, "testSwimlaneProcess-0-0-5-process-1", model.Vars{"orderId": "dummyOrder"})
 	require.NoError(t, err)
 
 	go func() {
 		tst.TrackingUpdatesFor(ns, executionId, d.trackingReceived, 20*time.Second, t)
-	}()
-
-	// Listen for service tasks
-	go func() {
-		err := cl.Listen(ctx)
-		require.NoError(t, err)
 	}()
 
 	support.WaitForChan(t, d.trackingReceived, 20*time.Second)
@@ -71,4 +75,11 @@ type testSimpleHandlerDef struct {
 
 func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *model.Error, _ model.CancellationState) {
 	close(d.finished)
+}
+
+func (x *testSimpleHandlerDef) sendMessage(ctx context.Context, cmd client.MessageClient, vars model.Vars) error {
+	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"carried": vars["carried"], "orderId": vars["orderId"]}); err != nil {
+		return fmt.Errorf("send continue message: %w", err)
+	}
+	return nil
 }

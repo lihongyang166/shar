@@ -64,7 +64,7 @@ func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequ
 	//TODO: how do we auth this?
 
 	messageName := req.Name
-	if req.CorrelationKey == "\"\"" {
+	if req.CorrelationKey == "" {
 		if processId, err := s.ns.GetProcessIdFor(ctx, messageName); err != nil {
 			return nil, fmt.Errorf("error retrieving process id for message name: %w", err)
 		} else {

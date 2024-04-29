@@ -725,20 +725,16 @@ func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpe
 	state := common.CopyWorkflowState(traversal)
 	// Extract workflow inputs
 	localVars := make(map[string]interface{})
-	processVars := make(map[string]interface{})
-	if el.InputTransform != nil {
-		var err error
-		processVars, err = vars.Decode(ctx, state.Vars)
+	processVars, err := vars.Decode(ctx, state.Vars)
+	if err != nil {
+		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("decode old input variables: %w", err)}
+	}
+	for k, v := range el.InputTransform {
+		res, err := expression.EvalAny(ctx, v, processVars)
 		if err != nil {
-			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("decode old input variables: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("input transform expression evalutaion failed: %w", err)}
 		}
-		for k, v := range el.InputTransform {
-			res, err := expression.EvalAny(ctx, v, processVars)
-			if err != nil {
-				return &errors.ErrWorkflowFatal{Err: fmt.Errorf("input transform expression evalutaion failed: %w", err)}
-			}
-			localVars[k] = res
-		}
+		localVars[k] = res
 	}
 
 	if def.Parameters != nil {

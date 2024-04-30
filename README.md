@@ -137,6 +137,7 @@ func main() {
 	}
 }
 
+
 // A "Hello World" service task
 func simpleProcess(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Hello World")

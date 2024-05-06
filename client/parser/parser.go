@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"github.com/antchfx/xmlquery"
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/linter"
 	"gitlab.com/shar-workflow/shar/model"
@@ -110,11 +111,12 @@ func parseProcess(doc *xmlquery.Node, wf *model.Workflow, prXML *xmlquery.Node, 
 		parseErrors(doc, wf, errXML, errs)
 	}
 	for _, i := range prXML.SelectElements("//bpmn:boundaryEvent") {
-		if err := parseBoundaryEvent(doc, i, pr); err != nil {
+		els := make(map[string]*model.Element)
+		common.IndexProcessElements(pr.Elements, els)
+		if err := parseBoundaryEvent(doc, i, pr, els); err != nil {
 			return fmt.Errorf("parsing boundary events: %w", err)
 		}
 	}
-
 	return nil
 }
 
@@ -149,11 +151,14 @@ func parseErrors(_ *xmlquery.Node, wf *model.Workflow, errNodes []*xmlquery.Node
 
 func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i *xmlquery.Node, msgs map[string]string, errs map[string]string) error {
 	if i.NamespaceURI == bpmnNS {
-		el := &model.Element{Type: i.Data}
+		el := &model.Element{
+			Type:         i.Data,
+			Compensation: &model.Targets{},
+		}
 
 		switch i.Data {
 		// These are handled specially
-		case "sequenceFlow", "incoming", "outgoing", "extensionElements", "boundaryEvent", "documentation":
+		case "sequenceFlow", "incoming", "outgoing", "extensionElements", "boundaryEvent", "documentation", "association":
 			return nil
 		// Intermediate catch events need special processing
 		case "intermediateThrowEvent":
@@ -264,7 +269,7 @@ func parseElementErrors(doc *xmlquery.Node, i *xmlquery.Node, el *model.Element)
 	}
 }
 
-func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process) error {
+func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process, els map[string]*model.Element) error {
 	attach := i.SelectAttr("attachedToRef")
 	var el *model.Element
 	for _, i := range pr.Elements {
@@ -272,6 +277,21 @@ func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process)
 			el = i
 			break
 		}
+	}
+	if err := parseCompensationEventData(
+		doc, i, el, "//bpmn:compensateEventDefinition/@id",
+		func(ref *xmlquery.Node, attach *model.Element, target string) any {
+			newTarget := &model.Target{
+				Id:         ref.SelectAttr("id"),
+				Conditions: nil,
+				Target:     target,
+			}
+			attach.Compensation.Target = append(attach.Compensation.Target, newTarget)
+			els[target].IsForCompensation = true
+			return nil
+		},
+	); err != nil {
+		return fmt.Errorf("processing error event definition: %w", err)
 	}
 	if err := parseBoundaryEventData(
 		doc, i, el, "//bpmn:errorEventDefinition/@errorRef",
@@ -323,6 +343,23 @@ func parseBoundaryEventData(doc *xmlquery.Node, node *xmlquery.Node, attachRef *
 	return nil
 }
 
+func parseCompensationEventData(doc *xmlquery.Node, node *xmlquery.Node, attachRef *model.Element, selector string, fn func(*xmlquery.Node, *model.Element, string) any) error {
+	if ref := node.SelectElement(selector); ref != nil {
+		eventId := node.SelectAttr("id")
+		associations := doc.SelectElements("//bpmn:association")
+		var target string
+		for _, v := range associations {
+			if v.SelectAttr("sourceRef") == eventId {
+				target = v.SelectAttr("targetRef")
+				newNode := fn(node, attachRef, target)
+				if err := parseZeebeExtensions(doc, newNode, node); err != nil {
+					return fmt.Errorf("parsing zebee extensions: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
 func parseSubscription(wf *model.Workflow, el *model.Element, i *xmlquery.Node, msgs map[string]string, _ map[string]string) error {
 	if i.Data == "intermediateCatchEvent" {
 		if x := i.SelectElement("bpmn:messageEventDefinition/@messageRef"); x != nil {

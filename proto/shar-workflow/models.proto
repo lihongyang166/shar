@@ -170,22 +170,24 @@ message Element {
   string name = 2; // Name - the name of the state machine element.
   string type = 3; // Type - the type of state machine element
   string documentation = 4; // Documentation - any documentation describing the state machine element.
-  string execute = 5;  // Execute - describes the execution parameter,  This is used for diffrerent purposes depending on the type.
+  string execute = 5;  // Execute - describes the execution parameter,  This is used for different purposes depending on the type.
   Targets outbound = 6; // Outbound - a number of possible transitions to other state machine state elements.s
+  Targets compensation = 22; // Compensation transitions
   Process process = 7; // Process - defines any subprocesses contained within this state machine.
   string msg = 8; // TODO: Document
-  string candidates = 10; // Candidates - used for user related state machgine types to define users that may complete the task.
+  string candidates = 10; // Candidates - used for user related state machine types to define users that may complete the task.
   string candidateGroups = 11; // CandidateGroups - used for user related state machine types to define groups that may complete a task.
   repeated CatchError errors = 12; // Errors - a number of catchable errors for this state machine element.
   Error error = 13; // Error - an error that may be thrown.
-  map<string, string> inputTransform = 14; // InputTransform - a transformation to poerform between variable names when calling a state machine task.
-  map<string, string> outputTransform = 15; // OutputTransform - a transformation to poerform between variable names when exiting a state machine task.
+  map<string, string> inputTransform = 14; // InputTransform - a transformation to perform between variable names when calling a state machine task.
+  map<string, string> outputTransform = 15; // OutputTransform - a transformation to perform between variable names when exiting a state machine task.
   WorkflowTimerDefinition timer = 16; // Timer - a time to wait before execution for timer tasks.
   repeated Timer boundaryTimer = 17; // BoundaryTimer - a number of timed transitions between this and another state.
   optional GatewaySpec gateway = 18; // GatewaySpec - if this element is a gateway, this contains the type specification for it.
   optional Iteration iteration = 19; // Iteration - gives any instructions for multi instance execution.
   optional string version = 20; // Version - provides version information about a resource such as a task.
   optional DefaultTaskRetry retryBehaviour = 21; // RetryBehaviour - the style and type of retry associated with a service task.
+  bool isForCompensation = 23; // IsForCompensation - this element is used for compensation activities.
 }
 
 enum ThreadingType {
@@ -326,6 +328,7 @@ message ProcessHistoryEntry {
   optional Error error = 9;
   int64 unixTimeNano = 10;
   optional string execute = 11;
+  bool compensating = 12;
 }
 
 message ProcessHistory {

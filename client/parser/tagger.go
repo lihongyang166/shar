@@ -14,7 +14,7 @@ func tagWorkflow(wf *model.Workflow) error {
 		back := getInbound(process)
 		common.IndexProcessElements(process.Elements, els)
 		if err := tagGateways(process, els, back); err != nil {
-			return fmt.Errorf("an error occurred tagging the workflow: %w", err)
+			return fmt.Errorf("an error occurred tagging the process gateways: %w", err)
 		}
 	}
 	return nil

@@ -165,7 +165,11 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 			parseIntermediateThrowEvent(i, el, wf, msgs)
 		case "startEvent":
 			if err := parseStartEvent(i, el, msgs, pr.Name, wf); err != nil {
-				return fmt.Errorf("parse start events: %w", err)
+				return fmt.Errorf("parse start event: %w", err)
+			}
+		case "endEvent":
+			if err := parseEndEvent(i, el, msgs, pr.Name, wf); err != nil {
+				return fmt.Errorf("parse end event: %w", err)
 			}
 		case "exclusiveGateway":
 			el.Type = element.Gateway
@@ -192,6 +196,14 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 			return fmt.Errorf("parse subscription: %w", err)
 		}
 		pr.Elements = append(pr.Elements, el)
+	}
+	return nil
+}
+
+func parseEndEvent(i *xmlquery.Node, el *model.Element, msgs map[string]string, name string, wf *model.Workflow) error {
+	el.Type = element.EndEvent
+	if compRef := i.SelectElement("//bpmn:compensateEventDefinition/@id"); compRef != nil {
+		el.Type = element.CompensateEndEvent
 	}
 	return nil
 }

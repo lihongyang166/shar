@@ -14,7 +14,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 )
 
-func TestSimple(t *testing.T) {
+func TestCompensate(t *testing.T) {
 	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
@@ -74,16 +74,20 @@ type testSimpleHandlerDef struct {
 }
 
 func (d *testSimpleHandlerDef) task1(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	d.t.Log("Task1")
 	return vars, nil
 }
 
 func (d *testSimpleHandlerDef) task2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	d.t.Log("Task2")
 	return vars, nil
 }
 func (d *testSimpleHandlerDef) compensate1(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	d.t.Log("Compensate Task1")
 	return vars, nil
 }
 func (d *testSimpleHandlerDef) compensate2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	d.t.Log("Compensate Task2")
 	return vars, nil
 }
 func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *model.Error, _ model.CancellationState) {

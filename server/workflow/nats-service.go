@@ -63,4 +63,5 @@ type NatsService interface {
 	StartProcessing(ctx context.Context) error
 	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
 	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
+	Compensate(ctx context.Context, state *model.WorkflowState) error
 }

@@ -1139,40 +1139,48 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 			log.Error("workflow fatally terminated whilst traversing", err, slog.String(keys.ProcessInstanceID, pi.ProcessInstanceId), slog.String(keys.WorkflowID, pi.WorkflowId), slog.String(keys.ElementID, state.ElementId))
 			return nil
 		} else if err != nil {
-			return fmt.Errorf("activity complete processor failed traversal attempt: %w", err)
+			return fmt.Errorf("activity complete processor traversal attempt: %w", err)
 		}
 	}
-	if state.ElementType == element.EndEvent && len(state.Id) > 2 {
-		jobID := common.TrackingID(state.Id).Ancestor(2)
-		// If we are a sub workflow then complete the parent job
-		if jobID != state.ExecutionId {
-			j, joberr := c.ns.GetJob(ctx, jobID)
-			if errors2.Is(joberr, errors.ErrJobNotFound) {
-				log.Warn("job not found " + jobID + " : " + err.Error())
-			} else if joberr != nil {
-				return fmt.Errorf("activity complete processor failed to get job: %w", joberr)
-			}
-			if joberr == nil {
-				j.Vars = state.Vars
-				j.Error = state.Error
-				if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowJobLaunchComplete, j); err != nil {
-					return fmt.Errorf("activity complete processor failed to publish job launch complete: %w", err)
+	switch state.ElementType {
+	case element.EndEvent:
+		if len(state.Id) > 2 {
+			jobID := common.TrackingID(state.Id).Ancestor(2)
+			// If we are a sub workflow then complete the parent job
+			if jobID != state.ExecutionId {
+				j, joberr := c.ns.GetJob(ctx, jobID)
+				if errors2.Is(joberr, errors.ErrJobNotFound) {
+					log.Warn("job not found " + jobID + " : " + err.Error())
+				} else if joberr != nil {
+					return fmt.Errorf("activity complete processor failed to get job: %w", joberr)
 				}
-			}
-			if err := c.ns.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
-				return fmt.Errorf("activity complete processor failed to delete job %s: %w", jobID, err)
-			}
-			execution, eerr := c.ns.GetExecution(ctx, state.ExecutionId)
-			if eerr != nil && !errors2.Is(eerr, jetstream.ErrKeyNotFound) {
-				return fmt.Errorf("activity complete processor failed to get execution: %w", err)
-			}
-			if pierr == nil {
-				if err := c.ns.DestroyProcessInstance(ctx, state, pi, execution); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
-					return fmt.Errorf("activity complete processor failed to destroy execution: %w", err)
+				if joberr == nil {
+					j.Vars = state.Vars
+					j.Error = state.Error
+					if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowJobLaunchComplete, j); err != nil {
+						return fmt.Errorf("activity complete processor failed to publish job launch complete: %w", err)
+					}
+				}
+				if err := c.ns.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
+					return fmt.Errorf("activity complete processor failed to delete job %s: %w", jobID, err)
+				}
+				execution, eerr := c.ns.GetExecution(ctx, state.ExecutionId)
+				if eerr != nil && !errors2.Is(eerr, jetstream.ErrKeyNotFound) {
+					return fmt.Errorf("activity complete processor failed to get execution: %w", err)
+				}
+				if pierr == nil {
+					if err := c.ns.DestroyProcessInstance(ctx, state, pi, execution); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
+						return fmt.Errorf("activity complete processor failed to destroy execution: %w", err)
+					}
 				}
 			}
 		}
+	case element.CompensateEndEvent:
+		if err := c.ns.Compensate(ctx, state); err != nil {
+			fmt.Println("initializing compensation:", err)
+		}
 	}
+
 	return nil
 }
 

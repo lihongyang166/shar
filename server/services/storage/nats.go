@@ -1920,3 +1920,32 @@ func (s *Nats) ListExecutableProcesses(ctx context.Context, wch chan<- *model.Li
 		}
 	}
 }
+
+func (s *Nats) Compensate(ctx context.Context, state *model.WorkflowState) error {
+	wf, err := s.GetWorkflow(ctx, state.WorkflowId)
+	if err != nil {
+		return fmt.Errorf("get workflow: %w", err)
+	}
+	pr := wf.Process[state.ProcessName]
+	els := make(map[string]*model.Element)
+	common.IndexProcessElements(pr.Elements, els)
+	hist := make(chan *model.ProcessHistoryEntry)
+	errs := make(chan error, 1)
+	//ids := make([]string, 0)
+	go s.GetProcessHistory(ctx, state.ProcessInstanceId, hist, errs)
+	for {
+		select {
+		case entry := <-hist:
+			// Don't include and history output as a result of compensation
+			// Only include history items that are compensable
+			if entry.Compensating {
+				continue
+			}
+			if len(els[*entry.ElementId].Compensation.Target) > 0 {
+				fmt.Println(entry)
+			}
+
+		}
+	}
+	panic("Not Implemented")
+}

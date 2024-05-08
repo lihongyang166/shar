@@ -124,6 +124,53 @@ func (_c *MockNatsService_CloseUserTask_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
+// Compensate provides a mock function with given fields: ctx, state
+func (_m *MockNatsService) Compensate(ctx context.Context, state *model.WorkflowState) error {
+	ret := _m.Called(ctx, state)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Compensate")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) error); ok {
+		r0 = rf(ctx, state)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockNatsService_Compensate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Compensate'
+type MockNatsService_Compensate_Call struct {
+	*mock.Call
+}
+
+// Compensate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - state *model.WorkflowState
+func (_e *MockNatsService_Expecter) Compensate(ctx interface{}, state interface{}) *MockNatsService_Compensate_Call {
+	return &MockNatsService_Compensate_Call{Call: _e.mock.On("Compensate", ctx, state)}
+}
+
+func (_c *MockNatsService_Compensate_Call) Run(run func(ctx context.Context, state *model.WorkflowState)) *MockNatsService_Compensate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.WorkflowState))
+	})
+	return _c
+}
+
+func (_c *MockNatsService_Compensate_Call) Return(_a0 error) *MockNatsService_Compensate_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockNatsService_Compensate_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) error) *MockNatsService_Compensate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Conn provides a mock function with given fields:
 func (_m *MockNatsService) Conn() common.NatsConn {
 	ret := _m.Called()

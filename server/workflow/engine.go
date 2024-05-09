@@ -1261,7 +1261,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				log.Error("spawning process", err)
 				return false, 0, nil
 			}
-			if err := c.ns.RecordHistoryProcessStart(ctx, state); err != nil {
+			if err := c.ns.RecordHistoryProcessStart(ctx, processWfState); err != nil {
 				log.Error("start events record process start", err)
 				return false, 0, fmt.Errorf("publish initial traversal: %w", err)
 			}

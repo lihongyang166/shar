@@ -87,7 +87,7 @@ func NewTraceParent(traceID [16]byte, spanID [8]byte) string {
 func NewTraceID() [16]byte {
 	var traceID [16]byte
 	if _, err := rand.Read(traceID[:]); err != nil {
-		slog.Error("new trace parent: crypto get bytes: %w", err)
+		slog.Error("new trace parent: crypto get bytes: %w", "error", err)
 	}
 	return traceID
 }

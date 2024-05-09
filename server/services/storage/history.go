@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/model"
@@ -18,10 +17,17 @@ func (s *Nats) RecordHistory(ctx context.Context, state *model.WorkflowState, hi
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
+	id := common.TrackingID(state.Id)
+	trackingId := id.ID()
+	parentTrackingId := id.ParentID()
 	e := &model.ProcessHistoryEntry{
+		TrackingId:        trackingId,
+		ParentTrackingId:  parentTrackingId,
 		ItemType:          historyType,
 		WorkflowId:        &state.WorkflowId,
 		ExecutionId:       &state.ExecutionId,
+		ElementId:         &state.ElementId,
+		ProcessInstanceId: &state.ProcessInstanceId,
 		CancellationState: &state.State,
 		Vars:              state.Vars,
 		Timer:             state.Timer,
@@ -29,7 +35,8 @@ func (s *Nats) RecordHistory(ctx context.Context, state *model.WorkflowState, hi
 		UnixTimeNano:      state.UnixTimeNano,
 		Execute:           state.Execute,
 	}
-	if err := common.SaveObj(ctx, nsKVs.wfHistory, state.ProcessInstanceId+"."+ksuid.New().String(), e); err != nil {
+	newId := fmt.Sprintf("%s.%s.%d", state.ProcessInstanceId, trackingId, historyType)
+	if err := common.SaveObj(ctx, nsKVs.wfHistory, newId, e); err != nil {
 		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("recording history: %w", err)}
 	}
 

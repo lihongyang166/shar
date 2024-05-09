@@ -159,13 +159,13 @@ func (s *Server) Listen() {
 		// Create health server and expose on GRPC
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.grpcPort))
 		if err != nil {
-			slog.Error("listen", err, slog.Int64("grpcPort", int64(s.grpcPort)))
+			slog.Error("listen", "error", err, slog.Int64("grpcPort", int64(s.grpcPort)))
 			panic(err)
 		}
 
 		s.grpcServer = gogrpc.NewServer()
 		if err := registerServer(s.grpcServer, s.healthService); err != nil {
-			slog.Error("register grpc health server", err, slog.Int64("grpcPort", int64(s.grpcPort)))
+			slog.Error("register grpc health server", "error", err, slog.Int64("grpcPort", int64(s.grpcPort)))
 			panic(err)
 		}
 
@@ -197,7 +197,7 @@ func (s *Server) Listen() {
 	select {
 	case err := <-errs:
 		if err != nil {
-			slog.Error("fatal error", err)
+			slog.Error("fatal error", "error", err)
 			panic("fatal error")
 		}
 	case <-s.sig:

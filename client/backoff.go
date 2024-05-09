@@ -22,7 +22,7 @@ import (
 func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	state := &model.WorkflowState{}
 	if err := proto.Unmarshal(msg.Data(), state); err != nil {
-		slog.Error("unmarshalling state", err)
+		slog.Error("unmarshalling state", "error", err)
 		return fmt.Errorf("service task listener: %w", err)
 	}
 

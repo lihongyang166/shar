@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
+	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	"os"
 	"testing"
 	"time"
@@ -28,6 +29,8 @@ func TestUnhandledError(t *testing.T) {
 		panic(err)
 	}
 
+	sub := tracer.Trace(tst.NatsURL)
+	defer sub.Close()
 	d := &testErrorUnhandledHandlerDef{finished: make(chan struct{})}
 
 	// Register service tasks

@@ -107,7 +107,7 @@ func (s *Nats) ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflow
 	if err != nil {
 		err2 := fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
-		log.Error("ListWorkflows get KVs", err)
+		log.Error("ListWorkflows get KVs", "error", err)
 		errs <- err2
 		return
 	}
@@ -299,6 +299,9 @@ func (s *Nats) StartProcessing(ctx context.Context) error {
 	}
 	if err := s.processProcessComplete(ctx); err != nil {
 		return fmt.Errorf("start process complete handler: %w", err)
+	}
+	if err := s.processProcessTerminate(ctx); err != nil {
+		return fmt.Errorf("start process terminate handler: %w", err)
 	}
 	if err := s.processGatewayActivation(ctx); err != nil {
 		return fmt.Errorf("start gateway execute handler: %w", err)
@@ -754,9 +757,6 @@ func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.Workflo
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
 	}
-	if err := s.deleteProcessHistory(ctx, pi.ProcessInstanceId); err != nil {
-		return fmt.Errorf("x destroy process instance, delete process history: %w", err)
-	}
 	// Get the workflow
 	wf := &model.Workflow{}
 	if execution.WorkflowId != "" {
@@ -879,7 +879,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 	if err != nil {
 		err2 := fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
-		log.Error("list exec get KVs", err)
+		log.Error("list exec get KVs", "error", err)
 		errs <- err2
 		return
 	}
@@ -901,7 +901,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 		ks = []string{}
 	} else if err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("obtaining keys", err)
+		log.Error("obtaining keys", "error", err)
 		errs <- err
 		return
 	}
@@ -911,7 +911,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 		if wv, ok := ver[v.WorkflowId]; ok {
 			if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
 				errs <- err
-				log.Error("loading object", err)
+				log.Error("loading object", "error", err)
 				return
 			}
 			wch <- &model.ListExecutionItem{
@@ -1036,7 +1036,7 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 
 	if _, err := s.txJS.PublishMsg(pubCtx, msg, jetstream.WithMsgID(c.ID)); err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("publish message", err, slog.String("nats.msg.id", c.ID), slog.Any("state", state), slog.String("subject", msg.Subject))
+		log.Error("publish message", "error", err, slog.String("nats.msg.id", c.ID), slog.Any("state", state), slog.String("subject", msg.Subject))
 		return fmt.Errorf("publish workflow state message: %w", err)
 	}
 	if stateName == subj.NS(messages.WorkflowJobUserTaskExecute, subj.GetNS(ctx)) {
@@ -1089,7 +1089,7 @@ func (s *Nats) processTraversals(ctx context.Context) error {
 				return false, err
 			}
 			if err := s.eventProcessor(ctx, activityID, &traversal, false); errors.IsWorkflowFatal(err) {
-				logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", err, slog.String(keys.ExecutionID, traversal.ExecutionId), slog.String(keys.WorkflowID, traversal.WorkflowId), err, slog.String(keys.ElementID, traversal.ElementId))
+				logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", "error", err, slog.String(keys.ExecutionID, traversal.ExecutionId), slog.String(keys.WorkflowID, traversal.WorkflowId), "error", err, slog.String(keys.ElementID, traversal.ElementId))
 				return true, nil
 			} else if err != nil {
 				return false, fmt.Errorf("process event: %w", err)
@@ -1493,6 +1493,26 @@ func (s *Nats) processProcessComplete(ctx context.Context) error {
 
 }
 
+func (s *Nats) processProcessTerminate(ctx context.Context) error {
+	err := common.Process(ctx, s.js, "WORKFLOW", "processTerminate", s.closing, subj.NS(messages.WorkflowProcessTerminated, "*"), "ProcessTerminateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+		var state model.WorkflowState
+		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
+			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
+		}
+		if err := s.deleteProcessHistory(ctx, state.ProcessInstanceId); err != nil {
+			if !errors2.Is(err, jetstream.ErrKeyNotFound) {
+				return false, fmt.Errorf("delete process history: %w", err)
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("start process terminate processor: %w", err)
+	}
+	return nil
+
+}
+
 func (s *Nats) processGeneralAbort(ctx context.Context) error {
 	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
@@ -1813,10 +1833,13 @@ func (s *Nats) Log(ctx context.Context, req *model.LogRequest) error {
 	return nil
 }
 
-// deleteProcessHistory deletes the process history for a given process ID in A SHAR namespace.
+// deleteProcessHistory deletes the process history for a given process ID in A SHAR namespace, process history gets spooled to a.
 func (s *Nats) deleteProcessHistory(ctx context.Context, processId string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
+	log := logx.FromContext(ctx)
+	log.Debug("delete process history", keys.ProcessInstanceID, processId)
+
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
@@ -1825,6 +1848,16 @@ func (s *Nats) deleteProcessHistory(ctx context.Context, processId string) error
 		return fmt.Errorf("keyPrefixSearch: %w", err)
 	}
 	for _, k := range ks {
+		if item, err := nsKVs.wfHistory.Get(ctx, k); err != nil {
+			return fmt.Errorf("get workflow history item: %w", err)
+		} else {
+			msg := nats.NewMsg(messages.WorkflowSystemHistoryArchive)
+			msg.Header.Add("KEY", k)
+			msg.Data = item.Value()
+			if err := s.conn.PublishMsg(msg); err != nil {
+				return fmt.Errorf("publish workflow history archive item: %w", err)
+			}
+		}
 		if err := nsKVs.wfHistory.Delete(ctx, k); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			slog.Warn("key already deleted", "key", k)
 		} else if err != nil {

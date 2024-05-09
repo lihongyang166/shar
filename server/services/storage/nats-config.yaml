@@ -81,6 +81,13 @@ streams:
           filter_subject: WORKFLOW.*.State.Process.Complete
           max_ack_pending: 65535
       - nats-config:
+          durable_name: ProcessTerminateConsumer
+          description: Process terminate processing queue
+          ack_policy: 0
+          ack_wait: 30s
+          filter_subject: WORKFLOW.*.State.Process.Terminated
+          max_ack_pending: 65535
+      - nats-config:
           durable_name: JobCompleteConsumer
           description: Job complete processing queue
           ack_policy: 0

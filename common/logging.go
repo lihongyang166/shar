@@ -18,6 +18,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"os"
+	"path"
+	"runtime"
 )
 
 // Log is the generic metod to output to SHAR telemetry.
@@ -85,4 +87,18 @@ func NewTextHandler(level slog.Level, addSource bool) slog.Handler {
 		ReplaceAttr: nil,
 	}
 	return slog.NewTextHandler(os.Stdout, o)
+}
+
+// GetCallerInfo returns caller function info.  1 for current function, 2 for caller.
+func GetCallerInfo(skip int) (info string) {
+
+	pc, file, lineNo, ok := runtime.Caller(skip)
+	if !ok {
+
+		info = "runtime.Caller() failed"
+		return
+	}
+	funcName := runtime.FuncForPC(pc).Name()
+	fileName := path.Base(file) // The Base function returns the last element of the path
+	return fmt.Sprintf("FuncName:%s, file:%s, line:%d ", funcName, fileName, lineNo)
 }

@@ -43,7 +43,7 @@ var RootCmd = &cobra.Command{
 
 		conn, err := nats.Connect(cfg.NatsURL)
 		if err != nil {
-			slog.Error("connect to NATS", err, slog.String("url", cfg.NatsURL))
+			slog.Error("connect to NATS", "error", err, slog.String("url", cfg.NatsURL))
 			panic(err)
 		}
 

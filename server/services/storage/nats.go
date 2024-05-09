@@ -107,7 +107,7 @@ func (s *Nats) ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflow
 	if err != nil {
 		err2 := fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
-		log.Error("ListWorkflows get KVs", err)
+		log.Error("ListWorkflows get KVs", "error", err)
 		errs <- err2
 		return
 	}
@@ -882,7 +882,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 	if err != nil {
 		err2 := fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
-		log.Error("list exec get KVs", err)
+		log.Error("list exec get KVs", "error", err)
 		errs <- err2
 		return
 	}
@@ -904,7 +904,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 		ks = []string{}
 	} else if err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("obtaining keys", err)
+		log.Error("obtaining keys", "error", err)
 		errs <- err
 		return
 	}
@@ -914,7 +914,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 		if wv, ok := ver[v.WorkflowId]; ok {
 			if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
 				errs <- err
-				log.Error("loading object", err)
+				log.Error("loading object", "error", err)
 				return
 			}
 			wch <- &model.ListExecutionItem{
@@ -1039,7 +1039,7 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 
 	if _, err := s.txJS.PublishMsg(pubCtx, msg, jetstream.WithMsgID(c.ID)); err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("publish message", err, slog.String("nats.msg.id", c.ID), slog.Any("state", state), slog.String("subject", msg.Subject))
+		log.Error("publish message", "error", err, slog.String("nats.msg.id", c.ID), slog.Any("state", state), slog.String("subject", msg.Subject))
 		return fmt.Errorf("publish workflow state message: %w", err)
 	}
 	if stateName == subj.NS(messages.WorkflowJobUserTaskExecute, subj.GetNS(ctx)) {
@@ -1092,7 +1092,7 @@ func (s *Nats) processTraversals(ctx context.Context) error {
 				return false, err
 			}
 			if err := s.eventProcessor(ctx, activityID, &traversal, false); errors.IsWorkflowFatal(err) {
-				logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", err, slog.String(keys.ExecutionID, traversal.ExecutionId), slog.String(keys.WorkflowID, traversal.WorkflowId), err, slog.String(keys.ElementID, traversal.ElementId))
+				logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", "error", err, slog.String(keys.ExecutionID, traversal.ExecutionId), slog.String(keys.WorkflowID, traversal.WorkflowId), "error", err, slog.String(keys.ElementID, traversal.ElementId))
 				return true, nil
 			} else if err != nil {
 				return false, fmt.Errorf("process event: %w", err)

@@ -311,11 +311,11 @@ func (c *Engine) launchProcess(ctx context.Context, ID common.TrackingID, prName
 				return fmt.Errorf("publish workflow timed process execute: %w", err)
 			}
 			if err := c.ns.RecordHistoryProcessStart(ctx, exec); err != nil {
-				log.Error("start events record process start", err)
+				log.Error("start events record process start", "error", err)
 				return fmt.Errorf("publish initial traversal: %w", err)
 			}
 			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, exec); err != nil {
-				log.Error("publish initial traversal", err)
+				log.Error("publish initial traversal", "error", err)
 				return fmt.Errorf("publish initial traversal: %w", err)
 			}
 			return nil
@@ -351,7 +351,7 @@ func (c *Engine) rollBackLaunch(ctx context.Context, e *model.Execution) {
 		State:        model.CancellationState_terminated,
 	})
 	if err != nil {
-		log.Error("workflow fatally terminated, however the termination signal could not be sent", err)
+		log.Error("workflow fatally terminated, however the termination signal could not be sent", "error", err)
 	}
 }
 
@@ -462,7 +462,7 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 		}
 
 		if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, ws); err != nil {
-			log.Error("publish workflow state", err)
+			log.Error("publish workflow state", "error", err)
 			return fmt.Errorf("publish workflow state: %w", err)
 		}
 	}
@@ -479,7 +479,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	pi, err := c.ns.GetProcessInstance(ctx, traversal.ProcessInstanceId)
 	if errors2.Is(err, errors.ErrProcessInstanceNotFound) || errors2.Is(err, jetstream.ErrKeyNotFound) {
 		// if the workflow instance has been removed kill any activity and exit
-		log.Warn("process instance not found, cancelling activity", err, slog.String(keys.ProcessInstanceID, traversal.ProcessInstanceId))
+		log.Warn("process instance not found, cancelling activity", "error", err, slog.String(keys.ProcessInstanceID, traversal.ProcessInstanceId))
 		return nil
 	} else if err != nil {
 		return c.engineErr(ctx, "get process instance", err,
@@ -837,10 +837,10 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	pi, err := c.ns.GetProcessInstance(ctx, job.ProcessInstanceId)
 	if errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		// if the instance has been deleted quash this activity
-		log.Warn("process instance not found, cancelling job processing", err, slog.String(keys.ExecutionID, job.ExecutionId))
+		log.Warn("process instance not found, cancelling job processing", "error", err, slog.String(keys.ExecutionID, job.ExecutionId))
 		return nil
 	} else if err != nil {
-		log.Warn("get process instance for job", err,
+		log.Warn("get process instance for job", "error", err,
 			slog.String(keys.JobType, job.ElementType),
 			slog.String(keys.JobID, common.TrackingID(job.Id).ID()),
 		)
@@ -991,7 +991,7 @@ func (c *Engine) evaluateOwners(ctx context.Context, owners string, vars model.V
 func (c *Engine) engineErr(ctx context.Context, msg string, err error, z ...any) error {
 	log := logx.FromContext(ctx)
 	z = append(z, "error", err.Error())
-	log.Error(msg, err, z)
+	log.Error(msg, z...)
 
 	return fmt.Errorf("engine-error: %w", err)
 }
@@ -1136,7 +1136,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 	}
 	if pierr == nil {
 		if err = c.traverse(ctx, pi, newID, el.Outbound, els, state); errors.IsWorkflowFatal(err) {
-			log.Error("workflow fatally terminated whilst traversing", err, slog.String(keys.ProcessInstanceID, pi.ProcessInstanceId), slog.String(keys.WorkflowID, pi.WorkflowId), slog.String(keys.ElementID, state.ElementId))
+			log.Error("workflow fatally terminated whilst traversing", "error", err, slog.String(keys.ProcessInstanceID, pi.ProcessInstanceId), slog.String(keys.WorkflowID, pi.WorkflowId), slog.String(keys.ElementID, state.ElementId))
 			return nil
 		} else if err != nil {
 			return fmt.Errorf("activity complete processor failed traversal attempt: %w", err)
@@ -1194,7 +1194,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 	slog.Info("timedExecuteProcessor")
 	wf, err := c.ns.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
-		log.Error("get timer proto workflow: %s", err)
+		log.Error("get timer proto workflow", "error", err)
 		return true, 0, fmt.Errorf("get timer proto workflow: %w", err)
 	}
 
@@ -1240,13 +1240,13 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				WorkflowName: state.WorkflowName,
 			})
 			if err != nil {
-				log.Error("creating execution instance", err)
+				log.Error("creating execution instance", "error", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
 			}
 
 			pi, err := c.ns.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
 			if err != nil {
-				log.Error("creating timed process instance", err)
+				log.Error("creating timed process instance", "error", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
 			}
 			state.ExecutionId = pi.ExecutionId
@@ -1258,23 +1258,23 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 			processWfState.Id = processTrackingId
 
 			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, processWfState); err != nil {
-				log.Error("spawning process", err)
+				log.Error("spawning process", "error", err)
 				return false, 0, nil
 			}
 			if err := c.ns.RecordHistoryProcessStart(ctx, processWfState); err != nil {
-				log.Error("start events record process start", err)
+				log.Error("start events record process start", "error", err)
 				return false, 0, fmt.Errorf("publish initial traversal: %w", err)
 			}
 			if err := vars.OutputVars(ctx, newTimer.Vars, &newTimer.Vars, el.OutputTransform); err != nil {
-				log.Error("merging variables", err)
+				log.Error("merging variables", "error", err)
 				return false, 0, nil
 			}
 			if err := c.traverse(ctx, pi, []string{ksuid.New().String()}, el.Outbound, els, state); err != nil {
-				log.Error("traversing for timed workflow instance", err)
+				log.Error("traversing for timed workflow instance", "error", err)
 				return false, 0, nil
 			}
 			if err := c.ns.PublishWorkflowState(ctx, messages.WorkflowTimedExecute, newTimer); err != nil {
-				log.Error("publishing timer", err)
+				log.Error("publishing timer", "error", err)
 				return false, int(fireNext), nil
 			}
 		} else if el.Timer.Type == model.WorkflowTimerType_duration {

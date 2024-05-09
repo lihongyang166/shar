@@ -283,21 +283,21 @@ func Process(
 						continue
 					}
 					// Log Error
-					log.Error("message fetch error", err)
+					log.Error("message fetch error", "error", err)
 					continue
 				}
 				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())
 				if x := m.Headers().Get(header.SharNamespace); x == "" {
 					log.Error("message without namespace", slog.Any("subject", m.Subject))
 					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
+						log.Error("processing failed to ack", "error", err)
 					}
 					continue
 				}
 				if err != nil {
 					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
 					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
+						log.Error("processing failed to ack", "error", err)
 					}
 					continue
 				}
@@ -305,7 +305,7 @@ func Process(
 				if embargo := m.Headers().Get("embargo"); embargo != "" && embargo != "0" {
 					e, err := strconv.Atoi(embargo)
 					if err != nil {
-						log.Error("bad embargo value", err)
+						log.Error("bad embargo value", "error", err)
 						continue
 					}
 					offset := time.Duration(int64(e) - time.Now().UnixNano())
@@ -332,12 +332,12 @@ func Process(
 				ack, err := fn(executeCtx, executeLog, m)
 				if err != nil {
 					if errors2.IsWorkflowFatal(err) {
-						executeLog.Error("workflow fatal error occurred processing function", err)
+						executeLog.Error("workflow fatal error occurred processing function", "error", err)
 						ack = true
 					} else {
 						wfe := &workflow.Error{}
 						if !errors.As(err, wfe) {
-							executeLog.Error("processing error", err, "name", traceName)
+							executeLog.Error("processing error", "error", err, "name", traceName)
 							if set.BackoffCalc != nil {
 								err := set.BackoffCalc(executeCtx, m)
 								if err != nil {
@@ -350,11 +350,11 @@ func Process(
 				}
 				if ack {
 					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
+						log.Error("processing failed to ack", "error", err)
 					}
 				} else {
 					if err := m.Nak(); err != nil {
-						log.Error("processing failed to nak", err)
+						log.Error("processing failed to nak", "error", err)
 					}
 				}
 			}

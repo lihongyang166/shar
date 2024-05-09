@@ -95,7 +95,7 @@ func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars
 	id := ksuid.New().String()
 	if _, err := s.txJS.PublishMsg(ctx, msg, jetstream.WithMsgID(id)); err != nil {
 		log := logx.FromContext(pubCtx)
-		log.Error("publish message", err, slog.String("nats.msg.id", id), slog.Any("msg", sharMsg), slog.String("subject", msg.Subject))
+		log.Error("publish message", "error", err, slog.String("nats.msg.id", id), slog.Any("msg", sharMsg), slog.String("subject", msg.Subject))
 		return fmt.Errorf("publish message: %w", err)
 	}
 	return nil

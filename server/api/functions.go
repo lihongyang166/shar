@@ -272,7 +272,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		ProcessName:       job.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("publish workflow state", err)
+		log.Error("publish workflow state", "error", err)
 		return nil, fmt.Errorf("publish traversal for handle workflow error: %w", err)
 	}
 	// TODO: This always assumes service task.  Wrong!
@@ -289,7 +289,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		ProcessName:       job.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("publish workflow state", err)
+		log.Error("publish workflow state", "error", err)
 		// We have already traversed so retunring an error here would be incorrect.
 		// It would force reprocessing and possibly double traversing
 		// TODO: develop an idempotent behaviour based upon hash nats message ids + deduplication

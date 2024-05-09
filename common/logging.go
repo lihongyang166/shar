@@ -89,6 +89,7 @@ func NewTextHandler(level slog.Level, addSource bool) slog.Handler {
 	return slog.NewTextHandler(os.Stdout, o)
 }
 
+// GetCallerInfo returns caller function info.  1 for current function, 2 for caller.
 func GetCallerInfo(skip int) (info string) {
 
 	pc, file, lineNo, ok := runtime.Caller(skip)

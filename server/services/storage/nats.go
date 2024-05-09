@@ -757,9 +757,6 @@ func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.Workflo
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
 	}
-	if err := s.deleteProcessHistory(ctx, pi.ProcessInstanceId); err != nil {
-		return fmt.Errorf("x destroy process instance, delete process history: %w", err)
-	}
 	// Get the workflow
 	wf := &model.Workflow{}
 	if execution.WorkflowId != "" {
@@ -1503,7 +1500,9 @@ func (s *Nats) processProcessTerminate(ctx context.Context) error {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
 		}
 		if err := s.deleteProcessHistory(ctx, state.ProcessInstanceId); err != nil {
-			return false, fmt.Errorf("delete process history: %w", err)
+			if !errors2.Is(err, jetstream.ErrKeyNotFound) {
+				return false, fmt.Errorf("delete process history: %w", err)
+			}
 		}
 		return true, nil
 	})
@@ -1838,6 +1837,9 @@ func (s *Nats) Log(ctx context.Context, req *model.LogRequest) error {
 func (s *Nats) deleteProcessHistory(ctx context.Context, processId string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
+	log := logx.FromContext(ctx)
+	log.Debug("delete process history", keys.ProcessInstanceID, processId)
+
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}

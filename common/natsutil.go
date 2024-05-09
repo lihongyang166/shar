@@ -337,8 +337,8 @@ func Process(
 					} else {
 						wfe := &workflow.Error{}
 						if !errors.As(err, wfe) {
+							executeLog.Error("processing error", err, "name", traceName)
 							if set.BackoffCalc != nil {
-								executeLog.Error("processing error", err, "name", traceName)
 								err := set.BackoffCalc(executeCtx, m)
 								if err != nil {
 									slog.Error("backoff error", "error", err)

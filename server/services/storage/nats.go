@@ -300,6 +300,9 @@ func (s *Nats) StartProcessing(ctx context.Context) error {
 	if err := s.processProcessComplete(ctx); err != nil {
 		return fmt.Errorf("start process complete handler: %w", err)
 	}
+	if err := s.processProcessTerminate(ctx); err != nil {
+		return fmt.Errorf("start process terminate handler: %w", err)
+	}
 	if err := s.processGatewayActivation(ctx); err != nil {
 		return fmt.Errorf("start gateway execute handler: %w", err)
 	}
@@ -1493,6 +1496,24 @@ func (s *Nats) processProcessComplete(ctx context.Context) error {
 
 }
 
+func (s *Nats) processProcessTerminate(ctx context.Context) error {
+	err := common.Process(ctx, s.js, "WORKFLOW", "processTerminate", s.closing, subj.NS(messages.WorkflowProcessTerminated, "*"), "ProcessTerminateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+		var state model.WorkflowState
+		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
+			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
+		}
+		if err := s.deleteProcessHistory(ctx, state.ProcessInstanceId); err != nil {
+			return false, fmt.Errorf("delete process history: %w", err)
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("start process terminate processor: %w", err)
+	}
+	return nil
+
+}
+
 func (s *Nats) processGeneralAbort(ctx context.Context) error {
 	err := common.Process(ctx, s.js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
@@ -1813,7 +1834,7 @@ func (s *Nats) Log(ctx context.Context, req *model.LogRequest) error {
 	return nil
 }
 
-// deleteProcessHistory deletes the process history for a given process ID in A SHAR namespace.
+// deleteProcessHistory deletes the process history for a given process ID in A SHAR namespace, process history gets spooled to a.
 func (s *Nats) deleteProcessHistory(ctx context.Context, processId string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
@@ -1825,6 +1846,16 @@ func (s *Nats) deleteProcessHistory(ctx context.Context, processId string) error
 		return fmt.Errorf("keyPrefixSearch: %w", err)
 	}
 	for _, k := range ks {
+		if item, err := nsKVs.wfHistory.Get(ctx, k); err != nil {
+			return fmt.Errorf("get workflow history item: %w", err)
+		} else {
+			msg := nats.NewMsg(messages.WorkflowSystemHistoryArchive)
+			msg.Header.Add("KEY", k)
+			msg.Data = item.Value()
+			if err := s.conn.PublishMsg(msg); err != nil {
+				return fmt.Errorf("publish workflow history archive item: %w", err)
+			}
+		}
 		if err := nsKVs.wfHistory.Delete(ctx, k); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			slog.Warn("key already deleted", "key", k)
 		} else if err != nil {

@@ -326,6 +326,8 @@ message ProcessHistoryEntry {
   optional Error error = 9;
   int64 unixTimeNano = 10;
   optional string execute = 11;
+  string trackingId = 12;
+  string parentTrackingId = 13;
 }
 
 message ProcessHistory {

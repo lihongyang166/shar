@@ -209,7 +209,7 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	natsUrl := fmt.Sprintf("%s:%d", natsHost, natsPort)
 	conn, err := nats.Connect(natsUrl)
 	if err != nil {
-		slog.Error("connect to NATS", err, slog.String("url", natsUrl))
+		slog.Error("connect to NATS", "error", err, slog.String("url", natsUrl))
 		panic(err)
 	}
 

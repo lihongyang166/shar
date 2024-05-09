@@ -82,7 +82,7 @@ func (s *SharServer) Shutdown() {
 		s.subs.Range(func(key, _ any) bool {
 			sub := key.(*nats.Subscription)
 			if err := sub.Drain(); err != nil {
-				slog.Error("drain subscription for "+sub.Subject, err)
+				slog.Error("drain subscription for "+sub.Subject, "error", err)
 				return false
 			}
 			return true
@@ -382,7 +382,7 @@ func recoverAPIpanic(msg *nats.Msg) {
 
 func errorResponse(m *nats.Msg, code codes.Code, msg any) {
 	if err := m.Respond(apiError(code, msg)); err != nil {
-		slog.Error("send error response: "+string(apiError(codes.Internal, msg)), err)
+		slog.Error("send error response: "+string(apiError(codes.Internal, msg)), "error", err)
 	}
 }
 

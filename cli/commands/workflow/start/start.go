@@ -90,7 +90,7 @@ func run(cmd *cobra.Command, args []string) error {
 			err := proto.Unmarshal(msg.Data(), &state)
 			if err != nil {
 				log := logx.FromContext(ctx)
-				log.Error("unmarshal message", err)
+				log.Error("unmarshal message", "error", err)
 				return fmt.Errorf("unmarshal status trace message: %w", err)
 			}
 			//if state.WorkflowInstanceId == executionID {

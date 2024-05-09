@@ -50,7 +50,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 						continue
 					}
 					// Log Error
-					log.Error("message fetch error", err)
+					log.Error("message fetch error", "error", err)
 					continue
 				}
 				for m := range msg.Messages() {
@@ -61,7 +61,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 					}
 					embargo, err := strconv.Atoi(embargoA)
 					if err != nil {
-						log.Error("bad embargo value", err)
+						log.Error("bad embargo value", "error", err)
 						continue
 					}
 					if embargo != 0 {
@@ -77,17 +77,17 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 					state := &model.WorkflowState{}
 					err = proto.Unmarshal(m.Data(), state)
 					if err != nil {
-						log.Error("unmarshal timer proto: %s", err)
+						log.Error("unmarshal timer proto: %s", "error", err)
 						err := m.Ack()
 						if err != nil {
-							log.Error("dispose of timer message after unmarshal error: %s", err)
+							log.Error("dispose of timer message after unmarshal error: %s", "error", err)
 						}
 						continue
 					}
 
 					var cid string
 					if cid = m.Headers().Get(logx.CorrelationHeader); cid == "" {
-						log.Error("correlation key missing", errors.ErrMissingCorrelation)
+						log.Error("correlation key missing", "error", errors.ErrMissingCorrelation)
 						continue
 					}
 
@@ -97,7 +97,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 					if err != nil {
 						log.Error("get header values from incoming process message", slog.Any("error", &errors.ErrWorkflowFatal{Err: err}))
 						if err := m.Ack(); err != nil {
-							log.Error("processing failed to ack", err)
+							log.Error("processing failed to ack", "error", err)
 						}
 						continue
 					}
@@ -114,21 +114,21 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 						pi, err := s.GetProcessInstance(ctx, state.ProcessInstanceId)
 						if errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 							if err := m.Ack(); err != nil {
-								log.Error("ack message after process instance not found", err)
+								log.Error("ack message after process instance not found", "error", err)
 								continue
 							}
 							continue
 						}
 						wf, err := s.GetWorkflow(ctx, pi.WorkflowId)
 						if err != nil {
-							log.Error("get workflow", err)
+							log.Error("get workflow", "error", err)
 							continue
 						}
 						activityID := common.TrackingID(state.Id).ID()
 						_, err = s.GetOldState(ctx, activityID)
 						if errors2.Is(err, errors.ErrStateNotFound) {
 							if err := m.Ack(); err != nil {
-								log.Error("ack message after state not found", err)
+								log.Error("ack message after state not found", "error", err)
 								continue
 							}
 						}
@@ -138,7 +138,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 						els := common.ElementTable(wf)
 						parent := common.TrackingID(state.Id).Pop()
 						if err := s.traversalFunc(ctx, pi, parent, &model.Targets{Target: []*model.Target{{Id: "timer-target", Target: *state.Execute}}}, els, state); err != nil {
-							log.Error("traverse", err)
+							log.Error("traverse", "error", err)
 							continue
 						}
 						if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), state); err != nil {
@@ -148,7 +148,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 						}
 
 						if err = m.Ack(); err != nil {
-							log.Warn("ack after timer redirect", err)
+							log.Warn("ack after timer redirect", "error", err)
 						}
 						continue
 					}
@@ -156,31 +156,31 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 					if err != nil {
 						if errors.IsWorkflowFatal(err) {
 							if err := m.Ack(); err != nil {
-								log.Error("ack after a fatal error in message processing: %s", err)
+								log.Error("ack after a fatal error in message processing", "error", err)
 							}
-							log.Error("a fatal error occurred processing a message: %s", err)
+							log.Error("a fatal error occurred processing a message", "error", err)
 							continue
 						}
-						log.Error("an error occurred processing a message: %s", err)
+						log.Error("an error occurred processing a message", "error", err)
 						continue
 					}
 					if ack {
 						err := m.Ack()
 						if err != nil {
-							log.Error("ack after message processing: %s", err)
+							log.Error("ack after message processing", "error", err)
 							continue
 						}
 					} else {
 						if delay > 0 {
 							err := m.NakWithDelay(time.Duration(delay))
 							if err != nil {
-								log.Error("nak message with delay: %s", err)
+								log.Error("nak message with delay: %s", "error", err)
 								continue
 							}
 						} else {
 							err := m.Nak()
 							if err != nil {
-								log.Error("nak message: %s", err)
+								log.Error("nak message: %s", "error", err)
 								continue
 							}
 						}

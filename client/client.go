@@ -378,7 +378,7 @@ func (c *Client) listen(ctx context.Context) error {
 
 			ut := &model.WorkflowState{}
 			if err := proto.Unmarshal(msg.Data(), ut); err != nil {
-				log.Error("unmarshalling", err)
+				log.Error("unmarshalling", "error", err)
 				return false, fmt.Errorf("service task listener: %w", err)
 			}
 
@@ -396,19 +396,19 @@ func (c *Client) listen(ctx context.Context) error {
 				trackingID := common.TrackingID(ut.Id).ID()
 				job, err := c.GetJob(ctx, trackingID)
 				if err != nil {
-					log.Error("get job", err, slog.String("JobId", trackingID))
+					log.Error("get job", "error", err, slog.String("JobId", trackingID))
 					return false, fmt.Errorf("get service task job kv: %w", err)
 				}
 
 				svcFn, ok := c.SvcTasks[job.ExecuteVersion]
 
 				if !ok {
-					log.Error("find service function", err, slog.String("fn", *job.Execute))
+					log.Error("find service function", "error", err, slog.String("fn", *job.Execute))
 					return false, fmt.Errorf("find service task function: %w", errors2.ErrWorkflowFatal{Err: err})
 				}
 				dv, err := vars.Decode(ctx, job.Vars)
 				if err != nil {
-					log.Error("decode vars", err, slog.String("fn", *job.Execute))
+					log.Error("decode vars", "error", err, slog.String("fn", *job.Execute))
 					return false, fmt.Errorf("decode service task job variables: %w", err)
 				}
 				newVars, err := func() (v model.Vars, e error) {
@@ -455,14 +455,14 @@ func (c *Client) listen(ctx context.Context) error {
 				ae := &api.Error{}
 				if errors.As(err, &ae) {
 					if codes.Code(ae.Code) == codes.Internal {
-						log.Error("complete service task", err)
+						log.Error("complete service task", "error", err)
 						e := &model.Error{
 							Id:   "",
 							Name: ae.Message,
 							Code: "client-" + strconv.Itoa(ae.Code),
 						}
 						if err := c.cancelProcessInstanceWithError(ctx, ut.ProcessInstanceId, e); err != nil {
-							log.Error("cancel execution in response to fatal error", err)
+							log.Error("cancel execution in response to fatal error", "error", err)
 						}
 						return true, nil
 					}
@@ -470,7 +470,7 @@ func (c *Client) listen(ctx context.Context) error {
 					return true, err
 				}
 				if err != nil {
-					log.Warn("complete service task", err)
+					log.Warn("complete service task", "error", err)
 					return false, fmt.Errorf("complete service task: %w", err)
 				}
 				return true, nil
@@ -479,7 +479,7 @@ func (c *Client) listen(ctx context.Context) error {
 				trackingID := common.TrackingID(ut.Id).ID()
 				job, err := c.GetJob(ctx, trackingID)
 				if err != nil {
-					log.Error("get send message task", err, slog.String("JobId", common.TrackingID(ut.Id).ID()))
+					log.Error("get send message task", "error", err, slog.String("JobId", common.TrackingID(ut.Id).ID()))
 					return false, fmt.Errorf("complete send message task: %w", err)
 				}
 				sendFn, ok := c.MsgSender[job.WorkflowName+"_"+*job.Execute]
@@ -489,20 +489,20 @@ func (c *Client) listen(ctx context.Context) error {
 
 				dv, err := vars.Decode(ctx, job.Vars)
 				if err != nil {
-					log.Error("decode vars", err, slog.String("fn", *job.Execute))
+					log.Error("decode vars", "error", err, slog.String("fn", *job.Execute))
 					return false, &errors2.ErrWorkflowFatal{Err: fmt.Errorf("decode send message variables: %w", err)}
 				}
 				ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
 				pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
 				pidCtx = ReParentSpan(pidCtx, job)
 				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv); err != nil {
-					log.Warn("nats listener", err)
+					log.Warn("nats listener", "error", err)
 					return false, err
 				}
 				if err := c.completeSendMessage(ctx, trackingID, make(map[string]any)); errors2.IsWorkflowFatal(err) {
-					log.Error("a fatal error occurred in message sender "+*job.Execute, err)
+					log.Error("a fatal error occurred in message sender "+*job.Execute, "error", err)
 				} else if err != nil {
-					log.Error("API error", err)
+					log.Error("API error", "error", err)
 					return false, err
 				}
 				return true, nil
@@ -540,7 +540,7 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 	err := common.Process(ctx, c.js, "WORKFLOW", "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		st := &model.WorkflowState{}
 		if err := proto.Unmarshal(msg.Data(), st); err != nil {
-			log.Error("proto unmarshal error", err)
+			log.Error("proto unmarshal error", "error", err)
 			return true, fmt.Errorf("listenProcessTerminate unmarshalling proto: %w", err)
 		}
 		callCtx := context.WithValue(ctx, keys.ContextKey(keys.ProcessInstanceID), st.ProcessInstanceId)

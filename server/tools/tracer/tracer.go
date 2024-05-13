@@ -27,9 +27,10 @@ func (o *OpenTrace) Close() {
 // Trace sets a consumer onto the workflow messages and outputs them to the console
 func Trace(natsURL string) *OpenTrace {
 	ctx := context.Background()
-	nc, _ := nats.Connect(natsURL)
-	r, _ := regexp.Compile(`^WORKFLOW\.[0-9a-zA-Z]+\.State\..*$`)
 
+	nc, _ := nats.Connect("nats://127.0.0.1:4222")
+	//nc, _ := nats.Connect(natsURL)
+	r, _ := regexp.Compile(`^WORKFLOW\.[0-9a-zA-Z]+\.State\..*$`)
 	sub, err := nc.Subscribe("WORKFLOW.>", func(msg *nats.Msg) {
 		if r.MatchString(msg.Subject) {
 			d := &model.WorkflowState{}

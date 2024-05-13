@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	version2 "github.com/hashicorp/go-version"
@@ -224,6 +225,16 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 	return nil
 }
 
+type msgData struct {
+	counter           uint64
+	numTimesDelivered uint64
+	goroutineIds      []int
+}
+
+func (md *msgData) String() string {
+	return fmt.Sprintf("counter:%d,numTimesDelivered:%d,goroutineIds:%v", md.counter, md.numTimesDelivered, md.goroutineIds)
+}
+
 // Process processes messages from a nats consumer and executes a function against each one.
 func Process(
 	ctx context.Context,
@@ -246,44 +257,91 @@ func Process(
 
 	receivers := make([]jetstream.MessagesContext, 0, concurrency)
 
-	for i := 0; i < concurrency; i++ {
-		// shared js.Consumer and consumer.Messages per unit of concurrency fails
-		// shared js.Consumer and shared consumer.Messages works
-		// js.Consumer and consumer.Messages per unit of concurrency works
-		consumer, err := js.Consumer(ctx, streamName, durable)
-		if err != nil {
-			return fmt.Errorf("check durable consumer '%s'present: %w", durable, err)
-		}
-		if durable != "" {
-			if !strings.HasPrefix(durable, "ServiceTask_") {
-				conInfo, err := consumer.Info(ctx)
-				if err != nil || conInfo.Config.Durable == "" {
-					return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
+	msgMapMx := sync.Mutex{}
+	msgMap := make(map[string]*msgData, 200)
+	msgMapTicker := time.NewTicker(1 * time.Second)
+
+	if strings.Contains(subject, "State.Process.Terminated") {
+		go func() {
+			for {
+				select {
+				case <-msgMapTicker.C:
+					slog.Info("$$$m natsMsg", "msgIdMap", fmt.Sprintf("%+v", msgMap), "len(msgMap)", len(msgMap))
 				}
 			}
+		}()
+	}
+
+	// shared js.Consumer and consumer.Messages per unit of concurrency fails
+	// shared js.Consumer and shared consumer.Messages works
+	// js.Consumer and consumer.Messages per unit of concurrency works
+	consumer, err := js.Consumer(ctx, streamName, durable)
+	if err != nil {
+		return fmt.Errorf("check durable consumer '%s'present: %w", durable, err)
+	}
+	if durable != "" {
+		if !strings.HasPrefix(durable, "ServiceTask_") {
+			conInfo, err := consumer.Info(ctx)
+			if err != nil || conInfo.Config.Durable == "" {
+				return fmt.Errorf("durable consumer '%s' is not explicity configured", durable)
+			}
 		}
-		messagesContext, err := consumer.Messages(
-			jetstream.WithMessagesErrOnMissingHeartbeat(false),
-		)
-		receivers = append(receivers, messagesContext)
-		if err != nil {
-			return fmt.Errorf("process consumer %w", err)
-		}
+	}
+
+	messagesContext, err := consumer.Messages(
+		jetstream.PullMaxMessages(1),
+		jetstream.WithMessagesErrOnMissingHeartbeat(false),
+	)
+	receivers = append(receivers, messagesContext)
+	if err != nil {
+		return fmt.Errorf("process consumer %w", err)
+	}
+	for i := 0; i < concurrency; i++ {
+		//TODO test ordering behaviour when there are multiple go routines pulling from the same consumer
 
 		// This spawns the goroutine which will asynchronously process the messages as pulled from nats.
+		goRoutineId := i
 		go func() {
 			for {
 				m, err := messagesContext.Next()
+
+				//***
+				var msgId string
+				if strings.Contains(subject, "State.Process.Terminated") {
+					metadata, err := m.Metadata()
+					if err != nil {
+						continue
+					}
+					msgId = m.Headers().Get("Nats-Msg-Id")
+					msgMapMx.Lock()
+					if msgD, ok := msgMap[msgId]; ok {
+						msgD.counter = msgD.counter + 1
+						msgD.numTimesDelivered = metadata.NumDelivered
+						msgD.goroutineIds = append(msgD.goroutineIds, goRoutineId)
+						//TODO keep track of stream/consumer seq here???
+						//it will be useful to cross ref against ack subject...
+						//maybe consider doing this in client.go ln589
+						msgMap[msgId] = msgD
+					} else {
+						goRoutineIds := make([]int, 0)
+						msgMap[msgId] = &msgData{counter: 1, numTimesDelivered: metadata.NumDelivered, goroutineIds: append(goRoutineIds, goRoutineId)}
+					}
+					msgMapMx.Unlock()
+				}
+				//***
+
 				if err != nil {
 					if errors.Is(err, jetstream.ErrMsgIteratorClosed) {
 						return
 					}
 					// Horrible, but this isn't a typed error.  This test just stops the listener printing pointless errors.
 					if err.Error() == "nats: Server Shutdown" || err.Error() == "nats: connection closed" {
+						slog.Info("@@@1")
 						continue
 					}
 					// Log Error
 					log.Error("message fetch error", "error", err)
+					slog.Info("@@@2")
 					continue
 				}
 				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())
@@ -292,6 +350,7 @@ func Process(
 					if err := m.Ack(); err != nil {
 						log.Error("processing failed to ack", "error", err)
 					}
+					slog.Info("@@@3")
 					continue
 				}
 				if err != nil {
@@ -306,6 +365,7 @@ func Process(
 					e, err := strconv.Atoi(embargo)
 					if err != nil {
 						log.Error("bad embargo value", "error", err)
+						slog.Info("@@@4")
 						continue
 					}
 					offset := time.Duration(int64(e) - time.Now().UnixNano())
@@ -313,6 +373,7 @@ func Process(
 						if err := m.NakWithDelay(offset); err != nil {
 							log.Warn("nak with delay")
 						}
+						slog.Info("@@@5")
 						continue
 					}
 				}
@@ -325,6 +386,7 @@ func Process(
 					var err error
 					if executeCtx, err = i(executeCtx, m); err != nil {
 						slog.Error("process middleware", "error", err, "subject", subject, "middleware", reflect.TypeOf(i).Name())
+						slog.Info("@@@6")
 						continue
 					}
 				}
@@ -343,6 +405,7 @@ func Process(
 								if err != nil {
 									slog.Error("backoff error", "error", err)
 								}
+								slog.Info("@@@7")
 								continue
 							}
 						}
@@ -350,11 +413,16 @@ func Process(
 				}
 				if ack {
 					if err := m.Ack(); err != nil {
+						//if err := m.DoubleAck(executeCtx); err != nil {
 						log.Error("processing failed to ack", "error", err)
+					} else if strings.Contains(subject, "State.Process.Terminated") {
+						slog.Info("@@@8", "msgId", msgId)
 					}
 				} else {
 					if err := m.Nak(); err != nil {
 						log.Error("processing failed to nak", "error", err)
+					} else if strings.Contains(subject, "State.Process.Terminated") {
+						slog.Info("@@@9", "msgId", msgId)
 					}
 				}
 			}

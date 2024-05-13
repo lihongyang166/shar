@@ -136,6 +136,8 @@ type Client struct {
 	telemetryConfig                 telemetry.Config
 	SendMiddleware                  []middleware2.Send
 	ReceiveMiddleware               []middleware2.Receive
+	msgMx                           sync.Mutex
+	msgMap                          map[string]int
 }
 
 // New creates a new SHAR client instance
@@ -166,10 +168,23 @@ func New(option ...ConfigurationOption) *Client {
 		telemetryConfig:                 telemetry.Config{Enabled: false},
 		SendMiddleware:                  make([]middleware2.Send, 0),
 		ReceiveMiddleware:               make([]middleware2.Receive, 0),
+		msgMap:                          make(map[string]int),
 	}
 	for _, i := range option {
 		i.configure(client)
 	}
+
+	t := time.NewTicker(1 * time.Second)
+
+	go func() {
+		for {
+			select {
+			case <-t.C:
+				slog.Info("^^^m payload", "m", client.msgMap, "len(msgMap)", len(client.msgMap))
+			}
+		}
+	}()
+
 	return client
 }
 
@@ -548,7 +563,29 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 		if err != nil {
 			return true, fmt.Errorf("listenProcessTerminate decoding vars: %w", err)
 		}
+
+		i, ok := v["orderId"].(int)
+		if ok {
+			orderId := strconv.Itoa(i)
+			//****
+			//TODO can I keep track of a map of entries keyed by execid-processid-correlationKey
+			//(which is the orderId)
+			c.msgMx.Lock()
+			msgKey := fmt.Sprintf("%s-%s-%s", st.ExecutionId, st.ProcessInstanceId, orderId)
+			if cnter, ok := c.msgMap[msgKey]; ok {
+				c.msgMap[msgKey] = cnter + 1
+			} else {
+				c.msgMap[msgKey] = 1
+			}
+			c.msgMx.Unlock()
+			//****
+		}
+
 		if fn, ok := c.proCompleteTasks[st.ProcessName]; ok {
+
+			//TODO keep track of the msgId, stream/consumer seq here to cross ref against
+			//the ack subjects
+
 			fn(callCtx, v, st.Error, st.State)
 		}
 		return true, nil

@@ -84,6 +84,7 @@
         <zeebe:ioMapping>
           <zeebe:input source="=carried" target="carried" />
           <zeebe:input source="=carried2" target="carried2" />
+          <zeebe:input source="=orderId" target="orderId" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_0nfs5sn</bpmn:incoming>

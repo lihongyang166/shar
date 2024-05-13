@@ -78,6 +78,61 @@ func TestConcurrentMessaging2(t *testing.T) {
 	assert.Equal(t, 0, len(handlers.instComplete))
 }
 
+func TestJuan(t *testing.T) {
+	t.Parallel()
+
+	handlers := &testConcurrentMessaging2HandlerDef{finished: make(chan struct{}), test: t}
+	// Create a starting context
+	ctx := context.Background()
+
+	ns := ksuid.New().String()
+	// Dial shar
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	//err := cl.Dial(ctx, tst.NatsURL)
+	err := cl.Dial(ctx, "nats://127.0.0.1:4222")
+	require.NoError(t, err)
+
+	// Register service tasks
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "juan.yaml", handlers.step1)
+	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../../testdata/juan.bpmn")
+	require.NoError(t, err)
+
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestJuan", b)
+	require.NoError(t, err)
+
+	err = cl.RegisterProcessComplete("GetEmailAddress-0-0-1_test", handlers.processEnd)
+	require.NoError(t, err)
+	// Listen for service tasks
+	go func() {
+		err := cl.Listen(ctx)
+		require.NoError(t, err)
+	}()
+
+	handlers.instComplete = make(map[string]struct{})
+	n := 1
+	tm := time.Now()
+	for inst := 0; inst < n; inst++ {
+		go func(inst int) {
+			// Launch the workflow
+			if _, _, err := cl.LaunchProcess(ctx, "GetEmailAddress-0-0-1_test", model.Vars{"orderId": inst, "name": "fooname"}); err != nil {
+				panic(err)
+			} else {
+				handlers.mx.Lock()
+				handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
+				handlers.mx.Unlock()
+			}
+		}(inst)
+	}
+
+	support.WaitForExpectedCompletions(t, n, handlers.finished, time.Second*20)
+
+	fmt.Println("Stopwatch:", -time.Until(tm))
+	assert.Equal(t, n, handlers.received)
+}
+
 type testConcurrentMessaging2HandlerDef struct {
 	mx           sync.Mutex
 	test         *testing.T

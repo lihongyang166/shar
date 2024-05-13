@@ -17,7 +17,7 @@ func TestMain(m *testing.M) {
 	packageName := support.GetPackageName(packageNameStruct)
 	fmt.Printf("\033[1;36m%s\033[0m", "> start tests for "+packageName+"\n")
 
-	tst = support.NewIntegration(false, packageName, nil)
+	tst = support.NewIntegration(true, packageName, nil)
 	tst.Setup()
 
 	code := m.Run()

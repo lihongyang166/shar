@@ -27,6 +27,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
 	"gitlab.com/shar-workflow/shar/server/services/cache"
+	"gitlab.com/shar-workflow/shar/server/vars"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	maps2 "golang.org/x/exp/maps"
@@ -97,6 +98,8 @@ type Nats struct {
 	tr                             trace.Tracer
 	rwmx                           sync.RWMutex
 	sCache                         *cache.SharCache
+	msgMx                          sync.Mutex
+	msgMap                         map[string]int
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
@@ -172,6 +175,7 @@ func New(conn *nats.Conn, txConn *nats.Conn, storageType jetstream.StorageType, 
 		telCfg:                  telCfg,
 		tr:                      otel.GetTracerProvider().Tracer("shar-workflow/nats-storage"),
 		sCache:                  sharCache,
+		msgMap:                  make(map[string]int, 100),
 	}
 
 	ns := namespace.Default
@@ -193,6 +197,17 @@ func New(conn *nats.Conn, txConn *nats.Conn, storageType jetstream.StorageType, 
 	if err := ms.startTelemetry(ctx, ns); err != nil {
 		return nil, fmt.Errorf("start telemetry: %w", err)
 	}
+
+	ticker := time.NewTicker(20 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				slog.Info("###", "m", ms.msgMap, "m size", len(ms.msgMap))
+			}
+
+		}
+	}()
 
 	return ms, nil
 }
@@ -1667,11 +1682,35 @@ func (s *Nats) DestroyProcessInstance(ctx context.Context, state *model.Workflow
 	if err != nil {
 		return fmt.Errorf("destroy process instance failed to delete process instance: %w", err)
 	}
+	//****
+	vrs, err := vars.Decode(ctx, state.Vars)
+	if err != nil {
+		slog.Error("^^^failed to decode vars")
+	}
+	oid, ok := vrs["orderId"].(int)
+	//slog.Info("###in destroy process instance ", "vrs", vrs, "state", state)
+	//TODO can I keep track of a map of entries keyed by execid-processid-correlationKey
+	//(which is the orderId)
+	if ok {
+		orderId := strconv.Itoa(oid)
+		s.msgMx.Lock()
+		msgKey := fmt.Sprintf("%s-%s-%s", state.ExecutionId, state.ProcessInstanceId, orderId)
+		if cnter, ok := s.msgMap[msgKey]; ok {
+			s.msgMap[msgKey] = cnter + 1
+		} else {
+			s.msgMap[msgKey] = 1
+		}
+		s.msgMx.Unlock()
+	} else {
+		slog.Info("^^^ failed to update msgMap", "orderId", oid)
+	}
+	//****
 
 	if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessTerminated, state); err != nil {
 		return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
 	}
 	if len(e.ProcessInstanceId) == 0 {
+
 		if err := s.PublishWorkflowState(ctx, messages.WorkflowExecutionComplete, state); err != nil {
 			return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
 		}

@@ -164,7 +164,8 @@ func (s *Integration) Setup() {
 		panic(err)
 	}
 	if s.WithTrace {
-		s.traceSub = tracer.Trace(s.NatsURL)
+		s.traceSub = tracer.Trace("nats://127.0.0.1:4222")
+		//s.traceSub = tracer.Trace(s.NatsURL)
 	}
 
 	if s.WithTelemetry != nil {

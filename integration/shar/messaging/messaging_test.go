@@ -3,7 +3,10 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"github.com/nats-io/nats.go"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
+	"gitlab.com/shar-workflow/shar/server/messages"
+	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"os"
 	"sync"
@@ -168,10 +171,67 @@ func TestMessageStartEvent(t *testing.T) {
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
+func TestAwaitMessageFatalErr(t *testing.T) {
+	t.Parallel()
+	ns := ksuid.New().String()
+	ctx := context.Background()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
+
+	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{}), fatalErr: make(chan struct{})}
+
+	// Register service tasks
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	require.NoError(t, err)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
+	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../../testdata/message-workflow-no-correlation-key.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
+	require.NoError(t, err)
+
+	// Launch the processes
+	_, _, err = cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	// Listen for service tasks
+	go func() {
+		err := cl.Listen(ctx)
+		require.NoError(t, err)
+	}()
+
+	natsConnection, err := nats.Connect(tst.NatsURL)
+	require.NoError(t, err)
+	subscription, err := natsConnection.Subscribe(messages.WorkflowSystemProcessFatalError, func(msg *nats.Msg) {
+		fatalError := &model.FatalError{}
+		err2 := proto.Unmarshal(msg.Data, fatalError)
+		require.NoError(t, err2)
+		handlers.fatalErr <- struct{}{}
+	})
+	require.NoError(t, err)
+	defer func() {
+		_ = subscription.Drain()
+	}()
+
+	support.WaitForChan(t, handlers.fatalErr, 20*time.Second)
+
+	tst.AssertCleanKV(ns, t, 60*time.Second)
+
+	//TODO, what happens if there is a fatal err after the point where messages KV
+	// have been populated??? ie, how do we know whether state is left to cleanup???
+}
+
 type testMessagingHandlerDef struct {
 	wg       sync.WaitGroup
 	tst      *support.Integration
 	finished chan struct{}
+	fatalErr chan struct{}
 	t        *testing.T
 }
 

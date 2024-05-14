@@ -56,11 +56,12 @@ const (
 	WorkflowTraversalComplete         = "WORKFLOW.%s.State.Traversal.Complete"        // WorkflowTraversalComplete is the state message subject for completing a traversal.
 	WorkflowTraversalExecute          = "WORKFLOW.%s.State.Traversal.Execute"         // WorkflowTraversalExecute is the state message subject for executing a new traversal.
 
-	WorkflowSystemTaskCreate     = "WORKFLOW.System.Task.Create"     // WorkflowSystemTaskCreate is the task created broadcast message.
-	WorkflowSystemTaskUpdate     = "WORKFLOW.System.Task.Update"     // WorkflowSystemTaskUpdate is the task updated broadcast message.
-	WorkflowSystemProcessPause   = "WORKFLOW.System.Process.Pause"   // WorkflowSystemProcessPause is the process paused broadcast message.
-	WorkflowSystemProcessError   = "WORKFLOW.System.Process.Error"   // WorkflowSystemProcessError is the process error broadcast message.
-	WorkflowSystemHistoryArchive = "WORKFLOW.System.History.Archive" // WorkflowSystemHistoryArchive is the archive message for history items.
+	WorkflowSystemTaskCreate        = "WORKFLOW.System.Task.Create"        // WorkflowSystemTaskCreate is the task created broadcast message.
+	WorkflowSystemTaskUpdate        = "WORKFLOW.System.Task.Update"        // WorkflowSystemTaskUpdate is the task updated broadcast message.
+	WorkflowSystemProcessPause      = "WORKFLOW.System.Process.Pause"      // WorkflowSystemProcessPause is the process paused broadcast message.
+	WorkflowSystemProcessError      = "WORKFLOW.System.Process.Error"      // WorkflowSystemProcessError is the process error broadcast message.
+	WorkflowSystemHistoryArchive    = "WORKFLOW.System.History.Archive"    // WorkflowSystemHistoryArchive is the archive message for history items.
+	WorkflowSystemProcessFatalError = "WORKFLOW.System.Process.FatalError" // WorkflowSystemProcessFatalError is the process fatal error broadcast message.
 )
 
 const (

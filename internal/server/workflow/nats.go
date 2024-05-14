@@ -238,6 +238,9 @@ func (s *Engine) StartProcessing(ctx context.Context) error {
 	if err := s.processGatewayExecute(ctx); err != nil {
 		return fmt.Errorf("start gateway execute handler: %w", err)
 	}
+	if err := s.processFatalError(ctx); err != nil {
+		return fmt.Errorf("start fatal error handler: %w", err)
+	}
 
 	return nil
 }
@@ -679,7 +682,7 @@ func (s *Engine) XDestroyProcessInstance(ctx context.Context, state *model.Workf
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, get process instance: %w", err)
 	}
-	err = s.DestroyProcessInstance(ctx, state, pi, execution)
+	err = s.DestroyProcessInstance(ctx, state, pi.ProcessInstanceId, execution.ExecutionId)
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
 	}
@@ -940,6 +943,29 @@ func (s *Engine) PublishWorkflowState(ctx context.Context, stateName string, sta
 	return nil
 }
 
+// PublishMsg publishes a workflow message.
+func (s *Engine) PublishMsg(ctx context.Context, subject string, sharMsg proto.Message) error {
+	msg := nats.NewMsg(subject)
+	b, err := proto.Marshal(sharMsg)
+	if err != nil {
+		return fmt.Errorf("marshal message for publishing: %w", err)
+	}
+	msg.Data = b
+	if err := header.FromCtxToMsgHeader(ctx, &msg.Header); err != nil {
+		return fmt.Errorf("add header to published message: %w", err)
+	}
+	msg.Header.Set(header.SharNamespace, subj.GetNS(ctx))
+	pubCtx, cancel := context.WithTimeout(ctx, s.publishTimeout)
+	defer cancel()
+	id := ksuid.New().String()
+	if _, err := s.txJS.PublishMsg(ctx, msg, jetstream.WithMsgID(id)); err != nil {
+		log := logx.FromContext(pubCtx)
+		log.Error("publish message", "error", err, slog.String("nats.msg.id", id), slog.Any("msg", sharMsg), slog.String("subject", msg.Subject))
+		return fmt.Errorf("publish message: %w", err)
+	}
+	return nil
+}
+
 // GetElement gets the definition for the current element given a workflow state.
 func (s *Engine) GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error) {
 	ns := subj.GetNS(ctx)
@@ -1127,7 +1153,7 @@ func (s *Engine) processWorkflowEvents(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
 		}
-		if strings.HasSuffix(msg.Subject(), ".State.Workflow.Complete") {
+		if strings.HasSuffix(msg.Subject(), ".State.Execution.Complete") {
 			if _, err := s.hasValidExecution(ctx, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processWorkflowEvents aborted due to a missing process")
@@ -1370,7 +1396,7 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
 		}
-		pi, wi, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId)
+		pi, execution, err := s.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId)
 		if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processProcessComplete aborted due to a missing process")
@@ -1379,7 +1405,7 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 			return false, err
 		}
 		state.State = model.CancellationState_completed
-		if err := s.DestroyProcessInstance(ctx, &state, pi, wi); err != nil {
+		if err := s.DestroyProcessInstance(ctx, &state, pi.ProcessInstanceId, execution.ExecutionId); err != nil {
 			return false, fmt.Errorf("delete prcess: %w", err)
 		}
 		return true, nil
@@ -1423,7 +1449,7 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 			if err := s.deleteActivity(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete activity during general abort processor: %w", err)
 			}
-		case strings.HasSuffix(msg.Subject(), ".State.Workflow.Abort"):
+		case strings.HasSuffix(msg.Subject(), ".State.Execution.Abort"):
 			abortState := common.CopyWorkflowState(&state)
 			abortState.State = model.CancellationState_terminated
 			if err := s.XDestroyProcessInstance(ctx, &state); err != nil {
@@ -1440,6 +1466,38 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 	return nil
 }
 
+func (s *Engine) processFatalError(ctx context.Context) error {
+	err := common.Process(ctx, s.js, "WORKFLOW", "fatalError", s.closing, messages.WorkflowSystemProcessFatalError, "FatalErrorConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+		var fatalErr model.FatalError
+		if err := proto.Unmarshal(msg.Data(), &fatalErr); err != nil {
+			return true, fmt.Errorf("unmarshal during fatal error processor: %w", err)
+		}
+
+		//get the execution
+		execution, err2 := s.GetExecution(ctx, fatalErr.WorkflowState.ExecutionId)
+		if err2 != nil {
+			return true, fmt.Errorf("error retrieving execution when processing fatal err: %w", err2)
+		}
+		//loop over the process instance ids to tear them down
+		for _, processInstanceId := range execution.ProcessInstanceId {
+			fatalErr.WorkflowState.State = model.CancellationState_terminated
+			if err := s.DestroyProcessInstance(ctx, fatalErr.WorkflowState, processInstanceId, execution.ExecutionId); err != nil {
+				log := logx.FromContext(ctx)
+				log.Error("failed destroying process instance", "err", err)
+			}
+		}
+
+		return true, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("start process fatal error processor: %w", err)
+	}
+	return nil
+}
+
+// func (s *Nats) deleteActivity(ctx context.Context, state *model.WorkflowState) error {
+// >>>>>>> 17a7071 (initial cut at fatal workflow handling. Need to sort out var state removal/teardown):server/services/storage/nats.go
 func (s *Engine) deleteActivity(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.deleteSavedState(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete activity: %w", err)
@@ -1540,7 +1598,7 @@ func (s *Engine) GetProcessInstance(ctx context.Context, processInstanceID strin
 }
 
 // DestroyProcessInstance deletes a process instance and removes the workflow instance dependent on all process instances being satisfied.
-func (s *Engine) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, pi *model.ProcessInstance, execution *model.Execution) error {
+func (s *Engine) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -1548,19 +1606,19 @@ func (s *Engine) DestroyProcessInstance(ctx context.Context, state *model.Workfl
 	}
 
 	e := &model.Execution{}
-	err = common.UpdateObj(ctx, nsKVs.wfExecution, execution.ExecutionId, e, func(v *model.Execution) (*model.Execution, error) {
-		v.ProcessInstanceId = remove(v.ProcessInstanceId, pi.ProcessInstanceId)
+	err = common.UpdateObj(ctx, nsKVs.wfExecution, executionId, e, func(v *model.Execution) (*model.Execution, error) {
+		v.ProcessInstanceId = remove(v.ProcessInstanceId, processInstanceId)
 		return v, nil
 	})
 	if len(e.ProcessInstanceId) == 0 {
-		if err := common.Delete(ctx, nsKVs.wfExecution, execution.ExecutionId); err != nil {
+		if err := common.Delete(ctx, nsKVs.wfExecution, executionId); err != nil {
 			return fmt.Errorf("destroy process instance delete execution: %w", err)
 		}
 	}
 	if err != nil {
 		return fmt.Errorf("destroy process instance failed to update execution: %w", err)
 	}
-	err = common.Delete(ctx, nsKVs.wfProcessInstance, pi.ProcessInstanceId)
+	err = common.Delete(ctx, nsKVs.wfProcessInstance, processInstanceId)
 	// TODO: Key not found
 	if err != nil {
 		return fmt.Errorf("destroy process instance failed to delete process instance: %w", err)

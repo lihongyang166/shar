@@ -4,12 +4,10 @@ import (
 	"context"
 	errors2 "errors"
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/expression"
-	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/model"
@@ -69,34 +67,6 @@ func (s *Engine) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) e
 		if _, err := s.js.CreateOrUpdateConsumer(ctx, "WORKFLOW", jxCfg); err != nil {
 			return fmt.Errorf("add service task consumer: %w", err)
 		}
-	}
-	return nil
-}
-
-// PublishMessage publishes a workflow message.
-func (s *Engine) PublishMessage(ctx context.Context, name string, key string, vars []byte) error {
-	sharMsg := &model.MessageInstance{
-		Name:           name,
-		CorrelationKey: key,
-		Vars:           vars,
-	}
-	msg := nats.NewMsg(fmt.Sprintf(messages.WorkflowMessage, subj.GetNS(ctx)))
-	b, err := proto.Marshal(sharMsg)
-	if err != nil {
-		return fmt.Errorf("marshal message for publishing: %w", err)
-	}
-	msg.Data = b
-	if err := header.FromCtxToMsgHeader(ctx, &msg.Header); err != nil {
-		return fmt.Errorf("add header to published workflow state: %w", err)
-	}
-	msg.Header.Set(header.SharNamespace, subj.GetNS(ctx))
-	pubCtx, cancel := context.WithTimeout(ctx, s.publishTimeout)
-	defer cancel()
-	id := ksuid.New().String()
-	if _, err := s.txJS.PublishMsg(ctx, msg, jetstream.WithMsgID(id)); err != nil {
-		log := logx.FromContext(pubCtx)
-		log.Error("publish message", "error", err, slog.String("nats.msg.id", id), slog.Any("msg", sharMsg), slog.String("subject", msg.Subject))
-		return fmt.Errorf("publish message: %w", err)
 	}
 	return nil
 }
@@ -253,11 +223,6 @@ func messageKeyFrom(keyElements []string) string {
 	return strings.Join(keyElements, "-")
 }
 
-//func elementsFrom(key string) (string, string) {
-//	eles := strings.Split(key, "-")
-//	return eles[0], eles[1]
-//}
-
 // awaitMessageProcessor waits for WORKFLOW.*.State.Job.AwaitMessage.Execute job and executes a delivery
 func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	job := &model.WorkflowState{}
@@ -276,6 +241,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 
 	el, err := s.GetElement(ctx, job)
 	if errors2.Is(err, jetstream.ErrKeyNotFound) {
+		s.signalFatalErrorFor(ctx, job)
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err)}
 	} else if err != nil {
 		return false, fmt.Errorf("get message element: %w", err)
@@ -283,11 +249,13 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 
 	vrs, err := vars.Decode(ctx, job.Vars)
 	if err != nil {
+		s.signalFatalErrorFor(ctx, job)
 		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("decoding vars for message correlation: %w", err)}
 	}
 	resAny, err := expression.EvalAny(ctx, "= "+el.Execute, vrs)
-	if err != nil {
-		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluating message correlation expression: %w", err)}
+	if err != nil || resAny == nil {
+		s.signalFatalErrorFor(ctx, job)
+		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("message correlation expression evaluation errored or was empty '=%s'=%v : %w", el.Execute, resAny, err)}
 	}
 
 	correlationKey := fmt.Sprintf("%+v", resAny)
@@ -311,4 +279,17 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 	}
 
 	return true, nil
+}
+
+func (s *Engine) signalFatalErrorFor(ctx context.Context, state *model.WorkflowState) {
+	fatalError := &model.FatalError{
+		HandlingStrategy: 1,
+		WorkflowState:    state,
+	}
+
+	err := s.PublishMsg(ctx, messages.WorkflowSystemProcessFatalError, fatalError)
+	if err != nil {
+		log := logx.FromContext(ctx)
+		log.Error("failed publishing fatal err", "err", err)
+	}
 }

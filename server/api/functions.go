@@ -81,7 +81,13 @@ func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequ
 			return &model.SendMessageResponse{ExecutionId: executionId, WorkflowId: workflowId}, nil
 		}
 	} else {
-		if err := s.engine.PublishMessage(ctx, messageName, req.CorrelationKey, req.Vars); err != nil {
+		subject := fmt.Sprintf(messages.WorkflowMessage, subj.GetNS(ctx))
+		sharMsg := &model.MessageInstance{
+			Name:           messageName,
+			CorrelationKey: req.CorrelationKey,
+			Vars:           req.Vars,
+		}
+		if err := s.engine.PublishMsg(ctx, subject, sharMsg); err != nil {
 			return nil, fmt.Errorf("send message: %w", err)
 		}
 	}

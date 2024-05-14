@@ -893,3 +893,13 @@ message GetCompensationOutputVariablesRequest {
 message GetCompensationOutputVariablesResponse{
   bytes vars = 1;
 }
+
+enum HandlingStrategy {
+  Pause = 0;
+  TearDown = 1;
+}
+
+message FatalError {
+  HandlingStrategy handlingStrategy = 1;
+  WorkflowState workflowState = 2;
+}

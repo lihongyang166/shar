@@ -72,7 +72,7 @@ func (s *Engine) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) e
 }
 
 func (s *Engine) processMessages(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage)
+	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, nil)
 	if err != nil {
 		return fmt.Errorf("start message processor: %w", err)
 	}
@@ -213,7 +213,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 }
 
 func (s *Engine) processAwaitMessageExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor, s.signalFatalError); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil
@@ -241,21 +241,18 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 
 	el, err := s.GetElement(ctx, job)
 	if errors2.Is(err, jetstream.ErrKeyNotFound) {
-		s.signalFatalErrorFor(ctx, job)
-		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err)}
+		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err), State: job}
 	} else if err != nil {
 		return false, fmt.Errorf("get message element: %w", err)
 	}
 
 	vrs, err := vars.Decode(ctx, job.Vars)
 	if err != nil {
-		s.signalFatalErrorFor(ctx, job)
-		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("decoding vars for message correlation: %w", err)}
+		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("decoding vars for message correlation: %w", err), State: job}
 	}
 	resAny, err := expression.EvalAny(ctx, "= "+el.Execute, vrs)
 	if err != nil || resAny == nil {
-		s.signalFatalErrorFor(ctx, job)
-		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("message correlation expression evaluation errored or was empty '=%s'=%v : %w", el.Execute, resAny, err)}
+		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("message correlation expression evaluation errored or was empty '=%s'=%v : %w", el.Execute, resAny, err), State: job}
 	}
 
 	correlationKey := fmt.Sprintf("%+v", resAny)
@@ -279,17 +276,4 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 	}
 
 	return true, nil
-}
-
-func (s *Engine) signalFatalErrorFor(ctx context.Context, state *model.WorkflowState) {
-	fatalError := &model.FatalError{
-		HandlingStrategy: 1,
-		WorkflowState:    state,
-	}
-
-	err := s.PublishMsg(ctx, messages.WorkflowSystemProcessFatalError, fatalError)
-	if err != nil {
-		log := logx.FromContext(ctx)
-		log.Error("failed publishing fatal err", "err", err)
-	}
 }

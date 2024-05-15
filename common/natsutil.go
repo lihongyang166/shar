@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/model"
 	"log/slog"
 	"math/big"
 	"reflect"
@@ -225,19 +226,7 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(
-	ctx context.Context,
-	js jetstream.JetStream,
-	streamName string,
-	traceName string,
-	closer chan struct{},
-	subject string,
-	durable string,
-	concurrency int,
-	middleware []middleware.Receive,
-	fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error),
-	opts ...ProcessOption,
-) error {
+func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), signalFatalErrFn func(ctx context.Context, state *model.WorkflowState), opts ...ProcessOption) error {
 	set := &ProcessOpts{}
 	for _, i := range opts {
 		i.Set(set)
@@ -333,6 +322,11 @@ func Process(
 				if err != nil {
 					if errors2.IsWorkflowFatal(err) {
 						executeLog.Error("workflow fatal error occurred processing function", "error", err)
+						var eWfF *errors2.ErrWorkflowFatal
+						errors.As(err, &eWfF)
+						if signalFatalErrFn != nil && eWfF.State != nil {
+							signalFatalErrFn(executeCtx, eWfF.State)
+						}
 						ack = true
 					} else {
 						wfe := &workflow.Error{}

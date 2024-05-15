@@ -80,7 +80,7 @@ func run(cmd *cobra.Command, args []string) error {
 		err = common.Process(ctx, js, "WORKFLOW_TELEMETRY", "trace", closer, subj.NS(messages.WorkflowStateAll, "*"), "Tracing", 1, nil, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 			workflowMessages <- msg
 			return true, nil
-		})
+		}, nil)
 		if err != nil {
 			return fmt.Errorf("starting debug trace processing: %w", err)
 		}

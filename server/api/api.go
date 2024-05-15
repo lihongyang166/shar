@@ -355,6 +355,14 @@ func callAPI[T proto.Message, U proto.Message](ctx context.Context, panicRecover
 	if err != nil {
 		c := codes.Unknown
 		if errors2.IsWorkflowFatal(err) {
+			//TODO we could signify fatal err here but we'd need to have FatalErr in ErrWorkflowFatal
+			//there is the benefit of signalling failure in a central point for the api here...
+			//also, how do we get access to nats.PublishMsg???...we'd need to pass it in as a parameter
+			//since this is a generic function.
+			//if the wf state element type is a service task
+			//the latest tracking id entry must be a job...so we probably want that job to be cleaned up
+			//in the even of a fatal err
+
 			c = codes.Internal
 		}
 		errorResponse(msg, c, err.Error())

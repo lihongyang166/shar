@@ -943,6 +943,19 @@ func (s *Engine) PublishWorkflowState(ctx context.Context, stateName string, sta
 	return nil
 }
 
+func (s *Engine) signalFatalError(ctx context.Context, state *model.WorkflowState) {
+	fataError := &model.FatalError{
+		HandlingStrategy: 1,
+		WorkflowState:    state,
+	}
+
+	err := s.PublishMsg(ctx, messages.WorkflowSystemProcessFatalError, fataError)
+	if err != nil {
+		log := logx.FromContext(ctx)
+		log.Error("failed publishing fatal err", "err", err)
+	}
+}
+
 // PublishMsg publishes a workflow message.
 func (s *Engine) PublishMsg(ctx context.Context, subject string, sharMsg proto.Message) error {
 	msg := nats.NewMsg(subject)
@@ -1012,7 +1025,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 		}
 
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}
@@ -1047,7 +1060,7 @@ func (s *Engine) hasValidExecution(ctx context.Context, executionId string) (*mo
 }
 
 func (s *Engine) processTracking(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track)
+	err := common.Process(ctx, s.js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, nil)
 	if err != nil {
 		return fmt.Errorf("tracking processor: %w", err)
 	}
@@ -1079,7 +1092,7 @@ func (s *Engine) processCompletedJobs(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("completed job processor: %w", err)
 	}
@@ -1166,7 +1179,7 @@ func (s *Engine) processWorkflowEvents(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("starting workflow event processing: %w", err)
 	}
@@ -1194,7 +1207,7 @@ func (s *Engine) processActivities(ctx context.Context) error {
 		}
 
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("starting activity processing: %w", err)
 	}
@@ -1350,7 +1363,7 @@ func (s *Engine) processLaunch(ctx context.Context) error {
 			return false, fmt.Errorf("execute launch function: %w", err)
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
@@ -1383,7 +1396,7 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 			return true, nil
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("start job abort processor: %w", err)
 	}
@@ -1409,7 +1422,7 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 			return false, fmt.Errorf("delete prcess: %w", err)
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
 	}
@@ -1429,7 +1442,7 @@ func (s *Engine) processProcessTerminate(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("start process terminate processor: %w", err)
 	}
@@ -1459,7 +1472,7 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 			return true, nil
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
 	}
@@ -1488,7 +1501,7 @@ func (s *Engine) processFatalError(ctx context.Context) error {
 		}
 
 		return true, nil
-	})
+	}, nil)
 
 	if err != nil {
 		return fmt.Errorf("start process fatal error processor: %w", err)
@@ -1496,8 +1509,6 @@ func (s *Engine) processFatalError(ctx context.Context) error {
 	return nil
 }
 
-// func (s *Nats) deleteActivity(ctx context.Context, state *model.WorkflowState) error {
-// >>>>>>> 17a7071 (initial cut at fatal workflow handling. Need to sort out var state removal/teardown):server/services/storage/nats.go
 func (s *Engine) deleteActivity(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.deleteSavedState(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete activity: %w", err)

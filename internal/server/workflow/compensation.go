@@ -219,7 +219,7 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 		}
 		//err := s.StartJob(ctx,subj.NS(messages.job))
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("start compensate processor: %w", err)
 	}

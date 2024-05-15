@@ -525,7 +525,7 @@ func (c *Client) listen(ctx context.Context) error {
 				return true, nil
 			}
 			return true, nil
-		}, common.WithBackoffFn(c.backoff))
+		}, nil, common.WithBackoffFn(c.backoff))
 		if err != nil {
 			return fmt.Errorf("connect to service task consumer: %w", err)
 		}
@@ -569,7 +569,7 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 			fn(callCtx, v, st.Error, st.State)
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("listen workflow complete process: %w", err)
 	}

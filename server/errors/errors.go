@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nats-io/nats.go/jetstream"
+	"gitlab.com/shar-workflow/shar/model"
 	"runtime"
 )
 
@@ -47,7 +48,8 @@ const VerboseLevel = -51 // VerboseLevel specifies a custom level vor verbose lo
 
 // ErrWorkflowFatal signifies that the workflow must terminate
 type ErrWorkflowFatal struct {
-	Err error
+	Err   error
+	State *model.WorkflowState
 }
 
 // Error returns the string version of the ErrWorkflowFatal error

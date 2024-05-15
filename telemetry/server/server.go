@@ -166,7 +166,7 @@ func (s *Server) Listen() error {
 		return fmt.Errorf("listen failed to attach to tracking key value database: %w", err)
 	}
 	s.spanKV = kv
-	err = common.Process(ctx, s.js, "WORKFLOW_TELEMETRY", "telemetry", closer, "WORKFLOW.*.State.>", "Tracing", 1, []middleware.Receive{}, s.workflowTrace)
+	err = common.Process(ctx, s.js, "WORKFLOW_TELEMETRY", "telemetry", closer, "WORKFLOW.*.State.>", "Tracing", 1, []middleware.Receive{}, s.workflowTrace, nil)
 	if err != nil {
 		return fmt.Errorf("listen failed to start telemetry handler: %w", err)
 	}

@@ -61,7 +61,7 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 			return false, fmt.Errorf("%s failed to execute gateway to KV: %w", errors.Fn(), err)
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("initialize gateway activation listener: %w", err)
 	}
@@ -69,10 +69,10 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 }
 
 func (s *Engine) processGatewayExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, nil); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
-	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, nil); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil

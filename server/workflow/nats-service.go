@@ -46,6 +46,9 @@ type NatsService interface {
 	PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error)
 	RecordHistoryActivityComplete(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryActivityExecute(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryJobAbort(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryJobComplete(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryJobExecute(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryProcessAbort(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryProcessComplete(ctx context.Context, state *model.WorkflowState) error
 	RecordHistoryProcessSpawn(ctx context.Context, state *model.WorkflowState, newProcessInstanceID string) error
@@ -60,6 +63,7 @@ type NatsService interface {
 	SetMessageProcessor(processor services.MessageProcessorFunc)
 	SetTraversalProvider(provider services.TraversalFunc)
 	Shutdown()
+	StartJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...storage.PublishOpt) error
 	StartProcessing(ctx context.Context) error
 	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
 	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error

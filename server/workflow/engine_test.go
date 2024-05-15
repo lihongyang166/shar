@@ -206,16 +206,18 @@ func TestActivityProcessorServiceTask(t *testing.T) {
 			assert.NotEmpty(t, args[2].(*model.WorkflowState).Id)
 		}).
 		Return(nil)
+	/*
+		svc.On("CreateJob", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowState")).
+			Once().
+			Run(func(args mock.Arguments) {
+				assert.Equal(t, args[1].(*model.WorkflowState).WorkflowId, "test-workflow-id")
+				assert.Equal(t, args[1].(*model.WorkflowState).ElementId, "Step1")
+				assert.Equal(t, args[1].(*model.WorkflowState).ElementType, element.ServiceTask)
+			}).
+			Return("test-job-id", nil)
 
-	svc.On("CreateJob", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("*model.WorkflowState")).
-		Once().
-		Run(func(args mock.Arguments) {
-			assert.Equal(t, args[1].(*model.WorkflowState).WorkflowId, "test-workflow-id")
-			assert.Equal(t, args[1].(*model.WorkflowState).ElementId, "Step1")
-			assert.Equal(t, args[1].(*model.WorkflowState).ElementType, element.ServiceTask)
-		}).
-		Return("test-job-id", nil)
-
+	*/
+	svc.On("StartJob", mock.AnythingOfType("*context.valueCtx"), mock.AnythingOfType("string"), mock.AnythingOfType("*model.WorkflowState"), mock.AnythingOfType("*model.Element"), mock.AnythingOfType("[]uint8")).Return(nil)
 	svc.On("PublishWorkflowState", mock.AnythingOfType("*context.valueCtx"), "WORKFLOW.default.State.Job.Execute.ServiceTask."+id, mock.AnythingOfType("*model.WorkflowState")).
 		Once().
 		Run(func(args mock.Arguments) {

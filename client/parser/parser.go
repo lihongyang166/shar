@@ -152,8 +152,7 @@ func parseErrors(_ *xmlquery.Node, wf *model.Workflow, errNodes []*xmlquery.Node
 func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i *xmlquery.Node, msgs map[string]string, errs map[string]string) error {
 	if i.NamespaceURI == bpmnNS {
 		el := &model.Element{
-			Type:         i.Data,
-			Compensation: &model.Targets{},
+			Type: i.Data,
 		}
 
 		switch i.Data {
@@ -293,12 +292,7 @@ func parseBoundaryEvent(doc *xmlquery.Node, i *xmlquery.Node, pr *model.Process,
 	if err := parseCompensationEventData(
 		doc, i, el, "//bpmn:compensateEventDefinition/@id",
 		func(ref *xmlquery.Node, attach *model.Element, target string) any {
-			newTarget := &model.Target{
-				Id:         ref.SelectAttr("id"),
-				Conditions: nil,
-				Target:     target,
-			}
-			attach.Compensation.Target = append(attach.Compensation.Target, newTarget)
+			attach.CompensateWith = &target
 			els[target].IsForCompensation = true
 			return nil
 		},

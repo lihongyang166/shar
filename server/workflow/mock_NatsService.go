@@ -1873,6 +1873,147 @@ func (_c *MockNatsService_RecordHistoryActivityExecute_Call) RunAndReturn(run fu
 	return _c
 }
 
+// RecordHistoryJobAbort provides a mock function with given fields: ctx, state
+func (_m *MockNatsService) RecordHistoryJobAbort(ctx context.Context, state *model.WorkflowState) error {
+	ret := _m.Called(ctx, state)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RecordHistoryJobAbort")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) error); ok {
+		r0 = rf(ctx, state)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockNatsService_RecordHistoryJobAbort_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RecordHistoryJobAbort'
+type MockNatsService_RecordHistoryJobAbort_Call struct {
+	*mock.Call
+}
+
+// RecordHistoryJobAbort is a helper method to define mock.On call
+//   - ctx context.Context
+//   - state *model.WorkflowState
+func (_e *MockNatsService_Expecter) RecordHistoryJobAbort(ctx interface{}, state interface{}) *MockNatsService_RecordHistoryJobAbort_Call {
+	return &MockNatsService_RecordHistoryJobAbort_Call{Call: _e.mock.On("RecordHistoryJobAbort", ctx, state)}
+}
+
+func (_c *MockNatsService_RecordHistoryJobAbort_Call) Run(run func(ctx context.Context, state *model.WorkflowState)) *MockNatsService_RecordHistoryJobAbort_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.WorkflowState))
+	})
+	return _c
+}
+
+func (_c *MockNatsService_RecordHistoryJobAbort_Call) Return(_a0 error) *MockNatsService_RecordHistoryJobAbort_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockNatsService_RecordHistoryJobAbort_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) error) *MockNatsService_RecordHistoryJobAbort_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RecordHistoryJobComplete provides a mock function with given fields: ctx, state
+func (_m *MockNatsService) RecordHistoryJobComplete(ctx context.Context, state *model.WorkflowState) error {
+	ret := _m.Called(ctx, state)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RecordHistoryJobComplete")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) error); ok {
+		r0 = rf(ctx, state)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockNatsService_RecordHistoryJobComplete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RecordHistoryJobComplete'
+type MockNatsService_RecordHistoryJobComplete_Call struct {
+	*mock.Call
+}
+
+// RecordHistoryJobComplete is a helper method to define mock.On call
+//   - ctx context.Context
+//   - state *model.WorkflowState
+func (_e *MockNatsService_Expecter) RecordHistoryJobComplete(ctx interface{}, state interface{}) *MockNatsService_RecordHistoryJobComplete_Call {
+	return &MockNatsService_RecordHistoryJobComplete_Call{Call: _e.mock.On("RecordHistoryJobComplete", ctx, state)}
+}
+
+func (_c *MockNatsService_RecordHistoryJobComplete_Call) Run(run func(ctx context.Context, state *model.WorkflowState)) *MockNatsService_RecordHistoryJobComplete_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.WorkflowState))
+	})
+	return _c
+}
+
+func (_c *MockNatsService_RecordHistoryJobComplete_Call) Return(_a0 error) *MockNatsService_RecordHistoryJobComplete_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockNatsService_RecordHistoryJobComplete_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) error) *MockNatsService_RecordHistoryJobComplete_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RecordHistoryJobExecute provides a mock function with given fields: ctx, state
+func (_m *MockNatsService) RecordHistoryJobExecute(ctx context.Context, state *model.WorkflowState) error {
+	ret := _m.Called(ctx, state)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RecordHistoryJobExecute")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) error); ok {
+		r0 = rf(ctx, state)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockNatsService_RecordHistoryJobExecute_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RecordHistoryJobExecute'
+type MockNatsService_RecordHistoryJobExecute_Call struct {
+	*mock.Call
+}
+
+// RecordHistoryJobExecute is a helper method to define mock.On call
+//   - ctx context.Context
+//   - state *model.WorkflowState
+func (_e *MockNatsService_Expecter) RecordHistoryJobExecute(ctx interface{}, state interface{}) *MockNatsService_RecordHistoryJobExecute_Call {
+	return &MockNatsService_RecordHistoryJobExecute_Call{Call: _e.mock.On("RecordHistoryJobExecute", ctx, state)}
+}
+
+func (_c *MockNatsService_RecordHistoryJobExecute_Call) Run(run func(ctx context.Context, state *model.WorkflowState)) *MockNatsService_RecordHistoryJobExecute_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*model.WorkflowState))
+	})
+	return _c
+}
+
+func (_c *MockNatsService_RecordHistoryJobExecute_Call) Return(_a0 error) *MockNatsService_RecordHistoryJobExecute_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockNatsService_RecordHistoryJobExecute_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) error) *MockNatsService_RecordHistoryJobExecute_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RecordHistoryProcessAbort provides a mock function with given fields: ctx, state
 func (_m *MockNatsService) RecordHistoryProcessAbort(ctx context.Context, state *model.WorkflowState) error {
 	ret := _m.Called(ctx, state)
@@ -2402,6 +2543,71 @@ func (_c *MockNatsService_Shutdown_Call) Return() *MockNatsService_Shutdown_Call
 }
 
 func (_c *MockNatsService_Shutdown_Call) RunAndReturn(run func()) *MockNatsService_Shutdown_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartJob provides a mock function with given fields: ctx, subject, job, el, v, opts
+func (_m *MockNatsService) StartJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...storage.PublishOpt) error {
+	_va := make([]interface{}, len(opts))
+	for _i := range opts {
+		_va[_i] = opts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, subject, job, el, v)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartJob")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *model.WorkflowState, *model.Element, []byte, ...storage.PublishOpt) error); ok {
+		r0 = rf(ctx, subject, job, el, v, opts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockNatsService_StartJob_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartJob'
+type MockNatsService_StartJob_Call struct {
+	*mock.Call
+}
+
+// StartJob is a helper method to define mock.On call
+//   - ctx context.Context
+//   - subject string
+//   - job *model.WorkflowState
+//   - el *model.Element
+//   - v []byte
+//   - opts ...storage.PublishOpt
+func (_e *MockNatsService_Expecter) StartJob(ctx interface{}, subject interface{}, job interface{}, el interface{}, v interface{}, opts ...interface{}) *MockNatsService_StartJob_Call {
+	return &MockNatsService_StartJob_Call{Call: _e.mock.On("StartJob",
+		append([]interface{}{ctx, subject, job, el, v}, opts...)...)}
+}
+
+func (_c *MockNatsService_StartJob_Call) Run(run func(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...storage.PublishOpt)) *MockNatsService_StartJob_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]storage.PublishOpt, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(storage.PublishOpt)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(*model.WorkflowState), args[3].(*model.Element), args[4].([]byte), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockNatsService_StartJob_Call) Return(_a0 error) *MockNatsService_StartJob_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockNatsService_StartJob_Call) RunAndReturn(run func(context.Context, string, *model.WorkflowState, *model.Element, []byte, ...storage.PublishOpt) error) *MockNatsService_StartJob_Call {
 	_c.Call.Return(run)
 	return _c
 }

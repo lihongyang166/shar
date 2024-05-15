@@ -82,7 +82,7 @@ func (s *SharServer) Shutdown() {
 		s.subs.Range(func(key, _ any) bool {
 			sub := key.(*nats.Subscription)
 			if err := sub.Drain(); err != nil {
-				slog.Error("drain subscription for "+sub.Subject, err)
+				slog.Error("drain subscription for "+sub.Subject, "error", err)
 				return false
 			}
 			return true
@@ -182,6 +182,14 @@ func (s *SharServer) Listen() error {
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetTaskSpecVersions, s.receiveApiMiddleware, &model.GetTaskSpecVersionsRequest{}, s.getTaskSpecVersions); err != nil {
 		return fmt.Errorf("APIGetTaskSpecVersions: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetCompensationInputVariables, s.receiveApiMiddleware, &model.GetCompensationInputVariablesRequest{}, s.getCompensationInputVariables); err != nil {
+		return fmt.Errorf("APIListExecutableProcess: %w", err)
+	}
+
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetCompensationOutputVariables, s.receiveApiMiddleware, &model.GetCompensationOutputVariablesRequest{}, s.getCompensationOutputVariables); err != nil {
+		return fmt.Errorf("APIListExecutableProcess: %w", err)
 	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIListUserTaskIDs, s.receiveApiMiddleware, &model.ListUserTasksRequest{}, s.listUserTaskIDs); err != nil {
@@ -382,7 +390,7 @@ func recoverAPIpanic(msg *nats.Msg) {
 
 func errorResponse(m *nats.Msg, code codes.Code, msg any) {
 	if err := m.Respond(apiError(code, msg)); err != nil {
-		slog.Error("send error response: "+string(apiError(codes.Internal, msg)), err)
+		slog.Error("send error response: "+string(apiError(codes.Internal, msg)), "error", err)
 	}
 }
 

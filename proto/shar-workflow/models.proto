@@ -172,7 +172,7 @@ message Element {
   string documentation = 4; // Documentation - any documentation describing the state machine element.
   string execute = 5;  // Execute - describes the execution parameter,  This is used for different purposes depending on the type.
   Targets outbound = 6; // Outbound - a number of possible transitions to other state machine state elements.s
-  Targets compensation = 22; // Compensation transitions
+  optional string compensateWith = 22; // CompensateWith defines the element used for compensation.
   Process process = 7; // Process - defines any subprocesses contained within this state machine.
   string msg = 8; // TODO: Document
   string candidates = 10; // Candidates - used for user related state machine types to define users that may complete the task.
@@ -288,6 +288,13 @@ message WorkflowState {
   map<string,SatisfiesGateway> satisfiesGatewayExpectation = 20; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
   map<string,GatewayExpectations> gatewayExpectations = 21; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
   string traceParent = 23; // TraceContext holds an OTEL trace context.
+  Compensation compensation = 24; // Compensation holds compensation state parameters.
+}
+
+message Compensation {
+  int64 step = 1; // Step is the currently executing step in a compensation plan
+  int64 totalSteps = 2; // TotalSteps is the total number of steps in the compensation plan.
+  string forTrackingId = 3; // ForTrackingId is the trackingID of the job being compensated.
 }
 
 message WorkflowStateSummary {
@@ -314,6 +321,10 @@ enum ProcessHistoryType {
   processComplete = 4;
   processAbort = 5;
   activityAbort = 6;
+  jobAbort = 7;
+  jobExecute = 8;
+  jobComplete = 9;
+  compensationCheckpoint = 10;
 }
 
 message ProcessHistoryEntry {
@@ -328,7 +339,8 @@ message ProcessHistoryEntry {
   optional Error error = 9;
   int64 unixTimeNano = 10;
   optional string execute = 11;
-  bool compensating = 12;
+  repeated string id = 12;
+  bool compensating = 14;
 }
 
 message ProcessHistory {
@@ -441,11 +453,12 @@ message LaunchWorkflowResponse {
 }
 
 enum CancellationState {
-  executing = 0;  // CancellationState_executing - the state machine is executing
-  completed = 1;  // CancellationState_completed - the state machine has completed successfully
-  terminated = 2; // CancellationState_terminated - the state machine instance was terminated
-  errored = 3;    // CancellationState_errored - an error occured during state machine execution
-  obsolete = 4;   // CancellationState_obsolete - this state is obsolete due to an alternate flow
+  executing = 0;  // CancellationState_executing - the state machine is executing.
+  completed = 1;  // CancellationState_completed - the state machine has completed successfully.
+  terminated = 2; // CancellationState_terminated - the state machine instance was terminated.
+  errored = 3;    // CancellationState_errored - an error occured during state machine execution.
+  obsolete = 4;   // CancellationState_obsolete - this state is obsolete due to an alternate flow.
+  compensating = 5; // CancellationState_compensating - this state is currently compensating.
 }
 
 message CancelProcessInstanceRequest {
@@ -529,6 +542,7 @@ message CompleteManualTaskRequest {
 message CompleteServiceTaskRequest {
   string trackingId = 1;
   bytes vars = 2;
+  bool compensating = 3;
 }
 
 message CompleteSendMessageRequest {
@@ -860,4 +874,22 @@ message LogRequest {
 
 message LogResponse {
 
+}
+
+message GetCompensationInputVariablesRequest {
+  string processInstanceId = 1;
+  string trackingId = 2;
+}
+
+message GetCompensationInputVariablesResponse{
+ bytes vars = 1;
+}
+
+message GetCompensationOutputVariablesRequest {
+  string processInstanceId = 1;
+  string trackingId = 2;
+}
+
+message GetCompensationOutputVariablesResponse{
+  bytes vars = 1;
 }

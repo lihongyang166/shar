@@ -25,6 +25,7 @@ streams:
         - WORKFLOW.*.State.Log.*
         - WORKFLOW.*.Message
         - WORKFLOW.*.State.Process.Complete
+        - WORKFLOW.*.State.Process.Compensate
         - WORKFLOW.*.State.Process.Execute
         - WORKFLOW.*.State.Process.Terminated
         - WORKFLOW.*.Timers.WorkflowExecute
@@ -33,6 +34,7 @@ streams:
         - WORKFLOW.*.State.Job.Activate.Gateway
         - WORKFLOW.*.State.Job.ReEnter.Gateway
         - WORKFLOW.Message.Telemetry
+        - WORKFLOW.*.Compensate.*
         - $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>
       retention: 1
       storage: 1
@@ -79,6 +81,20 @@ streams:
           ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Process.Complete
+          max_ack_pending: 65535
+      - nats-config:
+          durable_name: ProcessTerminateConsumer
+          description: Process terminate processing queue
+          ack_policy: 0
+          ack_wait: 30s
+          filter_subject: WORKFLOW.*.State.Process.Terminated
+          max_ack_pending: 65535
+      - nats-config:
+          durable_name: ProcessCompensateConsumer
+          description: Tracking queue for compensation messages.
+          ack_policy: 0
+          ack_wait: 30s
+          filter_subject: WORKFLOW.*.State.Process.Compensate
           max_ack_pending: 65535
       - nats-config:
           durable_name: JobCompleteConsumer

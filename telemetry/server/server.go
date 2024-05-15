@@ -189,7 +189,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg jetstr
 		// in case we are passed a trace ID that is used instead of this
 		ks, err := ksuid.Parse(state.ExecutionId)
 		if err != nil {
-			slog.Error("error parsing trace ID: %w", err)
+			slog.Error("error parsing trace ID: %w", "error", err)
 		}
 		slog.Debug(
 			"execution execute",
@@ -226,7 +226,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg jetstr
 		if err := s.spanEnd(ctx, "Activity: "+state.ElementId, state, msg.Subject()); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
-				log.Error("saving Activity.Complete operation abandoned", err,
+				log.Error("saving Activity.Complete operation abandoned", "error", err,
 					slog.String(keys.ExecutionID, state.ExecutionId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
@@ -245,7 +245,7 @@ func (s *Server) workflowTrace(ctx context.Context, log *slog.Logger, msg jetstr
 		if err := s.spanEnd(ctx, "Job: "+state.ElementType, state, msg.Subject()); err != nil {
 			var escape *AbandonOpError
 			if errors.As(err, &escape) {
-				log.Error("span end", err,
+				log.Error("span end", "error", err,
 					slog.String(keys.ExecutionID, state.ExecutionId),
 					slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()),
 					slog.String(keys.ParentTrackingID, common.TrackingID(state.Id).ParentID()),
@@ -295,7 +295,7 @@ func (s *Server) decodeState(ctx context.Context, data []byte) (*model.WorkflowS
 	state := &model.WorkflowState{}
 	err := proto.Unmarshal(data, state)
 	if err != nil {
-		log.Error("unmarshal span", err)
+		log.Error("unmarshal span", "error", err)
 		return &model.WorkflowState{}, true, abandon(err)
 	}
 
@@ -343,7 +343,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 	log := logx.FromContext(ctx)
 	oldState := model.WorkflowState{}
 	if err := common.LoadObj(ctx, s.spanKV, common.TrackingID(state.Id).ID(), &oldState); err != nil {
-		log.Error("load span state:", err, slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()))
+		log.Error("load span state:", "error", err, slog.String(keys.TrackingID, common.TrackingID(state.Id).ID()))
 		return abandon(err)
 	}
 	state.ExecutionId = oldState.ExecutionId
@@ -438,7 +438,7 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 	err = s.spanKV.Delete(ctx, common.TrackingID(oldState.Id).ID())
 	if err != nil {
 		id := common.TrackingID(oldState.Id).ID()
-		log.Warn("delete the cached span", err, slog.String(keys.TrackingID, id))
+		log.Warn("delete the cached span", "error", err, slog.String(keys.TrackingID, id))
 	}
 	return nil
 }

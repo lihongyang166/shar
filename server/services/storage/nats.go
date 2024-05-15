@@ -27,6 +27,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/services"
 	"gitlab.com/shar-workflow/shar/server/services/cache"
+	"gitlab.com/shar-workflow/shar/server/vars"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	maps2 "golang.org/x/exp/maps"
@@ -107,7 +108,7 @@ func (s *Nats) ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflow
 	if err != nil {
 		err2 := fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
-		log.Error("ListWorkflows get KVs", err)
+		log.Error("ListWorkflows get KVs", "error", err)
 		errs <- err2
 		return
 	}
@@ -299,6 +300,12 @@ func (s *Nats) StartProcessing(ctx context.Context) error {
 	}
 	if err := s.processProcessComplete(ctx); err != nil {
 		return fmt.Errorf("start process complete handler: %w", err)
+	}
+	if err := s.processProcessCompensate(ctx); err != nil {
+		return fmt.Errorf("start process compensate handler: %w", err)
+	}
+	if err := s.processProcessTerminate(ctx); err != nil {
+		return fmt.Errorf("start process terminate handler: %w", err)
 	}
 	if err := s.processGatewayActivation(ctx); err != nil {
 		return fmt.Errorf("start gateway execute handler: %w", err)
@@ -754,9 +761,6 @@ func (s *Nats) XDestroyProcessInstance(ctx context.Context, state *model.Workflo
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
 	}
-	if err := s.deleteProcessHistory(ctx, pi.ProcessInstanceId); err != nil {
-		return fmt.Errorf("x destroy process instance, delete process history: %w", err)
-	}
 	// Get the workflow
 	wf := &model.Workflow{}
 	if execution.WorkflowId != "" {
@@ -820,7 +824,7 @@ func (s *Nats) GetLatestVersion(ctx context.Context, workflowName string) (strin
 	}
 }
 
-// CreateJob stores a workflow task state.
+// CreateJob stores a workflow task state for user tasks.
 func (s *Nats) CreateJob(ctx context.Context, job *model.WorkflowState) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
@@ -879,7 +883,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 	if err != nil {
 		err2 := fmt.Errorf("get KVs for ns %s: %w", ns, err)
 		log := logx.FromContext(ctx)
-		log.Error("list exec get KVs", err)
+		log.Error("list exec get KVs", "error", err)
 		errs <- err2
 		return
 	}
@@ -901,7 +905,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 		ks = []string{}
 	} else if err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("obtaining keys", err)
+		log.Error("obtaining keys", "error", err)
 		errs <- err
 		return
 	}
@@ -911,7 +915,7 @@ func (s *Nats) ListExecutions(ctx context.Context, workflowName string, wch chan
 		if wv, ok := ver[v.WorkflowId]; ok {
 			if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
 				errs <- err
-				log.Error("loading object", err)
+				log.Error("loading object", "error", err)
 				return
 			}
 			wch <- &model.ListExecutionItem{
@@ -1008,6 +1012,11 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 	msg := nats.NewMsg(subj.NS(stateName, subj.GetNS(ctx)))
 	msg.Header.Set("embargo", strconv.Itoa(c.Embargo))
 	msg.Header.Set(header.SharNamespace, subj.GetNS(ctx))
+	if c.headers != nil {
+		for k, v := range c.headers {
+			msg.Header.Set(k, v)
+		}
+	}
 	b, err := proto.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("marshal proto during publish workflow state: %w", err)
@@ -1036,7 +1045,7 @@ func (s *Nats) PublishWorkflowState(ctx context.Context, stateName string, state
 
 	if _, err := s.txJS.PublishMsg(pubCtx, msg, jetstream.WithMsgID(c.ID)); err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("publish message", err, slog.String("nats.msg.id", c.ID), slog.Any("state", state), slog.String("subject", msg.Subject))
+		log.Error("publish message", "error", err, slog.String("nats.msg.id", c.ID), slog.Any("state", state), slog.String("subject", msg.Subject))
 		return fmt.Errorf("publish workflow state message: %w", err)
 	}
 	if stateName == subj.NS(messages.WorkflowJobUserTaskExecute, subj.GetNS(ctx)) {
@@ -1089,7 +1098,7 @@ func (s *Nats) processTraversals(ctx context.Context) error {
 				return false, err
 			}
 			if err := s.eventProcessor(ctx, activityID, &traversal, false); errors.IsWorkflowFatal(err) {
-				logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", err, slog.String(keys.ExecutionID, traversal.ExecutionId), slog.String(keys.WorkflowID, traversal.WorkflowId), err, slog.String(keys.ElementID, traversal.ElementId))
+				logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", "error", err, slog.String(keys.ExecutionID, traversal.ExecutionId), slog.String(keys.WorkflowID, traversal.WorkflowId), "error", err, slog.String(keys.ElementID, traversal.ElementId))
 				return true, nil
 			} else if err != nil {
 				return false, fmt.Errorf("process event: %w", err)
@@ -1151,9 +1160,15 @@ func (s *Nats) processCompletedJobs(ctx context.Context) error {
 		} else if err != nil {
 			return false, err
 		}
-		if s.eventJobCompleteProcessor != nil {
-			if err := s.eventJobCompleteProcessor(ctx, &job); err != nil {
-				return false, err
+		if job.State != model.CancellationState_compensating {
+			if s.eventJobCompleteProcessor != nil {
+				if err := s.eventJobCompleteProcessor(ctx, &job); err != nil {
+					return false, err
+				}
+			}
+		} else {
+			if err := s.compensationJobComplete(ctx, &job); err != nil {
+				return false, fmt.Errorf("complete compensation: %w", err)
 			}
 		}
 		return true, nil
@@ -1261,7 +1276,6 @@ func (s *Nats) processActivities(ctx context.Context) error {
 			if err := proto.Unmarshal(msg.Data(), &activity); err != nil {
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
-
 			activityID := common.TrackingID(activity.Id).ID()
 			if err := s.eventActivityCompleteProcessor(ctx, &activity); err != nil {
 				return false, err
@@ -1455,6 +1469,9 @@ func (s *Nats) processJobAbort(ctx context.Context) error {
 			if err := s.deleteJob(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete job during service task abort: %w", err)
 			}
+			if err := s.RecordHistoryJobComplete(ctx, &state); err != nil {
+				return true, fmt.Errorf("complete job processor failed to record history job complete: %w", err)
+			}
 		default:
 			return true, nil
 		}
@@ -1488,6 +1505,26 @@ func (s *Nats) processProcessComplete(ctx context.Context) error {
 	})
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
+	}
+	return nil
+
+}
+
+func (s *Nats) processProcessTerminate(ctx context.Context) error {
+	err := common.Process(ctx, s.js, "WORKFLOW", "processTerminate", s.closing, subj.NS(messages.WorkflowProcessTerminated, "*"), "ProcessTerminateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+		var state model.WorkflowState
+		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
+			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
+		}
+		if err := s.deleteProcessHistory(ctx, state.ProcessInstanceId); err != nil {
+			if !errors2.Is(err, jetstream.ErrKeyNotFound) {
+				return false, fmt.Errorf("delete process history: %w", err)
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("start process terminate processor: %w", err)
 	}
 	return nil
 
@@ -1813,10 +1850,13 @@ func (s *Nats) Log(ctx context.Context, req *model.LogRequest) error {
 	return nil
 }
 
-// deleteProcessHistory deletes the process history for a given process ID in A SHAR namespace.
+// deleteProcessHistory deletes the process history for a given process ID in A SHAR namespace, process history gets spooled to a.
 func (s *Nats) deleteProcessHistory(ctx context.Context, processId string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
+	log := logx.FromContext(ctx)
+	log.Debug("delete process history", keys.ProcessInstanceID, processId)
+
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
@@ -1825,6 +1865,16 @@ func (s *Nats) deleteProcessHistory(ctx context.Context, processId string) error
 		return fmt.Errorf("keyPrefixSearch: %w", err)
 	}
 	for _, k := range ks {
+		if item, err := nsKVs.wfHistory.Get(ctx, k); err != nil {
+			return fmt.Errorf("get workflow history item: %w", err)
+		} else {
+			msg := nats.NewMsg(messages.WorkflowSystemHistoryArchive)
+			msg.Header.Add("KEY", k)
+			msg.Data = item.Value()
+			if err := s.conn.PublishMsg(msg); err != nil {
+				return fmt.Errorf("publish workflow history archive item: %w", err)
+			}
+		}
 		if err := nsKVs.wfHistory.Delete(ctx, k); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			slog.Warn("key already deleted", "key", k)
 		} else if err != nil {
@@ -1921,31 +1971,101 @@ func (s *Nats) ListExecutableProcesses(ctx context.Context, wch chan<- *model.Li
 	}
 }
 
-func (s *Nats) Compensate(ctx context.Context, state *model.WorkflowState) error {
-	wf, err := s.GetWorkflow(ctx, state.WorkflowId)
-	if err != nil {
-		return fmt.Errorf("get workflow: %w", err)
-	}
-	pr := wf.Process[state.ProcessName]
-	els := make(map[string]*model.Element)
-	common.IndexProcessElements(pr.Elements, els)
-	hist := make(chan *model.ProcessHistoryEntry)
-	errs := make(chan error, 1)
-	//ids := make([]string, 0)
-	go s.GetProcessHistory(ctx, state.ProcessInstanceId, hist, errs)
-	for {
-		select {
-		case entry := <-hist:
-			// Don't include and history output as a result of compensation
-			// Only include history items that are compensable
-			if entry.Compensating {
-				continue
-			}
-			if len(els[*entry.ElementId].Compensation.Target) > 0 {
-				fmt.Println(entry)
-			}
+// StartJob launches a user/service task
+func (s *Nats) StartJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...PublishOpt) error {
+	job.Execute = &el.Execute
 
+	// el.Version is only used for versioned tasks such as service tasks
+	if el.Version != nil {
+		job.ExecuteVersion = *el.Version
+	}
+	// skip if this job type requires no input transformation
+	if el.Type != element.MessageIntermediateCatchEvent {
+		job.Vars = nil
+		if err := vars.InputVars(ctx, v, &job.Vars, el); err != nil {
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to get input variables: %w", err)}
 		}
 	}
-	panic("Not Implemented")
+	// if this is a user task, find out who can perform it
+	if el.Type == element.UserTask {
+		vx, err := vars.Decode(ctx, v)
+		if err != nil {
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+		}
+
+		owners, err := s.evaluateOwners(ctx, el.Candidates, vx)
+		if err != nil {
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job: evaluate owners: %w", err)}
+		}
+		groups, err := s.evaluateOwners(ctx, el.CandidateGroups, vx)
+		if err != nil {
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to evaluate groups: %w", err)}
+		}
+
+		job.Owners = owners
+		job.Groups = groups
+	}
+
+	// create the job
+	_, err := s.CreateJob(ctx, job)
+	if err != nil {
+		return fmt.Errorf("create job: %w", err)
+	}
+	/*
+		//Save Iterator State
+		common.SaveLargeObj
+
+		// Multi-instance
+		if el.Iteration != nil {
+			if el.Iteration.Execute == model.ThreadingType_Sequential {
+				// Launch as usual, just with iteration parameters
+				seqVars, err := vars.Decode(ctx, job.Vars)
+				if err != nil {
+					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+				}
+				collection, ok := seqVars[el.Iteration.Collection]
+				if !ok {
+					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
+				}
+				seqVars[el.Iteration.Iterator] = getCollectionIndex[collection]
+			} else if model.ThreadingType_Parallel {
+
+			}
+		}
+	*/
+	// Single instance launch
+	if el.Iteration == nil {
+		if err := s.PublishWorkflowState(ctx, subj.NS(subject, subj.GetNS(ctx)), job, opts...); err != nil {
+			return fmt.Errorf("start job failed to publish: %w", err)
+		}
+		if err := s.RecordHistoryJobExecute(ctx, job); err != nil {
+			return fmt.Errorf("job start failed to record history: %w", err)
+		}
+		// finally tell the engine that the job is ready for a client
+		return nil
+	}
+	return nil
+}
+
+// evaluateOwners builds a list of groups
+func (s *Nats) evaluateOwners(ctx context.Context, owners string, vars model.Vars) ([]string, error) {
+	jobGroups := make([]string, 0)
+	groups, err := expression.Eval[interface{}](ctx, owners, vars)
+	if err != nil {
+		return nil, &errors.ErrWorkflowFatal{Err: err}
+	}
+	switch groups := groups.(type) {
+	case string:
+		jobGroups = append(jobGroups, groups)
+	case []string:
+		jobGroups = append(jobGroups, groups...)
+	}
+	for i, v := range jobGroups {
+		id, err := s.OwnerID(ctx, v)
+		if err != nil {
+			return nil, fmt.Errorf("evaluate owners failed to get owner ID: %w", err)
+		}
+		jobGroups[i] = id
+	}
+	return jobGroups, nil
 }

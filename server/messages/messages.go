@@ -50,16 +50,17 @@ const (
 	WorkflowProcessComplete           = "WORKFLOW.%s.State.Process.Complete"          // WorkflowProcessComplete is the state message subject for completing a workfloe process.
 	WorkflowProcessExecute            = "WORKFLOW.%s.State.Process.Execute"           // WorkflowProcessExecute is the state message subject for executing a workflow process.
 	WorkflowProcessTerminated         = "WORKFLOW.%s.State.Process.Terminated"        // WorkflowProcessTerminated is the state message subject for a workflow process terminating.
+	WorkflowProcessCompensate         = "WORKFLOW.%s.State.Process.Compensate"        // WorkflowProcessCompensate is the state message subject for a workflow compensation event.
 	WorkflowStateAll                  = "WORKFLOW.%s.State.>"                         // WorkflowStateAll is the wildcard subject for catching all state messages.
 	WorkflowTimedExecute              = "WORKFLOW.%s.Timers.WorkflowExecute"          // WorkflowTimedExecute is the state message subject for timed workflow execute operation.
 	WorkflowTraversalComplete         = "WORKFLOW.%s.State.Traversal.Complete"        // WorkflowTraversalComplete is the state message subject for completing a traversal.
 	WorkflowTraversalExecute          = "WORKFLOW.%s.State.Traversal.Execute"         // WorkflowTraversalExecute is the state message subject for executing a new traversal.
 
-	WorkflowSystemTaskCreate   = "WORKFLOW.System.Task.Create"   // WorkflowSystemTaskCreate is the task created broadcast message.
-	WorkflowSystemTaskUpdate   = "WORKFLOW.System.Task.Update"   // WorkflowSystemTaskUpdate is the task updated broadcast message.
-	WorkflowSystemProcessPause = "WORKFLOW.System.Process.Pause" // WorkflowSystemProcessPause is the process paused broadcast message.
-	WorkflowSystemProcessError = "WORKFLOW.System.Process.Error" // WorkflowSystemProcessError is the process error broadcast message.
-
+	WorkflowSystemTaskCreate     = "WORKFLOW.System.Task.Create"     // WorkflowSystemTaskCreate is the task created broadcast message.
+	WorkflowSystemTaskUpdate     = "WORKFLOW.System.Task.Update"     // WorkflowSystemTaskUpdate is the task updated broadcast message.
+	WorkflowSystemProcessPause   = "WORKFLOW.System.Process.Pause"   // WorkflowSystemProcessPause is the process paused broadcast message.
+	WorkflowSystemProcessError   = "WORKFLOW.System.Process.Error"   // WorkflowSystemProcessError is the process error broadcast message.
+	WorkflowSystemHistoryArchive = "WORKFLOW.System.History.Archive" // WorkflowSystemHistoryArchive is the archive message for history items.
 )
 
 const (
@@ -120,12 +121,14 @@ var AllMessages = []string{
 	subj.NS(WorkflowProcessComplete, "*"),
 	subj.NS(WorkflowProcessExecute, "*"),
 	subj.NS(WorkflowProcessTerminated, "*"),
+	subj.NS(WorkflowProcessCompensate, "*"),
 	subj.NS(WorkflowTimedExecute, "*"),
 	subj.NS(WorkflowTraversalComplete, "*"),
 	subj.NS(WorkflowTraversalExecute, "*"),
 	subj.NS(WorkflowJobGatewayTaskActivate, "*"),
 	subj.NS(WorkflowJobGatewayTaskReEnter, "*"),
 	WorkflowTelemetryTimer,
+	"WORKFLOW.*.Compensate.*",
 	"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>", // Dead letter functionality
 }
 
@@ -133,38 +136,40 @@ var AllMessages = []string{
 var WorkflowMessageFormat = "WORKFLOW.%s.Message.%s"
 
 const (
-	APIAll                      = "WORKFLOW.Api.*"                        // APIAll is all API message subjects.
-	APIStoreWorkflow            = "WORKFLOW.Api.StoreWorkflow"            // APIStoreWorkflow is the store Workflow API subject.
-	APILaunchProcess            = "WORKFLOW.Api.LaunchProcess"            // APILaunchProcess is the launch process API subject.
-	APIListWorkflows            = "WORKFLOW.Api.ListWorkflows"            // APIListWorkflows is the list workflows API subject.
-	APIListExecution            = "WORKFLOW.Api.ListExecution"            // APIListExecution is the list workflow instances API subject.
-	APIListExecutionProcesses   = "WORKFLOW.Api.ListExecutionProcesses"   // APIListExecutionProcesses is the get processes of a running workflow instance API subject.
-	APICancelExecution          = "WORKFLOW.Api.CancelExecution"          // APICancelExecution is the cancel an execution API subject.
-	APISendMessage              = "WORKFLOW.Api.SendMessage"              // APISendMessage is the send workflow message API subject.
-	APICancelProcessInstance    = "WORKFLOW.API.CancelProcessInstance"    // APICancelProcessInstance is the cancel process instance API message subject.
-	APICompleteManualTask       = "WORKFLOW.Api.CompleteManualTask"       // APICompleteManualTask is the complete manual task API subject.
-	APICompleteServiceTask      = "WORKFLOW.Api.CompleteServiceTask"      // APICompleteServiceTask is the complete service task API subject.
-	APICompleteUserTask         = "WORKFLOW.Api.CompleteUserTask"         // APICompleteUserTask is the complete user task API subject.
-	APICompleteSendMessageTask  = "WORKFLOW.Api.CompleteSendMessageTask"  // APICompleteSendMessageTask is the complete send message task API subject.
-	APIDeprecateServiceTask     = "WORKFLOW.Api.DeprecateServiceTask"     // APIDeprecateServiceTask is the deprecate service task API subject.
-	APIListExecutableProcess    = "WORKFLOW.Api.APIListExecutableProcess" // APIListExecutableProcess is the list executable process API subject.
-	APIListUserTaskIDs          = "WORKFLOW.Api.ListUserTaskIDs"          // APIListUserTaskIDs is the list user task IDs API subject.
-	APIGetUserTask              = "WORKFLOW.Api.GetUserTask"              // APIGetUserTask is the get user task API subject.
-	APIGetTaskSpecVersions      = "WORKFLOW.Api.GetTaskSpecVersions"      // APIGetTaskSpecVersions is the get task versions API subject.
-	APIHandleWorkflowError      = "WORKFLOW.Api.HandleWorkflowError"      // APIHandleWorkflowError is the handle workflow error API subject.
-	APIRegisterTask             = "Workflow.Api.RegisterTask"             // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
-	APIGetProcessInstanceStatus = "WORKFLOW.Api.GetProcessInstanceStatus" // APIGetProcessInstanceStatus is the get process instance status API subject.
-	APIGetTaskSpec              = "WORKFLOW.Api.GetTaskSpec"              // APIGetTaskSpec is the get task spec API message subject.
-	APIGetWorkflowVersions      = "WORKFLOW.Api.GetWorkflowVersions"      // APIGetWorkflowVersions is the get workflow versions API message subject.
-	APIGetWorkflow              = "WORKFLOW.Api.GetWorkflow"              // APIGetWorkflow is the get workflow API message subject.
-	APIGetProcessHistory        = "WORKFLOW.Api.GetProcessHistory"        // APIGetProcessHistory is the get process history API message subject.
-	APIGetVersionInfo           = "WORKFLOW.API.GetVersionInfo"           // APIGetVersionInfo is the get server version information API message subject.
-	APIGetTaskSpecUsage         = "WORKFLOW.Api.GetTaskSpecUsage"         // APIGetTaskSpecUsage is the get task spec usage API message subject.
-	APIListTaskSpecUIDs         = "WORKFLOW.Api.ListTaskSpecUIDs"         // APIListTaskSpecUIDs is the list task spec UIDs API message subject.
-	APIHeartbeat                = "WORKFLOW.Api.Heartbeat"                // APIHeartbeat // is the heartbeat API message subject.
-	APILog                      = "WORKFLOW.Api.Log"                      // APILog // is the client logging message subject.
-	APIGetJob                   = "WORKFLOW.Api.GetJob"                   // APIGetJob is the get job API subject.
-	APIResolveWorkflow          = "WORKFLOW.Api.ResolveWorkflow"          // APIResolveWorkflow is the resolve workflow API subject.
+	APIAll                            = "WORKFLOW.Api.*"                              // APIAll is all API message subjects.
+	APIStoreWorkflow                  = "WORKFLOW.Api.StoreWorkflow"                  // APIStoreWorkflow is the store Workflow API subject.
+	APILaunchProcess                  = "WORKFLOW.Api.LaunchProcess"                  // APILaunchProcess is the launch process API subject.
+	APIListWorkflows                  = "WORKFLOW.Api.ListWorkflows"                  // APIListWorkflows is the list workflows API subject.
+	APIListExecution                  = "WORKFLOW.Api.ListExecution"                  // APIListExecution is the list workflow instances API subject.
+	APIListExecutionProcesses         = "WORKFLOW.Api.ListExecutionProcesses"         // APIListExecutionProcesses is the get processes of a running workflow instance API subject.
+	APICancelExecution                = "WORKFLOW.Api.CancelExecution"                // APICancelExecution is the cancel an execution API subject.
+	APISendMessage                    = "WORKFLOW.Api.SendMessage"                    // APISendMessage is the send workflow message API subject.
+	APICancelProcessInstance          = "WORKFLOW.API.CancelProcessInstance"          // APICancelProcessInstance is the cancel process instance API message subject.
+	APICompleteManualTask             = "WORKFLOW.Api.CompleteManualTask"             // APICompleteManualTask is the complete manual task API subject.
+	APICompleteServiceTask            = "WORKFLOW.Api.CompleteServiceTask"            // APICompleteServiceTask is the complete service task API subject.
+	APICompleteUserTask               = "WORKFLOW.Api.CompleteUserTask"               // APICompleteUserTask is the complete user task API subject.
+	APICompleteSendMessageTask        = "WORKFLOW.Api.CompleteSendMessageTask"        // APICompleteSendMessageTask is the complete send message task API subject.
+	APIDeprecateServiceTask           = "WORKFLOW.Api.DeprecateServiceTask"           // APIDeprecateServiceTask is the deprecate service task API subject.
+	APIListExecutableProcess          = "WORKFLOW.Api.APIListExecutableProcess"       // APIListExecutableProcess is the list executable process API subject.
+	APIListUserTaskIDs                = "WORKFLOW.Api.ListUserTaskIDs"                // APIListUserTaskIDs is the list user task IDs API subject.
+	APIGetUserTask                    = "WORKFLOW.Api.GetUserTask"                    // APIGetUserTask is the get user task API subject.
+	APIGetTaskSpecVersions            = "WORKFLOW.Api.GetTaskSpecVersions"            // APIGetTaskSpecVersions is the get task versions API subject.
+	APIHandleWorkflowError            = "WORKFLOW.Api.HandleWorkflowError"            // APIHandleWorkflowError is the handle workflow error API subject.
+	APIRegisterTask                   = "Workflow.Api.RegisterTask"                   // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
+	APIGetProcessInstanceStatus       = "WORKFLOW.Api.GetProcessInstanceStatus"       // APIGetProcessInstanceStatus is the get process instance status API subject.
+	APIGetTaskSpec                    = "WORKFLOW.Api.GetTaskSpec"                    // APIGetTaskSpec is the get task spec API message subject.
+	APIGetWorkflowVersions            = "WORKFLOW.Api.GetWorkflowVersions"            // APIGetWorkflowVersions is the get workflow versions API message subject.
+	APIGetWorkflow                    = "WORKFLOW.Api.GetWorkflow"                    // APIGetWorkflow is the get workflow API message subject.
+	APIGetProcessHistory              = "WORKFLOW.Api.GetProcessHistory"              // APIGetProcessHistory is the get process history API message subject.
+	APIGetVersionInfo                 = "WORKFLOW.API.GetVersionInfo"                 // APIGetVersionInfo is the get server version information API message subject.
+	APIGetTaskSpecUsage               = "WORKFLOW.Api.GetTaskSpecUsage"               // APIGetTaskSpecUsage is the get task spec usage API message subject.
+	APIListTaskSpecUIDs               = "WORKFLOW.Api.ListTaskSpecUIDs"               // APIListTaskSpecUIDs is the list task spec UIDs API message subject.
+	APIHeartbeat                      = "WORKFLOW.Api.Heartbeat"                      // APIHeartbeat // is the heartbeat API message subject.
+	APILog                            = "WORKFLOW.Api.Log"                            // APILog // is the client logging message subject.
+	APIGetJob                         = "WORKFLOW.Api.GetJob"                         // APIGetJob is the get job API subject.
+	APIResolveWorkflow                = "WORKFLOW.Api.ResolveWorkflow"                // APIResolveWorkflow is the resolve workflow API subject.
+	APIGetCompensationInputVariables  = "WORKFLOW.Api.GetCompensationInputVariables"  // APIGetCompensationInputVariables is the get compensation input variables message subject.
+	APIGetCompensationOutputVariables = "WORKFLOW.Api.GetCompensationOutputVariables" // APIGetCompensationOutputVariables is the get compensation output variables message subject.
 )
 
 var (

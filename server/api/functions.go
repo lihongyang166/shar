@@ -132,6 +132,35 @@ func (s *SharServer) completeUserTask(ctx context.Context, req *model.CompleteUs
 	return nil, nil
 }
 
+func (s *SharServer) getCompensationInputVariables(ctx context.Context, req *model.GetCompensationInputVariablesRequest) (*model.GetCompensationInputVariablesResponse, error) {
+	ctx, _, err2 := s.authFromProcessInstanceID(ctx, req.ProcessInstanceId)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize get compensation input variables: %w", err2)
+	}
+	v, err := s.ns.GetCompensationInputVariables(ctx, req.ProcessInstanceId, req.TrackingId)
+	if err != nil {
+		return nil, fmt.Errorf("get compensation input variables: %w", err)
+	}
+
+	return &model.GetCompensationInputVariablesResponse{
+		Vars: v,
+	}, nil
+}
+
+func (s *SharServer) getCompensationOutputVariables(ctx context.Context, req *model.GetCompensationOutputVariablesRequest) (*model.GetCompensationOutputVariablesResponse, error) {
+	ctx, _, err2 := s.authFromProcessInstanceID(ctx, req.ProcessInstanceId)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize get compensation output variables: %w", err2)
+	}
+	v, err := s.ns.GetCompensationOutputVariables(ctx, req.ProcessInstanceId, req.TrackingId)
+	if err != nil {
+		return nil, fmt.Errorf("get compensation output variables: %w", err)
+	}
+	return &model.GetCompensationOutputVariablesResponse{
+		Vars: v,
+	}, nil
+}
+
 func (s *SharServer) storeWorkflow(ctx context.Context, wf *model.StoreWorkflowRequest) (*model.StoreWorkflowResponse, error) {
 	ctx, err2 := s.authForNamedWorkflow(ctx, wf.Workflow.Name)
 	if err2 != nil {
@@ -272,7 +301,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		ProcessName:       job.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("publish workflow state", err)
+		log.Error("publish workflow state", "error", err)
 		return nil, fmt.Errorf("publish traversal for handle workflow error: %w", err)
 	}
 	// TODO: This always assumes service task.  Wrong!
@@ -289,7 +318,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		ProcessName:       job.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
-		log.Error("publish workflow state", err)
+		log.Error("publish workflow state", "error", err)
 		// We have already traversed so retunring an error here would be incorrect.
 		// It would force reprocessing and possibly double traversing
 		// TODO: develop an idempotent behaviour based upon hash nats message ids + deduplication

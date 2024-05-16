@@ -52,6 +52,7 @@ type Server struct {
 	conn                    *nats.Conn
 	telemetryConfig         telemetry.Config
 	tr                      trace.Tracer
+	noSplash                bool
 }
 
 // New creates a new SHAR server.
@@ -69,6 +70,7 @@ func New(options ...Option) *Server {
 		allowOrphanServiceTasks: true,
 		healthServiceEnabled:    true,
 		concurrency:             6,
+		noSplash:                false,
 	}
 
 	for _, i := range options {
@@ -84,8 +86,9 @@ func New(options ...Option) *Server {
 		s.apiAuthenticator = noopAuthN
 	}
 
-	// Show some details about the newly configured server:
-	fmt.Printf(`
+	if !s.noSplash {
+		// Show some details about the newly configured server:
+		fmt.Printf(`
 	███████╗██╗  ██╗ █████╗ ██████╗
 	██╔════╝██║  ██║██╔══██╗██╔══██╗
 	███████╗███████║███████║██████╔╝
@@ -94,8 +97,8 @@ func New(options ...Option) *Server {
 	╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
 	` + "\n")
 
-	s.Details()
-
+		s.Details()
+	}
 	return s
 }
 

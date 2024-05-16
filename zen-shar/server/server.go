@@ -38,6 +38,7 @@ type zenOpts struct {
 	natsPersistHostPath         string
 	natsServerAddress           string
 	sharServerTelemetryEndpoint string
+	noSplash                    bool
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -68,6 +69,13 @@ func WithSharServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
 		cfg.natsServerImageUrl = imageUrl
+	}
+}
+
+// WithNoSplash will make zen-shar start nats server with no splash screen
+func WithNoSplash() ZenSharOptionApplyFn {
+	return func(cfg *zenOpts) {
+		cfg.noSplash = true
 	}
 }
 
@@ -121,7 +129,7 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 	if defaults.sharServerImageUrl != "" {
 		ssvr = inContainerSharServer(defaults.sharServerImageUrl, dockerHostName, nPort, defaults.sharServerTelemetryEndpoint)
 	} else {
-		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint)
+		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint, defaults.noSplash)
 	}
 
 	slog.Info("Setup completed", "nats port", nPort)
@@ -205,7 +213,7 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 	return ssvr
 }
 
-func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string) *sharsvr.Server {
+func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string, noSplash bool) *sharsvr.Server {
 	natsUrl := fmt.Sprintf("%s:%d", natsHost, natsPort)
 	conn, err := nats.Connect(natsUrl)
 	if err != nil {
@@ -228,6 +236,10 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	}
 	if authN != nil {
 		options = append(options, sharsvr.WithAuthentication(authN))
+	}
+
+	if noSplash {
+		options = append(options, sharsvr.WithNoSplash())
 	}
 
 	ssvr := sharsvr.New(options...)
@@ -368,7 +380,7 @@ type containerisedServer struct {
 	exposedToHostPorts map[string]int
 }
 
-// Listen will startup the server in a container
+// Listen will start up the server in a container
 func (cp *containerisedServer) Listen() {
 	ctx := context.Background()
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

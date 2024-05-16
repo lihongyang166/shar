@@ -152,3 +152,15 @@ type telemetryEndpointOption struct {
 func (o telemetryEndpointOption) configure(server *Server) {
 	server.telemetryConfig = telemetry.Config{Enabled: o.endpoint != "", Endpoint: o.endpoint}
 }
+
+type noSplashOption struct {
+	noSplash bool
+}
+
+func (o noSplashOption) configure(server *Server) {
+	server.noSplash = o.noSplash
+}
+
+func WithNoSplash() noSplashOption {
+	return noSplashOption{noSplash: true}
+}

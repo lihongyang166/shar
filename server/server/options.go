@@ -161,6 +161,8 @@ func (o noSplashOption) configure(server *Server) {
 	server.noSplash = o.noSplash
 }
 
+// WithNoSplash specifies whether to show a splash screen on the SHAR server startup.
+// Enabling this option will prevent the splash screen from being displayed.
 func WithNoSplash() noSplashOption {
 	return noSplashOption{noSplash: true}
 }

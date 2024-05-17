@@ -31,20 +31,21 @@ stages:
 sast:
   stage: test
 
-build_image_2_scan:
-  image: docker:24.0.2
-  stage: test
-  services:
-    - docker:24.0.2-dind
-  script:
-    - docker build --tag $CI_REGISTRY_IMAGE/scan/server:${CI_COMMIT_SHORT_SHA} --file Dockerfile --target server .
-    - docker login --username gitlab-ci-token --password $CI_JOB_TOKEN $CI_REGISTRY
-    - docker push $CI_REGISTRY_IMAGE/scan/server:${CI_COMMIT_SHORT_SHA}
+#build_image_2_scan:
+#  image: docker:24.0.2
+#  stage: test
+#  services:
+#    - docker:24.0.2-dind
+#  script:
+#    - docker build --tag $CI_REGISTRY_IMAGE/scan/server:${CI_COMMIT_SHORT_SHA} --file Dockerfile --target server .
+#    - docker login --username gitlab-ci-token --password $CI_JOB_TOKEN $CI_REGISTRY
+#    - docker push $CI_REGISTRY_IMAGE/scan/server:${CI_COMMIT_SHORT_SHA}
 
 container_scanning:
-  stage: test
+  stage: package
   needs:
-    - build_image_2_scan
+#    - build_image_2_scan
+    - package_container_jt_stage
   variables:
 #    CS_IMAGE: $CI_REGISTRY_IMAGE/server:${CI_COMMIT_SHORT_SHA}
     #^this appears to be what is being used by container scanning
@@ -52,7 +53,8 @@ container_scanning:
     CS_DEFAULT_BRANCH_IMAGE: $CI_REGISTRY_IMAGE/dev/server:$VER.${CI_VERSION}
   before_script:
     - 'if [ $CI_COMMIT_BRANCH = "improveContainerScanning-release" ]; then export REPO_DESCRIPTOR=""; else export REPO_DESCRIPTOR="dev/"; fi'
-    - 'export CS_IMAGE=$CI_REGISTRY_IMAGE/scan/server:${CI_COMMIT_SHORT_SHA}'
+#    - 'export CS_IMAGE=$CI_REGISTRY_IMAGE/scan/server:${CI_COMMIT_SHORT_SHA}'
+    - 'export CS_IMAGE=$CI_REGISTRY_IMAGE/${REPO_DESCRIPTOR}server:latest'
     - 'echo "CS_IMAGE $CS_IMAGE"'
     - 'echo "CI_REGISTRY_IMAGE $CI_REGISTRY_IMAGE"'
     - 'echo "CS_DEFAULT_BRANCH_IMAGE $CS_DEFAULT_BRANCH_IMAGE"'

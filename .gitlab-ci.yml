@@ -50,7 +50,7 @@ container_scanning:
     #^this appears to be what is being used by container scanning
 #    CS_DEFAULT_BRANCH_IMAGE: registry.gitlab.com/shar-workflow/shar/${REPO_DESCRIPTOR}server:latest
     CS_DEFAULT_BRANCH_IMAGE: $CI_REGISTRY_IMAGE/dev/server:$VER.${CI_VERSION}
-  script:
+  before_script:
     - 'if [ $CI_COMMIT_BRANCH = "improveContainerScanning-release" ]; then export REPO_DESCRIPTOR=""; else export REPO_DESCRIPTOR="dev/"; fi'
     - 'export CS_IMAGE=$CI_REGISTRY_IMAGE/scan/server:${CI_COMMIT_SHORT_SHA}'
     - 'echo "CS_IMAGE $CS_IMAGE"'

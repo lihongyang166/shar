@@ -16,7 +16,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 )
 
-func TestUnhandledError(t *testing.T) {
+func TeztUnhandledError(t *testing.T) {
 	t.Parallel()
 
 	// Create a starting context

@@ -8,17 +8,6 @@
 | behaviour | TaskBehaviour | Behaviour documents instance behaviour. |  -  |
 | parameters | TaskParameters | Parameters document input and output parameters for the task. |  -  |
 | events | TaskEvents | Events document errors and messages that can be emitted from the task. |  -  |
-### TaskMetadata
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| uid | string | Uid of the task. | a ksuid |
-| type | string | Type - the name for the task when referred to by process. | arbitrary string |
-| version | string | Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters. | semantic version number |
-| short | string | Short description of the task. | arbitrary string |
-| description | string | Description - a long description of the task. | arbitrary string |
-| labels | string | Labels - a list of searchable tags for the task. | arbitrary string |
-| extensionData | map[string]string | ExtensionData - a map of values that can be used by third party tools. | arbitrary string |
 ### TaskBehaviour
 
 | name | type | description | validation |
@@ -112,3 +101,14 @@
 | correlationKey | string | CorrelationKey - the workflow message correlation key. | NATS-safe identifier |
 | short | string | Short description of the parameter. | arbitrary string |
 | description | string | Description - a long description of the parameter. | arbitrary string |
+### TaskMetadata
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| uid | string | Uid of the task. | a ksuid |
+| type | string | Type - the name for the task when referred to by process. | arbitrary string |
+| version | string | Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters. | semantic version number |
+| short | string | Short description of the task. | arbitrary string |
+| description | string | Description - a long description of the task. | arbitrary string |
+| labels | string | Labels - a list of searchable tags for the task. | arbitrary string |
+| extensionData | map[string]string | ExtensionData - a map of values that can be used by third party tools. | arbitrary string |

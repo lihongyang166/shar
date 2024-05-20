@@ -72,7 +72,7 @@ func (s *Engine) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) e
 }
 
 func (s *Engine) processMessages(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, nil)
+	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("start message processor: %w", err)
 	}

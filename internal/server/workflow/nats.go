@@ -1025,7 +1025,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 		}
 
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}
@@ -1060,7 +1060,7 @@ func (s *Engine) hasValidExecution(ctx context.Context, executionId string) (*mo
 }
 
 func (s *Engine) processTracking(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, nil)
+	err := common.Process(ctx, s.js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("tracking processor: %w", err)
 	}
@@ -1092,7 +1092,7 @@ func (s *Engine) processCompletedJobs(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("completed job processor: %w", err)
 	}
@@ -1179,7 +1179,7 @@ func (s *Engine) processWorkflowEvents(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("starting workflow event processing: %w", err)
 	}
@@ -1207,7 +1207,7 @@ func (s *Engine) processActivities(ctx context.Context) error {
 		}
 
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("starting activity processing: %w", err)
 	}
@@ -1363,7 +1363,7 @@ func (s *Engine) processLaunch(ctx context.Context) error {
 			return false, fmt.Errorf("execute launch function: %w", err)
 		}
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
@@ -1396,7 +1396,7 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 			return true, nil
 		}
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("start job abort processor: %w", err)
 	}
@@ -1422,7 +1422,7 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 			return false, fmt.Errorf("delete prcess: %w", err)
 		}
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
 	}
@@ -1442,7 +1442,7 @@ func (s *Engine) processProcessTerminate(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("start process terminate processor: %w", err)
 	}
@@ -1472,7 +1472,7 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 			return true, nil
 		}
 		return true, nil
-	}, nil)
+	}, s.signalFatalError)
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
 	}

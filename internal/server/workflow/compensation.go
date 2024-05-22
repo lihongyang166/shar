@@ -1,4 +1,4 @@
-package storage
+package workflow
 
 import (
 	"context"
@@ -27,7 +27,7 @@ const consumerPrefix = "comp_plan_"
 // It then creates a compensation plan and publishes each step to a designated subject for further processing.
 // Finally, it updates the state of the workflow to indicate that the compensation is in progress.
 // It returns an error if any step of the compensation process encounters an issue.
-func (s *Nats) Compensate(ctx context.Context, state *model.WorkflowState) error {
+func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
 	kvs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -130,7 +130,7 @@ func (s *Nats) Compensate(ctx context.Context, state *model.WorkflowState) error
 	return nil
 }
 
-func (s *Nats) processProcessCompensate(ctx context.Context) error {
+func (s *Engine) processProcessCompensate(ctx context.Context) error {
 	err := common.Process(ctx, s.js, "WORKFLOW", "processCompensate", s.closing, subj.NS(messages.WorkflowProcessCompensate, "*"), "ProcessCompensateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		state := &model.WorkflowState{}
 		err := proto.Unmarshal(msg.Data(), state)
@@ -226,7 +226,7 @@ func (s *Nats) processProcessCompensate(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) compensationJobComplete(ctx context.Context, job *model.WorkflowState) error {
+func (s *Engine) compensationJobComplete(ctx context.Context, job *model.WorkflowState) error {
 	id := common.TrackingID(job.Id).Pop()
 	checkpoint, err := s.GetProcessHistoryItem(ctx, job.ProcessInstanceId, id.ID(), model.ProcessHistoryType_compensationCheckpoint)
 	if err != nil {
@@ -281,7 +281,7 @@ func (s *Nats) compensationJobComplete(ctx context.Context, job *model.WorkflowS
 
 // GetCompensationInputVariables is a method of the Nats struct that retrieves the original input variables
 // for a specific process instance and tracking ID. It returns the variables in byte array format.
-func (s *Nats) GetCompensationInputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
+func (s *Engine) GetCompensationInputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
 	entry, err := s.GetProcessHistoryItem(ctx, processInstanceId, trackingId, model.ProcessHistoryType_jobExecute)
 	if err != nil {
 		return nil, fmt.Errorf("get compensation history entry: %w", err)
@@ -292,7 +292,7 @@ func (s *Nats) GetCompensationInputVariables(ctx context.Context, processInstanc
 // GetCompensationOutputVariables is a method of the Nats struct that retrieves the original output variables
 // of a compensation history entry for a specific process instance and tracking ID.
 // It returns the output variables as a byte array.
-func (s *Nats) GetCompensationOutputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
+func (s *Engine) GetCompensationOutputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
 	entry, err := s.GetProcessHistoryItem(ctx, processInstanceId, trackingId, model.ProcessHistoryType_jobComplete)
 	if err != nil {
 		return nil, fmt.Errorf("get compensation history entry: %w", err)

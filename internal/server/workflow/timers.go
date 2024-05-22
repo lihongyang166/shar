@@ -1,4 +1,4 @@
-package storage
+package workflow
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, closer chan struct{}, concurrency int) error {
+func (s *Engine) listenForTimer(sCtx context.Context, js jetstream.JetStream, closer chan struct{}, concurrency int) error {
 	log := logx.FromContext(sCtx)
 	subject := subj.NS("WORKFLOW.%s.Timers.>", "*")
 	durable := "workflowTimers"
@@ -137,7 +137,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 						}
 						els := common.ElementTable(wf)
 						parent := common.TrackingID(state.Id).Pop()
-						if err := s.traversalFunc(ctx, pi, parent, &model.Targets{Target: []*model.Target{{Id: "timer-target", Target: *state.Execute}}}, els, state); err != nil {
+						if err := s.traverse(ctx, pi, parent, &model.Targets{Target: []*model.Target{{Id: "timer-target", Target: *state.Execute}}}, els, state); err != nil {
 							log.Error("traverse", "error", err)
 							continue
 						}
@@ -152,7 +152,7 @@ func (s *Nats) listenForTimer(sCtx context.Context, js jetstream.JetStream, clos
 						}
 						continue
 					}
-					ack, delay, err := s.messageProcessor(ctx, state, nil, int64(embargo))
+					ack, delay, err := s.timedExecuteProcessor(ctx, state, nil, int64(embargo))
 					if err != nil {
 						if errors.IsWorkflowFatal(err) {
 							if err := m.Ack(); err != nil {

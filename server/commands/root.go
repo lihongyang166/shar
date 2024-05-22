@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/common"
@@ -68,7 +69,9 @@ var RootCmd = &cobra.Command{
 			panic(err)
 		}
 		svr := server.New(server.Concurrency(cfg.Concurrency), server.NatsConn(conn), server.NatsUrl(cfg.NatsURL), server.GrpcPort(cfg.Port))
-		svr.Listen()
+		if err := svr.Listen(); err != nil {
+			panic(fmt.Errorf("create server: %w", err))
+		}
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 

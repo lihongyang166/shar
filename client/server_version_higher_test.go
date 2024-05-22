@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	version2 "github.com/hashicorp/go-version"
@@ -15,7 +16,11 @@ func TestHigherServerVersion(t *testing.T) {
 	require.NoError(t, err)
 	defer ns.Shutdown()
 
-	go ss.Listen()
+	go func() {
+		if err := ss.Listen(); err != nil {
+			panic(fmt.Errorf("server listen: %w", err))
+		}
+	}()
 	forcedVersion, err := version2.NewVersion("v1.0.100")
 	require.NoError(t, err)
 	cl := New(forceVersion{ver: forcedVersion, compatVer: forcedVersion})

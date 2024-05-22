@@ -13,10 +13,10 @@ import (
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/validation"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
+	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/services/storage"
 	"gitlab.com/shar-workflow/shar/server/vars"
 )
 
@@ -27,7 +27,7 @@ func (s *SharServer) getProcessInstanceStatus(ctx context.Context, req *model.Ge
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 		return
 	}
-	s.ns.GetProcessInstanceStatus(ctx, req.Id, wch, errs)
+	s.engine.GetProcessInstanceStatus(ctx, req.Id, wch, errs)
 }
 
 func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.ListExecutionProcessesRequest) (*model.ListExecutionProcessesResponse, error) {
@@ -35,7 +35,7 @@ func (s *SharServer) listExecutionProcesses(ctx context.Context, req *model.List
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	res, err := s.ns.ListExecutionProcesses(ctx, instance.ExecutionId)
+	res, err := s.engine.ListExecutionProcesses(ctx, instance.ExecutionId)
 	if err != nil {
 		return nil, fmt.Errorf("get execution status: %w", err)
 	}
@@ -48,7 +48,7 @@ func (s *SharServer) listWorkflows(ctx context.Context, _ *model.ListWorkflowsRe
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 		return
 	}
-	s.ns.ListWorkflows(ctx, res, errs)
+	s.engine.ListWorkflows(ctx, res, errs)
 }
 
 func (s *SharServer) listExecutableProcesses(ctx context.Context, req *model.ListExecutableProcessesRequest, res chan<- *model.ListExecutableProcessesItem, errs chan<- error) {
@@ -57,7 +57,7 @@ func (s *SharServer) listExecutableProcesses(ctx context.Context, req *model.Lis
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 		return
 	}
-	s.ns.ListExecutableProcesses(ctx, res, errs)
+	s.engine.ListExecutableProcesses(ctx, res, errs)
 }
 
 func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequest) (*model.SendMessageResponse, error) {
@@ -65,7 +65,7 @@ func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequ
 
 	messageName := req.Name
 	if req.CorrelationKey == "" {
-		if processId, err := s.ns.GetProcessIdFor(ctx, messageName); err != nil {
+		if processId, err := s.engine.GetProcessIdFor(ctx, messageName); err != nil {
 			return nil, fmt.Errorf("error retrieving process id for message name: %w", err)
 		} else {
 			launchWorkflowRequest := &model.LaunchWorkflowRequest{
@@ -81,7 +81,7 @@ func (s *SharServer) sendMessage(ctx context.Context, req *model.SendMessageRequ
 			return &model.SendMessageResponse{ExecutionId: executionId, WorkflowId: workflowId}, nil
 		}
 	} else {
-		if err := s.ns.PublishMessage(ctx, messageName, req.CorrelationKey, req.Vars); err != nil {
+		if err := s.engine.PublishMessage(ctx, messageName, req.CorrelationKey, req.Vars); err != nil {
 			return nil, fmt.Errorf("send message: %w", err)
 		}
 	}
@@ -137,7 +137,7 @@ func (s *SharServer) getCompensationInputVariables(ctx context.Context, req *mod
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize get compensation input variables: %w", err2)
 	}
-	v, err := s.ns.GetCompensationInputVariables(ctx, req.ProcessInstanceId, req.TrackingId)
+	v, err := s.engine.GetCompensationInputVariables(ctx, req.ProcessInstanceId, req.TrackingId)
 	if err != nil {
 		return nil, fmt.Errorf("get compensation input variables: %w", err)
 	}
@@ -152,7 +152,7 @@ func (s *SharServer) getCompensationOutputVariables(ctx context.Context, req *mo
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize get compensation output variables: %w", err2)
 	}
-	v, err := s.ns.GetCompensationOutputVariables(ctx, req.ProcessInstanceId, req.TrackingId)
+	v, err := s.engine.GetCompensationOutputVariables(ctx, req.ProcessInstanceId, req.TrackingId)
 	if err != nil {
 		return nil, fmt.Errorf("get compensation output variables: %w", err)
 	}
@@ -208,7 +208,7 @@ func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecution
 	if err2 != nil {
 		errs <- fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	s.ns.ListExecutions(ctx, req.WorkflowName, ret, errs)
+	s.engine.ListExecutions(ctx, req.WorkflowName, ret, errs)
 }
 
 func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleWorkflowErrorRequest) (*model.HandleWorkflowErrorResponse, error) {
@@ -222,7 +222,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 	}
 
 	// Get the workflow, so we can look up the error definitions
-	wf, err := s.ns.GetWorkflow(ctx, job.WorkflowId)
+	wf, err := s.engine.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow definition for handle workflow error: %w", err)
 	}
@@ -245,7 +245,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 	if !found {
 		werr := &errors2.ErrWorkflowFatal{Err: fmt.Errorf("workflow-fatal: can't handle error code %s as the workflow doesn't support it: %w", req.ErrorCode, errors2.ErrWorkflowErrorNotFound)}
 		// TODO: This always assumes service task.  Wrong!
-		if err := s.ns.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
+		if err := s.engine.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
 			return nil, fmt.Errorf("cencel job: %w", werr)
 		}
 
@@ -281,14 +281,14 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 	// Get the target workflow activity
 	target := els[caughtError.Target]
 
-	oldState, err := s.ns.GetOldState(ctx, common.TrackingID(job.Id).Pop().ID())
+	oldState, err := s.engine.GetOldState(ctx, common.TrackingID(job.Id).Pop().ID())
 	if err != nil {
 		return nil, fmt.Errorf("get old state for handle workflow error: %w", err)
 	}
 	if err := vars.OutputVars(ctx, req.Vars, &oldState.Vars, caughtError.OutputTransform); err != nil {
 		return nil, &errors2.ErrWorkflowFatal{Err: err}
 	}
-	if err := s.ns.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
+	if err := s.engine.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
 		ElementType: target.Type,
 		ElementId:   target.Id,
 		WorkflowId:  job.WorkflowId,
@@ -305,7 +305,7 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 		return nil, fmt.Errorf("publish traversal for handle workflow error: %w", err)
 	}
 	// TODO: This always assumes service task.  Wrong!
-	if err := s.ns.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, &model.WorkflowState{
+	if err := s.engine.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, &model.WorkflowState{
 		ElementType: target.Type,
 		ElementId:   target.Id,
 		WorkflowId:  job.WorkflowId,
@@ -332,11 +332,11 @@ func (s *SharServer) listUserTaskIDs(ctx context.Context, req *model.ListUserTas
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	oid, err := s.ns.OwnerID(ctx, req.Owner)
+	oid, err := s.engine.OwnerID(ctx, req.Owner)
 	if err != nil {
 		return nil, fmt.Errorf("get owner ID: %w", err)
 	}
-	ut, err := s.ns.GetUserTaskIDs(ctx, oid)
+	ut, err := s.engine.GetUserTaskIDs(ctx, oid)
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return &model.UserTasks{Id: []string{}}, nil
 	}
@@ -351,7 +351,7 @@ func (s *SharServer) getUserTask(ctx context.Context, req *model.GetUserTaskRequ
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	wf, err := s.ns.GetWorkflow(ctx, job.WorkflowId)
+	wf, err := s.engine.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {
 		return nil, fmt.Errorf("get user task failed to get workflow: %w", err)
 	}
@@ -384,7 +384,7 @@ func (s *SharServer) getWorkflowVersions(ctx context.Context, req *model.GetWork
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 		return
 	}
-	s.ns.GetWorkflowVersions(ctx, req.Name, wch, errs)
+	s.engine.GetWorkflowVersions(ctx, req.Name, wch, errs)
 }
 
 func (s *SharServer) getWorkflow(ctx context.Context, req *model.GetWorkflowRequest) (*model.GetWorkflowResponse, error) {
@@ -392,7 +392,7 @@ func (s *SharServer) getWorkflow(ctx context.Context, req *model.GetWorkflowRequ
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
-	ret, err := s.ns.GetWorkflow(ctx, req.Id)
+	ret, err := s.engine.GetWorkflow(ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("get workflow: %w", err)
 	}
@@ -405,7 +405,7 @@ func (s *SharServer) getProcessHistory(ctx context.Context, req *model.GetProces
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
 		return
 	}
-	s.ns.GetProcessHistory(ctx, req.Id, wch, errs)
+	s.engine.GetProcessHistory(ctx, req.Id, wch, errs)
 }
 
 func (s *SharServer) versionInfo(ctx context.Context, req *model.GetVersionInfoRequest) (*model.GetVersionInfoResponse, error) {
@@ -445,7 +445,7 @@ func (s *SharServer) registerTask(ctx context.Context, req *model.RegisterTaskRe
 		return nil, fmt.Errorf("validaet service task: %w", err)
 	}
 
-	uid, err := s.ns.PutTaskSpec(ctx, req.Spec)
+	uid, err := s.engine.PutTaskSpec(ctx, req.Spec)
 
 	if err != nil {
 		return nil, fmt.Errorf("register task spec: %w", err)
@@ -460,7 +460,7 @@ func (s *SharServer) deprecateServiceTask(ctx context.Context, req *model.Deprec
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 
-	usage, err := s.ns.GetTaskSpecUsage(ctx, []string{req.Name})
+	usage, err := s.engine.GetTaskSpecUsage(ctx, []string{req.Name})
 	if err != nil {
 		return nil, fmt.Errorf("deprecate service task get initial task usage: %w", err)
 	}
@@ -470,7 +470,7 @@ func (s *SharServer) deprecateServiceTask(ctx context.Context, req *model.Deprec
 	}
 
 	// Deprecate the task to ensure it can't get launched.
-	err = s.ns.DeprecateTaskSpec(ctx, []string{req.Name})
+	err = s.engine.DeprecateTaskSpec(ctx, []string{req.Name})
 	if err != nil {
 		return nil, fmt.Errorf("delete service task get spec UID: %w", err)
 	}
@@ -482,7 +482,7 @@ func (s *SharServer) getTaskSpec(ctx context.Context, req *model.GetTaskSpecRequ
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 
-	spec, err := s.ns.GetTaskSpecByUID(ctx, req.Uid)
+	spec, err := s.engine.GetTaskSpecByUID(ctx, req.Uid)
 	if err != nil {
 		return nil, fmt.Errorf("get task spec: %w", err)
 	}
@@ -495,7 +495,7 @@ func (s *SharServer) getTaskSpecVersions(ctx context.Context, req *model.GetTask
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 
-	vers, err := s.ns.GetTaskSpecVersions(ctx, req.Name)
+	vers, err := s.engine.GetTaskSpecVersions(ctx, req.Name)
 	if err != nil {
 		return nil, fmt.Errorf("get task spec versions: %w", err)
 	}
@@ -508,7 +508,7 @@ func (s *SharServer) getTaskSpecUsage(ctx context.Context, req *model.GetTaskSpe
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 
-	usage, err := s.ns.GetTaskSpecUsage(ctx, []string{req.Id})
+	usage, err := s.engine.GetTaskSpecUsage(ctx, []string{req.Id})
 	if err != nil {
 		return nil, fmt.Errorf("get task spec versions: %w", err)
 	}
@@ -521,7 +521,7 @@ func (s *SharServer) listTaskSpecUIDs(ctx context.Context, req *model.ListTaskSp
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 	}
 
-	uids, err := s.ns.ListTaskSpecUIDs(ctx, req.IncludeDeprecated)
+	uids, err := s.engine.ListTaskSpecUIDs(ctx, req.IncludeDeprecated)
 	if err != nil {
 		return nil, fmt.Errorf("list task spec uids: %w", err)
 	}
@@ -529,24 +529,24 @@ func (s *SharServer) listTaskSpecUIDs(ctx context.Context, req *model.ListTaskSp
 }
 
 func (s *SharServer) heartbeat(ctx context.Context, req *model.HeartbeatRequest) (*model.HeartbeatResponse, error) {
-	if err := s.ns.Heartbeat(ctx, req); err != nil {
+	if err := s.engine.Heartbeat(ctx, req); err != nil {
 		return nil, fmt.Errorf("heartbeat: %w", err)
 	}
 	return &model.HeartbeatResponse{}, nil
 }
 
 func (s *SharServer) log(ctx context.Context, req *model.LogRequest) (*model.LogResponse, error) {
-	if err := s.ns.Log(ctx, req); err != nil {
+	if err := s.engine.Log(ctx, req); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
 	return &model.LogResponse{}, nil
 }
 
 func (s *SharServer) resolveWorkflow(ctx context.Context, req *model.ResolveWorkflowRequest) (*model.ResolveWorkflowResponse, error) {
-	workflow := req.Workflow
-	if err := s.ns.ProcessServiceTasks(ctx, workflow, storage.NoOpServiceTaskConsumerFn, storage.NoOpWorkFlowProcessMappingFn); err != nil {
+	wf := req.Workflow
+	if err := s.engine.ProcessServiceTasks(ctx, wf, workflow.NoOpServiceTaskConsumerFn, workflow.NoOpWorkFlowProcessMappingFn); err != nil {
 		return nil, fmt.Errorf("resolveWorkflow: %w", err)
 	}
 
-	return &model.ResolveWorkflowResponse{Workflow: workflow}, nil
+	return &model.ResolveWorkflowResponse{Workflow: wf}, nil
 }

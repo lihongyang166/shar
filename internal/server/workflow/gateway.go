@@ -1,4 +1,4 @@
-package storage
+package workflow
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-func (s *Nats) processGatewayActivation(ctx context.Context) error {
+func (s *Engine) processGatewayActivation(ctx context.Context) error {
 	err := common.Process(ctx, s.js, "WORKFLOW", "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		ns := subj.GetNS(ctx)
 		nsKVs, err := s.KvsFor(ctx, ns)
@@ -68,7 +68,7 @@ func (s *Nats) processGatewayActivation(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) processGatewayExecute(ctx context.Context) error {
+func (s *Engine) processGatewayExecute(ctx context.Context) error {
 	if err := common.Process(ctx, s.js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
@@ -78,7 +78,7 @@ func (s *Nats) processGatewayExecute(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	var job model.WorkflowState
 	if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
@@ -158,7 +158,7 @@ func (s *Nats) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg j
 }
 
 // GetGatewayInstance - returns a gateway instance from the KV store.
-func (s *Nats) GetGatewayInstance(ctx context.Context, gatewayInstanceID string) (*model.Gateway, error) {
+func (s *Engine) GetGatewayInstance(ctx context.Context, gatewayInstanceID string) (*model.Gateway, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -174,7 +174,7 @@ func (s *Nats) GetGatewayInstance(ctx context.Context, gatewayInstanceID string)
 }
 
 // GetGatewayInstanceID - returns a gateawy instance ID and a satisfying route to that gateway.
-func (s *Nats) GetGatewayInstanceID(state *model.WorkflowState) (string, string, error) {
+func (s *Engine) GetGatewayInstanceID(state *model.WorkflowState) (string, string, error) {
 	var gatewayIID string
 	var route string
 	if _, ok := state.SatisfiesGatewayExpectation[state.ElementId]; ok {
@@ -187,7 +187,7 @@ func (s *Nats) GetGatewayInstanceID(state *model.WorkflowState) (string, string,
 	return "", "", fmt.Errorf("discover gateway instance ID: %w", errors.ErrGatewayInstanceNotFound)
 }
 
-func (s *Nats) mergeGatewayVars(ctx context.Context, gw *model.Gateway) ([]byte, error) {
+func (s *Engine) mergeGatewayVars(ctx context.Context, gw *model.Gateway) ([]byte, error) {
 	if len(gw.Vars) == 1 {
 		return gw.Vars[0], nil
 	}
@@ -218,8 +218,8 @@ func (s *Nats) mergeGatewayVars(ctx context.Context, gw *model.Gateway) ([]byte,
 	return retb, nil
 }
 
-// TODO: make resillient through message
-func (s *Nats) completeGateway(ctx context.Context, job *model.WorkflowState) error {
+// TODO: make resilient through message
+func (s *Engine) completeGateway(ctx context.Context, job *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {

@@ -17,7 +17,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal"
-	"gitlab.com/shar-workflow/shar/server/services/storage"
+	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"log/slog"
@@ -30,14 +30,12 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/workflow"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
 )
 
 // SharServer provides API endpoints for SHAR
 type SharServer struct {
-	ns            *storage.Nats
 	engine        *workflow.Engine
 	subs          *sync.Map
 	panicRecovery bool
@@ -47,21 +45,18 @@ type SharServer struct {
 	receiveApiMiddleware []middleware.Receive
 	sendMiddleware       []middleware.Send
 	tr                   trace.Tracer
+	nc                   *workflow.NatsConnConfiguration
 }
 
 // New creates a new instance of the SHAR API server
-func New(ns *storage.Nats, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, telemetryCfg telemetry.Config) (*SharServer, error) {
-	engine, err := workflow.New(ns)
-	if err != nil {
-		return nil, fmt.Errorf("create SHAR engine instance: %w", err)
-	}
+func New(nc *workflow.NatsConnConfiguration, engine *workflow.Engine, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check) (*SharServer, error) {
 	if err := engine.Start(context.Background()); err != nil {
 		return nil, fmt.Errorf("start SHAR engine: %w", err)
 	}
 	ss := &SharServer{
 		apiAuthZFn:    apiAuthZFn,
 		apiAuthNFn:    apiAuthNFn,
-		ns:            ns,
+		nc:            nc,
 		engine:        engine,
 		panicRecovery: panicRecovery,
 		subs:          &sync.Map{},
@@ -94,7 +89,7 @@ func (s *SharServer) Shutdown() {
 
 // Listen starts the SHAR API server listening to incoming requests
 func (s *SharServer) Listen() error {
-	con := s.ns.Conn()
+	con := s.nc.Conn
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIStoreWorkflow, s.receiveApiMiddleware, &model.StoreWorkflowRequest{}, s.storeWorkflow); err != nil {
 		return fmt.Errorf("APIStoreWorkflow: %w", err)

@@ -195,7 +195,9 @@ func inProcessNatsServer(natsConfig string, defaultNatsHost string, defaults *ze
 	}
 
 	n := &NatsServer{natsConfig: natsConfig, host: nHost, port: nPort}
-	n.Listen()
+	if err := n.Listen(); err != nil {
+		panic(fmt.Errorf("server listen: %w", err))
+	}
 	return n, nil
 }
 
@@ -208,7 +210,9 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 			"NATS_URL": fmt.Sprintf("nats://%s:%d", natsHost, natsPort),
 		}})
 
-	ssvr.Listen()
+	if err := ssvr.Listen(); err != nil {
+		panic(fmt.Errorf("server listen: %w", err))
+	}
 
 	return ssvr
 }
@@ -243,7 +247,11 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	}
 
 	ssvr := sharsvr.New(options...)
-	go ssvr.Listen()
+	go func() {
+		if err := ssvr.Listen(); err != nil {
+			panic(fmt.Errorf("server listen: %w", err))
+		}
+	}()
 	for {
 		if ssvr.Ready() {
 			break
@@ -278,7 +286,9 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 		Mounts:       mounts,
 	})
 
-	ssvr.Listen()
+	if err := ssvr.Listen(); err != nil {
+		panic(fmt.Errorf("server listen: %w", err))
+	}
 
 	return ssvr
 }
@@ -286,7 +296,7 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 // Server is a general interface representing either an inprocess or in container Shar server
 type Server interface {
 	Shutdown()
-	Listen()
+	Listen() error
 	GetEndPoint() string
 }
 
@@ -300,7 +310,7 @@ type NatsServer struct {
 }
 
 // Listen starts an in process nats server
-func (natserver *NatsServer) Listen() {
+func (natserver *NatsServer) Listen() error {
 	//wd, err := os.Getwd()
 	//if err != nil {
 	//	return nil, nil, fmt.Errorf("failed to get working directory: %w", err)
@@ -308,7 +318,7 @@ func (natserver *NatsServer) Listen() {
 
 	natsOptions, err := server.ProcessConfigFile(natserver.natsConfig)
 	if err != nil {
-		panic(fmt.Errorf("failed to load conf with err %w", err))
+		return fmt.Errorf("failed to load conf with err %w", err)
 	}
 
 	natsOptions.Host = natserver.host
@@ -320,6 +330,7 @@ func (natserver *NatsServer) Listen() {
 
 	natserver.port = actualNatsPort
 	natserver.nsvr = natsSvr
+	return nil
 }
 
 func tryStartingNats(natsOptions *server.Options, natsPort int, attempt int) (*server.Server, int) {
@@ -381,7 +392,7 @@ type containerisedServer struct {
 }
 
 // Listen will start up the server in a container
-func (cp *containerisedServer) Listen() {
+func (cp *containerisedServer) Listen() error {
 	ctx := context.Background()
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: cp.req,
@@ -389,8 +400,7 @@ func (cp *containerisedServer) Listen() {
 	})
 
 	if err != nil {
-		slog.Error(fmt.Sprintf("failed to start container for request: %+v", cp.req))
-		panic(err)
+		return fmt.Errorf("failed to start container for request %+v: %w", cp.req, err)
 	}
 
 	cp.container = container
@@ -399,12 +409,12 @@ func (cp *containerisedServer) Listen() {
 		for _, exposedPort := range cp.req.ExposedPorts {
 			natPort, err := container.MappedPort(ctx, nat.Port(exposedPort))
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("failed to get exposed port %s: %w", exposedPort, err)
 			}
 			cp.exposedToHostPorts[exposedPort] = natPort.Int()
 		}
 	}
-
+	return nil
 }
 
 // Shutdown will shutdown the containerised shar server

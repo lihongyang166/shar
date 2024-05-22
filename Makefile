@@ -69,7 +69,7 @@ clean: .FORCE
 	rm -rf build
 	mkdir -p build
 generated-code: proto .FORCE
-	go generate server/workflow/nats-service.go
+	#go generate server/workflow/nats-service.go
 	go generate server/services/cache/cache.go
 ci-pipeline-test: clean configure test .FORCE
 test: proto generated-code server tracing examples .FORCE

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"github.com/docker/docker/api/types/container"
 	"github.com/nats-io/nats.go"
 	"github.com/segmentio/ksuid"
 	"math/big"
@@ -262,19 +263,12 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	return ssvr
 }
 
-func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, natsConfigFileLocation string, natsPersistHostPath string) *containerisedServer {
-	mounts := []testcontainers.ContainerMount{
-		{
-			Source: testcontainers.GenericBindMountSource{HostPath: natsConfigFileLocation},
-			Target: "/etc/nats",
-		},
-	}
+func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, hostNatsConfigFileLocation string, natsPersistHostPath string) *containerisedServer {
+	natsConfigFilePath := "/etc/nats"
+	binds := []string{fmt.Sprintf("%s:%s", hostNatsConfigFileLocation, natsConfigFilePath)}
 
 	if natsPersistHostPath != "" {
-		mounts = append(mounts, testcontainers.ContainerMount{
-			Source: testcontainers.GenericBindMountSource{HostPath: natsPersistHostPath},
-			Target: "/tmp/nats/jetstream", // the default nats store dir (and in .conf file)
-		})
+		binds = append(binds, fmt.Sprintf("%s:/tmp/nats/jetstream", natsPersistHostPath))
 	}
 
 	ssvr := newContainerisedServer(testcontainers.ContainerRequest{
@@ -282,8 +276,10 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 		ExposedPorts: []string{containerNatsPort},
 		WaitingFor:   wait.ForLog("Listening for client connections").WithStartupTimeout(10 * time.Second),
 		Entrypoint:   []string{"/nats-server"},
-		Cmd:          []string{"--config", "/etc/nats/nats-server.conf"},
-		Mounts:       mounts,
+		Cmd:          []string{"--config", natsConfigFilePath + "/nats-server.conf"},
+		HostConfigModifier: func(config *container.HostConfig) {
+			config.Binds = binds
+		},
 	})
 
 	if err := ssvr.Listen(); err != nil {

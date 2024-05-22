@@ -262,10 +262,18 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 		if err := s.RecordHistoryActivityComplete(ctx, state); err != nil {
 			return fmt.Errorf("record history activity complete for compensation: %w", err)
 		}
+
 		if state.ElementType == element.CompensateEndEvent {
-			state.Id = []string{state.ProcessInstanceId}
-			state.State = model.CancellationState_completed
-			if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, state); err != nil {
+			finalState := common.CopyWorkflowState(state)
+			el := els[state.ElementId]
+			finalState.Id = []string{state.ProcessInstanceId}
+			finalState.State = model.CancellationState_completed
+			localVars := make([]byte, 0)
+			if err := vars.OutputVars(ctx, finalState.Vars, &localVars, el.OutputTransform); err != nil {
+				return fmt.Errorf("transform output vars: %w", err)
+			}
+			finalState.Vars = localVars
+			if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, finalState); err != nil {
 				return fmt.Errorf("publish workflow status: %w", err)
 			}
 		}

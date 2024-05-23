@@ -426,7 +426,7 @@ func (c *Client) listen(ctx context.Context) error {
 						defer func() {
 							if r := recover(); r != nil {
 								v = model.Vars{}
-								e = &errors2.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error))}
+								e = &errors2.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error)), State: job}
 							}
 						}()
 					}
@@ -525,12 +525,23 @@ func (c *Client) listen(ctx context.Context) error {
 				return true, nil
 			}
 			return true, nil
-		}, nil, common.WithBackoffFn(c.backoff))
+		}, c.signalFatalErr, common.WithBackoffFn(c.backoff))
 		if err != nil {
 			return fmt.Errorf("connect to service task consumer: %w", err)
 		}
 	}
 	return nil
+}
+
+func (c *Client) signalFatalErr(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+	res := &model.HandleWorkflowFatalErrorResponse{}
+	req := &model.HandleWorkflowFatalErrorRequest{WorkflowState: state}
+	ctx = subj.SetNS(ctx, c.ns)
+
+	if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowFatalError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {
+		reterr := fmt.Errorf("handle workflow fatal error: %w", err2)
+		log.Error("handle a workflow fatal error call failed", "err", reterr)
+	}
 }
 
 // ReParentSpan re-parents a span in the given context with the span ID obtained from the WorkflowState ID.

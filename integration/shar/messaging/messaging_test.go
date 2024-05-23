@@ -3,10 +3,7 @@ package messaging
 import (
 	"context"
 	"fmt"
-	"github.com/nats-io/nats.go"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
-	"gitlab.com/shar-workflow/shar/server/messages"
-	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"os"
 	"sync"
@@ -206,15 +203,7 @@ func TestAwaitMessageFatalErr(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	natsConnection, err := nats.Connect(tst.NatsURL)
-	require.NoError(t, err)
-	subscription, err := natsConnection.Subscribe(messages.WorkflowSystemProcessFatalError, func(msg *nats.Msg) {
-		fatalError := &model.FatalError{}
-		err2 := proto.Unmarshal(msg.Data, fatalError)
-		require.NoError(t, err2)
-		handlers.fatalErr <- struct{}{}
-	})
-	require.NoError(t, err)
+	subscription := tst.ListenForFatalErr(t, handlers.fatalErr)
 	defer func() {
 		_ = subscription.Drain()
 	}()
@@ -222,9 +211,6 @@ func TestAwaitMessageFatalErr(t *testing.T) {
 	support.WaitForChan(t, handlers.fatalErr, 20*time.Second)
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)
-
-	//TODO, what happens if there is a fatal err after the point where messages KV
-	// have been populated??? ie, how do we know whether state is left to cleanup???
 }
 
 type testMessagingHandlerDef struct {

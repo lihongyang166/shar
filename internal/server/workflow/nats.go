@@ -943,7 +943,7 @@ func (s *Engine) PublishWorkflowState(ctx context.Context, stateName string, sta
 	return nil
 }
 
-func (s *Engine) signalFatalError(ctx context.Context, state *model.WorkflowState) {
+func (s *Engine) SignalFatalError(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
 	fataError := &model.FatalError{
 		HandlingStrategy: 1,
 		WorkflowState:    state,
@@ -951,7 +951,6 @@ func (s *Engine) signalFatalError(ctx context.Context, state *model.WorkflowStat
 
 	err := s.PublishMsg(ctx, messages.WorkflowSystemProcessFatalError, fataError)
 	if err != nil {
-		log := logx.FromContext(ctx)
 		log.Error("failed publishing fatal err", "err", err)
 	}
 }
@@ -1025,7 +1024,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 		}
 
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}
@@ -1060,7 +1059,7 @@ func (s *Engine) hasValidExecution(ctx context.Context, executionId string) (*mo
 }
 
 func (s *Engine) processTracking(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, s.signalFatalError)
+	err := common.Process(ctx, s.js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("tracking processor: %w", err)
 	}
@@ -1092,7 +1091,7 @@ func (s *Engine) processCompletedJobs(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("completed job processor: %w", err)
 	}
@@ -1179,7 +1178,7 @@ func (s *Engine) processWorkflowEvents(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("starting workflow event processing: %w", err)
 	}
@@ -1207,7 +1206,7 @@ func (s *Engine) processActivities(ctx context.Context) error {
 		}
 
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("starting activity processing: %w", err)
 	}
@@ -1363,7 +1362,7 @@ func (s *Engine) processLaunch(ctx context.Context) error {
 			return false, fmt.Errorf("execute launch function: %w", err)
 		}
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
@@ -1396,7 +1395,7 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 			return true, nil
 		}
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start job abort processor: %w", err)
 	}
@@ -1422,7 +1421,7 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 			return false, fmt.Errorf("delete prcess: %w", err)
 		}
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
 	}
@@ -1442,7 +1441,7 @@ func (s *Engine) processProcessTerminate(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start process terminate processor: %w", err)
 	}
@@ -1472,7 +1471,7 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 			return true, nil
 		}
 		return true, nil
-	}, s.signalFatalError)
+	}, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
 	}
@@ -1483,13 +1482,26 @@ func (s *Engine) processFatalError(ctx context.Context) error {
 	err := common.Process(ctx, s.js, "WORKFLOW", "fatalError", s.closing, messages.WorkflowSystemProcessFatalError, "FatalErrorConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var fatalErr model.FatalError
 		if err := proto.Unmarshal(msg.Data(), &fatalErr); err != nil {
-			return true, fmt.Errorf("unmarshal during fatal error processor: %w", err)
+			return false, fmt.Errorf("unmarshal during fatal error processor: %w", err)
+		}
+
+		switch fatalErr.WorkflowState.ElementType {
+		case element.ServiceTask, element.MessageIntermediateCatchEvent:
+			// These are both job based, so we need to abort the job
+			if err := s.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, fatalErr.WorkflowState); err != nil {
+				log := logx.FromContext(ctx)
+				log.Error("publish workflow state for service task abort", "error", err)
+				return false, fmt.Errorf("publish abort task for handle fatal workflow error: %w", err)
+			}
+		default:
+			//add more cases as more element types need to be supported for cleaning down fatal errs
+			//just remove the process/executions below
 		}
 
 		//get the execution
 		execution, err2 := s.GetExecution(ctx, fatalErr.WorkflowState.ExecutionId)
 		if err2 != nil {
-			return true, fmt.Errorf("error retrieving execution when processing fatal err: %w", err2)
+			return false, fmt.Errorf("error retrieving execution when processing fatal err: %w", err2)
 		}
 		//loop over the process instance ids to tear them down
 		for _, processInstanceId := range execution.ProcessInstanceId {

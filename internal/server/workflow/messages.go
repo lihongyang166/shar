@@ -72,7 +72,7 @@ func (s *Engine) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) e
 }
 
 func (s *Engine) processMessages(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, s.signalFatalError)
+	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start message processor: %w", err)
 	}
@@ -213,7 +213,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 }
 
 func (s *Engine) processAwaitMessageExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor, s.signalFatalError); err != nil {
+	if err := common.Process(ctx, s.js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor, s.SignalFatalError); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil

@@ -123,6 +123,9 @@ func (s *SharServer) Listen() error {
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIHandleWorkflowError, s.receiveApiMiddleware, &model.HandleWorkflowErrorRequest{}, s.handleWorkflowError); err != nil {
 		return fmt.Errorf("APIHandleWorkflowError: %w", err)
 	}
+	if err := listen(con, s.panicRecovery, s.subs, messages.APIHandleWorkflowFatalError, s.receiveApiMiddleware, &model.HandleWorkflowFatalErrorRequest{}, s.handleWorkflowFatalError); err != nil {
+		return fmt.Errorf("APIHandleWorkflowFatalError: %w", err)
+	}
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APICompleteSendMessageTask, s.receiveApiMiddleware, &model.CompleteSendMessageRequest{}, s.completeSendMessageTask); err != nil {
 		return fmt.Errorf("APICompleteSendMessageTask: %w", err)

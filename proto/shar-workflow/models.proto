@@ -20,6 +20,7 @@ service Shar {
   rpc ListUserTaskIDs (ListUserTasksRequest) returns (ListUserTasksResponse);
   rpc GetUserTask (GetUserTaskRequest) returns (GetUserTaskResponse);
   rpc HandleWorkflowError (HandleWorkflowErrorRequest) returns (HandleWorkflowErrorResponse);
+  rpc HandleWorkflowFatalError (HandleWorkflowFatalErrorRequest) returns (HandleWorkflowFatalErrorResponse);
   rpc CompleteSendMessageTask (CompleteSendMessageRequest) returns (CompleteSendMessageResponse);
   rpc GetWorkflowVersions (GetWorkflowVersionsRequest) returns (GetWorkflowVersionsResponse);
   rpc GetWorkflow (GetWorkflowRequest) returns (GetWorkflowResponse);
@@ -586,6 +587,15 @@ message HandleWorkflowErrorRequest {
 }
 
 message HandleWorkflowErrorResponse {
+  bool handled = 1;
+}
+
+message HandleWorkflowFatalErrorRequest {
+  WorkflowState workflowState = 1;
+  string message = 2;
+}
+
+message HandleWorkflowFatalErrorResponse {
   bool handled = 1;
 }
 

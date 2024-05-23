@@ -217,6 +217,16 @@ func (s *SharServer) listExecution(ctx context.Context, req *model.ListExecution
 	s.engine.ListExecutions(ctx, req.WorkflowName, ret, errs)
 }
 
+func (s *SharServer) handleWorkflowFatalError(ctx context.Context, req *model.HandleWorkflowFatalErrorRequest) (*model.HandleWorkflowFatalErrorResponse, error) {
+	//auth against the wf name
+	ctx, err := s.authorize(ctx, req.WorkflowState.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	}
+	s.engine.SignalFatalError(ctx, req.WorkflowState, logx.FromContext(ctx))
+	return &model.HandleWorkflowFatalErrorResponse{}, nil
+}
+
 func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleWorkflowErrorRequest) (*model.HandleWorkflowErrorResponse, error) {
 	ctx, job, err2 := s.authFromJobID(ctx, req.TrackingId)
 	if err2 != nil {

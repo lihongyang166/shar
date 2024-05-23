@@ -349,6 +349,7 @@ func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *
 						str := &model.WorkflowState{}
 						err := proto.Unmarshal(p.Value(), str)
 						if err == nil {
+							fmt.Println("k=" + i)
 							fmt.Println(kvs.Bucket())
 							sc.Dump(str)
 						} else {
@@ -535,4 +536,20 @@ func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename strin
 		return "", fmt.Errorf("register task function from yaml file: %w", err)
 	}
 	return ret, nil
+}
+
+// ListenForFatalErr will subscribe to the ProcessFatalError subject and will send a message to the fatalErrChan
+// on receipt of any messages on the subject
+func (s *Integration) ListenForFatalErr(t *testing.T, fatalErrChan chan struct{}) *nats.Subscription {
+	natsConnection, err := nats.Connect(s.NatsURL)
+	require.NoError(t, err)
+
+	subscription, err := natsConnection.Subscribe(messages.WorkflowSystemProcessFatalError, func(msg *nats.Msg) {
+		fatalError := &model.FatalError{}
+		err2 := proto.Unmarshal(msg.Data, fatalError)
+		require.NoError(t, err2)
+		fatalErrChan <- struct{}{}
+	})
+	require.NoError(t, err)
+	return subscription
 }

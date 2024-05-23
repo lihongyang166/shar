@@ -226,7 +226,7 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), signalFatalErrFn func(ctx context.Context, state *model.WorkflowState), opts ...ProcessOption) error {
+func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), signalFatalErrFn func(ctx context.Context, state *model.WorkflowState, log *slog.Logger), opts ...ProcessOption) error {
 	set := &ProcessOpts{}
 	for _, i := range opts {
 		i.Set(set)
@@ -325,7 +325,7 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 						var eWfF *errors2.ErrWorkflowFatal
 						errors.As(err, &eWfF)
 						if signalFatalErrFn != nil && eWfF.State != nil {
-							signalFatalErrFn(executeCtx, eWfF.State)
+							signalFatalErrFn(executeCtx, eWfF.State, executeLog)
 						}
 						ack = true
 					} else {

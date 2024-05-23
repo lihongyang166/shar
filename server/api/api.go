@@ -34,9 +34,49 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type WorkflowEngine interface {
+	CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error
+	CompleteManualTask(ctx context.Context, job *model.WorkflowState, newVars []byte) error
+	CompleteSendMessageTask(ctx context.Context, job *model.WorkflowState, newVars []byte) error
+	CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newVars []byte) error
+	CompleteUserTask(ctx context.Context, job *model.WorkflowState, newVars []byte) error
+	DeprecateTaskSpec(ctx context.Context, uid []string) error
+	GetCompensationInputVariables(ctx context.Context, processInstanceId string, trackingID string) ([]byte, error)
+	GetCompensationOutputVariables(ctx context.Context, processInstanceId string, trackingID string) ([]byte, error)
+	GetExecution(ctx context.Context, executionID string) (*model.Execution, error)
+	GetJob(ctx context.Context, trackingID string) (*model.WorkflowState, error)
+	GetOldState(ctx context.Context, id string) (*model.WorkflowState, error)
+	GetProcessHistory(ctx context.Context, processInstanceId string, wch chan<- *model.ProcessHistoryEntry, errs chan<- error)
+	GetProcessIdFor(ctx context.Context, startEventMessageName string) (string, error)
+	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
+	GetProcessInstanceStatus(ctx context.Context, id string, wch chan<- *model.WorkflowState, errs chan<- error)
+	GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error)
+	GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskSpecUsageReport, error)
+	GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error)
+	GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error)
+	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
+	GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)
+	Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error
+	Launch(ctx context.Context, processName string, vars []byte) (string, string, error)
+	ListExecutableProcesses(ctx context.Context, wch chan<- *model.ListExecutableProcessesItem, errs chan<- error)
+	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
+	ListExecutions(ctx context.Context, workflowName string, wch chan<- *model.ListExecutionItem, errs chan<- error)
+	ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string, error)
+	ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error)
+	LoadWorkflow(ctx context.Context, model *model.Workflow) (string, error)
+	Log(ctx context.Context, req *model.LogRequest) error
+	OwnerID(ctx context.Context, name string) (string, error)
+	ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn workflow.ServiceTaskConsumerFn, wfProcessMappingFn workflow.WorkflowProcessMappingFn) error
+	PublishMessage(ctx context.Context, name string, key string, vars []byte) error
+	PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, opts ...workflow.PublishOpt) error
+	PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error)
+	Shutdown()
+	Start(ctx context.Context) error
+}
+
 // SharServer provides API endpoints for SHAR
 type SharServer struct {
-	engine        *workflow.Engine
+	engine        WorkflowEngine
 	subs          *sync.Map
 	panicRecovery bool
 	apiAuthZFn    authz.APIFunc
@@ -49,7 +89,7 @@ type SharServer struct {
 }
 
 // New creates a new instance of the SHAR API server
-func New(nc *workflow.NatsConnConfiguration, engine *workflow.Engine, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check) (*SharServer, error) {
+func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check) (*SharServer, error) {
 	if err := engine.Start(context.Background()); err != nil {
 		return nil, fmt.Errorf("start SHAR engine: %w", err)
 	}

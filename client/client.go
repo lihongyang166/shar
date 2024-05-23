@@ -929,6 +929,11 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 	}
 	res := &model.LogResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
+	vals := make([]any, 0)
+	for key, v := range attrs {
+		vals = append(vals, slog.String(key, v))
+	}
+	slog.Log(ctx, level, message, vals...)
 	if err := api2.Call(ctx, c.txCon, messages.APILog, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}

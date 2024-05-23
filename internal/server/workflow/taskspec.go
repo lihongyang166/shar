@@ -1,4 +1,4 @@
-package storage
+package workflow
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 )
 
 // GetTaskSpecUID fetches
-func (s *Nats) GetTaskSpecUID(ctx context.Context, name string) (string, error) {
+func (s *Engine) GetTaskSpecUID(ctx context.Context, name string) (string, error) {
 	tskVer, err := s.GetTaskSpecVersions(ctx, name)
 	if err != nil {
 		return "", fmt.Errorf("opening task spec versions: %w", err)
@@ -29,7 +29,7 @@ func (s *Nats) GetTaskSpecUID(ctx context.Context, name string) (string, error) 
 }
 
 // GetTaskSpecVersions fetches the versions of a given task spec name
-func (s *Nats) GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error) {
+func (s *Engine) GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -44,7 +44,7 @@ func (s *Nats) GetTaskSpecVersions(ctx context.Context, name string) (*model.Tas
 }
 
 // PutTaskSpec writes a task spec to the database.
-func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error) {
+func (s *Engine) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -88,7 +88,7 @@ func (s *Nats) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, e
 }
 
 // GetTaskSpecByUID fetches a task spec from the database.
-func (s *Nats) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error) {
+func (s *Engine) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -103,7 +103,7 @@ func (s *Nats) GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpe
 }
 
 // GetTaskSpecUsageByName produces a report of running and executable places where the task spec is in use.
-func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.TaskSpecUsageReport, error) {
+func (s *Engine) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.TaskSpecUsageReport, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -163,7 +163,7 @@ func (s *Nats) GetTaskSpecUsageByName(ctx context.Context, name string) (*model.
 }
 
 // GetExecutableWorkflowIds returns a list of all workflow Ids that contain executable processes
-func (s *Nats) GetExecutableWorkflowIds(ctx context.Context) ([]string, error) {
+func (s *Engine) GetExecutableWorkflowIds(ctx context.Context) ([]string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -187,7 +187,7 @@ func (s *Nats) GetExecutableWorkflowIds(ctx context.Context) ([]string, error) {
 }
 
 // GetTaskSpecUsage returns the usage report for a list of task specs.
-func (s *Nats) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskSpecUsageReport, error) {
+func (s *Engine) GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskSpecUsageReport, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {

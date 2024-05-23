@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_0xnjvkl" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.15.1" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.3.0">
+  <bpmn:process id="BankTransfer" name="BankTransfer" isExecutable="true">
+    <bpmn:startEvent id="StartBankTransfer" name="Start Bank Transfer">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="=payeeAccountBalance" target="payeeAccountBalance" />
+          <zeebe:output source="=transferAmount" target="transferAmount" />
+          <zeebe:output source="=recipientAccountBalance" target="recipientAccountBalance" />
+          <zeebe:output source="=approved" target="approved" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_0gf07ee</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_0gf07ee" sourceRef="StartBankTransfer" targetRef="DeductFromPayee" />
+    <bpmn:serviceTask id="DeductFromPayee" name="Deduct from Payee">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="deductFromPayee" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=payeeAccountBalance" target="payeeAccountBalance" />
+          <zeebe:input source="=transferAmount" target="transferAmount" />
+          <zeebe:output source="=payeeAccountBalance" target="payeeAccountBalance" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0gf07ee</bpmn:incoming>
+      <bpmn:outgoing>Flow_0r181w6</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_0r181w6" sourceRef="DeductFromPayee" targetRef="ApplyToRecipient" />
+    <bpmn:exclusiveGateway id="Gateway_0qhrb56">
+      <bpmn:incoming>Flow_0gdimed</bpmn:incoming>
+      <bpmn:outgoing>ApprovedFlow</bpmn:outgoing>
+      <bpmn:outgoing>DeclinedFlow</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_0gdimed" sourceRef="ApplyToRecipient" targetRef="Gateway_0qhrb56" />
+    <bpmn:sequenceFlow id="ApprovedFlow" name="Approved" sourceRef="Gateway_0qhrb56" targetRef="TransactionSuccess">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved != "No"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:serviceTask id="ApplyToRecipient" name="Apply to Recipient">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="applyToRecipient" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=recipientAccountBalance" target="recipientAccountBalance" />
+          <zeebe:input source="=transferAmount" target="transferAmount" />
+          <zeebe:output source="=recipientAccountBalance" target="recipientAccountBalance" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0r181w6</bpmn:incoming>
+      <bpmn:outgoing>Flow_0gdimed</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="TransactionSuccess" name="Transaction Success">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="=payeeAccountBalance" target="payeeAccountBalance" />
+          <zeebe:output source="=recipientAccountBalance" target="recipientAccountBalance" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>ApprovedFlow</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="DeclinedFlow" name="Declined" sourceRef="Gateway_0qhrb56" targetRef="TransactionDeclined">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=approved == "No"</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:endEvent id="TransactionDeclined" name="Transaction Declined">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="=payeeAccountBalance" target="payeeAccountBalance" />
+          <zeebe:output source="=recipientAccountBalance" target="recipientAccountBalance" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>DeclinedFlow</bpmn:incoming>
+      <bpmn:compensateEventDefinition id="CompensateEventDefinition_19wfl99" />
+    </bpmn:endEvent>
+    <bpmn:boundaryEvent id="Event_09g3spi" attachedToRef="DeductFromPayee">
+      <bpmn:compensateEventDefinition id="CompensateEventDefinition_1m2mrvv" />
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="Event_19600ok" attachedToRef="ApplyToRecipient">
+      <bpmn:compensateEventDefinition id="CompensateEventDefinition_0eskhfs" />
+    </bpmn:boundaryEvent>
+    <bpmn:serviceTask id="CompensatePayee" name="Compensate Payee" isForCompensation="true">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:input source="=payeeAccountBalance" target="payeeAccountBalance" />
+          <zeebe:output source="=payeeAccountBalance" target="payeeAccountBalance" />
+        </zeebe:ioMapping>
+        <zeebe:taskDefinition type="compensatePayee" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="CompensateRecipient" name="Compensate Recipient" isForCompensation="true">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:input source="=recipientAccountBalance" target="recipientAccountBalance" />
+          <zeebe:output source="=recipientAccountBalance" target="recipientAccountBalance" />
+        </zeebe:ioMapping>
+        <zeebe:taskDefinition type="compensateRecipient" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:association id="Association_1i3zivu" associationDirection="One" sourceRef="Event_09g3spi" targetRef="CompensatePayee" />
+    <bpmn:association id="Association_0mi73ik" associationDirection="One" sourceRef="Event_19600ok" targetRef="CompensateRecipient" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="BankTransfer">
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartBankTransfer">
+        <dc:Bounds x="179" y="179" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="175" y="222" width="52" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0iee0q8_di" bpmnElement="DeductFromPayee">
+        <dc:Bounds x="290" y="157" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_0qhrb56_di" bpmnElement="Gateway_0qhrb56" isMarkerVisible="true">
+        <dc:Bounds x="625" y="172" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_04nbitl_di" bpmnElement="ApplyToRecipient">
+        <dc:Bounds x="470" y="157" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1yt8su5_di" bpmnElement="TransactionSuccess">
+        <dc:Bounds x="772" y="82" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="764" y="125" width="58" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_06c9yzf_di" bpmnElement="TransactionDeclined">
+        <dc:Bounds x="772" y="282" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="762" y="325" width="58" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0s8altq_di" bpmnElement="CompensatePayee">
+        <dc:Bounds x="290" y="290" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_16o3c11_di" bpmnElement="CompensateRecipient">
+        <dc:Bounds x="470" y="290" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Association_1i3zivu_di" bpmnElement="Association_1i3zivu">
+        <di:waypoint x="340" y="255" />
+        <di:waypoint x="340" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_0mi73ik_di" bpmnElement="Association_0mi73ik">
+        <di:waypoint x="520" y="255" />
+        <di:waypoint x="520" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Event_0nlnhx5_di" bpmnElement="Event_09g3spi">
+        <dc:Bounds x="322" y="219" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0p4da2n_di" bpmnElement="Event_19600ok">
+        <dc:Bounds x="502" y="219" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0gf07ee_di" bpmnElement="Flow_0gf07ee">
+        <di:waypoint x="215" y="197" />
+        <di:waypoint x="290" y="197" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0r181w6_di" bpmnElement="Flow_0r181w6">
+        <di:waypoint x="390" y="197" />
+        <di:waypoint x="470" y="197" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0gdimed_di" bpmnElement="Flow_0gdimed">
+        <di:waypoint x="570" y="197" />
+        <di:waypoint x="625" y="197" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1liirl3_di" bpmnElement="ApprovedFlow">
+        <di:waypoint x="650" y="172" />
+        <di:waypoint x="650" y="100" />
+        <di:waypoint x="772" y="100" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="656" y="123" width="48" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0ily58z_di" bpmnElement="DeclinedFlow">
+        <di:waypoint x="650" y="222" />
+        <di:waypoint x="650" y="300" />
+        <di:waypoint x="772" y="300" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="658" y="258" width="43" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

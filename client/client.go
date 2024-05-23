@@ -63,16 +63,26 @@ type LogClient interface {
 // JobClient represents a client that is sent to all service tasks to facilitate logging.
 type JobClient interface {
 	LogClient
+	OriginalVars() (input map[string]interface{}, output map[string]interface{})
 }
 
 type jobClient struct {
-	cl         *Client
-	trackingID string
+	cl                *Client
+	trackingID        string
+	processInstanceId string
+	originalInputs    map[string]interface{}
+	originalOutputs   map[string]interface{}
 }
 
 // Log logs to the span related to this jobClient instance.
 func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error {
 	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
+}
+
+func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
+	inputVars = c.originalInputs
+	outputVars = c.originalOutputs
+	return
 }
 
 // MessageClient represents a client which supports logging and sending Workflow Messages to the underlying SHAR infrastructure.
@@ -423,7 +433,14 @@ func (c *Client) listen(ctx context.Context) error {
 					fnMx.Lock()
 					pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
 					pidCtx = ReParentSpan(pidCtx, job)
-					v, e = svcFn(pidCtx, &jobClient{cl: c, trackingID: trackingID}, dv)
+					jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+					if job.State == model.CancellationState_compensating {
+						jc.originalInputs, jc.originalOutputs, err = c.getCompensationVariables(ctx, job.ProcessInstanceId, job.Compensation.ForTrackingId)
+						if err != nil {
+							return make(model.Vars), fmt.Errorf("get compensation variables: %w", err)
+						}
+					}
+					v, e = svcFn(pidCtx, jc, dv)
 					close(waitCancelSig)
 					fnMx.Unlock()
 					return
@@ -451,7 +468,7 @@ func (c *Client) listen(ctx context.Context) error {
 					}
 					return wfe.Code != "", err
 				}
-				err = c.completeServiceTask(ctx, trackingID, newVars)
+				err = c.completeServiceTask(ctx, trackingID, newVars, job.State == model.CancellationState_compensating)
 				ae := &api.Error{}
 				if errors.As(err, &ae) {
 					if codes.Code(ae.Code) == codes.Internal {
@@ -596,13 +613,13 @@ func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID 
 	return nil
 }
 
-func (c *Client) completeServiceTask(ctx context.Context, trackingID string, newVars model.Vars) error {
+func (c *Client) completeServiceTask(ctx context.Context, trackingID string, newVars model.Vars, compensating bool) error {
 	ev, err := vars.Encode(ctx, newVars)
 	if err != nil {
 		return fmt.Errorf("decode variables for complete service task: %w", err)
 	}
 	res := &model.CompleteServiceTaskResponse{}
-	req := &model.CompleteServiceTaskRequest{TrackingId: trackingID, Vars: ev}
+	req := &model.CompleteServiceTaskRequest{TrackingId: trackingID, Vars: ev, Compensating: compensating}
 	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APICompleteServiceTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
@@ -912,6 +929,11 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 	}
 	res := &model.LogResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
+	vals := make([]any, 0)
+	for key, v := range attrs {
+		vals = append(vals, slog.String(key, v))
+	}
+	slog.Log(ctx, level, message, vals...)
 	if err := api2.Call(ctx, c.txCon, messages.APILog, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -1095,4 +1117,35 @@ func (c *Client) listenTerm(ctx context.Context) {
 			}
 		}()
 	}
+}
+
+func (c *Client) getCompensationVariables(ctx context.Context, processInstanceId string, trackingId string) (map[string]interface{}, map[string]interface{}, error) {
+	req1 := &model.GetCompensationInputVariablesRequest{
+		ProcessInstanceId: processInstanceId,
+		TrackingId:        trackingId,
+	}
+	res1 := &model.GetCompensationInputVariablesResponse{}
+
+	req2 := &model.GetCompensationOutputVariablesRequest{
+		ProcessInstanceId: processInstanceId,
+		TrackingId:        trackingId,
+	}
+	res2 := &model.GetCompensationOutputVariablesResponse{}
+
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIGetCompensationInputVariables, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req1, res1); err != nil {
+		return nil, nil, c.clientErr(ctx, err)
+	}
+	if err := api2.Call(ctx, c.txCon, messages.APIGetCompensationOutputVariables, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req2, res2); err != nil {
+		return nil, nil, c.clientErr(ctx, err)
+	}
+	in, err := vars.Decode(ctx, res1.Vars)
+	if err != nil {
+		return nil, nil, c.clientErr(ctx, err)
+	}
+	out, err := vars.Decode(ctx, res2.Vars)
+	if err != nil {
+		return nil, nil, c.clientErr(ctx, err)
+	}
+	return in, out, nil
 }

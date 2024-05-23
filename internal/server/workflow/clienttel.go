@@ -1,4 +1,4 @@
-package storage
+package workflow
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func (s *Nats) processTelemetryTimer(ctx context.Context) error {
+func (s *Engine) processTelemetryTimer(ctx context.Context) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -82,7 +82,7 @@ func (s *Nats) processTelemetryTimer(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) startTelemetry(ctx context.Context, ns string) error {
+func (s *Engine) startTelemetry(ctx context.Context, ns string) error {
 	msg := nats.NewMsg(messages.WorkflowTelemetryTimer)
 	msg.Header.Set(header.SharNamespace, ns)
 

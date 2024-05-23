@@ -2,27 +2,21 @@ package simple
 
 import (
 	"context"
-	"fmt"
-	"github.com/nats-io/nats.go"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
-	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
-	"google.golang.org/protobuf/proto"
+	"log/slog"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/segmentio/ksuid"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
-func TestHistory(t *testing.T) {
-
+func TestCompensate(t *testing.T) {
 	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
@@ -30,46 +24,36 @@ func TestHistory(t *testing.T) {
 	// Dial shar
 	ns := ksuid.New().String()
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
-	tr := tracer.Trace(tst.NatsURL)
-	defer tr.Close()
-	nc, err := tst.GetNats()
+
+	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
-	history := make([]*model.ProcessHistoryEntry, 0, 100)
-	histMx := sync.Mutex{}
-	sub, err := nc.Subscribe(messages.WorkflowSystemHistoryArchive, func(msg *nats.Msg) {
-		h := &model.ProcessHistoryEntry{}
-		err := proto.Unmarshal(msg.Data, h)
-		assert.NoError(t, err)
-		histMx.Lock()
-		history = append(history, h)
-		histMx.Unlock()
-	})
-	require.NoError(t, err)
-	defer func() {
-		err = sub.Drain()
-		assert.NoError(t, err)
-	}()
-	err = cl.Dial(ctx, tst.NatsURL)
-	require.NoError(t, err)
+	s := tracer.Trace(tst.NatsURL)
+	defer s.Close()
 
 	// Register a service task
 	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{}), trackingReceived: make(chan struct{}, 1)}
 
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple_test.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "task1.yaml", d.task1)
 	require.NoError(t, err)
-	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "task2.yaml", d.task2)
+	require.NoError(t, err)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "compensate_task1.yaml", d.compensate1)
+	require.NoError(t, err)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "compensate_task2.yaml", d.compensate2)
+	require.NoError(t, err)
+	err = cl.RegisterProcessComplete("Compensator", d.processEnd)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/compensate.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "Compensator", b)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	executionId, _, err := cl.LaunchProcess(ctx, "Compensator", model.Vars{"compensate": 1})
 	require.NoError(t, err)
 
 	go func() {
@@ -86,8 +70,6 @@ func TestHistory(t *testing.T) {
 	support.WaitForChan(t, d.finished, 20*time.Second)
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)
-	time.Sleep(2 * time.Second)
-	assert.Equal(t, 9, len(history))
 }
 
 type testSimpleHandlerDef struct {
@@ -96,14 +78,23 @@ type testSimpleHandlerDef struct {
 	trackingReceived chan struct{}
 }
 
-func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
-	fmt.Println("Hi")
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	assert.Equal(d.t, 42, vars["localVar"].(int))
-	vars["Success"] = true
+func (d *testSimpleHandlerDef) task1(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	slog.Info("Task1")
 	return vars, nil
 }
 
+func (d *testSimpleHandlerDef) task2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	slog.Info("Task2")
+	return vars, nil
+}
+func (d *testSimpleHandlerDef) compensate1(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	slog.Info("Compensate Task1")
+	return vars, nil
+}
+func (d *testSimpleHandlerDef) compensate2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+	slog.Info("Compensate Task2")
+	return vars, nil
+}
 func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *model.Error, _ model.CancellationState) {
 	close(d.finished)
 }

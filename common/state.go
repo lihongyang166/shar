@@ -13,6 +13,7 @@ func CopyWorkflowState(state *model.WorkflowState) *model.WorkflowState {
 // DropStateParams removes any parameters unsafe to send across a state transition.
 func DropStateParams(state *model.WorkflowState) {
 	state.Execute = new(string)
+	state.ExecuteVersion = ""
 	state.Condition = new(string)
 	state.Owners = []string{}
 	state.Groups = []string{}

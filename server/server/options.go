@@ -152,3 +152,17 @@ type telemetryEndpointOption struct {
 func (o telemetryEndpointOption) configure(server *Server) {
 	server.telemetryConfig = telemetry.Config{Enabled: o.endpoint != "", Endpoint: o.endpoint}
 }
+
+type noSplashOption struct {
+	noSplash bool
+}
+
+func (o noSplashOption) configure(server *Server) {
+	server.noSplash = o.noSplash
+}
+
+// WithNoSplash specifies whether to show a splash screen on the SHAR server startup.
+// Enabling this option will prevent the splash screen from being displayed.
+func WithNoSplash() noSplashOption {
+	return noSplashOption{noSplash: true}
+}

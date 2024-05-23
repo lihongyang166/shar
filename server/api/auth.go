@@ -41,11 +41,11 @@ func (s *SharServer) authorize(ctx context.Context, workflowName string) (contex
 }
 
 func (s *SharServer) authFromJobID(ctx context.Context, trackingID string) (context.Context, *model.WorkflowState, error) {
-	job, err := s.ns.GetJob(ctx, trackingID)
+	job, err := s.engine.GetJob(ctx, trackingID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get job for authorization: %w", err)
 	}
-	w, err := s.ns.GetWorkflow(ctx, job.WorkflowId)
+	w, err := s.engine.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow for authorization: %w", err)
 	}
@@ -57,7 +57,7 @@ func (s *SharServer) authFromJobID(ctx context.Context, trackingID string) (cont
 }
 
 func (s *SharServer) authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error) {
-	execution, err := s.ns.GetExecution(ctx, executionID)
+	execution, err := s.engine.GetExecution(ctx, executionID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get execution for authorization: %w", err)
 	}
@@ -69,7 +69,7 @@ func (s *SharServer) authFromExecutionID(ctx context.Context, executionID string
 }
 
 func (s *SharServer) authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error) {
-	pi, err := s.ns.GetProcessInstance(ctx, instanceID)
+	pi, err := s.engine.GetProcessInstance(ctx, instanceID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow instance for authorization: %w", err)
 	}

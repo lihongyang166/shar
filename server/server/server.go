@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"log/slog"
 	"net"
 	"os"
@@ -28,7 +28,6 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/api"
 	"gitlab.com/shar-workflow/shar/server/health"
-	"gitlab.com/shar-workflow/shar/server/services/storage"
 	gogrpc "google.golang.org/grpc"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -52,6 +51,7 @@ type Server struct {
 	conn                    *nats.Conn
 	telemetryConfig         telemetry.Config
 	tr                      trace.Tracer
+	noSplash                bool
 }
 
 // New creates a new SHAR server.
@@ -69,6 +69,7 @@ func New(options ...Option) *Server {
 		allowOrphanServiceTasks: true,
 		healthServiceEnabled:    true,
 		concurrency:             6,
+		noSplash:                false,
 	}
 
 	for _, i := range options {
@@ -84,8 +85,9 @@ func New(options ...Option) *Server {
 		s.apiAuthenticator = noopAuthN
 	}
 
-	// Show some details about the newly configured server:
-	fmt.Printf(`
+	if !s.noSplash {
+		// Show some details about the newly configured server:
+		fmt.Printf(`
 	███████╗██╗  ██╗ █████╗ ██████╗
 	██╔════╝██║  ██║██╔══██╗██╔══██╗
 	███████╗███████║███████║██████╔╝
@@ -94,8 +96,8 @@ func New(options ...Option) *Server {
 	╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
 	` + "\n")
 
-	s.Details()
-
+		s.Details()
+	}
 	return s
 }
 
@@ -145,7 +147,7 @@ func (s *Server) Details() {
 }
 
 // Listen starts the GRPC server for both serving requests, and the GRPC health endpoint.
-func (s *Server) Listen() {
+func (s *Server) Listen() error {
 	// Set up telemetry for the server
 	setupTelemetry(s)
 
@@ -182,10 +184,19 @@ func (s *Server) Listen() {
 		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 	}
 
-	ns := s.createServices(s.conn, s.natsUrl, s.ephemeralStorage, s.allowOrphanServiceTasks)
-	a, err := api.New(ns, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator, s.telemetryConfig)
+	nc, err := s.ConnectNats(s.natsUrl, s.ephemeralStorage)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("connect nats: %w", err)
+	}
+
+	wfe, err := s.createWorkflowEngine(nc, s.allowOrphanServiceTasks)
+	if err != nil {
+		return fmt.Errorf("create workflow entry: %w", err)
+	}
+
+	a, err := api.New(nc, wfe, s.panicRecovery, s.apiAuthorizer, s.apiAuthenticator)
+	if err != nil {
+		return fmt.Errorf("create api: %w", err)
 	}
 	s.api = a
 	s.healthService.SetStatus(grpcHealth.HealthCheckResponse_SERVING)
@@ -203,6 +214,7 @@ func (s *Server) Listen() {
 	case <-s.sig:
 		s.Shutdown()
 	}
+	return nil
 }
 
 func setupTelemetry(s *Server) {
@@ -245,35 +257,60 @@ func (s *Server) GetEndPoint() string {
 	return "TODO" // can we discover the grpc endpoint listen address??
 }
 
-func (s *Server) createServices(conn *nats.Conn, natsURL string, ephemeral bool, allowOrphanServiceTasks bool) *storage.Nats {
+// ConnectNats establishes a connection to the NATS server using the given URL.
+// It also creates a separate transactional NATS connection.
+// It checks the NATS server version and obtains the JetStream account information.
+// It returns the NATS connection configuration that includes the NATS connection,
+// transactional NATS connection, and the storage type for JetStream.
+//
+// Parameters:
+// - natsURL: The URL of the NATS server.
+// - ephemeral: A flag indicating whether to use ephemeral storage for JetStream.
+//
+// Returns:
+// - NatsConnConfiguration: The NATS connection configuration.
+// - error: An error if the connection or account retrieval fails.
+func (s *Server) ConnectNats(natsURL string, ephemeral bool) (*workflow.NatsConnConfiguration, error) {
 	// TODO why do we need a separate txConn?
+	conn, err := nats.Connect(natsURL)
+	if err != nil {
+		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsURL))
+		return nil, fmt.Errorf("connect to NATS: %w", err)
+	}
 	txConn, err := nats.Connect(natsURL)
 	if err != nil {
 		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsURL))
-		panic(err)
+		return nil, fmt.Errorf("connect to NATS: %w", err)
 	}
 	ctx := context.Background()
 	if err := common.CheckVersion(ctx, txConn); err != nil {
-		panic(fmt.Errorf("check NATS version: %w", err))
+		return nil, fmt.Errorf("check NATS version: %w", err)
 	}
 	if js, err := conn.JetStream(); err != nil {
-		panic(errors.New("cannot form JetSteram connection"))
+		return nil, fmt.Errorf("connect to JetStream: %w", err)
 	} else {
 		if _, err := js.AccountInfo(); err != nil {
-			panic(errors.New("contact JetStream. ensure it is enabled on the specified NATS instance"))
+			return nil, fmt.Errorf("get NATS account information: %w", err)
 		}
 	}
-
 	store := jetstream.FileStorage
 	if ephemeral {
 		store = jetstream.MemoryStorage
 	}
-	ns, err := storage.New(conn, txConn, store, s.concurrency, allowOrphanServiceTasks, s.telemetryConfig)
+	return &workflow.NatsConnConfiguration{
+		Conn:        conn,
+		TxConn:      txConn,
+		StorageType: store,
+	}, nil
+}
+
+func (s *Server) createWorkflowEngine(nc *workflow.NatsConnConfiguration, allowOrphanServiceTasks bool) (*workflow.Engine, error) {
+	ns, err := workflow.New(nc, s.concurrency, allowOrphanServiceTasks, s.telemetryConfig)
 	if err != nil {
 		slog.Error("create NATS KV store", slog.String("error", err.Error()))
-		panic(err)
+		return nil, fmt.Errorf("create NATS KV store: %w", err)
 	}
-	return ns
+	return ns, nil
 }
 
 // Ready returns true if the SHAR server is servicing API calls.

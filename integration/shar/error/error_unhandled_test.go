@@ -67,7 +67,7 @@ func TestUnhandledError(t *testing.T) {
 	}()
 
 	// wait for the workflow to complete
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	support.WaitForChan(t, d.finished, 30*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 

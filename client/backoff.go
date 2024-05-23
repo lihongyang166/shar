@@ -92,7 +92,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			default: // string
 				retVar = retryBehaviour.DefaultExceeded.VariableValue
 			}
-			if err := c.completeServiceTask(ctx, trackingID, model.Vars{retryBehaviour.DefaultExceeded.Variable: retVar}); err != nil {
+			if err := c.completeServiceTask(ctx, trackingID, model.Vars{retryBehaviour.DefaultExceeded.Variable: retVar}, state.State == model.CancellationState_compensating); err != nil {
 				return fmt.Errorf("completing service task with error variable: %w", err)
 			}
 		}

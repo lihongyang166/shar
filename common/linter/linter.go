@@ -42,9 +42,9 @@ func Lint(wf *model.Workflow, warningsAsErrors bool) ([]Message, error) {
 		err := startDirectedScan(p, &directedTraversalInstruction{
 			EndOfProcess: func(elem *model.Element) error {
 				switch elem.Type {
-				case element.EndEvent:
+				case element.EndEvent, element.CompensateEndEvent:
 				default:
-					return fmt.Errorf("last event '%s' is %s not a %s: %w", elem.Name, elem.Type, element.EndEvent, ErrMissingEndEvent)
+					return fmt.Errorf("last event '%s' is %s not a recognized end event: %w", elem.Name, elem.Type, ErrMissingEndEvent)
 				}
 				return nil
 			},

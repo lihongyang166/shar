@@ -3,14 +3,10 @@ default: clean configure proto server tracing cli zen-shar
 configure:
 	@echo "\033[92mConfigure\033[0m"
 	go version
-	go get -d google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
-	go get -d google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
-	go get -d github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go get -d github.com/vektra/mockery/v2@v2.41.0
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.1
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install github.com/vektra/mockery/v2@v2.41.0
+	go install github.com/vektra/mockery/v2@v2.43.1
 	go install gotest.tools/gotestsum@latest
 	mkdir -p build
 	curl --insecure https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz --output build/nats-proto-gen-go-main.tar.gz
@@ -69,7 +65,7 @@ clean: .FORCE
 	rm -rf build
 	mkdir -p build
 generated-code: proto .FORCE
-	go generate server/workflow/nats-service.go
+	#go generate server/workflow/nats-service.go
 	go generate server/services/cache/cache.go
 ci-pipeline-test: clean configure test .FORCE
 test: proto generated-code server tracing examples .FORCE

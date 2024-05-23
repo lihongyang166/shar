@@ -131,7 +131,7 @@ func (s *Integration) Setup() {
 	}
 	s.FinalVars = make(map[string]interface{})
 
-	zensvrOptions := []zensvr.ZenSharOptionApplyFn{zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNatsServerImageUrl(os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME))}
+	zensvrOptions := []zensvr.ZenSharOptionApplyFn{zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNatsServerImageUrl(os.Getenv(NATS_SERVER_IMAGE_URL_ENV_VAR_NAME)), zensvr.WithNoSplash()}
 
 	if IsNatsPersist() {
 		natsStateDirForTest := s.natsStateDirForTestableUnit(s.testableUnitName)

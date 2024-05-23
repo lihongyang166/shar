@@ -1,4 +1,4 @@
-package storage
+package workflow
 
 import (
 	"context"
@@ -27,7 +27,7 @@ const (
 	receiverParty = "receiver"
 )
 
-func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
+func (s *Engine) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -74,7 +74,7 @@ func (s *Nats) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) err
 }
 
 // PublishMessage publishes a workflow message.
-func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars []byte) error {
+func (s *Engine) PublishMessage(ctx context.Context, name string, key string, vars []byte) error {
 	sharMsg := &model.MessageInstance{
 		Name:           name,
 		CorrelationKey: key,
@@ -101,7 +101,7 @@ func (s *Nats) PublishMessage(ctx context.Context, name string, key string, vars
 	return nil
 }
 
-func (s *Nats) processMessages(ctx context.Context) error {
+func (s *Engine) processMessages(ctx context.Context) error {
 	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage)
 	if err != nil {
 		return fmt.Errorf("start message processor: %w", err)
@@ -109,7 +109,7 @@ func (s *Nats) processMessages(ctx context.Context) error {
 	return nil
 }
 
-func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+func (s *Engine) processMessage(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	// Unpack the message Instance
 	instance := &model.MessageInstance{}
 	if err := proto.Unmarshal(msg.Data(), instance); err != nil {
@@ -133,7 +133,7 @@ func (s *Nats) processMessage(ctx context.Context, log *slog.Logger, msg jetstre
 
 type setPartyFn func(exch *model.Exchange) (*model.Exchange, error)
 
-func (s *Nats) handleMessageExchange(ctx context.Context, party string, setPartyFn setPartyFn, elementId string, exchange *model.Exchange, messageName string, correlationKey string) error {
+func (s *Engine) handleMessageExchange(ctx context.Context, party string, setPartyFn setPartyFn, elementId string, exchange *model.Exchange, messageName string, correlationKey string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -168,7 +168,7 @@ func (s *Nats) handleMessageExchange(ctx context.Context, party string, setParty
 	return nil
 }
 
-func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, messageName string) (bool, error) {
+func (s *Engine) hasAllReceivers(ctx context.Context, exchange *model.Exchange, messageName string) (bool, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.KvsFor(ctx, ns)
 	if err != nil {
@@ -194,7 +194,7 @@ func (s *Nats) hasAllReceivers(ctx context.Context, exchange *model.Exchange, me
 	return allMessagesReceived, nil
 }
 
-func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Exchange, receiverName string, justArrivedParty string, messageName string, correlationKey string) error {
+func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exchange, receiverName string, justArrivedParty string, messageName string, correlationKey string) error {
 	slog.Debug("attemptMessageDelivery", "exchange", exchange, "messageName", messageName, "correlationKey", correlationKey)
 
 	ns := subj.GetNS(ctx)
@@ -242,7 +242,7 @@ func (s *Nats) attemptMessageDelivery(ctx context.Context, exchange *model.Excha
 	return nil
 }
 
-func (s *Nats) processAwaitMessageExecute(ctx context.Context) error {
+func (s *Engine) processAwaitMessageExecute(ctx context.Context) error {
 	if err := common.Process(ctx, s.js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
@@ -259,7 +259,7 @@ func messageKeyFrom(keyElements []string) string {
 //}
 
 // awaitMessageProcessor waits for WORKFLOW.*.State.Job.AwaitMessage.Execute job and executes a delivery
-func (s *Nats) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	job := &model.WorkflowState{}
 	if err := proto.Unmarshal(msg.Data(), job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)

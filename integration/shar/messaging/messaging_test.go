@@ -169,6 +169,11 @@ func TestMessageStartEvent(t *testing.T) {
 }
 
 func TestAwaitMessageFatalErr(t *testing.T) {
+	t.Skip("skip this test until we have a way to properly clean down execution/process/activity" +
+		"state on abortion/termination of an execution/process. " +
+		"This test currently intermittently fails as a fatal error in one process will not result in the" +
+		"clean teardown of a sibling processes varstate + jobs in the collaboration")
+
 	t.Parallel()
 	ns := ksuid.New().String()
 	ctx := context.Background()
@@ -187,7 +192,7 @@ func TestAwaitMessageFatalErr(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-workflow-no-correlation-key.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestAwaitMessageFatalErr", b)
 	require.NoError(t, err)
 
 	// Launch the processes

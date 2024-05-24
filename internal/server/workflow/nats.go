@@ -943,6 +943,7 @@ func (s *Engine) PublishWorkflowState(ctx context.Context, stateName string, sta
 	return nil
 }
 
+// SignalFatalError publishes a FatalError message on death of a process in a workflow
 func (s *Engine) SignalFatalError(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
 	fataError := &model.FatalError{
 		HandlingStrategy: 1,

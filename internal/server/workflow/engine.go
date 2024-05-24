@@ -683,31 +683,6 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		msgState := common.CopyWorkflowState(newState)
 		msgState.Condition = &wf.Messages[ix].Execute //this is the correlation key
 
-		//TODO - do we even care if a sender process doesn't explicitly define the correlation key value in the wf?
-		// it appears to be entirely the responsibility of the client to provide the key as a parameter in the sendMessage client call
-		// although it can get it from the vars (either the process level ones or the svc lvl ones), it doesn't strictly need to
-
-		// we probably should still have some kind of ErrWorkflowFatal mechanism for other activity types though
-
-		//if the correlation key does not exist in the vars, things should ErrFatal...
-		//but currently, ErrFatals appear to only be logged...how do we signal to that
-		//something has gone wrong in wf execution???
-		//common.Process, which activityStartProcessor is called from via nats.processTraversals()
-		//just acks the message and continues...
-		//is there a generalised way to signify that "something has gone wrong" during wf execution???
-
-		//maybe, instead of publishing to Abort.SendMessage(/Activity)
-		//we publish to Process.FatalErr
-		// FatalErr {
-		//	handlingStrategy HandlingStrategy
-		//  workflowState WorkFlowState
-		//}
-		//
-		//the question then becomes, how do we know what actually needs to be cleaned up?
-		//what if FatalErr has been thrown after a job has been created? What is the cleanup process then?
-		//if we inspect the latest id and the element.Type at the point of failure, is this enough to know
-		//what cleanup action to take???
-
 		if err := c.StartJob(ctx, messages.WorkflowJobSendMessageExecute+"."+pi.WorkflowName+"_"+el.Execute, newState, el, traversal.Vars); err != nil {
 			return c.engineErr(ctx, "start message job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}

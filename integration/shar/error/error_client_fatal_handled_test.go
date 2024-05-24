@@ -70,7 +70,9 @@ type fatalErrorHandledHandlerDef struct {
 
 func (d *fatalErrorHandledHandlerDef) willPanicAndCauseWorkflowFatalError(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
 	// panic and cause a WorkflowFatalError
-	panic(fmt.Errorf("BOOM, cause an ErrWorkflowFatal to be thrown"))
+	if true {
+		panic(fmt.Errorf("BOOM, cause an ErrWorkflowFatal to be thrown"))
+	}
 
 	return model.Vars{"success": true, "myVar": 69}, nil
 }

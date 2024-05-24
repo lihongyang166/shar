@@ -79,8 +79,8 @@ type WorkflowEngine interface {
 	Start(ctx context.Context) error
 }
 
-// SharServer provides API endpoints for SHAR
-type SharServer struct {
+// Endpoints provides API endpoints for SHAR
+type Endpoints struct {
 	engine        WorkflowEngine
 	subs          *sync.Map
 	panicRecovery bool
@@ -94,11 +94,11 @@ type SharServer struct {
 }
 
 // New creates a new instance of the SHAR API server
-func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check) (*SharServer, error) {
+func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check) (*Endpoints, error) {
 	if err := engine.Start(context.Background()); err != nil {
 		return nil, fmt.Errorf("start SHAR engine: %w", err)
 	}
-	ss := &SharServer{
+	ss := &Endpoints{
 		apiAuthZFn:    apiAuthZFn,
 		apiAuthNFn:    apiAuthNFn,
 		nc:            nc,
@@ -116,7 +116,7 @@ func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, panicRecover
 var shutdownOnce sync.Once
 
 // Shutdown gracefully shuts down the SHAR API server and Engine
-func (s *SharServer) Shutdown() {
+func (s *Endpoints) Shutdown() {
 	slog.Info("stopping shar api listener")
 	shutdownOnce.Do(func() {
 		s.subs.Range(func(key, _ any) bool {
@@ -133,7 +133,7 @@ func (s *SharServer) Shutdown() {
 }
 
 // Listen starts the SHAR API server listening to incoming requests
-func (s *SharServer) Listen() error {
+func (s *Endpoints) Listen() error {
 	con := s.nc.Conn
 
 	if err := listen(con, s.panicRecovery, s.subs, messages.APIStoreWorkflow, s.receiveApiMiddleware, &model.StoreWorkflowRequest{}, s.storeWorkflow); err != nil {

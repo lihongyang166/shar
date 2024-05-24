@@ -38,7 +38,7 @@ type Server struct {
 	healthServiceEnabled    bool
 	healthService           *health.Checker
 	grpcServer              *gogrpc.Server
-	api                     *api.SharServer
+	api                     *api.Endpoints
 	ephemeralStorage        bool
 	panicRecovery           bool
 	allowOrphanServiceTasks bool

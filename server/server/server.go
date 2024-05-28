@@ -83,7 +83,6 @@ func New(options ...option.Option) *Server {
 		s.Details()
 	}
 
-	//TODO make the dependencies reference the newly created ServerOptions struct
 	//TODO should we initialise/New dependencies here rather than in Listen?
 
 	return s
@@ -178,18 +177,7 @@ func (s *Server) Listen() error {
 		return fmt.Errorf("connect nats: %w", err)
 	}
 
-	wfe, err := workflow.New(nc, s.serverOptions)
-	//TODO ^ can we move this to New()
-	if err != nil {
-		slog.Error("create workflow engine", slog.String("error", err.Error()))
-		return fmt.Errorf("create workflow engine: %w", err)
-	}
-	//wfe, err := s.createWorkflowEngine(nc, s.AllowOrphanServiceTasks)
-	//if err != nil {
-	//	return fmt.Errorf("create workflow engine: %w", err)
-	//}
-
-	a, err := api.New(nc, wfe, s.serverOptions)
+	a, err := api.New(nc, s.serverOptions)
 	//TODO ^ this thing is what starts the wfe...which is weird...can we at least call wfe.Start from either
 	//this Listen function or from the api.Listen function???
 	if err != nil {

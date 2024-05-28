@@ -95,15 +95,23 @@ type Endpoints struct {
 }
 
 // New creates a new instance of the SHAR API server
-func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, options *option.ServerOptions) (*Endpoints, error) {
-	if err := engine.Start(context.Background()); err != nil {
+func New(nc *workflow.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
+	wfe, err := workflow.New(nc, options)
+	//TODO ^ can we move this to New()
+	if err != nil {
+		slog.Error("create workflow engine", slog.String("error", err.Error()))
+		return nil, fmt.Errorf("create workflow engine: %w", err)
+	}
+
+	if err := wfe.Start(context.Background()); err != nil {
 		return nil, fmt.Errorf("start SHAR engine: %w", err)
 	}
+
 	ss := &Endpoints{
 		apiAuthZFn:    options.ApiAuthorizer,
 		apiAuthNFn:    options.ApiAuthenticator,
 		nc:            nc,
-		engine:        engine,
+		engine:        wfe,
 		panicRecovery: options.PanicRecovery,
 		subs:          &sync.Map{},
 		tr:            otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),

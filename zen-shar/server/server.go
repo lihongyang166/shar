@@ -74,8 +74,8 @@ func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 	}
 }
 
-// WithNoSplash will make zen-shar start nats server with no splash screen
-func WithNoSplash() ZenSharOptionApplyFn {
+// WithShowSplash will make zen-shar start nats server with splash screen
+func WithShowSplash() ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
 		cfg.showSplash = true
 	}

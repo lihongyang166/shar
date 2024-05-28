@@ -22,6 +22,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"gitlab.com/shar-workflow/shar/server/server/option"
 	"gitlab.com/shar-workflow/shar/server/services/cache"
 	"gitlab.com/shar-workflow/shar/server/vars"
 	"go.opentelemetry.io/otel"
@@ -54,8 +55,8 @@ type Engine struct {
 }
 
 // New returns an instance of the core workflow engine.
-func New(nc *NatsConnConfiguration, concurrency int, allowOrphanServiceTasks bool, telCfg telemetry.Config) (*Engine, error) {
-	if concurrency < 1 || concurrency > 200 {
+func New(nc *NatsConnConfiguration, options *option.ServerOptions) (*Engine, error) {
+	if options.Concurrency < 1 || options.Concurrency > 200 {
 		return nil, fmt.Errorf("invalid concurrency: %w", errors2.New("invalid concurrency set"))
 	}
 
@@ -79,12 +80,12 @@ func New(nc *NatsConnConfiguration, concurrency int, allowOrphanServiceTasks boo
 		txConn:                  nc.TxConn,
 		js:                      js,
 		txJS:                    txJS,
-		concurrency:             concurrency,
+		concurrency:             options.Concurrency,
 		storageType:             nc.StorageType,
 		publishTimeout:          time.Second * 30,
-		allowOrphanServiceTasks: allowOrphanServiceTasks,
+		allowOrphanServiceTasks: options.AllowOrphanServiceTasks,
 		sharKvs:                 make(map[string]*NamespaceKvs),
-		telCfg:                  telCfg,
+		telCfg:                  options.TelemetryConfig,
 		sCache:                  sharCache,
 		closing:                 make(chan struct{}),
 		tr:                      otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),

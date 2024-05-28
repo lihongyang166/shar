@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/config"
 	"gitlab.com/shar-workflow/shar/server/flags"
 	"gitlab.com/shar-workflow/shar/server/server"
+	"gitlab.com/shar-workflow/shar/server/server/option"
 	"log"
 	"log/slog"
 	"os"
@@ -68,7 +69,8 @@ var RootCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		svr := server.New(server.Concurrency(cfg.Concurrency), server.NatsConn(conn), server.NatsUrl(cfg.NatsURL), server.GrpcPort(cfg.Port))
+
+		svr := server.New(option.Concurrency(cfg.Concurrency), option.NatsConn(conn), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port))
 		if err := svr.Listen(); err != nil {
 			panic(fmt.Errorf("create server: %w", err))
 		}

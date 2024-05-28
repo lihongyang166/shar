@@ -7,6 +7,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/nats-io/nats.go"
 	"github.com/segmentio/ksuid"
+	options2 "gitlab.com/shar-workflow/shar/server/server/option"
 	"math/big"
 	"net/netip"
 	"net/url"
@@ -39,7 +40,7 @@ type zenOpts struct {
 	natsPersistHostPath         string
 	natsServerAddress           string
 	sharServerTelemetryEndpoint string
-	noSplash                    bool
+	showSplash                  bool
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -76,7 +77,7 @@ func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 // WithNoSplash will make zen-shar start nats server with no splash screen
 func WithNoSplash() ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
-		cfg.noSplash = true
+		cfg.showSplash = true
 	}
 }
 
@@ -130,7 +131,7 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 	if defaults.sharServerImageUrl != "" {
 		ssvr = inContainerSharServer(defaults.sharServerImageUrl, dockerHostName, nPort, defaults.sharServerTelemetryEndpoint)
 	} else {
-		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint, defaults.noSplash)
+		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint, defaults.showSplash)
 	}
 
 	slog.Info("Setup completed", "nats port", nPort)
@@ -218,7 +219,7 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 	return ssvr
 }
 
-func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string, noSplash bool) *sharsvr.Server {
+func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string, showSplash bool) *sharsvr.Server {
 	natsUrl := fmt.Sprintf("%s:%d", natsHost, natsPort)
 	conn, err := nats.Connect(natsUrl)
 	if err != nil {
@@ -226,25 +227,25 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 		panic(err)
 	}
 
-	options := []sharsvr.Option{
-		sharsvr.EphemeralStorage(),
-		sharsvr.PanicRecovery(false),
-		sharsvr.Concurrency(sharConcurrency),
-		sharsvr.WithNoHealthServer(),
-		sharsvr.NatsUrl(natsUrl),
-		sharsvr.NatsConn(conn),
-		sharsvr.GrpcPort(0),
-		sharsvr.WithTelemetryEndpoint(telemetryEndpoint),
+	options := []options2.Option{
+		options2.EphemeralStorage(),
+		options2.PanicRecovery(false),
+		options2.Concurrency(sharConcurrency),
+		options2.WithNoHealthServer(),
+		options2.NatsUrl(natsUrl),
+		options2.NatsConn(conn),
+		options2.GrpcPort(0),
+		options2.WithTelemetryEndpoint(telemetryEndpoint),
 	}
 	if apiAuth != nil {
-		options = append(options, sharsvr.WithApiAuthorizer(apiAuth))
+		options = append(options, options2.WithApiAuthorizer(apiAuth))
 	}
 	if authN != nil {
-		options = append(options, sharsvr.WithAuthentication(authN))
+		options = append(options, options2.WithAuthentication(authN))
 	}
 
-	if noSplash {
-		options = append(options, sharsvr.WithNoSplash())
+	if showSplash {
+		options = append(options, options2.WithShowSplash())
 	}
 
 	ssvr := sharsvr.New(options...)

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
+	"gitlab.com/shar-workflow/shar/server/server/option"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"log/slog"
@@ -94,16 +95,16 @@ type Endpoints struct {
 }
 
 // New creates a new instance of the SHAR API server
-func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check) (*Endpoints, error) {
+func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, options *option.ServerOptions) (*Endpoints, error) {
 	if err := engine.Start(context.Background()); err != nil {
 		return nil, fmt.Errorf("start SHAR engine: %w", err)
 	}
 	ss := &Endpoints{
-		apiAuthZFn:    apiAuthZFn,
-		apiAuthNFn:    apiAuthNFn,
+		apiAuthZFn:    options.ApiAuthorizer,
+		apiAuthNFn:    options.ApiAuthenticator,
 		nc:            nc,
 		engine:        engine,
-		panicRecovery: panicRecovery,
+		panicRecovery: options.PanicRecovery,
 		subs:          &sync.Map{},
 		tr:            otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
 	}

@@ -166,6 +166,7 @@ func (s *Server) Listen() error {
 			}
 			close(errs)
 		}()
+		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_SERVING)
 		slog.Info("shar grpc health started")
 	} else {
 		// Create private health server
@@ -185,9 +186,7 @@ func (s *Server) Listen() error {
 	//TODO ^ can we initialise and set the api in the New function of Server...it doesn't feel right to be initialising
 	//dependencies in the Listen function of Server
 
-	s.healthService.SetStatus(grpcHealth.HealthCheckResponse_SERVING)
-
-	//TODO makes sense to call this here and this is probably what should be calling wfe.Start
+	//TODO makes sense to call this here
 	if err := s.api.Listen(); err != nil {
 		panic(err)
 	}

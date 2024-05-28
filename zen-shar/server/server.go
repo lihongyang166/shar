@@ -231,7 +231,6 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 		options2.EphemeralStorage(),
 		options2.PanicRecovery(false),
 		options2.Concurrency(sharConcurrency),
-		options2.WithNoHealthServer(),
 		options2.NatsUrl(natsUrl),
 		options2.NatsConn(conn),
 		options2.GrpcPort(0),

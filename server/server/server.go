@@ -178,8 +178,6 @@ func (s *Server) Listen() error {
 	}
 
 	a, err := api.New(nc, s.serverOptions)
-	//TODO ^ this thing is what starts the wfe...which is weird...can we at least call wfe.Start from either
-	//this Listen function or from the api.Listen function???
 	if err != nil {
 		return fmt.Errorf("create api: %w", err)
 	}

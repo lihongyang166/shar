@@ -5,23 +5,22 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"gitlab.com/shar-workflow/shar/server/server/option"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"log/slog"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/nats-io/nats.go/jetstream"
-	"gitlab.com/shar-workflow/shar/common"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
-
 	"github.com/hashicorp/go-version"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+	"gitlab.com/shar-workflow/shar/common"
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/api"
@@ -42,7 +41,7 @@ type Server struct {
 
 // New creates a new SHAR server.
 // Leave the exporter nil if telemetry is not required
-func New(options ...option.Option) *Server {
+func New(options ...option.Option) (*Server, error) {
 	currentVer, err := version.NewVersion(version2.Version)
 	if err != nil {
 		panic(err)
@@ -59,46 +58,32 @@ func New(options ...option.Option) *Server {
 		ApiAuthenticator:        noopAuthN,
 	}
 
-	s := &Server{
-		sig:           make(chan os.Signal, 10),
-		healthService: health.New(),
-		serverOptions: defaultServerOptions,
-	}
-
 	for _, i := range options {
 		i.Configure(defaultServerOptions)
 	}
 
-	if s.serverOptions.ShowSplash {
-		// Show some details about the newly configured server:
-		fmt.Printf(`
-	███████╗██╗  ██╗ █████╗ ██████╗
-	██╔════╝██║  ██║██╔══██╗██╔══██╗
-	███████╗███████║███████║██████╔╝
-	╚════██║██╔══██║██╔══██║██╔══██╗
-	███████║██║  ██║██║  ██║██║  ██║
-	╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
-	` + "\n")
-
-		s.Details()
+	nc, err := connectNats(defaultServerOptions)
+	if err != nil {
+		return nil, fmt.Errorf("connect nats: %w", err)
 	}
 
-	//TODO should we initialise/New dependencies here rather than in Listen?
+	a, err := api.New(nc, defaultServerOptions)
+	if err != nil {
+		return nil, fmt.Errorf("create api: %w", err)
+	}
 
-	return s
-}
+	s := &Server{
+		sig:           make(chan os.Signal, 10),
+		healthService: health.New(),
+		serverOptions: defaultServerOptions,
+		api:           a,
+	}
 
-func noopAuthN(_ context.Context, _ *model.ApiAuthenticationRequest) (*model.ApiAuthenticationResponse, error) {
-	return &model.ApiAuthenticationResponse{
-		User:          "anonymous",
-		Authenticated: true,
-	}, nil
-}
+	if s.serverOptions.ShowSplash {
+		s.details()
+	}
 
-func noopAuthZ(_ context.Context, _ *model.ApiAuthorizationRequest) (*model.ApiAuthorizationResponse, error) {
-	return &model.ApiAuthorizationResponse{
-		Authorized: true,
-	}, nil
+	return s, nil
 }
 
 // The following variables are set by -ldflags at build time.
@@ -108,36 +93,10 @@ var (
 	BuildDate  string
 )
 
-// Details prints the details to stdout of the current SHAR server.
-func (s *Server) Details() {
-	t := table.NewWriter()
-	t.SetStyle(table.StyleLight)
-	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"SHAR SERVER CONFIGURATION", "VALUE"})
-	t.Style().Options.SeparateRows = true
-	t.AppendRows([]table.Row{
-		{"Version                ", version2.Version},
-		{"Build Time             ", BuildDate},
-		{"Commit SHA             ", CommitHash},
-		{"Nats URL               ", s.serverOptions.NatsUrl},
-		{"Nats Client Version    ", version2.NatsVersion},
-		{"Concurrency            ", s.serverOptions.Concurrency},
-		{"Ephemeral Storage      ", s.serverOptions.EphemeralStorage},
-		{"Panic Recovery         ", s.serverOptions.PanicRecovery},
-		{"AllowOrphanServiceTasks", s.serverOptions.AllowOrphanServiceTasks},
-		{"Grpc Port              ", s.serverOptions.GrpcPort},
-		{"Telemetry Enabled      ", s.serverOptions.TelemetryConfig.Enabled},
-		{"Telemetry Endpoint     ", s.serverOptions.TelemetryConfig.Endpoint},
-	}, table.RowConfig{AutoMerge: false})
-	t.AppendSeparator()
-	t.Render()
-}
-
 // Listen starts the GRPC server for both serving requests, and the GRPC health endpoint.
 func (s *Server) Listen() error {
 	// Set up telemetry for the server
 	setupTelemetry(s)
-	//TODO ^ move into server.New ???
 
 	// Capture errors and cancel signals
 	errs := make(chan error)
@@ -173,23 +132,14 @@ func (s *Server) Listen() error {
 		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 	}
 
-	nc, err := s.ConnectNats(s.serverOptions)
-	if err != nil {
-		return fmt.Errorf("connect nats: %w", err)
-	}
-
-	a, err := api.New(nc, s.serverOptions)
-	if err != nil {
-		return fmt.Errorf("create api: %w", err)
-	}
-	s.api = a
-	//TODO ^ can we initialise and set the api in the New function of Server...it doesn't feel right to be initialising
-	//dependencies in the Listen function of Server
-
-	//TODO makes sense to call this here
 	if err := s.api.Listen(); err != nil {
 		panic(err)
 	}
+	//TODO should we call wfe.Start here? even though wfe is referenced from api???
+	//see note in api listen, it seems like engine.go/nats.go could potentially be split into
+	//separate things, an interface called from api/outside, an interface that is for backend processing
+	//which would mostly be the process* functions.
+
 	// Log or exit
 	select {
 	case err := <-errs:
@@ -243,7 +193,7 @@ func (s *Server) GetEndPoint() string {
 	return "TODO" // can we discover the grpc endpoint listen address??
 }
 
-// ConnectNats establishes a connection to the NATS server using the given URL.
+// connectNats establishes a connection to the NATS server using the given URL.
 // It also creates a separate transactional NATS connection.
 // It checks the NATS server version and obtains the JetStream account information.
 // It returns the NATS connection configuration that includes the NATS connection,
@@ -256,7 +206,7 @@ func (s *Server) GetEndPoint() string {
 // Returns:
 // - NatsConnConfiguration: The NATS connection configuration.
 // - error: An error if the connection or account retrieval fails.
-func (s *Server) ConnectNats(options *option.ServerOptions) (*workflow.NatsConnConfiguration, error) {
+func connectNats(options *option.ServerOptions) (*workflow.NatsConnConfiguration, error) {
 	// TODO why do we need a separate txConn?
 	conn, err := nats.Connect(options.NatsUrl)
 	if err != nil {
@@ -303,4 +253,52 @@ func registerServer(s *gogrpc.Server, hs *health.Checker) error {
 	hs.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 	grpcHealth.RegisterHealthServer(s, hs)
 	return nil
+}
+
+func noopAuthN(_ context.Context, _ *model.ApiAuthenticationRequest) (*model.ApiAuthenticationResponse, error) {
+	return &model.ApiAuthenticationResponse{
+		User:          "anonymous",
+		Authenticated: true,
+	}, nil
+}
+
+func noopAuthZ(_ context.Context, _ *model.ApiAuthorizationRequest) (*model.ApiAuthorizationResponse, error) {
+	return &model.ApiAuthorizationResponse{
+		Authorized: true,
+	}, nil
+}
+
+// details prints the details to stdout of the current SHAR server.
+func (s *Server) details() {
+	// Show some details about the newly configured server:
+	fmt.Printf(`
+	███████╗██╗  ██╗ █████╗ ██████╗
+	██╔════╝██║  ██║██╔══██╗██╔══██╗
+	███████╗███████║███████║██████╔╝
+	╚════██║██╔══██║██╔══██║██╔══██╗
+	███████║██║  ██║██║  ██║██║  ██║
+	╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
+	` + "\n")
+
+	t := table.NewWriter()
+	t.SetStyle(table.StyleLight)
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"SHAR SERVER CONFIGURATION", "VALUE"})
+	t.Style().Options.SeparateRows = true
+	t.AppendRows([]table.Row{
+		{"Version                ", version2.Version},
+		{"Build Time             ", BuildDate},
+		{"Commit SHA             ", CommitHash},
+		{"Nats URL               ", s.serverOptions.NatsUrl},
+		{"Nats Client Version    ", version2.NatsVersion},
+		{"Concurrency            ", s.serverOptions.Concurrency},
+		{"Ephemeral Storage      ", s.serverOptions.EphemeralStorage},
+		{"Panic Recovery         ", s.serverOptions.PanicRecovery},
+		{"AllowOrphanServiceTasks", s.serverOptions.AllowOrphanServiceTasks},
+		{"Grpc Port              ", s.serverOptions.GrpcPort},
+		{"Telemetry Enabled      ", s.serverOptions.TelemetryConfig.Enabled},
+		{"Telemetry Endpoint     ", s.serverOptions.TelemetryConfig.Endpoint},
+	}, table.RowConfig{AutoMerge: false})
+	t.AppendSeparator()
+	t.Render()
 }

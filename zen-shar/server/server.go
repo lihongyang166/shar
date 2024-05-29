@@ -247,7 +247,10 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 		options = append(options, options2.WithShowSplash())
 	}
 
-	ssvr := sharsvr.New(options...)
+	var ssvr *sharsvr.Server
+	if ssvr, err = sharsvr.New(options...); err != nil {
+		panic(fmt.Errorf("create server: %w", err))
+	}
 	go func() {
 		if err := ssvr.Listen(); err != nil {
 			panic(fmt.Errorf("server listen: %w", err))

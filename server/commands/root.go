@@ -70,9 +70,13 @@ var RootCmd = &cobra.Command{
 			panic(err)
 		}
 
-		svr := server.New(option.Concurrency(cfg.Concurrency), option.NatsConn(conn), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port))
-		if err := svr.Listen(); err != nil {
-			panic(fmt.Errorf("create server: %w", err))
+		var svr *server.Server
+		if svr, err = server.New(option.Concurrency(cfg.Concurrency), option.NatsConn(conn), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port)); err != nil {
+			panic(fmt.Errorf("creating server: %w", err))
+		}
+
+		if err = svr.Listen(); err != nil {
+			panic(fmt.Errorf("starting server: %w", err))
 		}
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {

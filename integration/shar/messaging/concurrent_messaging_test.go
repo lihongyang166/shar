@@ -3,6 +3,7 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"strconv"
@@ -86,17 +87,17 @@ type testConcurrentMessagingHandlerDef struct {
 	instComplete map[string]struct{}
 }
 
-func (x *testConcurrentMessagingHandlerDef) step1(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func (x *testConcurrentMessagingHandlerDef) step1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	return model.Vars{}, nil
 }
 
-func (x *testConcurrentMessagingHandlerDef) step2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (x *testConcurrentMessagingHandlerDef) step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	assert.Equal(x.test, "carried1value", vars["carried"])
 	assert.Equal(x.test, "carried2value", vars["carried2"])
 	return model.Vars{}, nil
 }
 
-func (x *testConcurrentMessagingHandlerDef) sendMessage(ctx context.Context, cmd client.MessageClient, vars model.Vars) error {
+func (x *testConcurrentMessagingHandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
 	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}

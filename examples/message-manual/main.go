@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"os"
 	"time"
@@ -88,19 +89,19 @@ func main() {
 	}
 }
 
-func step1(ctx context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func step1(ctx context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Step 1")
 	fmt.Println("Sending Message...")
 	return model.Vars{}, nil
 }
 
-func step2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Step 2")
 	fmt.Println(vars["success"])
 	return model.Vars{}, nil
 }
 
-func sendMessage(ctx context.Context, cl client.MessageClient, vars model.Vars) error {
+func sendMessage(ctx context.Context, cl task.MessageClient, vars model.Vars) error {
 	if err := cl.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"success": 32768}); err != nil {
 		return fmt.Errorf("send continue message failed: %w", err)
 	}

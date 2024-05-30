@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/internal/integration-support"
 	"testing"
 
@@ -69,7 +70,7 @@ func TestReinstatementOfOldServiceTaskVersion(t *testing.T) {
 
 type testRegisterServiceTaskHandlerDef struct{}
 
-func (d *testRegisterServiceTaskHandlerDef) regSvcTask(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testRegisterServiceTaskHandlerDef) regSvcTask(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	vars["Success"] = true
 	return vars, nil

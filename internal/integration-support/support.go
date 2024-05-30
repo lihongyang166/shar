@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/client"
+	task2 "gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
@@ -526,7 +527,7 @@ func GetPackageName(packageNameStruct any) string {
 // It is not recommended to call the functions in succession in real world scenarios as it will cause a task version race condition.
 // Instead, call taskutil.LoadTaskFromYamlFile from an external application, and use taskutil.RegisterTaskFunctionFromYamlFile
 // inside the service task to register the function
-func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename string, fn client.ServiceFn) (string, error) {
+func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename string, fn task2.ServiceFn) (string, error) {
 	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, filename); err != nil {
 		return "", fmt.Errorf("load task from yaml file: %w", err)
 	}

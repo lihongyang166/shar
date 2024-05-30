@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"os"
 
@@ -77,17 +78,17 @@ func main() {
 	<-finished
 }
 
-func afterCallingSubProcess(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func afterCallingSubProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println(vars["x"])
 	return vars, nil
 }
 
-func duringSubProcess(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func duringSubProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	z := vars["z"].(int)
 	return model.Vars{"z": z + 41}, nil
 }
 
-func beforeCallingSubProcess(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func beforeCallingSubProcess(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	return model.Vars{"x": 1}, nil
 }
 

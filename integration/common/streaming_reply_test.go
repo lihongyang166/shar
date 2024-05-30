@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
-	client2 "gitlab.com/shar-workflow/shar/client"
+	task "gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/middleware"
@@ -199,7 +199,7 @@ func TestStreamingAPI(t *testing.T) {
 	defer it.Teardown()
 	nc, err := it.GetNats()
 	assert.NoError(t, err)
-	client := client2.New()
+	client := task.New()
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, ctxkey.SharNamespace, "default")
 	err = client.Dial(ctx, it.NatsURL)

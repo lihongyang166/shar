@@ -3,6 +3,7 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"log/slog"
 	"os"
@@ -75,14 +76,14 @@ type testMessagingMultiReceiverHandlerDef struct {
 	t        *testing.T
 }
 
-func (x *testMessagingMultiReceiverHandlerDef) step1(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
+func (x *testMessagingMultiReceiverHandlerDef) step1(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "Step 2", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
@@ -92,7 +93,7 @@ func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "Step 3", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
@@ -100,7 +101,7 @@ func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars) error {
+func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, client task.MessageClient, vars model.Vars) error {
 	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}

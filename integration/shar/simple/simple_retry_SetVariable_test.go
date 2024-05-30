@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -58,7 +59,7 @@ type testSimpleRetrySetVariableHandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *testSimpleRetrySetVariableHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleRetrySetVariableHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	return nil, fmt.Errorf("deliberate test fail")
 }
 

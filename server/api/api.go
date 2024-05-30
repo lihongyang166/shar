@@ -34,6 +34,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// WorkflowEngine represents an interface for executing and managing workflow processes.
+// It provides methods for various tasks such as canceling process instances, completing tasks,
+// retrieving workflow-related information, and managing workflow execution.
 type WorkflowEngine interface {
 	CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error
 	CompleteManualTask(ctx context.Context, job *model.WorkflowState, newVars []byte) error

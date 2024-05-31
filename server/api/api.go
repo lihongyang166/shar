@@ -59,6 +59,7 @@ type WorkflowEngine interface {
 	GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error)
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
 	GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)
+	HandleWorkflowError(ctx context.Context, errorCode string, message string, vars []byte, job *model.WorkflowState) error
 	Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error
 	Launch(ctx context.Context, processName string, vars []byte) (string, string, error)
 	ListExecutableProcesses(ctx context.Context, wch chan<- *model.ListExecutableProcessesItem, errs chan<- error)

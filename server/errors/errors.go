@@ -42,6 +42,8 @@ var (
 	ErrDeprecateServiceTaskInUse      = errors.New("attempt to deprecate service task in use")                                                   // ErrDeprecateServiceTaskInUse - the service task is in use.
 )
 
+var ErrUnhandledWorkflowError = errors.New("unhandled workflow error")
+
 const TraceLevel = -41   // TraceLevel specifies a custom level for trace logging.
 const VerboseLevel = -51 // VerboseLevel specifies a custom level vor verbose logging.
 

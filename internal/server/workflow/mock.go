@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	errors2 "errors"
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/common"
@@ -114,8 +115,16 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	}
 
 	wfErrHandler := func(ctx context.Context, ns string, trackingID string, errorCode string, binVars []byte) (*model.HandleWorkflowErrorResponse, error) {
-		// todo: refactor (s *SharServer) handleWorkflowError
-		return nil, nil
+		state, err := s.GetJob(ctx, trackingID)
+		if err != nil {
+			return nil, fmt.Errorf("get job: %w", err)
+		}
+		if err := s.HandleWorkflowError(ctx, errorCode, "", binVars, state); errors2.Is(err, errors.ErrUnhandledWorkflowError) {
+			return &model.HandleWorkflowErrorResponse{Handled: false}, nil
+		} else if err != nil {
+			return nil, fmt.Errorf("handle workflow error: %w", err)
+		}
+		return &model.HandleWorkflowErrorResponse{Handled: true}, nil
 	}
 
 	piErrHandler := func(ctx context.Context, processInstanceID string, wfe *model.Error) error {

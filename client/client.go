@@ -560,8 +560,8 @@ func (c *Client) GetTaskSpecUsage(ctx context.Context, id string) (*model.TaskSp
 }
 
 // CancelProcessInstance cancels a running Process Instance.
-func (c *Client) CancelProcessInstance(ctx context.Context, executionID string) error {
-	return c.cancelProcessInstanceWithError(ctx, executionID, nil)
+func (c *Client) CancelProcessInstance(ctx context.Context, processInstanceId string) error {
+	return c.cancelProcessInstanceWithError(ctx, processInstanceId, nil)
 }
 
 func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInstanceID string, wfe *model.Error) error {
@@ -572,7 +572,7 @@ func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInst
 		Error: wfe,
 	}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APICancelExecution, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APICancelProcessInstance, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil

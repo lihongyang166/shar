@@ -192,6 +192,7 @@ func (s *SharServer) cancelProcessInstance(ctx context.Context, req *model.Cance
 	}
 	// TODO: get working state here
 	state := &model.WorkflowState{
+		ExecutionId:       instance.ExecutionId,
 		ProcessInstanceId: instance.ProcessInstanceId,
 		State:             req.State,
 		Error:             req.Error,

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/internal/common/client"
 	"gitlab.com/shar-workflow/shar/model"
+	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
 	"log/slog"
@@ -46,6 +48,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, svcFn task.ServiceFn, inVars model.Vars) (model.Vars, error) {
 		pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
 		pidCtx = client.ReParentSpan(pidCtx, job)
+		pidCtx = context.WithValue(ctx, "taskDef", job.ExecuteVersion)
 		jc := &jobClient{trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
 		if job.State == model.CancellationState_compensating {
 			var err error
@@ -83,14 +86,26 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	}
 
 	svcFnLocator := func(job *model.WorkflowState) (task.ServiceFn, error) {
-		return mockServiceFunction, nil
+		return s.mockServiceFunction, nil
 	}
 
 	msgFnLocator := func(job *model.WorkflowState) (task.SenderFn, error) {
-		return mockMessageFunction, nil
+		return s.mockMessageFunction, nil
 	}
 
 	svcTaskCompleter := func(ctx context.Context, trackingID string, newVars model.Vars, compensating bool) error {
+		job, err := s.GetJob(ctx, trackingID)
+		if err != nil {
+			return fmt.Errorf("get job: %w", err)
+		}
+		b, err := vars.Encode(ctx, newVars)
+		if err != nil {
+			return fmt.Errorf("encode vars: %w", err)
+		}
+		err = s.CompleteServiceTask(ctx, job, b)
+		if err != nil {
+			return fmt.Errorf("complete service task: %w", err)
+		}
 		return nil
 	}
 
@@ -99,10 +114,24 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	}
 
 	wfErrHandler := func(ctx context.Context, ns string, trackingID string, errorCode string, binVars []byte) (*model.HandleWorkflowErrorResponse, error) {
+		// todo: refactor (s *SharServer) handleWorkflowError
 		return nil, nil
 	}
 
 	piErrHandler := func(ctx context.Context, processInstanceID string, wfe *model.Error) error {
+		pi, err := s.GetProcessInstance(ctx, processInstanceID)
+		if err != nil {
+			return fmt.Errorf("get process instance: %w", err)
+		}
+		state := &model.WorkflowState{
+			ExecutionId:       pi.ExecutionId,
+			ProcessInstanceId: pi.ProcessInstanceId,
+			State:             model.CancellationState_errored,
+			Error:             wfe,
+		}
+		if err := s.CancelProcessInstance(ctx, state); err != nil {
+			return fmt.Errorf("cancel process instance: %w", err)
+		}
 		return nil
 	}
 
@@ -119,17 +148,45 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 
 	subject := messages.WorkflowJobServiceTaskExecute + ".*.Mock"
 
-	err := common.Process(ctx, s.js, "WORKFLOW", "traversal", s.closing, subj.NS(subject, "*"), "Traversal", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, s, params))
+	err := common.Process(ctx, s.js, "WORKFLOW", "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, s, params))
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}
 	return nil
 }
 
-func mockServiceFunction(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
-	return model.Vars{}, nil
+func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
+	newVars := model.Vars{}
+	ts, err := s.GetTaskSpecByUID(ctx, ctx.Value("taskDef").(string))
+	if err != nil {
+		return newVars, fmt.Errorf("get task spec: %w", err)
+	}
+	for _, outParam := range ts.Parameters.Output {
+		example := outParam.Example
+		if example != "" {
+			v, err := expression.EvalAny(ctx, example, vars)
+			if err != nil {
+				return newVars, &errors.ErrWorkflowFatal{Err: fmt.Errorf("eval example expression: %w", err)}
+			}
+			newVars[outParam.Name] = v
+		} else {
+			var v any
+			switch outParam.Type {
+			case "string":
+				v = ""
+			case "bool":
+				v = false
+			case "float":
+				v = 0.0
+			case "int":
+				v = 0
+			}
+			newVars[outParam.Name] = v
+		}
+	}
+	return newVars, nil
 }
 
-func mockMessageFunction(ctx context.Context, client task.MessageClient, vars model.Vars) error {
+func (s *Engine) mockMessageFunction(ctx context.Context, client task.MessageClient, vars model.Vars) error {
 	return nil
 }

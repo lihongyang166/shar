@@ -52,8 +52,8 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	if uint32(meta.NumDelivered) >= retryBehaviour.Number {
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
-			if err := c.CancelProcessInstance(ctx, state.ExecutionId); err != nil {
-				return fmt.Errorf("cancelling workflow instance: %w", err)
+			if err := c.CancelProcessInstance(ctx, state.ProcessInstanceId); err != nil {
+				return fmt.Errorf("cancelling process instance: %w", err)
 			}
 			return nil
 		case model.RetryErrorAction_ThrowWorkflowError:

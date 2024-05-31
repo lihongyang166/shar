@@ -239,6 +239,9 @@ func (s *Engine) StartProcessing(ctx context.Context) error {
 		return fmt.Errorf("start gateway execute handler: %w", err)
 	}
 
+	if err := s.processMockServices(ctx); err != nil {
+		return fmt.Errorf("start mock services handler: %w", err)
+	}
 	return nil
 }
 
@@ -1855,7 +1858,6 @@ func (s *Engine) ListExecutableProcesses(ctx context.Context, wch chan<- *model.
 // StartJob launches a user/service task
 func (s *Engine) StartJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...PublishOpt) error {
 	job.Execute = &el.Execute
-
 	// el.Version is only used for versioned tasks such as service tasks
 	if el.Version != nil {
 		job.ExecuteVersion = *el.Version
@@ -1885,6 +1887,15 @@ func (s *Engine) StartJob(ctx context.Context, subject string, job *model.Workfl
 
 		job.Owners = owners
 		job.Groups = groups
+	}
+	if el.Type == element.ServiceTask {
+		def, err := s.GetTaskSpecByUID(ctx, *el.Version)
+		if err != nil {
+			return fmt.Errorf("get task spec by uid: %w", err)
+		}
+		if def.Behaviour != nil && def.Behaviour.Mock {
+			subject += ".Mock"
+		}
 	}
 
 	// create the job

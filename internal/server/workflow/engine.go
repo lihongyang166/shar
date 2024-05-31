@@ -637,18 +637,6 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 				return fmt.Errorf("engine failed to get task spec id: %w", &errors.ErrWorkflowFatal{Err: err})
 			}
 			el.Version = &v
-		} else {
-			def, err := c.GetTaskSpecByUID(ctx, *el.Version)
-			if err != nil {
-				return fmt.Errorf("get tsask spec by uid: %w", err)
-			}
-			if def.Behaviour != nil && def.Behaviour.Mock {
-				err := c.mockCompleteServiceTask(ctx, def, el, newState)
-				if err != nil {
-					return fmt.Errorf("mocked service task '%s' failed: %w", el.Execute, err)
-				}
-				return nil
-			}
 		}
 		if err != nil {
 			return fmt.Errorf("get service task routing key during activity start processor: %w", err)
@@ -771,76 +759,77 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	return nil
 }
 
-func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpec, el *model.Element, traversal *model.WorkflowState) error {
-	state := common.CopyWorkflowState(traversal)
-	// Extract workflow inputs
-	localVars := make(map[string]interface{})
-	processVars, err := vars.Decode(ctx, state.Vars)
-	if err != nil {
-		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("decode old input variables: %w", err)}
-	}
-	for k, v := range el.InputTransform {
-		res, err := expression.EvalAny(ctx, v, processVars)
+/*
+	func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpec, el *model.Element, traversal *model.WorkflowState) error {
+		state := common.CopyWorkflowState(traversal)
+		// Extract workflow inputs
+		localVars := make(map[string]interface{})
+		processVars, err := vars.Decode(ctx, state.Vars)
 		if err != nil {
-			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("input transform expression evalutaion failed: %w", err)}
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("decode old input variables: %w", err)}
 		}
-		localVars[k] = res
-	}
+		for k, v := range el.InputTransform {
+			res, err := expression.EvalAny(ctx, v, processVars)
+			if err != nil {
+				return &errors.ErrWorkflowFatal{Err: fmt.Errorf("input transform expression evalutaion failed: %w", err)}
+			}
+			localVars[k] = res
+		}
 
-	if def.Parameters != nil {
-		// Inject missing inputs
-		if def.Parameters.Input != nil {
-			for _, v := range def.Parameters.Input {
-				if _, ok := localVars[v.Name]; !ok && v.Example != "" {
-					res, err := expression.EvalAny(ctx, v.Example, localVars)
-					if err != nil {
-						return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example input value expression: %w", err)}
+		if def.Parameters != nil {
+			// Inject missing inputs
+			if def.Parameters.Input != nil {
+				for _, v := range def.Parameters.Input {
+					if _, ok := localVars[v.Name]; !ok && v.Example != "" {
+						res, err := expression.EvalAny(ctx, v.Example, localVars)
+						if err != nil {
+							return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example input value expression: %w", err)}
+						}
+						localVars[v.Name] = res
 					}
-					localVars[v.Name] = res
+				}
+			}
+
+			// Transform for example outputs
+			if def.Parameters.Output != nil {
+				for _, v := range def.Parameters.Output {
+					if v.Example != "" {
+						res, err := expression.EvalAny(ctx, v.Example, localVars)
+						if err != nil {
+							return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example value expression: %w", err)}
+						}
+						localVars[v.Name] = res
+					}
 				}
 			}
 		}
 
-		// Transform for example outputs
-		if def.Parameters.Output != nil {
-			for _, v := range def.Parameters.Output {
-				if v.Example != "" {
-					res, err := expression.EvalAny(ctx, v.Example, localVars)
-					if err != nil {
-						return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example value expression: %w", err)}
-					}
-					localVars[v.Name] = res
-				}
+		// Set process vars
+		for k, v := range el.OutputTransform {
+			res, err := expression.EvalAny(ctx, v, localVars)
+			if err != nil {
+				return fmt.Errorf("evaluate output transform expression: %w", err)
 			}
+			processVars[k] = res
 		}
-	}
-
-	// Set process vars
-	for k, v := range el.OutputTransform {
-		res, err := expression.EvalAny(ctx, v, localVars)
+		b, err := vars.Encode(ctx, processVars)
 		if err != nil {
-			return fmt.Errorf("evaluate output transform expression: %w", err)
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("encode output process variables: %w", err)}
 		}
-		processVars[k] = res
-	}
-	b, err := vars.Encode(ctx, processVars)
-	if err != nil {
-		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("encode output process variables: %w", err)}
-	}
-	state.Vars = b
+		state.Vars = b
 
-	common.DropStateParams(state)
+		common.DropStateParams(state)
 
-	if err := c.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
-		return c.engineErr(ctx, "publish workflow cancellationState", err)
-		//TODO: report this without process: apErrFields(wfi.WorkflowInstanceId, wfi.WorkflowId, el.Id, el.Name, el.Type, process.Name)
+		if err := c.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
+			return c.engineErr(ctx, "publish workflow cancellationState", err)
+			//TODO: report this without process: apErrFields(wfi.WorkflowInstanceId, wfi.WorkflowId, el.Id, el.Name, el.Type, process.Name)
+		}
+		if err := c.RecordHistoryActivityComplete(ctx, state); err != nil {
+			return c.engineErr(ctx, "record history activity complete", &errors.ErrWorkflowFatal{Err: err})
+		}
+		return nil
 	}
-	if err := c.RecordHistoryActivityComplete(ctx, state); err != nil {
-		return c.engineErr(ctx, "record history activity complete", &errors.ErrWorkflowFatal{Err: err})
-	}
-	return nil
-}
-
+*/
 func (c *Engine) completeActivity(ctx context.Context, state *model.WorkflowState) error {
 	// tell the world that we processed the activity
 	common.DropStateParams(state)

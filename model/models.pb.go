@@ -6834,7 +6834,7 @@ type TaskMockBehaviours struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ErrorCodeExpr  string `protobuf:"bytes,1,opt,name=ErrorCodeExpr,proto3" json:"ErrorCodeExpr,omitempty"`   // WorkflowErrorCodeExpr generates a workflow error if the expression evaluates to true.  If this is, or returns an empty string, no error is returned.
+	ErrorCodeExpr  string `protobuf:"bytes,1,opt,name=ErrorCodeExpr,proto3" json:"ErrorCodeExpr,omitempty"`   // WorkflowErrorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned.
 	FatalErrorExpr string `protobuf:"bytes,2,opt,name=FatalErrorExpr,proto3" json:"FatalErrorExpr,omitempty"` // FatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error.
 }
 

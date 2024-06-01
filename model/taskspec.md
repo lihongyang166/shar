@@ -66,7 +66,7 @@
 
 | name | type | description | validation |
 |------|------|-------------|------------|
-| ErrorCodeExpr | string | WorkflowErrorCodeExpr generates a workflow error if the expression evaluates to true.  If this is, or returns an empty string, no error is returned. |   |
+| ErrorCodeExpr | string | WorkflowErrorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
 | FatalErrorExpr | string | FatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
 ### TaskParameters
 

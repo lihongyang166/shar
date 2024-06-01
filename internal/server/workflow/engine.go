@@ -1218,6 +1218,10 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 	return true, 0, nil
 }
 
+// HandleWorkflowError handles a workflow error by looking up the error definitions in the workflow,
+// determining the appropriate action to take, and publishing the necessary workflow state updates.
+// It returns an error if there was an issue retrieving the workflow definition, if the workflow
+// doesn't support the specified error code.
 func (c *Engine) HandleWorkflowError(ctx context.Context, errorCode string, message string, inVars []byte, job *model.WorkflowState) error {
 	// Get the workflow, so we can look up the error definitions
 	wf, err := c.GetWorkflow(ctx, job.WorkflowId)

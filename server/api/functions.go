@@ -219,16 +219,14 @@ func (s *SharServer) handleWorkflowError(ctx context.Context, req *model.HandleW
 	}
 
 	err := s.engine.HandleWorkflowError(ctx, req.ErrorCode, req.Message, req.Vars, job)
-	if errors.Is(err, ErrErrorUnhandled) {
+	if errors.Is(err, errors2.ErrUnhandledWorkflowError) {
 		return &model.HandleWorkflowErrorResponse{Handled: false}, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("handle workflow error: %w", err)
 	}
 	return &model.HandleWorkflowErrorResponse{Handled: true}, nil
 }
-
-var ErrErrorUnhandled = errors.New("error not handled")
 
 func (s *SharServer) listUserTaskIDs(ctx context.Context, req *model.ListUserTasksRequest) (*model.UserTasks, error) {
 	ctx, err2 := s.authForNonWorkflow(ctx)

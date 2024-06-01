@@ -12,6 +12,7 @@ import (
 	"gitlab.com/shar-workflow/shar/internal/common/client"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
+	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
 	"log/slog"
@@ -50,7 +51,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, svcFn task.ServiceFn, inVars model.Vars) (model.Vars, error) {
 		pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
 		pidCtx = client.ReParentSpan(pidCtx, job)
-		pidCtx = context.WithValue(ctx, "taskDef", job.ExecuteVersion)
+		pidCtx = context.WithValue(pidCtx, keys.ContextKey("taskDef"), job.ExecuteVersion)
 		jc := &jobClient{trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
 		if job.State == model.CancellationState_compensating {
 			var err error
@@ -167,7 +168,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 
 func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	newVars := model.Vars{}
-	ts, err := s.GetTaskSpecByUID(ctx, ctx.Value("taskDef").(string))
+	ts, err := s.GetTaskSpecByUID(ctx, ctx.Value(keys.ContextKey("taskDef")).(string))
 	if err != nil {
 		return newVars, fmt.Errorf("get task spec: %w", err)
 	}

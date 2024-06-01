@@ -8,6 +8,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/common/workflow"
 	"gitlab.com/shar-workflow/shar/internal/common/client"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
@@ -170,6 +171,22 @@ func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient,
 	if err != nil {
 		return newVars, fmt.Errorf("get task spec: %w", err)
 	}
+	fatalError := false
+	wfError := ""
+	if ts.Behaviour != nil && ts.Behaviour.MockBehaviour != nil {
+		var err error
+		if b := ts.Behaviour.MockBehaviour.ErrorCodeExpr; b != "" {
+			if fatalError, err = expression.Eval[bool](ctx, b, vars); err != nil {
+				return newVars, fmt.Errorf("evaluate mock fatal error expression: %w", err)
+			}
+			if wfError, err = expression.Eval[string](ctx, b, vars); err != nil {
+				return newVars, fmt.Errorf("evaluate mock workflow error expression: %w", err)
+			}
+		}
+	}
+	if fatalError {
+		return newVars, &errors.ErrWorkflowFatal{Err: fmt.Errorf("mock fatal error")}
+	}
 	for _, outParam := range ts.Parameters.Output {
 		example := outParam.Example
 		if example != "" {
@@ -192,6 +209,9 @@ func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient,
 			}
 			newVars[outParam.Name] = v
 		}
+	}
+	if wfError != "" {
+		return newVars, &workflow.Error{Code: wfError, WrappedError: errors2.New("simulated mock error")}
 	}
 	return newVars, nil
 }

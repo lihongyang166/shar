@@ -177,13 +177,16 @@ func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient,
 	if ts.Behaviour != nil && ts.Behaviour.MockBehaviour != nil {
 		var err error
 		if b := ts.Behaviour.MockBehaviour.ErrorCodeExpr; b != "" {
-			if fatalError, err = expression.Eval[bool](ctx, b, vars); err != nil {
-				return newVars, fmt.Errorf("evaluate mock fatal error expression: %w", err)
-			}
 			if wfError, err = expression.Eval[string](ctx, b, vars); err != nil {
 				return newVars, fmt.Errorf("evaluate mock workflow error expression: %w", err)
 			}
 		}
+		if b := ts.Behaviour.MockBehaviour.FatalErrorExpr; b != "" {
+			if fatalError, err = expression.Eval[bool](ctx, b, vars); err != nil {
+				return newVars, fmt.Errorf("evaluate mock fatal error expression: %w", err)
+			}
+		}
+
 	}
 	if fatalError {
 		return newVars, &errors.ErrWorkflowFatal{Err: fmt.Errorf("mock fatal error")}

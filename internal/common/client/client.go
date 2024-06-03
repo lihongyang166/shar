@@ -193,7 +193,7 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, jobGetter 
 			if err != nil {
 				var handled bool
 				wfe := &workflow.Error{}
-				if errors2.As(err, wfe) {
+				if errors2.As(err, &wfe) {
 					v, err := vars.Encode(ctx, newVars)
 					if err != nil {
 						return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("encode service task variables: %w", err)}

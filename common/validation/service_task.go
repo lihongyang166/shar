@@ -49,6 +49,22 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 		}
 	}
 
+	// Mock behaviour
+	if td.Behaviour != nil || td.Behaviour.MockBehaviour != nil {
+		if ex := td.Behaviour.MockBehaviour.ErrorCodeExpr; ex != "" {
+			ex = strings.TrimPrefix(ex, "=")
+			if _, err := expr.Compile(ex); err != nil {
+				return fmt.Errorf("%s has a bad mock error code expression: %w", td.Metadata.Type, err)
+			}
+		}
+		if ex := td.Behaviour.MockBehaviour.FatalErrorExpr; ex != "" {
+			ex = strings.TrimPrefix(ex, "=")
+			if _, err := expr.Compile(ex); err != nil {
+				return fmt.Errorf("%s has a bad mock fatal error expression: %w", td.Metadata.Type, err)
+			}
+		}
+	}
+
 	// Parameters
 	if td.Parameters != nil && td.Parameters.Input != nil {
 		for _, v := range td.Parameters.Input {

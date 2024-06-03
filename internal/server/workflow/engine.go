@@ -637,18 +637,6 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 				return fmt.Errorf("engine failed to get task spec id: %w", &errors.ErrWorkflowFatal{Err: err})
 			}
 			el.Version = &v
-		} else {
-			def, err := c.GetTaskSpecByUID(ctx, *el.Version)
-			if err != nil {
-				return fmt.Errorf("get tsask spec by uid: %w", err)
-			}
-			if def.Behaviour != nil && def.Behaviour.Mock {
-				err := c.mockCompleteServiceTask(ctx, def, el, newState)
-				if err != nil {
-					return fmt.Errorf("mocked service task '%s' failed: %w", el.Execute, err)
-				}
-				return nil
-			}
 		}
 		if err != nil {
 			return fmt.Errorf("get service task routing key during activity start processor: %w", err)
@@ -767,76 +755,6 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		if err := c.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, newState); err != nil {
 			return c.engineErr(ctx, "publish workflow status", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
-	}
-	return nil
-}
-
-func (c *Engine) mockCompleteServiceTask(ctx context.Context, def *model.TaskSpec, el *model.Element, traversal *model.WorkflowState) error {
-	state := common.CopyWorkflowState(traversal)
-	// Extract workflow inputs
-	localVars := make(map[string]interface{})
-	processVars, err := vars.Decode(ctx, state.Vars)
-	if err != nil {
-		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("decode old input variables: %w", err)}
-	}
-	for k, v := range el.InputTransform {
-		res, err := expression.EvalAny(ctx, v, processVars)
-		if err != nil {
-			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("input transform expression evalutaion failed: %w", err)}
-		}
-		localVars[k] = res
-	}
-
-	if def.Parameters != nil {
-		// Inject missing inputs
-		if def.Parameters.Input != nil {
-			for _, v := range def.Parameters.Input {
-				if _, ok := localVars[v.Name]; !ok && v.Example != "" {
-					res, err := expression.EvalAny(ctx, v.Example, localVars)
-					if err != nil {
-						return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example input value expression: %w", err)}
-					}
-					localVars[v.Name] = res
-				}
-			}
-		}
-
-		// Transform for example outputs
-		if def.Parameters.Output != nil {
-			for _, v := range def.Parameters.Output {
-				if v.Example != "" {
-					res, err := expression.EvalAny(ctx, v.Example, localVars)
-					if err != nil {
-						return &errors.ErrWorkflowFatal{Err: fmt.Errorf("evaluate example value expression: %w", err)}
-					}
-					localVars[v.Name] = res
-				}
-			}
-		}
-	}
-
-	// Set process vars
-	for k, v := range el.OutputTransform {
-		res, err := expression.EvalAny(ctx, v, localVars)
-		if err != nil {
-			return fmt.Errorf("evaluate output transform expression: %w", err)
-		}
-		processVars[k] = res
-	}
-	b, err := vars.Encode(ctx, processVars)
-	if err != nil {
-		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("encode output process variables: %w", err)}
-	}
-	state.Vars = b
-
-	common.DropStateParams(state)
-
-	if err := c.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
-		return c.engineErr(ctx, "publish workflow cancellationState", err)
-		//TODO: report this without process: apErrFields(wfi.WorkflowInstanceId, wfi.WorkflowId, el.Id, el.Name, el.Type, process.Name)
-	}
-	if err := c.RecordHistoryActivityComplete(ctx, state); err != nil {
-		return c.engineErr(ctx, "record history activity complete", &errors.ErrWorkflowFatal{Err: err})
 	}
 	return nil
 }
@@ -1227,4 +1145,115 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 		}
 	}
 	return true, 0, nil
+}
+
+// HandleWorkflowError handles a workflow error by looking up the error definitions in the workflow,
+// determining the appropriate action to take, and publishing the necessary workflow state updates.
+// It returns an error if there was an issue retrieving the workflow definition, if the workflow
+// doesn't support the specified error code.
+func (c *Engine) HandleWorkflowError(ctx context.Context, errorCode string, message string, inVars []byte, job *model.WorkflowState) error {
+	// Get the workflow, so we can look up the error definitions
+	wf, err := c.GetWorkflow(ctx, job.WorkflowId)
+	if err != nil {
+		return fmt.Errorf("get workflow definition for handle workflow error: %w", err)
+	}
+
+	// Get the element corresponding to the job
+	els := common.ElementTable(wf)
+
+	// Get the current element
+	el := els[job.ElementId]
+
+	// Get the errors supported by this workflow
+	var found bool
+	wfErrs := make(map[string]*model.Error)
+	for _, v := range wf.Errors {
+		if v.Code == errorCode {
+			found = true
+		}
+		wfErrs[v.Id] = v
+	}
+	if !found {
+		werr := &errors.ErrWorkflowFatal{Err: fmt.Errorf("workflow-fatal: can't handle error code %s as the workflow doesn't support it: %w", errorCode, errors.ErrWorkflowErrorNotFound)}
+		// TODO: This always assumes service task.  Wrong!
+		if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
+			return fmt.Errorf("cencel job: %w", werr)
+		}
+
+		cancelState := common.CopyWorkflowState(job)
+		cancelState.State = model.CancellationState_errored
+		cancelState.Error = &model.Error{
+			Id:   "UNKNOWN",
+			Name: "UNKNOWN",
+			Code: errorCode,
+		}
+		if err := c.CancelProcessInstance(ctx, cancelState); err != nil {
+			return fmt.Errorf("cancel workflow instance: %w", werr)
+		}
+		return fmt.Errorf("workflow halted: %w", werr)
+	}
+
+	// Get the errors associated with this element
+	var errDef *model.Error
+	var caughtError *model.CatchError
+	for _, v := range el.Errors {
+		wfErr := wfErrs[v.ErrorId]
+		if errorCode == wfErr.Code {
+			errDef = wfErr
+			caughtError = v
+			break
+		}
+	}
+
+	if errDef == nil {
+		return errors.ErrUnhandledWorkflowError
+	}
+
+	// Get the target workflow activity
+	target := els[caughtError.Target]
+
+	oldState, err := c.GetOldState(ctx, common.TrackingID(job.Id).Pop().ID())
+	if err != nil {
+		return fmt.Errorf("get old state for handle workflow error: %w", err)
+	}
+	if err := vars.OutputVars(ctx, inVars, &oldState.Vars, caughtError.OutputTransform); err != nil {
+		return &errors.ErrWorkflowFatal{Err: err}
+	}
+	if err := c.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
+		ElementType: target.Type,
+		ElementId:   target.Id,
+		WorkflowId:  job.WorkflowId,
+		//WorkflowInstanceId: job.WorkflowInstanceId,
+		ExecutionId:       job.ExecutionId,
+		Id:                common.TrackingID(job.Id).Pop().Pop(),
+		Vars:              oldState.Vars,
+		WorkflowName:      wf.Name,
+		ProcessInstanceId: job.ProcessInstanceId,
+		ProcessName:       job.ProcessName,
+	}); err != nil {
+		log := logx.FromContext(ctx)
+		log.Error("publish workflow state", "error", err)
+		return fmt.Errorf("publish traversal for handle workflow error: %w", err)
+	}
+	// TODO: This always assumes service task.  Wrong!
+	if err := c.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, &model.WorkflowState{
+		ElementType: target.Type,
+		ElementId:   target.Id,
+		WorkflowId:  job.WorkflowId,
+		//WorkflowInstanceId: job.WorkflowInstanceId,
+		ExecutionId:       job.ExecutionId,
+		Id:                job.Id,
+		Vars:              job.Vars,
+		WorkflowName:      wf.Name,
+		ProcessInstanceId: job.ProcessInstanceId,
+		ProcessName:       job.ProcessName,
+	}); err != nil {
+		log := logx.FromContext(ctx)
+		log.Error("publish workflow state", "error", err)
+		// We have already traversed so retunring an error here would be incorrect.
+		// It would force reprocessing and possibly double traversing
+		// TODO: develop an idempotent behaviour based upon hash nats message ids + deduplication
+		return fmt.Errorf("publish abort task for handle workflow error: %w", err)
+	}
+	return nil
 }

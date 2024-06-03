@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -148,17 +149,17 @@ type gatewayTest struct {
 	finished chan struct{}
 }
 
-func (g *gatewayTest) stage3(ctx context.Context, jobClient client.JobClient, vars model.Vars) (model.Vars, error) {
+func (g *gatewayTest) stage3(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 3")
 	return vars, nil
 }
 
-func (g *gatewayTest) stage2(ctx context.Context, jobClient client.JobClient, vars model.Vars) (model.Vars, error) {
+func (g *gatewayTest) stage2(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 2")
 	return model.Vars{"value2": 2}, nil
 }
 
-func (g *gatewayTest) stage1(ctx context.Context, jobClient client.JobClient, vars model.Vars) (model.Vars, error) {
+func (g *gatewayTest) stage1(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 1")
 	return model.Vars{"value1": 1}, nil
 }

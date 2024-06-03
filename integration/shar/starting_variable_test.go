@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -53,7 +54,7 @@ type testStartingVariableHandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *testStartingVariableHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testStartingVariableHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	fmt.Println("carried", vars["carried"])
 	return vars, nil

@@ -3,6 +3,7 @@ package error
 import (
 	"context"
 	"errors"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -75,13 +76,13 @@ type errorHandledHandlerDef struct {
 }
 
 // A "Hello World" service task
-func (d *errorHandledHandlerDef) mayFail(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func (d *errorHandledHandlerDef) mayFail(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	// Throw handled error
-	return model.Vars{"success": false, "myVar": 69}, workflow.Error{Code: "101", WrappedError: errors.New("things went badly")}
+	return model.Vars{"success": false, "myVar": 69}, &workflow.Error{Code: "101", WrappedError: errors.New("things went badly")}
 }
 
 // A "Hello World" service task
-func (d *errorHandledHandlerDef) fixSituation(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *errorHandledHandlerDef) fixSituation(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	assert.Equal(d.test, 69, vars["testVal"])
 	assert.Equal(d.test, 32768, vars["carried"])
 	d.fixed = true

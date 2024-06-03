@@ -105,7 +105,7 @@ const InternalProcessInstanceId keys.ContextKey = "__INTERNAL_PIID"
 // Returns:
 // - A function that processes client messages and returns a boolean and an error.
 // The boolean indicates whether the message processing is complete, and the error provides any encountered error.
-func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, jobGetter JobGetter, params ServiceTaskProcessParams) func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery bool, jobGetter JobGetter, params ServiceTaskProcessParams) func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 	return func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		counter.Add(1)
 		defer func() {
@@ -189,7 +189,19 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, jobGetter 
 				log.Error("decode vars", "error", err, slog.String("fn", *job.Execute))
 				return false, fmt.Errorf("decode service task job variables: %w", err)
 			}
-			newVars, err := params.SvcFnExecutor(ctx, trackingID, job, svcFn, dv)
+			newVars, err := func(noRecovery bool) (v model.Vars, e error) {
+
+				if !noRecovery {
+					defer func() {
+						if r := recover(); r != nil {
+							v = model.Vars{}
+							e = &errors.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error))}
+						}
+					}()
+				}
+				vrs, err := params.SvcFnExecutor(ctx, trackingID, job, svcFn, dv)
+				return vrs, err
+			}(noRecovery)
 			if err != nil {
 				var handled bool
 				wfe := &workflow.Error{}

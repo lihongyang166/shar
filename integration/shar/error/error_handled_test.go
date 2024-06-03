@@ -78,7 +78,7 @@ type errorHandledHandlerDef struct {
 // A "Hello World" service task
 func (d *errorHandledHandlerDef) mayFail(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	// Throw handled error
-	return model.Vars{"success": false, "myVar": 69}, workflow.Error{Code: "101", WrappedError: errors.New("things went badly")}
+	return model.Vars{"success": false, "myVar": 69}, &workflow.Error{Code: "101", WrappedError: errors.New("things went badly")}
 }
 
 // A "Hello World" service task

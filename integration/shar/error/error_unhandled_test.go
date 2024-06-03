@@ -79,7 +79,7 @@ type testErrorUnhandledHandlerDef struct {
 // A "Hello World" service task
 func (d *testErrorUnhandledHandlerDef) mayFail(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Throw unhandled error")
-	return model.Vars{"success": false}, workflow.Error{Code: "102"}
+	return model.Vars{"success": false}, &workflow.Error{Code: "102"}
 }
 
 // A "Hello World" service task

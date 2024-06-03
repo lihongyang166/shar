@@ -159,7 +159,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 
 	subject := messages.WorkflowJobServiceTaskExecute + ".*.Mock"
 
-	err := common.Process(ctx, s.js, "WORKFLOW", "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, s, params), s.SignalFatalError)
+	err := common.Process(ctx, s.js, "WORKFLOW", "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, false, s, params), s.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}

@@ -168,6 +168,13 @@ streams:
           filter_subject: WORKFLOW.Message.Telemetry
           max_ack_pending: 1
       - nats-config:
+          durable_name: MockTaskConsumer
+          description: Mock task consumer
+          ack_policy: 0
+          ack_wait: 1s
+          filter_subject: WORKFLOW.*.State.Job.Execute.ServiceTask.*.Mock
+          max_ack_pending: 65535
+      - nats-config:
           durable_name: UndeliveredMsgConsumer
           description: Undeliverable workflow message queue.  Messages should be looked up in the WORKFLOW-MIRROR stream to avoid disappointment.
           ack_policy: 0

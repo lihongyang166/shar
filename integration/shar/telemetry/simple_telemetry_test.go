@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -87,7 +88,7 @@ type testSimpleTelemetryHandlerDef struct {
 	originalTrace trace.TraceID
 }
 
-func (d *testSimpleTelemetryHandlerDef) integrationSimple(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleTelemetryHandlerDef) integrationSimple(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	sctx := trace.SpanContextFromContext(ctx)
 	assert.Equal(d.t, d.originalTrace.String(), sctx.TraceID().String())
 	assert.NotEqual(d.t, d.originalSpan.String(), sctx.SpanID().String())

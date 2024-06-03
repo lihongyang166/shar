@@ -19,6 +19,9 @@ behaviour:
     defaultExceeded:
       action: 3
   mock: true
+  mockBehaviour:
+    errorCodeExpr: =errorCode
+    fatalErrorExpr: =carried==100
 parameters:
   input:
   - name: carried
@@ -28,6 +31,12 @@ parameters:
     mandatory: true
     validateExpr: =param["number"] matches "[0-9]*"
     example: = 0
+  - name: errorCode
+    short: error code value
+    description: The task will throw an error with this code if errorCode is not an empty string.
+    type: string
+    mandatory: true
+    example: = ""
   - name: localVar
     short: A workflow local variable
     description: A test value to ensure that local variables are carried across.

@@ -3,11 +3,12 @@ package taskutil
 import (
 	"context"
 	"fmt"
+	task2 "gitlab.com/shar-workflow/shar/common/task"
 	"os"
 
 	"github.com/goccy/go-yaml"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/common/task"
+	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -31,7 +32,7 @@ func LoadTaskYaml(ctx context.Context, c *client.Client, taskYaml []byte) (uid s
 	if err := c.StoreTask(ctx, yml); err != nil {
 		return uid, fmt.Errorf("RegisterTaskYaml: %w", err)
 	}
-	if uid, err = task.CreateUID(yml); err != nil {
+	if uid, err = task2.CreateUID(yml); err != nil {
 		return uid, fmt.Errorf("RegisterTaskYaml: %w", err)
 	}
 	return uid, nil
@@ -40,7 +41,7 @@ func LoadTaskYaml(ctx context.Context, c *client.Client, taskYaml []byte) (uid s
 // RegisterTaskFunctionFromYaml registers a service task with a task spec from YAML.
 // It first loads and parses the task YAML,
 // and then calls the RegisterTaskFunction method on the client object to register the task.
-func RegisterTaskFunctionFromYaml(ctx context.Context, c *client.Client, taskYaml []byte, fn client.ServiceFn) (string, error) {
+func RegisterTaskFunctionFromYaml(ctx context.Context, c *client.Client, taskYaml []byte, fn task.ServiceFn) (string, error) {
 	yml, err := LoadSpecFromBytes(c, taskYaml)
 	if err != nil {
 		return "", fmt.Errorf("RegisterTaskFromYaml: %w", err)
@@ -48,7 +49,7 @@ func RegisterTaskFunctionFromYaml(ctx context.Context, c *client.Client, taskYam
 	if err := c.RegisterTaskFunction(ctx, yml, fn); err != nil {
 		return "", fmt.Errorf("RegisterTaskYaml: %w", err)
 	}
-	uid, err := task.CreateUID(yml)
+	uid, err := task2.CreateUID(yml)
 	if err != nil {
 		return "", fmt.Errorf("RegisterTaskYaml: %w", err)
 	}
@@ -71,7 +72,7 @@ func LoadTaskFromYamlFile(ctx context.Context, cl *client.Client, yamlFile strin
 // RegisterTaskFunctionFromYamlFile registers a service task function from a task spec YAML file.
 // It first loads and parses the task YAML,
 // and then calls the RegisterTaskFunction method on the client object to register the task function.
-func RegisterTaskFunctionFromYamlFile(ctx context.Context, c *client.Client, yamlFile string, fn client.ServiceFn) (string, error) {
+func RegisterTaskFunctionFromYamlFile(ctx context.Context, c *client.Client, yamlFile string, fn task.ServiceFn) (string, error) {
 	sb, err := os.ReadFile(yamlFile)
 	if err != nil {
 		return "", fmt.Errorf("register task yaml file: %w", err)

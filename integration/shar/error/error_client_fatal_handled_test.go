@@ -3,6 +3,7 @@ package error
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -68,7 +69,7 @@ type fatalErrorHandledHandlerDef struct {
 	fatalErr chan struct{}
 }
 
-func (d *fatalErrorHandledHandlerDef) willPanicAndCauseWorkflowFatalError(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func (d *fatalErrorHandledHandlerDef) willPanicAndCauseWorkflowFatalError(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	// panic and cause a WorkflowFatalError
 	if true {
 		panic(fmt.Errorf("BOOM, cause an ErrWorkflowFatal to be thrown"))

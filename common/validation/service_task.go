@@ -50,7 +50,7 @@ func ValidateTaskSpec(td *model.TaskSpec) error {
 	}
 
 	// Mock behaviour
-	if td.Behaviour != nil || td.Behaviour.MockBehaviour != nil {
+	if td.Behaviour != nil && td.Behaviour.MockBehaviour != nil {
 		if ex := td.Behaviour.MockBehaviour.ErrorCodeExpr; ex != "" {
 			ex = strings.TrimPrefix(ex, "=")
 			if _, err := expr.Compile(ex); err != nil {

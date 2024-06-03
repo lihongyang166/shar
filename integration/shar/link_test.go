@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"sync"
@@ -71,13 +72,13 @@ type testLinkHandlerDef struct {
 	finished    chan struct{}
 }
 
-func (d *testLinkHandlerDef) spillage(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testLinkHandlerDef) spillage(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Spilled")
 	vars["substance"] = "beer"
 	return vars, nil
 }
 
-func (d *testLinkHandlerDef) dontCry(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testLinkHandlerDef) dontCry(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("No tears shed")
 	d.mx.Lock()
 	defer d.mx.Unlock()
@@ -85,7 +86,7 @@ func (d *testLinkHandlerDef) dontCry(_ context.Context, _ client.JobClient, vars
 	return vars, nil
 }
 
-func (d *testLinkHandlerDef) cry(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testLinkHandlerDef) cry(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("*sob*")
 	d.mx.Lock()
 	defer d.mx.Unlock()
@@ -93,7 +94,7 @@ func (d *testLinkHandlerDef) cry(_ context.Context, _ client.JobClient, vars mod
 	return vars, nil
 }
 
-func (d *testLinkHandlerDef) wipeItUp(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testLinkHandlerDef) wipeItUp(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("all mopped up")
 	d.mx.Lock()
 	defer d.mx.Unlock()

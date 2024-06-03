@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"sync"
@@ -99,17 +100,17 @@ type testMultiworkflowMessagingHandlerDef struct {
 	finished chan struct{}
 }
 
-func (x *testMultiworkflowMessagingHandlerDef) step1(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func (x *testMultiworkflowMessagingHandlerDef) step1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	return model.Vars{}, nil
 }
 
-func (x *testMultiworkflowMessagingHandlerDef) step2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (x *testMultiworkflowMessagingHandlerDef) step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	assert.Equal(x.t, "carried1value", vars["carried"].(string))
 	assert.Equal(x.t, "carried2value", vars["carried2"].(string))
 	return model.Vars{}, nil
 }
 
-func (x *testMultiworkflowMessagingHandlerDef) sendMessage(ctx context.Context, cmd client.MessageClient, vars model.Vars) error {
+func (x *testMultiworkflowMessagingHandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
 	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"].(int), model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
@@ -117,7 +118,7 @@ func (x *testMultiworkflowMessagingHandlerDef) sendMessage(ctx context.Context, 
 }
 
 // A "Hello World" service task
-func (x *testMultiworkflowMessagingHandlerDef) simpleProcess(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (x *testMultiworkflowMessagingHandlerDef) simpleProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	assert.Equal(x.t, 32768, vars["carried"].(int))
 	return model.Vars{}, nil
 }

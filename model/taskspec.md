@@ -17,6 +17,13 @@
 | unsafe | bool | Unsafe labels the task as non-idempotent.  Non-idempotent tasks are highly unrecommended. | boolean |
 | mock | bool | Mock this task as it has no concrete implementation. | boolean |
 | deprecated | bool | Deprecated task.  Workflows can not be executed that include this task. | boolean |
+| mockBehaviour | TaskMockBehaviours | MockBehaviour lists behaviours exhibited by the task when mocked. |  -  |
+### TaskMockBehaviours
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
+| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
 ### DefaultTaskRetry
 
 | name | type | description | validation |
@@ -57,6 +64,13 @@
 | parameterGroup | ParameterGroup | ParameterGroup is a list of parameters with their categorization.  This is useful for display. | arbitrary string |
 | input | Parameter | Input documents input parameters to the task. |  -  |
 | output | Parameter | Output documents output parameters for the task. |  -  |
+### ParameterGroup
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| name | string | Name of the parameter group. | arbitrary string |
+| short | string | Short description of the parameter group. | arbitrary string |
+| description | string | Description - a long description of the parameter group. | arbitrary string |
 ### Parameter
 
 | name | type | description | validation |
@@ -72,13 +86,6 @@
 | mandatory | bool | Mandatory specifies that this parameter is required. | bool |
 | validateExpr | string | ValidateExpr - an EXPR that is used to validate the field value. | a valid EXPR expression prefixed by'=' |
 | example | string | Example - an example EXPR that is used to provide a hint to a user on the nature of a task.  It is also used when the task is being used as a mock before implementation. | a valid EXPR expression prefixed by'=' |
-### ParameterGroup
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| name | string | Name of the parameter group. | arbitrary string |
-| short | string | Short description of the parameter group. | arbitrary string |
-| description | string | Description - a long description of the parameter group. | arbitrary string |
 ### TaskEvents
 
 | name | type | description | validation |

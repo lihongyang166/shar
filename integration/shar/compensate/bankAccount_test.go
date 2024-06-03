@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	"log/slog"
@@ -141,7 +142,7 @@ type testBankAccount struct {
 	finalRecipientBalance float64
 }
 
-func (d *testBankAccount) applyToRecipient(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBankAccount) applyToRecipient(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("applyToRecipient")
 	recipientAccountBalance := vars["recipientAccountBalance"].(float64)
 	transferAmount := vars["transferAmount"].(float64)
@@ -149,20 +150,20 @@ func (d *testBankAccount) applyToRecipient(_ context.Context, _ client.JobClient
 	return vars, nil
 }
 
-func (d *testBankAccount) deductFromPayee(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBankAccount) deductFromPayee(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	payeeAccountBalance := vars["payeeAccountBalance"].(float64)
 	transferAmount := vars["transferAmount"].(float64)
 	vars["payeeAccountBalance"] = payeeAccountBalance - transferAmount
 	return vars, nil
 }
-func (d *testBankAccount) compensateRecipient(_ context.Context, c client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBankAccount) compensateRecipient(_ context.Context, c task.JobClient, vars model.Vars) (model.Vars, error) {
 	inputs, _ := c.OriginalVars()
 	balance := vars["recipientAccountBalance"].(float64)
 	amount := inputs["transferAmount"].(float64)
 	vars["recipientAccountBalance"] = balance - amount
 	return vars, nil
 }
-func (d *testBankAccount) compensatePayee(_ context.Context, c client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBankAccount) compensatePayee(_ context.Context, c task.JobClient, vars model.Vars) (model.Vars, error) {
 	inputs, _ := c.OriginalVars()
 	balance := vars["payeeAccountBalance"].(float64)
 	amount := inputs["transferAmount"].(float64)

@@ -2,6 +2,7 @@ package simple
 
 import (
 	"context"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	"log/slog"
@@ -78,20 +79,20 @@ type testSimpleHandlerDef struct {
 	trackingReceived chan struct{}
 }
 
-func (d *testSimpleHandlerDef) task1(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleHandlerDef) task1(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("Task1")
 	return vars, nil
 }
 
-func (d *testSimpleHandlerDef) task2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleHandlerDef) task2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("Task2")
 	return vars, nil
 }
-func (d *testSimpleHandlerDef) compensate1(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleHandlerDef) compensate1(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("Compensate Task1")
 	return vars, nil
 }
-func (d *testSimpleHandlerDef) compensate2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleHandlerDef) compensate2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("Compensate Task2")
 	return vars, nil
 }

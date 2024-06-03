@@ -3,6 +3,7 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"log/slog"
 	"os"
@@ -226,7 +227,7 @@ type testMessagingHandlerDef struct {
 	t        *testing.T
 }
 
-func (x *testMessagingHandlerDef) step1(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
+func (x *testMessagingHandlerDef) step1(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
@@ -236,7 +237,7 @@ func (x *testMessagingHandlerDef) step1(ctx context.Context, client client.JobCl
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+func (x *testMessagingHandlerDef) step2(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "Step 2", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
@@ -246,7 +247,7 @@ func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobCl
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars) error {
+func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client task.MessageClient, vars model.Vars) error {
 	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
@@ -270,7 +271,7 @@ type messageStartEventWorkflowEventHandler struct {
 	t         *testing.T
 }
 
-func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "simpleServiceTaskHandler", nil); err != nil {
 		return nil, fmt.Errorf("failed logging: %w", err)
 	}

@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -64,7 +65,7 @@ type testShutdownHandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *testShutdownHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testShutdownHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))

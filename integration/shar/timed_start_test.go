@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"sync"
@@ -70,7 +71,7 @@ type timedStartHandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *timedStartHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *timedStartHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	// TODO: Include for diagnosing timed start bug
 	// assert.Equal(d.t, 32768, vars["carried"])
 	d.mx.Lock()

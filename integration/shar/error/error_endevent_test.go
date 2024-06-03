@@ -3,6 +3,7 @@ package error
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"log/slog"
 	"os"
@@ -72,7 +73,7 @@ type testErrorEndEventHandlerDef struct {
 }
 
 // A "Hello World" service task
-func (d *testErrorEndEventHandlerDef) mayFail3(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
+func (d *testErrorEndEventHandlerDef) mayFail3(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "service task completed successfully", nil); err != nil {
 		return nil, fmt.Errorf("logging failed: %w", err)
 	}
@@ -80,7 +81,7 @@ func (d *testErrorEndEventHandlerDef) mayFail3(ctx context.Context, client clien
 }
 
 // A "Hello World" service task
-func (d *testErrorEndEventHandlerDef) fixSituation(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testErrorEndEventHandlerDef) fixSituation(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("carried", vars["carried"])
 	panic("this event should not fire")
 }

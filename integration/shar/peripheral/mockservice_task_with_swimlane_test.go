@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -77,7 +78,7 @@ func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *mo
 	close(d.finished)
 }
 
-func (x *testSimpleHandlerDef) sendMessage(ctx context.Context, cmd client.MessageClient, vars model.Vars) error {
+func (x *testSimpleHandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
 	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"carried": vars["carried"], "orderId": vars["orderId"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}

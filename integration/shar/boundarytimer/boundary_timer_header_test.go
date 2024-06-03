@@ -3,6 +3,7 @@ package boundarytimer
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"sync"
@@ -125,7 +126,7 @@ type testBoundaryTimerHeaderDef struct {
 	finished          chan struct{}
 }
 
-func (d *testBoundaryTimerHeaderDef) canTimeout(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerHeaderDef) canTimeout(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	assert.Equal(d.t, "ok", header.Get(ctx, "sample"))
 	d.mx.Lock()
 	d.CanTimeOutCalled++
@@ -134,7 +135,7 @@ func (d *testBoundaryTimerHeaderDef) canTimeout(ctx context.Context, _ client.Jo
 	return vars, nil
 }
 
-func (d *testBoundaryTimerHeaderDef) noTimeout(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerHeaderDef) noTimeout(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	assert.Equal(d.t, "ok", header.Get(ctx, "sample"))
 	d.mx.Lock()
 	d.NoTimeoutCalled++
@@ -143,7 +144,7 @@ func (d *testBoundaryTimerHeaderDef) noTimeout(ctx context.Context, _ client.Job
 	return vars, nil
 }
 
-func (d *testBoundaryTimerHeaderDef) timedOut(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerHeaderDef) timedOut(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	assert.Equal(d.t, "ok", header.Get(ctx, "sample"))
 	d.mx.Lock()
 	d.TimedOutCalled++
@@ -151,7 +152,7 @@ func (d *testBoundaryTimerHeaderDef) timedOut(ctx context.Context, _ client.JobC
 	return vars, nil
 }
 
-func (d *testBoundaryTimerHeaderDef) checkResult(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerHeaderDef) checkResult(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	assert.Equal(d.t, "ok", header.Get(ctx, "sample"))
 	d.mx.Lock()
 	d.CheckResultCalled++

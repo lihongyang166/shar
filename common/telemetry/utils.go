@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
+	"gitlab.com/shar-workflow/shar/model"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"log/slog"
@@ -90,4 +92,23 @@ func NewTraceID() [16]byte {
 		slog.Error("new trace parent: crypto get bytes: %w", "error", err)
 	}
 	return traceID
+}
+
+// ReParentSpan re-parents a span in the given context with the span ID obtained from the WorkflowState ID.
+// If the span context in the context is valid, it replaces the span ID with the 64-bit representation
+// obtained from the WorkflowState ID. Otherwise, it returns the original context.
+//
+// Parameters:
+// - ctx: The context to re-parent the span in.
+// - state: The WorkflowState containing the ID to extract the new span ID from.
+//
+// Returns:
+// - The context with the re-parented span ID or the original context if the span context is invalid.
+func ReParentSpan(ctx context.Context, state *model.WorkflowState) context.Context {
+	sCtx := trace.SpanContextFromContext(ctx)
+	if sCtx.IsValid() {
+		c := common.KSuidTo64bit(common.TrackingID(state.Id).ID())
+		return trace.ContextWithSpanContext(ctx, sCtx.WithSpanID(c))
+	}
+	return ctx
 }

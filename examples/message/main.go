@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	"os"
 
 	"github.com/nats-io/nats.go"
@@ -75,17 +76,17 @@ func main() {
 	<-finished
 }
 
-func step1(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func step1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Step 1")
 	return model.Vars{}, nil
 }
 
-func step2(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func step2(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Step 2")
 	return model.Vars{}, nil
 }
 
-func sendMessage(ctx context.Context, cmd client.MessageClient, vars model.Vars) error {
+func sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
 	fmt.Println("Sending Message...")
 	return cmd.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]})
 }

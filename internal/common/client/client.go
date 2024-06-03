@@ -195,7 +195,7 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 					defer func() {
 						if r := recover(); r != nil {
 							v = model.Vars{}
-							e = &errors.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error))}
+							e = &errors.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error)), State: ut}
 						}
 					}()
 				}

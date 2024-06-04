@@ -41,8 +41,10 @@ import (
 	"time"
 )
 
-// BpmnOperations provides methods to perform various BPMN actions
-type BpmnOperations struct {
+// Operations provides methods for executing and managing workflow processes.
+// It provides methods for various tasks such as canceling process instances, completing tasks,
+// retrieving workflow-related information, and managing workflow execution.
+type Operations struct {
 	natsService    *natz.NatsService
 	sCache         *cache.SharCache
 	publishTimeout time.Duration
@@ -50,15 +52,15 @@ type BpmnOperations struct {
 	tr             trace.Tracer
 }
 
-// NewBpmnOperations constructs a new BpmnOperations instance
-func NewBpmnOperations(natsService *natz.NatsService) (*BpmnOperations, error) {
+// NewOperations constructs a new Operations instance
+func NewOperations(natsService *natz.NatsService) (*Operations, error) {
 	ristrettoCache, err := cache.NewRistrettoCacheBackend()
 	if err != nil {
 		return nil, fmt.Errorf("create ristretto cache: %w", err)
 	}
 	sharCache := cache.NewSharCache(ristrettoCache)
 
-	return &BpmnOperations{
+	return &Operations{
 		natsService:    natsService,
 		sCache:         sharCache,
 		publishTimeout: time.Second * 30,
@@ -68,7 +70,7 @@ func NewBpmnOperations(natsService *natz.NatsService) (*BpmnOperations, error) {
 }
 
 // LoadWorkflow loads a model.Process describing a workflow into the engine ready for execution.
-func (c *BpmnOperations) LoadWorkflow(ctx context.Context, model *model.Workflow) (string, error) {
+func (c *Operations) LoadWorkflow(ctx context.Context, model *model.Workflow) (string, error) {
 	// Store the workflow model and return an ID
 	wfID, err := c.StoreWorkflow(ctx, model)
 	if err != nil {
@@ -78,12 +80,12 @@ func (c *BpmnOperations) LoadWorkflow(ctx context.Context, model *model.Workflow
 }
 
 // Launch starts a new instance of a workflow and returns an execution ID.
-func (c *BpmnOperations) Launch(ctx context.Context, processName string, vars []byte) (string, string, error) {
+func (c *Operations) Launch(ctx context.Context, processName string, vars []byte) (string, string, error) {
 	return c.LaunchWithParent(ctx, processName, []string{}, vars, "", "")
 }
 
 // LaunchWithParent contains the underlying logic to start a workflow.  It is also called to spawn new instances of child workflows.
-func (c *BpmnOperations) LaunchWithParent(ctx context.Context, processName string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
+func (c *Operations) LaunchWithParent(ctx context.Context, processName string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
 	var reterr error
 	ctx, log := logx.ContextWith(ctx, "engine.launch")
 
@@ -222,7 +224,7 @@ func (c *BpmnOperations) LaunchWithParent(ctx context.Context, processName strin
 	return executionId, wfID, nil
 }
 
-func (c *BpmnOperations) launchProcess(ctx context.Context, ID common.TrackingID, prName string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
+func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, prName string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
 	ctx, sp := c.tr.Start(ctx, "launchProcess")
 	defer func() {
 		sp.End()
@@ -330,7 +332,7 @@ func (c *BpmnOperations) launchProcess(ctx context.Context, ID common.TrackingID
 	return nil
 }
 
-func (c *BpmnOperations) rollBackLaunch(ctx context.Context, e *model.Execution) {
+func (c *Operations) rollBackLaunch(ctx context.Context, e *model.Execution) {
 	log := logx.FromContext(ctx)
 	log.Info("rolling back workflow launch")
 	err := c.PublishWorkflowState(ctx, messages.WorkflowExecutionAbort, &model.WorkflowState{
@@ -360,7 +362,7 @@ func forEachStartElement(pr *model.Process, fn func(element *model.Element) erro
 }
 
 // CancelProcessInstance cancels a workflow instance with a reason.
-func (c *BpmnOperations) CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error {
+func (c *Operations) CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error {
 	if state.State == model.CancellationState_executing {
 		return fmt.Errorf("executing is an invalid cancellation state: %w", errors.ErrInvalidState)
 	}
@@ -371,7 +373,7 @@ func (c *BpmnOperations) CancelProcessInstance(ctx context.Context, state *model
 }
 
 // CompleteManualTask completes a manual workflow task
-func (c *BpmnOperations) CompleteManualTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
+func (c *Operations) CompleteManualTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	el, err := c.GetElement(ctx, job)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
@@ -388,7 +390,7 @@ func (c *BpmnOperations) CompleteManualTask(ctx context.Context, job *model.Work
 }
 
 // CompleteServiceTask completes a workflow service task
-func (c *BpmnOperations) CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
+func (c *Operations) CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	if job.State != model.CancellationState_compensating {
 		if _, err := c.GetOldState(ctx, common.TrackingID(job.Id).ParentID()); errors2.Is(err, errors.ErrStateNotFound) {
 			if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
@@ -415,7 +417,7 @@ func (c *BpmnOperations) CompleteServiceTask(ctx context.Context, job *model.Wor
 }
 
 // CompleteSendMessageTask completes a send message task
-func (c *BpmnOperations) CompleteSendMessageTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
+func (c *Operations) CompleteSendMessageTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	_, err := c.GetElement(ctx, job)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
@@ -427,7 +429,7 @@ func (c *BpmnOperations) CompleteSendMessageTask(ctx context.Context, job *model
 }
 
 // CompleteUserTask completes and closes a user task with variables
-func (c *BpmnOperations) CompleteUserTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
+func (c *Operations) CompleteUserTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	el, err := c.GetElement(ctx, job)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
@@ -447,7 +449,7 @@ func (c *BpmnOperations) CompleteUserTask(ctx context.Context, job *model.Workfl
 }
 
 // ListWorkflows returns a list of all the workflows in SHAR.
-func (s *BpmnOperations) ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error) {
+func (s *Operations) ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error) {
 
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
@@ -484,7 +486,7 @@ func (s *BpmnOperations) ListWorkflows(ctx context.Context, res chan<- *model.Li
 	}
 }
 
-func (s *BpmnOperations) validateUniqueProcessNameFor(ctx context.Context, wf *model.Workflow) error {
+func (s *Operations) validateUniqueProcessNameFor(ctx context.Context, wf *model.Workflow) error {
 	existingProcessWorkflowNames := make(map[string]string)
 
 	ns := subj.GetNS(ctx)
@@ -519,7 +521,7 @@ func (s *BpmnOperations) validateUniqueProcessNameFor(ctx context.Context, wf *m
 }
 
 // StoreWorkflow stores a workflow definition and returns a unique ID
-func (s *BpmnOperations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
+func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
 	err := s.validateUniqueProcessNameFor(ctx, wf)
 	if err != nil {
 		return "", fmt.Errorf("process names are not unique: %w", err)
@@ -639,7 +641,7 @@ func (s *BpmnOperations) StoreWorkflow(ctx context.Context, wf *model.Workflow) 
 	return wfID, nil
 }
 
-func (s *BpmnOperations) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
+func (s *Operations) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
 	//TODO should this be in natsService???
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
@@ -687,7 +689,7 @@ func (s *BpmnOperations) ensureMessageBuckets(ctx context.Context, wf *model.Wor
 }
 
 // ProcessServiceTasks iterates over service tasks in the processes of a given workflow setting, validating them and setting their uid into their element definitions
-func (s *BpmnOperations) ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error {
+func (s *Operations) ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error {
 	for _, i := range wf.Process {
 		for _, j := range i.Elements {
 			if j.Type == element.ServiceTask {
@@ -801,7 +803,7 @@ func NoOpServiceTaskConsumerFn(_ context.Context, _ string) error {
 }
 
 // EnsureServiceTaskConsumer creates or updates a service task consumer.
-func (s *BpmnOperations) EnsureServiceTaskConsumer(ctx context.Context, uid string) error {
+func (s *Operations) EnsureServiceTaskConsumer(ctx context.Context, uid string) error {
 	//TODO should this be in natsService???
 	ns := subj.GetNS(ctx)
 	jxCfg := jetstream.ConsumerConfig{
@@ -832,7 +834,7 @@ func forEachTimedStartElement(pr *model.Process, fn func(element *model.Element)
 }
 
 // GetWorkflow - retrieves a workflow model given its ID
-func (s *BpmnOperations) GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error) {
+func (s *Operations) GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error) {
 	getWorkflowFn := func() (*model.Workflow, error) {
 		ns := subj.GetNS(ctx)
 		nsKVs, err := s.natsService.KvsFor(ctx, ns)
@@ -858,7 +860,7 @@ func (s *BpmnOperations) GetWorkflow(ctx context.Context, workflowID string) (*m
 }
 
 // GetWorkflowNameFor - get the worflow name a process is associated with
-func (s *BpmnOperations) GetWorkflowNameFor(ctx context.Context, processName string) (string, error) {
+func (s *Operations) GetWorkflowNameFor(ctx context.Context, processName string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -875,7 +877,7 @@ func (s *BpmnOperations) GetWorkflowNameFor(ctx context.Context, processName str
 }
 
 // GetWorkflowVersions - returns a list of versions for a given workflow.
-func (s *BpmnOperations) GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
+func (s *Operations) GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -897,7 +899,7 @@ func (s *BpmnOperations) GetWorkflowVersions(ctx context.Context, workflowName s
 }
 
 // CreateExecution given a workflow, starts a new execution and returns its ID
-func (s *BpmnOperations) CreateExecution(ctx context.Context, execution *model.Execution) (*model.Execution, error) {
+func (s *Operations) CreateExecution(ctx context.Context, execution *model.Execution) (*model.Execution, error) {
 	executionID := ksuid.New().String()
 	log := logx.FromContext(ctx)
 	log.Info("creating execution", slog.String(keys.ExecutionID, executionID))
@@ -930,7 +932,7 @@ func (s *BpmnOperations) CreateExecution(ctx context.Context, execution *model.E
 }
 
 // GetExecution retrieves an execution given its ID.
-func (s *BpmnOperations) GetExecution(ctx context.Context, executionID string) (*model.Execution, error) {
+func (s *Operations) GetExecution(ctx context.Context, executionID string) (*model.Execution, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -947,7 +949,7 @@ func (s *BpmnOperations) GetExecution(ctx context.Context, executionID string) (
 }
 
 // XDestroyProcessInstance terminates a running process instance with a cancellation reason and error
-func (s *BpmnOperations) XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error {
 	log := logx.FromContext(ctx)
 	log.Info("destroying process instance", slog.String(keys.ProcessInstanceID, state.ProcessInstanceId))
 
@@ -996,7 +998,7 @@ func (s *BpmnOperations) XDestroyProcessInstance(ctx context.Context, state *mod
 	return nil
 }
 
-func (s *BpmnOperations) deleteExecution(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) deleteExecution(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1019,7 +1021,7 @@ func (s *BpmnOperations) deleteExecution(ctx context.Context, state *model.Workf
 }
 
 // GetLatestVersion queries the workflow versions table for the latest entry
-func (s *BpmnOperations) GetLatestVersion(ctx context.Context, workflowName string) (string, error) {
+func (s *Operations) GetLatestVersion(ctx context.Context, workflowName string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1037,7 +1039,7 @@ func (s *BpmnOperations) GetLatestVersion(ctx context.Context, workflowName stri
 }
 
 // CreateJob stores a workflow task state for user tasks.
-func (s *BpmnOperations) CreateJob(ctx context.Context, job *model.WorkflowState) (string, error) {
+func (s *Operations) CreateJob(ctx context.Context, job *model.WorkflowState) (string, error) {
 	//TODO move into engine.go
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
@@ -1054,7 +1056,7 @@ func (s *BpmnOperations) CreateJob(ctx context.Context, job *model.WorkflowState
 }
 
 // GetJob gets a workflow task state.
-func (s *BpmnOperations) GetJob(ctx context.Context, trackingID string) (*model.WorkflowState, error) {
+func (s *Operations) GetJob(ctx context.Context, trackingID string) (*model.WorkflowState, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1074,7 +1076,7 @@ func (s *BpmnOperations) GetJob(ctx context.Context, trackingID string) (*model.
 }
 
 // DeleteJob removes a workflow task state.
-func (s *BpmnOperations) DeleteJob(ctx context.Context, trackingID string) error {
+func (s *Operations) DeleteJob(ctx context.Context, trackingID string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1088,7 +1090,7 @@ func (s *BpmnOperations) DeleteJob(ctx context.Context, trackingID string) error
 }
 
 // ListExecutions returns a list of running workflows and versions given a workflow Name
-func (s *BpmnOperations) ListExecutions(ctx context.Context, workflowName string, wch chan<- *model.ListExecutionItem, errs chan<- error) {
+func (s *Operations) ListExecutions(ctx context.Context, workflowName string, wch chan<- *model.ListExecutionItem, errs chan<- error) {
 	log := logx.FromContext(ctx)
 
 	ns := subj.GetNS(ctx)
@@ -1140,7 +1142,7 @@ func (s *BpmnOperations) ListExecutions(ctx context.Context, workflowName string
 }
 
 // ListExecutionProcesses gets the current processIDs for an execution.
-func (s *BpmnOperations) ListExecutionProcesses(ctx context.Context, id string) ([]string, error) {
+func (s *Operations) ListExecutionProcesses(ctx context.Context, id string) ([]string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1156,7 +1158,7 @@ func (s *BpmnOperations) ListExecutionProcesses(ctx context.Context, id string) 
 }
 
 // GetProcessInstanceStatus returns a list of workflow statuses for the specified process instance ID.
-func (s *BpmnOperations) GetProcessInstanceStatus(ctx context.Context, id string, wch chan<- *model.WorkflowState, errs chan<- error) {
+func (s *Operations) GetProcessInstanceStatus(ctx context.Context, id string, wch chan<- *model.WorkflowState, errs chan<- error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1175,7 +1177,7 @@ func (s *BpmnOperations) GetProcessInstanceStatus(ctx context.Context, id string
 }
 
 // PublishWorkflowState publishes a SHAR state object to a given subject
-func (s *BpmnOperations) PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, opts ...PublishOpt) error {
+func (s *Operations) PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, opts ...PublishOpt) error {
 	//TODO should this be in natsService???
 	c := &publishOptions{}
 	for _, i := range opts {
@@ -1233,7 +1235,7 @@ func (s *BpmnOperations) PublishWorkflowState(ctx context.Context, stateName str
 }
 
 // SignalFatalError publishes a FatalError message on death of a process in a workflow
-func (s *BpmnOperations) SignalFatalError(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+func (s *Operations) SignalFatalError(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
 	fataError := &model.FatalError{
 		HandlingStrategy: 1,
 		WorkflowState:    state,
@@ -1246,7 +1248,7 @@ func (s *BpmnOperations) SignalFatalError(ctx context.Context, state *model.Work
 }
 
 // PublishMsg publishes a workflow message.
-func (s *BpmnOperations) PublishMsg(ctx context.Context, subject string, sharMsg proto.Message) error {
+func (s *Operations) PublishMsg(ctx context.Context, subject string, sharMsg proto.Message) error {
 	//TODO should this be in natsService???
 	msg := nats.NewMsg(subject)
 	b, err := proto.Marshal(sharMsg)
@@ -1270,7 +1272,7 @@ func (s *BpmnOperations) PublishMsg(ctx context.Context, subject string, sharMsg
 }
 
 // GetElement gets the definition for the current element given a workflow state.
-func (s *BpmnOperations) GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error) {
+func (s *Operations) GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1289,7 +1291,7 @@ func (s *BpmnOperations) GetElement(ctx context.Context, state *model.WorkflowSt
 }
 
 // HasValidProcess - checks for a valid process and instance for a workflow process and instance ids
-func (s *BpmnOperations) HasValidProcess(ctx context.Context, processInstanceId, executionId string) (*model.ProcessInstance, *model.Execution, error) {
+func (s *Operations) HasValidProcess(ctx context.Context, processInstanceId, executionId string) (*model.ProcessInstance, *model.Execution, error) {
 	execution, err := s.HasValidExecution(ctx, executionId)
 	if err != nil {
 		return nil, nil, err
@@ -1305,7 +1307,7 @@ func (s *BpmnOperations) HasValidProcess(ctx context.Context, processInstanceId,
 }
 
 // HasValidExecution checks to see whether an execution exists for the executionId
-func (s *BpmnOperations) HasValidExecution(ctx context.Context, executionId string) (*model.Execution, error) {
+func (s *Operations) HasValidExecution(ctx context.Context, executionId string) (*model.Execution, error) {
 	execution, err := s.GetExecution(ctx, executionId)
 	if errors2.Is(err, errors.ErrExecutionNotFound) {
 		return nil, fmt.Errorf("orphaned activity: %w", err)
@@ -1327,7 +1329,7 @@ func remove[T comparable](slice []T, member T) []T {
 }
 
 // closeUserTask removes a completed user task.
-func (s *BpmnOperations) closeUserTask(ctx context.Context, trackingID string) error {
+func (s *Operations) closeUserTask(ctx context.Context, trackingID string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1353,7 +1355,7 @@ func (s *BpmnOperations) closeUserTask(ctx context.Context, trackingID string) e
 	return retErr
 }
 
-func (s *BpmnOperations) openUserTask(ctx context.Context, owner string, id string) error {
+func (s *Operations) openUserTask(ctx context.Context, owner string, id string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1370,7 +1372,7 @@ func (s *BpmnOperations) openUserTask(ctx context.Context, owner string, id stri
 }
 
 // GetUserTaskIDs gets a list of tasks given an owner.
-func (s *BpmnOperations) GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error) {
+func (s *Operations) GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1385,7 +1387,7 @@ func (s *BpmnOperations) GetUserTaskIDs(ctx context.Context, owner string) (*mod
 }
 
 // OwnerID gets a unique identifier for a task owner.
-func (s *BpmnOperations) OwnerID(ctx context.Context, name string) (string, error) {
+func (s *Operations) OwnerID(ctx context.Context, name string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1413,7 +1415,7 @@ func (s *BpmnOperations) OwnerID(ctx context.Context, name string) (string, erro
 }
 
 // OwnerName retrieves an owner name given an ID.
-func (s *BpmnOperations) OwnerName(ctx context.Context, id string) (string, error) {
+func (s *Operations) OwnerName(ctx context.Context, id string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1428,7 +1430,7 @@ func (s *BpmnOperations) OwnerName(ctx context.Context, id string) (string, erro
 }
 
 // GetOldState gets a task state given its tracking ID.
-func (s *BpmnOperations) GetOldState(ctx context.Context, id string) (*model.WorkflowState, error) {
+func (s *Operations) GetOldState(ctx context.Context, id string) (*model.WorkflowState, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1446,7 +1448,7 @@ func (s *BpmnOperations) GetOldState(ctx context.Context, id string) (*model.Wor
 }
 
 // SaveState saves the task state.
-func (s *BpmnOperations) SaveState(ctx context.Context, id string, state *model.WorkflowState) error {
+func (s *Operations) SaveState(ctx context.Context, id string, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1466,7 +1468,7 @@ func (s *BpmnOperations) SaveState(ctx context.Context, id string, state *model.
 }
 
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
-func (s *BpmnOperations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
+func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
 	id := ksuid.New().String()
 	pi := &model.ProcessInstance{
 		ProcessInstanceId: id,
@@ -1505,7 +1507,7 @@ func (s *BpmnOperations) CreateProcessInstance(ctx context.Context, executionId 
 }
 
 // GetProcessInstance returns a process instance for a given process ID
-func (s *BpmnOperations) GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error) {
+func (s *Operations) GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1524,7 +1526,7 @@ func (s *BpmnOperations) GetProcessInstance(ctx context.Context, processInstance
 }
 
 // DestroyProcessInstance deletes a process instance and removes the workflow instance dependent on all process instances being satisfied.
-func (s *BpmnOperations) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string) error {
+func (s *Operations) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1562,7 +1564,7 @@ func (s *BpmnOperations) DestroyProcessInstance(ctx context.Context, state *mode
 }
 
 // DeprecateTaskSpec deprecates one or more task specs by ID.
-func (s *BpmnOperations) DeprecateTaskSpec(ctx context.Context, uid []string) error {
+func (s *Operations) DeprecateTaskSpec(ctx context.Context, uid []string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1585,7 +1587,7 @@ func (s *BpmnOperations) DeprecateTaskSpec(ctx context.Context, uid []string) er
 	return nil
 }
 
-func (s *BpmnOperations) populateMetadata(wf *model.Workflow) {
+func (s *Operations) populateMetadata(wf *model.Workflow) {
 	for _, process := range wf.Process {
 		process.Metadata = &model.Metadata{}
 		for _, elem := range process.Elements {
@@ -1596,7 +1598,7 @@ func (s *BpmnOperations) populateMetadata(wf *model.Workflow) {
 	}
 }
 
-func (s *BpmnOperations) validateUniqueMessageNames(ctx context.Context, wf *model.Workflow) error {
+func (s *Operations) validateUniqueMessageNames(ctx context.Context, wf *model.Workflow) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1622,7 +1624,7 @@ func (s *BpmnOperations) validateUniqueMessageNames(ctx context.Context, wf *mod
 }
 
 // CheckProcessTaskDeprecation checks if all the tasks in a process have not been deprecated.
-func (s *BpmnOperations) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processName string) error {
+func (s *Operations) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processName string) error {
 	pr := workflow.Process[processName]
 	for _, el := range pr.Elements {
 		if el.Type == element.ServiceTask {
@@ -1639,7 +1641,7 @@ func (s *BpmnOperations) CheckProcessTaskDeprecation(ctx context.Context, workfl
 }
 
 // ListTaskSpecUIDs lists UIDs of active (and optionally deprecated) tasks specs.
-func (s *BpmnOperations) ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string, error) {
+func (s *Operations) ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1670,7 +1672,7 @@ func (s *BpmnOperations) ListTaskSpecUIDs(ctx context.Context, deprecated bool) 
 }
 
 // GetProcessIdFor retrieves the processId that a begun by a message start event
-func (s *BpmnOperations) GetProcessIdFor(ctx context.Context, startEventMessageName string) (string, error) {
+func (s *Operations) GetProcessIdFor(ctx context.Context, startEventMessageName string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1694,7 +1696,7 @@ func (s *BpmnOperations) GetProcessIdFor(ctx context.Context, startEventMessageN
 }
 
 // Heartbeat saves a client status to the client KV.
-func (s *BpmnOperations) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error {
+func (s *Operations) Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1708,7 +1710,7 @@ func (s *BpmnOperations) Heartbeat(ctx context.Context, req *model.HeartbeatRequ
 }
 
 // Log publishes LogRequest to WorkflowTelemetry Logs subject
-func (s *BpmnOperations) Log(ctx context.Context, req *model.LogRequest) error {
+func (s *Operations) Log(ctx context.Context, req *model.LogRequest) error {
 	if err := common.PublishObj(ctx, s.natsService.Conn, messages.WorkflowTelemetryLog, req, nil); err != nil {
 		return fmt.Errorf("publish object: %w", err)
 	}
@@ -1718,7 +1720,7 @@ func (s *BpmnOperations) Log(ctx context.Context, req *model.LogRequest) error {
 // DeleteNamespace deletes the key-value store for the specified namespace in SHAR.
 // It iterates over all the key-value stores and deletes them one by one.
 // The function returns nil if all key-value stores are successfully deleted.
-func (s *BpmnOperations) DeleteNamespace(ctx context.Context, ns string) error {
+func (s *Operations) DeleteNamespace(ctx context.Context, ns string) error {
 	lister := s.natsService.Js.KeyValueStores(ctx)
 	toDelete := make([]string, 0)
 	for i := range lister.Status() {
@@ -1747,7 +1749,7 @@ func (s *BpmnOperations) DeleteNamespace(ctx context.Context, ns string) error {
 // - errs: The channel for sending any errors that occur.
 //
 // Returns: Nothing. Errors are sent to the errs channel if encountered.
-func (s *BpmnOperations) ListExecutableProcesses(ctx context.Context, wch chan<- *model.ListExecutableProcessesItem, errs chan<- error) {
+func (s *Operations) ListExecutableProcesses(ctx context.Context, wch chan<- *model.ListExecutableProcessesItem, errs chan<- error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1803,7 +1805,7 @@ func (s *BpmnOperations) ListExecutableProcesses(ctx context.Context, wch chan<-
 }
 
 // StartJob launches a user/service task
-func (s *BpmnOperations) StartJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...PublishOpt) error {
+func (s *Operations) StartJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...PublishOpt) error {
 	job.Execute = &el.Execute
 	// el.Version is only used for versioned tasks such as service tasks
 	if el.Version != nil {
@@ -1887,7 +1889,7 @@ func (s *BpmnOperations) StartJob(ctx context.Context, subject string, job *mode
 }
 
 // evaluateOwners builds a list of groups
-func (s *BpmnOperations) evaluateOwners(ctx context.Context, owners string, vars model.Vars) ([]string, error) {
+func (s *Operations) evaluateOwners(ctx context.Context, owners string, vars model.Vars) ([]string, error) {
 	jobGroups := make([]string, 0)
 	groups, err := expression.Eval[interface{}](ctx, owners, vars)
 	if err != nil {
@@ -1909,9 +1911,9 @@ func (s *BpmnOperations) evaluateOwners(ctx context.Context, owners string, vars
 	return jobGroups, nil
 }
 
-// GetCompensationInputVariables is a method of the BpmnOperations struct that retrieves the original input variables
+// GetCompensationInputVariables is a method of the Operations struct that retrieves the original input variables
 // for a specific process instance and tracking ID. It returns the variables in byte array format.
-func (s *BpmnOperations) GetCompensationInputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
+func (s *Operations) GetCompensationInputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
 	entry, err := s.GetProcessHistoryItem(ctx, processInstanceId, trackingId, model.ProcessHistoryType_jobExecute)
 	if err != nil {
 		return nil, fmt.Errorf("get compensation history entry: %w", err)
@@ -1919,10 +1921,10 @@ func (s *BpmnOperations) GetCompensationInputVariables(ctx context.Context, proc
 	return entry.Vars, nil
 }
 
-// GetCompensationOutputVariables is a method of the BpmnOperations struct that retrieves the original output variables
+// GetCompensationOutputVariables is a method of the Operations struct that retrieves the original output variables
 // of a compensation history entry for a specific process instance and tracking ID.
 // It returns the output variables as a byte array.
-func (s *BpmnOperations) GetCompensationOutputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
+func (s *Operations) GetCompensationOutputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
 	entry, err := s.GetProcessHistoryItem(ctx, processInstanceId, trackingId, model.ProcessHistoryType_jobComplete)
 	if err != nil {
 		return nil, fmt.Errorf("get compensation history entry: %w", err)
@@ -1934,7 +1936,7 @@ func (s *BpmnOperations) GetCompensationOutputVariables(ctx context.Context, pro
 // determining the appropriate action to take, and publishing the necessary workflow state updates.
 // It returns an error if there was an issue retrieving the workflow definition, if the workflow
 // doesn't support the specified error code.
-func (c *BpmnOperations) HandleWorkflowError(ctx context.Context, errorCode string, message string, inVars []byte, job *model.WorkflowState) error {
+func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, message string, inVars []byte, job *model.WorkflowState) error {
 	// Get the workflow, so we can look up the error definitions
 	wf, err := c.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {

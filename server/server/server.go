@@ -74,18 +74,18 @@ func New(options ...option.Option) (*Server, error) {
 		return nil, fmt.Errorf("create natsService: %w", err)
 	}
 
-	bpmnOperations, err := workflow.NewBpmnOperations(natsService)
+	workflowOperations, err := workflow.NewOperations(natsService)
 	if err != nil {
-		return nil, fmt.Errorf("create BPMNOperations: %w", err)
+		return nil, fmt.Errorf("create workflow Operations: %w", err)
 	}
 
-	engine, err := workflow.New(natsService, bpmnOperations, defaultServerOptions)
+	engine, err := workflow.New(natsService, workflowOperations, defaultServerOptions)
 	if err != nil {
 		slog.Error("create workflow engine", slog.String("error", err.Error()))
 		return nil, fmt.Errorf("create workflow engine: %w", err)
 	}
 
-	a, err := api.New(bpmnOperations, nc, defaultServerOptions)
+	a, err := api.New(workflowOperations, nc, defaultServerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("create api: %w", err)
 	}

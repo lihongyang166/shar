@@ -35,7 +35,7 @@ import (
 type Engine struct {
 	closing                 chan struct{}
 	natsService             *natz.NatsService
-	bpmnOperations          *BpmnOperations
+	bpmnOperations          *Operations
 	concurrency             int
 	allowOrphanServiceTasks bool
 	telCfg                  telemetry.Config
@@ -43,7 +43,7 @@ type Engine struct {
 }
 
 // New returns an instance of the core workflow engine.
-func New(natsService *natz.NatsService, bpmnOperations *BpmnOperations, options *option.ServerOptions) (*Engine, error) {
+func New(natsService *natz.NatsService, bpmnOperations *Operations, options *option.ServerOptions) (*Engine, error) {
 	if options.Concurrency < 1 || options.Concurrency > 200 {
 		return nil, fmt.Errorf("invalid concurrency: %w", errors2.New("invalid concurrency set"))
 	}

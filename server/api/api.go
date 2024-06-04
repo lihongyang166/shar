@@ -83,7 +83,7 @@ type WorkflowEngine interface {
 
 // Endpoints provides API endpoints for SHAR
 type Endpoints struct {
-	bpmnOperations       *workflow.BpmnOperations
+	bpmnOperations       *workflow.Operations
 	subs                 *sync.Map
 	panicRecovery        bool
 	apiAuthZFn           authz.APIFunc
@@ -95,7 +95,7 @@ type Endpoints struct {
 }
 
 // New creates a new instance of the SHAR API server
-func New(bpmnOperations *workflow.BpmnOperations, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
+func New(bpmnOperations *workflow.Operations, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
 	ss := &Endpoints{
 		apiAuthZFn:     options.ApiAuthorizer,
 		apiAuthNFn:     options.ApiAuthenticator,

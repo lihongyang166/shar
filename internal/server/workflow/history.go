@@ -12,7 +12,7 @@ import (
 )
 
 // RecordHistory records into the history KV.
-func (s *BpmnOperations) RecordHistory(ctx context.Context, state *model.WorkflowState, historyType model.ProcessHistoryType) error {
+func (s *Operations) RecordHistory(ctx context.Context, state *model.WorkflowState, historyType model.ProcessHistoryType) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -44,7 +44,7 @@ func (s *BpmnOperations) RecordHistory(ctx context.Context, state *model.Workflo
 }
 
 // RecordHistoryProcessStart records the process start into the history object.
-func (s *BpmnOperations) RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_processExecute); err != nil {
 		return fmt.Errorf("recordHistoryProcessStart: %w", err)
 	}
@@ -52,7 +52,7 @@ func (s *BpmnOperations) RecordHistoryProcessStart(ctx context.Context, state *m
 }
 
 // RecordHistoryActivityExecute records the activity execute into the history object.
-func (s *BpmnOperations) RecordHistoryActivityExecute(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryActivityExecute(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_activityExecute); err != nil {
 		return fmt.Errorf("recordHistoryActivityExecute: %w", err)
 	}
@@ -60,7 +60,7 @@ func (s *BpmnOperations) RecordHistoryActivityExecute(ctx context.Context, state
 }
 
 // RecordHistoryActivityComplete records the activity completion into the history object.
-func (s *BpmnOperations) RecordHistoryActivityComplete(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryActivityComplete(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_activityComplete); err != nil {
 		return fmt.Errorf("recordHistoryActivityComplete: %w", err)
 	}
@@ -68,7 +68,7 @@ func (s *BpmnOperations) RecordHistoryActivityComplete(ctx context.Context, stat
 }
 
 // RecordHistoryJobExecute records the job execute into the history object.
-func (s *BpmnOperations) RecordHistoryJobExecute(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryJobExecute(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_jobExecute); err != nil {
 		return fmt.Errorf("recordHistoryJobExecute: %w", err)
 	}
@@ -76,7 +76,7 @@ func (s *BpmnOperations) RecordHistoryJobExecute(ctx context.Context, state *mod
 }
 
 // RecordHistoryJobComplete records the job completion into the history object.
-func (s *BpmnOperations) RecordHistoryJobComplete(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryJobComplete(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_jobComplete); err != nil {
 		return fmt.Errorf("recordHistoryJobComplete: %w", err)
 	}
@@ -84,7 +84,7 @@ func (s *BpmnOperations) RecordHistoryJobComplete(ctx context.Context, state *mo
 }
 
 // RecordHistoryJobAbort records the job abort into the history object.
-func (s *BpmnOperations) RecordHistoryJobAbort(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryJobAbort(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_jobAbort); err != nil {
 		return fmt.Errorf("recordHistoryJobAbort: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *BpmnOperations) RecordHistoryJobAbort(ctx context.Context, state *model
 }
 
 // RecordHistoryProcessComplete records the process completion into the history object.
-func (s *BpmnOperations) RecordHistoryProcessComplete(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryProcessComplete(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_processComplete); err != nil {
 		return fmt.Errorf("recordHistoryProcessComplete: %w", err)
 	}
@@ -100,7 +100,7 @@ func (s *BpmnOperations) RecordHistoryProcessComplete(ctx context.Context, state
 }
 
 // RecordHistoryProcessSpawn records the process spawning a new process into the history object.
-func (s *BpmnOperations) RecordHistoryProcessSpawn(ctx context.Context, state *model.WorkflowState, newProcessInstanceID string) error {
+func (s *Operations) RecordHistoryProcessSpawn(ctx context.Context, state *model.WorkflowState, newProcessInstanceID string) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_processSpawnSync); err != nil {
 		return fmt.Errorf("recordHistoryProcessSpawn: %w", err)
 	}
@@ -108,7 +108,7 @@ func (s *BpmnOperations) RecordHistoryProcessSpawn(ctx context.Context, state *m
 }
 
 // RecordHistoryProcessAbort records the process aborting into the history object.
-func (s *BpmnOperations) RecordHistoryProcessAbort(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryProcessAbort(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_processAbort); err != nil {
 		return fmt.Errorf("recordHistoryProcessAbort: %w", err)
 	}
@@ -116,7 +116,7 @@ func (s *BpmnOperations) RecordHistoryProcessAbort(ctx context.Context, state *m
 }
 
 // RecordHistoryCompensationCheckpoint records the process aborting into the history object.
-func (s *BpmnOperations) RecordHistoryCompensationCheckpoint(ctx context.Context, state *model.WorkflowState) error {
+func (s *Operations) RecordHistoryCompensationCheckpoint(ctx context.Context, state *model.WorkflowState) error {
 	if err := s.RecordHistory(ctx, state, model.ProcessHistoryType_compensationCheckpoint); err != nil {
 		return fmt.Errorf("recordHistoryCompensationCheckpoint: %w", err)
 	}
@@ -124,7 +124,7 @@ func (s *BpmnOperations) RecordHistoryCompensationCheckpoint(ctx context.Context
 }
 
 // GetProcessHistory fetches the history object for a process.
-func (s *BpmnOperations) GetProcessHistory(ctx context.Context, processInstanceId string, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
+func (s *Operations) GetProcessHistory(ctx context.Context, processInstanceId string, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -153,7 +153,7 @@ func (s *BpmnOperations) GetProcessHistory(ctx context.Context, processInstanceI
 // GetProcessHistoryItem retrieves a process history entry based on the given process instance ID, tracking ID, and history type.
 // If the entry is successfully retrieved, it is unmarshaled into a model.ProcessHistoryEntry object and returned.
 // If an error occurs during the retrieval or unmarshaling process, an error is returned.
-func (s *BpmnOperations) GetProcessHistoryItem(ctx context.Context, processInstanceID string, trackingID string, historyType model.ProcessHistoryType) (*model.ProcessHistoryEntry, error) {
+func (s *Operations) GetProcessHistoryItem(ctx context.Context, processInstanceID string, trackingID string, historyType model.ProcessHistoryType) (*model.ProcessHistoryEntry, error) {
 	ns := subj.GetNS(ctx)
 	kvs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {

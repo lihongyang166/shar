@@ -10,7 +10,7 @@ import (
 	"log/slog"
 )
 
-func (s *SharServer) authenticate(ctx context.Context) (context.Context, header.Values, error) {
+func (s *Endpoints) authenticate(ctx context.Context) (context.Context, header.Values, error) {
 	val := ctx.Value(header.ContextKey).(header.Values)
 	res, authErr := s.apiAuthNFn(ctx, &model.ApiAuthenticationRequest{Headers: val})
 	if authErr != nil || !res.Authenticated {
@@ -21,7 +21,7 @@ func (s *SharServer) authenticate(ctx context.Context) (context.Context, header.
 	return ctx, val, nil
 }
 
-func (s *SharServer) authorize(ctx context.Context, workflowName string) (context.Context, error) {
+func (s *Endpoints) authorize(ctx context.Context, workflowName string) (context.Context, error) {
 	ctx, val, err := s.authenticate(ctx)
 	if err != nil {
 		return ctx, fmt.Errorf("authenticate: %w", errors2.ErrApiAuthNFail)
@@ -40,12 +40,12 @@ func (s *SharServer) authorize(ctx context.Context, workflowName string) (contex
 	return ctx, nil
 }
 
-func (s *SharServer) authFromJobID(ctx context.Context, trackingID string) (context.Context, *model.WorkflowState, error) {
-	job, err := s.engine.GetJob(ctx, trackingID)
+func (s *Endpoints) authFromJobID(ctx context.Context, trackingID string) (context.Context, *model.WorkflowState, error) {
+	job, err := s.bpmnOperations.GetJob(ctx, trackingID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get job for authorization: %w", err)
 	}
-	w, err := s.engine.GetWorkflow(ctx, job.WorkflowId)
+	w, err := s.bpmnOperations.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow for authorization: %w", err)
 	}
@@ -56,8 +56,8 @@ func (s *SharServer) authFromJobID(ctx context.Context, trackingID string) (cont
 	return ctx, job, nil
 }
 
-func (s *SharServer) authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error) {
-	execution, err := s.engine.GetExecution(ctx, executionID)
+func (s *Endpoints) authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error) {
+	execution, err := s.bpmnOperations.GetExecution(ctx, executionID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get execution for authorization: %w", err)
 	}
@@ -68,8 +68,8 @@ func (s *SharServer) authFromExecutionID(ctx context.Context, executionID string
 	return ctx, execution, nil
 }
 
-func (s *SharServer) authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error) {
-	pi, err := s.engine.GetProcessInstance(ctx, instanceID)
+func (s *Endpoints) authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error) {
+	pi, err := s.bpmnOperations.GetProcessInstance(ctx, instanceID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow instance for authorization: %w", err)
 	}
@@ -80,7 +80,7 @@ func (s *SharServer) authFromProcessInstanceID(ctx context.Context, instanceID s
 	return ctx, pi, nil
 }
 
-func (s *SharServer) authForNonWorkflow(ctx context.Context) (context.Context, error) {
+func (s *Endpoints) authForNonWorkflow(ctx context.Context) (context.Context, error) {
 	ctx, auth := s.authorize(ctx, "")
 	if auth != nil {
 		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
@@ -88,7 +88,7 @@ func (s *SharServer) authForNonWorkflow(ctx context.Context) (context.Context, e
 	return ctx, nil
 }
 
-func (s *SharServer) authForNamedWorkflow(ctx context.Context, name string) (context.Context, error) {
+func (s *Endpoints) authForNamedWorkflow(ctx context.Context, name string) (context.Context, error) {
 	ctx, auth := s.authorize(ctx, name)
 	if auth != nil {
 		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})

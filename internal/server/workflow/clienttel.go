@@ -18,11 +18,11 @@ import (
 
 func (s *Engine) processTelemetryTimer(ctx context.Context) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ctx, ns)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
-	consumer, err := s.js.CreateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
+	consumer, err := s.natsService.Js.CreateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
 		Name:          "server_telemetry_trigger",
 		Durable:       "server_telemetry_trigger",
 		FilterSubject: messages.WorkflowTelemetryTimer,
@@ -45,7 +45,7 @@ func (s *Engine) processTelemetryTimer(ctx context.Context) error {
 					continue
 				}
 				msg := <-msgs.Messages()
-				clientKeys, err := nsKVs.wfClients.Keys(nats.Context(ctx))
+				clientKeys, err := nsKVs.WfClients.Keys(nats.Context(ctx))
 				var (
 					b    []byte
 					body *model.TelemetryClients
@@ -69,7 +69,7 @@ func (s *Engine) processTelemetryTimer(ctx context.Context) error {
 				}
 				telMsg = nats.NewMsg(messages.WorkflowTelemetryClientCount)
 				telMsg.Data = b
-				if err := s.conn.PublishMsg(telMsg); err != nil {
+				if err := s.natsService.Conn.PublishMsg(telMsg); err != nil {
 					slog.Error("publish client telemetry", "error", err)
 				}
 			continueLoop:
@@ -86,12 +86,12 @@ func (s *Engine) startTelemetry(ctx context.Context, ns string) error {
 	msg := nats.NewMsg(messages.WorkflowTelemetryTimer)
 	msg.Header.Set(header.SharNamespace, ns)
 
-	nsKVs, err := s.KvsFor(ctx, ns)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	if err := common.PublishOnce(ctx, s.js, nsKVs.wfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
+	if err := common.PublishOnce(ctx, s.natsService.Js, nsKVs.WfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
 		return fmt.Errorf("ensure telemetry timer message: %w", err)
 	}
 	if err := s.processTelemetryTimer(ctx); err != nil {

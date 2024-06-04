@@ -35,7 +35,7 @@ import (
 type Engine struct {
 	closing                 chan struct{}
 	natsService             *natz.NatsService
-	bpmnOperations          *Operations
+	operations              *Operations
 	concurrency             int
 	allowOrphanServiceTasks bool
 	telCfg                  telemetry.Config
@@ -43,7 +43,7 @@ type Engine struct {
 }
 
 // New returns an instance of the core workflow engine.
-func New(natsService *natz.NatsService, bpmnOperations *Operations, options *option.ServerOptions) (*Engine, error) {
+func New(natsService *natz.NatsService, operations *Operations, options *option.ServerOptions) (*Engine, error) {
 	if options.Concurrency < 1 || options.Concurrency > 200 {
 		return nil, fmt.Errorf("invalid concurrency: %w", errors2.New("invalid concurrency set"))
 	}
@@ -52,7 +52,7 @@ func New(natsService *natz.NatsService, bpmnOperations *Operations, options *opt
 
 	e := &Engine{
 		natsService:             natsService,
-		bpmnOperations:          bpmnOperations,
+		operations:              operations,
 		concurrency:             options.Concurrency,
 		allowOrphanServiceTasks: options.AllowOrphanServiceTasks,
 		telCfg:                  options.TelemetryConfig,
@@ -230,7 +230,7 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 			ws.SatisfiesGatewayExpectation[elem.Gateway.ReciprocalId].InstanceTracking = append(ws.SatisfiesGatewayExpectation[elem.Gateway.ReciprocalId].InstanceTracking, divergentGatewayReciprocalInstanceId+","+branchID)
 		}
 
-		if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, ws); err != nil {
+		if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, ws); err != nil {
 			log.Error("publish workflow state", "error", err)
 			return fmt.Errorf("publish workflow state: %w", err)
 		}
@@ -245,7 +245,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	status := model.CancellationState_executing
 
 	// get the corresponding process instance
-	pi, err := c.bpmnOperations.GetProcessInstance(ctx, traversal.ProcessInstanceId)
+	pi, err := c.operations.GetProcessInstance(ctx, traversal.ProcessInstanceId)
 	if errors2.Is(err, errors.ErrProcessInstanceNotFound) || errors2.Is(err, jetstream.ErrKeyNotFound) {
 		// if the workflow instance has been removed kill any activity and exit
 		log.Warn("process instance not found, cancelling activity", "error", err, slog.String(keys.ProcessInstanceID, traversal.ProcessInstanceId))
@@ -257,7 +257,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	}
 
 	// get the corresponding workflow definition
-	workflow, err := c.bpmnOperations.GetWorkflow(ctx, pi.WorkflowId)
+	workflow, err := c.operations.GetWorkflow(ctx, pi.WorkflowId)
 	if err != nil {
 		return engineErr(ctx, "get workflow", err,
 			slog.String(keys.ExecutionID, pi.ExecutionId),
@@ -279,16 +279,16 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	newState := common.CopyWorkflowState(traversal)
 	newState.Id = activityID
 	// tell the world we are going to execute an activity
-	if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowActivityExecute, newState); err != nil {
+	if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowActivityExecute, newState); err != nil {
 		return engineErr(ctx, "publish workflow status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 	}
 	// log this with history
-	if err := c.bpmnOperations.RecordHistoryActivityExecute(ctx, newState); err != nil {
+	if err := c.operations.RecordHistoryActivityExecute(ctx, newState); err != nil {
 		return engineErr(ctx, "publish process history", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 	}
 
 	// tell the world we have safely completed the traversal
-	if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowTraversalComplete, traversal); err != nil {
+	if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowTraversalComplete, traversal); err != nil {
 		return engineErr(ctx, "publish traversal status", err, apErrFields(pi.ExecutionId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 	}
 
@@ -319,7 +319,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 				}
 				ut = dur.Shift(ut)
 			}
-			err = c.bpmnOperations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowElementTimedExecute, subj.GetNS(ctx)), timerState, WithEmbargo(int(ut.UnixNano())))
+			err = c.operations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowElementTimedExecute, subj.GetNS(ctx)), timerState, WithEmbargo(int(ut.UnixNano())))
 			if err != nil {
 				return fmt.Errorf("publish timed execute during activity start: %w", err)
 			}
@@ -345,7 +345,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		completeActivityState.State = status
 		//
 		if el.Gateway.Direction == model.GatewayDirection_convergent {
-			if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskActivate, completeActivityState); err != nil {
+			if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskActivate, completeActivityState); err != nil {
 				return fmt.Errorf("%s failed to activate gateway: %w", errors.Fn(), err)
 			}
 		} else {
@@ -355,7 +355,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		}
 	case element.ServiceTask:
 		if el.Version == nil {
-			v, err := c.bpmnOperations.GetTaskSpecUID(ctx, el.Execute)
+			v, err := c.operations.GetTaskSpecUID(ctx, el.Execute)
 			if errors2.Is(err, jetstream.ErrKeyNotFound) {
 				return fmt.Errorf("engine failed to get task spec id: %w", &errors.ErrWorkflowFatal{Err: err})
 			}
@@ -364,19 +364,19 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		if err != nil {
 			return fmt.Errorf("get service task routing key during activity start processor: %w", err)
 		}
-		if err := c.bpmnOperations.StartJob(ctx, messages.WorkflowJobServiceTaskExecute+"."+*el.Version, newState, el, traversal.Vars); err != nil {
+		if err := c.operations.StartJob(ctx, messages.WorkflowJobServiceTaskExecute+"."+*el.Version, newState, el, traversal.Vars); err != nil {
 			return engineErr(ctx, "start service task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.UserTask:
-		if err := c.bpmnOperations.StartJob(ctx, messages.WorkflowJobUserTaskExecute, newState, el, traversal.Vars); err != nil {
+		if err := c.operations.StartJob(ctx, messages.WorkflowJobUserTaskExecute, newState, el, traversal.Vars); err != nil {
 			return engineErr(ctx, "start user task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.ManualTask:
-		if err := c.bpmnOperations.StartJob(ctx, messages.WorkflowJobManualTaskExecute, newState, el, traversal.Vars); err != nil {
+		if err := c.operations.StartJob(ctx, messages.WorkflowJobManualTaskExecute, newState, el, traversal.Vars); err != nil {
 			return engineErr(ctx, "start manual task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.MessageIntermediateThrowEvent:
-		wf, err := c.bpmnOperations.GetWorkflow(ctx, pi.WorkflowId)
+		wf, err := c.operations.GetWorkflow(ctx, pi.WorkflowId)
 		if err != nil {
 			return fmt.Errorf("get workflow for intermediate throw event: %w", err)
 		}
@@ -394,18 +394,18 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		msgState := common.CopyWorkflowState(newState)
 		msgState.Condition = &wf.Messages[ix].Execute //this is the correlation key
 
-		if err := c.bpmnOperations.StartJob(ctx, messages.WorkflowJobSendMessageExecute+"."+pi.WorkflowName+"_"+el.Execute, newState, el, traversal.Vars); err != nil {
+		if err := c.operations.StartJob(ctx, messages.WorkflowJobSendMessageExecute+"."+pi.WorkflowName+"_"+el.Execute, newState, el, traversal.Vars); err != nil {
 			return engineErr(ctx, "start message job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.CallActivity:
-		if err := c.bpmnOperations.StartJob(ctx, subj.NS(messages.WorkflowJobLaunchExecute, subj.GetNS(ctx)), newState, el, traversal.Vars); err != nil {
+		if err := c.operations.StartJob(ctx, subj.NS(messages.WorkflowJobLaunchExecute, subj.GetNS(ctx)), newState, el, traversal.Vars); err != nil {
 			return engineErr(ctx, "start message launch", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.MessageIntermediateCatchEvent:
 		awaitMsg := common.CopyWorkflowState(newState)
 		awaitMsg.Execute = &el.Execute
 		awaitMsg.Condition = &el.Msg
-		if err := c.bpmnOperations.StartJob(ctx, messages.WorkflowJobAwaitMessageExecute, awaitMsg, el, awaitMsg.Vars); err != nil {
+		if err := c.operations.StartJob(ctx, messages.WorkflowJobAwaitMessageExecute, awaitMsg, el, awaitMsg.Vars); err != nil {
 			return engineErr(ctx, "start await message task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.TimerIntermediateCatchEvent:
@@ -435,10 +435,10 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			return errors.ErrFatalBadDuration
 		}
 		newState.Id = common.TrackingID(newState.Id).Push(ksuid.New().String())
-		if err := c.bpmnOperations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobTimerTaskExecute, subj.GetNS(ctx)), newState); err != nil {
+		if err := c.operations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobTimerTaskExecute, subj.GetNS(ctx)), newState); err != nil {
 			return fmt.Errorf("publish timer task execute job: %w", err)
 		}
-		if err := c.bpmnOperations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobTimerTaskComplete, subj.GetNS(ctx)), newState, WithEmbargo(embargo)); err != nil {
+		if err := c.operations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobTimerTaskComplete, subj.GetNS(ctx)), newState, WithEmbargo(embargo)); err != nil {
 			return fmt.Errorf("publish timer task execute complete: %w", err)
 		}
 	case element.EndEvent:
@@ -475,7 +475,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		newState.Id = []string{pi.ProcessInstanceId}
 		newState.State = status
 		newState.Error = el.Error
-		if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, newState); err != nil {
+		if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, newState); err != nil {
 			return engineErr(ctx, "publish workflow status", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	}
@@ -485,11 +485,11 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 func (c *Engine) completeActivity(ctx context.Context, state *model.WorkflowState) error {
 	// tell the world that we processed the activity
 	common.DropStateParams(state)
-	if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
+	if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
 		return engineErr(ctx, "publish workflow cancellationState", err)
 		//TODO: report this without process: apErrFields(wfi.WorkflowInstanceId, wfi.WorkflowId, el.Id, el.Name, el.Type, process.Name)
 	}
-	if err := c.bpmnOperations.RecordHistoryActivityComplete(ctx, state); err != nil {
+	if err := c.operations.RecordHistoryActivityComplete(ctx, state); err != nil {
 		return engineErr(ctx, "record history activity complete", &errors.ErrWorkflowFatal{Err: err})
 	}
 	return nil
@@ -516,7 +516,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	ctx, log := logx.ContextWith(ctx, "engine.completeJobProcessor")
 	// Validate if it safe to end this job
 	// Get the saved job state
-	if _, err := c.bpmnOperations.GetOldState(ctx, common.TrackingID(job.Id).ParentID()); errors2.Is(err, errors.ErrStateNotFound) {
+	if _, err := c.operations.GetOldState(ctx, common.TrackingID(job.Id).ParentID()); errors2.Is(err, errors.ErrStateNotFound) {
 		// We can't find the job's saved state
 		return nil
 	} else if err != nil {
@@ -525,7 +525,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 
 	// TODO: CHeck Workflow instance exists
 	// get the relevant workflow instance
-	pi, err := c.bpmnOperations.GetProcessInstance(ctx, job.ProcessInstanceId)
+	pi, err := c.operations.GetProcessInstance(ctx, job.ProcessInstanceId)
 	if errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		// if the instance has been deleted quash this activity
 		log.Warn("process instance not found, cancelling job processing", "error", err, slog.String(keys.ExecutionID, job.ExecutionId))
@@ -539,7 +539,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	}
 
 	// get the relevant workflow
-	wf, err := c.bpmnOperations.GetWorkflow(ctx, pi.WorkflowId)
+	wf, err := c.operations.GetWorkflow(ctx, pi.WorkflowId)
 	if err != nil {
 		return engineErr(ctx, "fetch job workflow", err,
 			slog.String(keys.JobType, job.ElementType),
@@ -552,7 +552,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	els := common.ElementTable(wf)
 	el := els[job.ElementId]
 	newID := common.TrackingID(job.Id).Pop()
-	oldState, err := c.bpmnOperations.GetOldState(ctx, newID.ID())
+	oldState, err := c.operations.GetOldState(ctx, newID.ID())
 	if errors2.Is(err, errors.ErrStateNotFound) {
 		return nil
 	}
@@ -571,11 +571,11 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 		return fmt.Errorf("complete job processor failed to complete activity: %w", err)
 	}
 
-	if err := c.bpmnOperations.RecordHistoryJobComplete(ctx, job); err != nil {
+	if err := c.operations.RecordHistoryJobComplete(ctx, job); err != nil {
 		return fmt.Errorf("complete job processor failed to record history job complete: %w", err)
 	}
 
-	if err := c.bpmnOperations.DeleteJob(ctx, common.TrackingID(job.Id).ID()); err != nil {
+	if err := c.operations.DeleteJob(ctx, common.TrackingID(job.Id).ID()); err != nil {
 		return fmt.Errorf("complete job processor failed to delete job: %w", err)
 	}
 	return nil
@@ -591,7 +591,7 @@ func engineErr(ctx context.Context, msg string, err error, z ...any) error {
 
 func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.WorkflowState) error {
 	ctx, log := logx.ContextWith(ctx, "engine.activityCompleteProcessor")
-	if old, err := c.bpmnOperations.GetOldState(ctx, common.TrackingID(state.Id).ID()); errors2.Is(err, errors.ErrStateNotFound) {
+	if old, err := c.operations.GetOldState(ctx, common.TrackingID(state.Id).ID()); errors2.Is(err, errors.ErrStateNotFound) {
 		log.Warn("old state not found", slog.Any("error", err))
 	} else if err != nil {
 		return fmt.Errorf("activity complete processor failed to get old state: %w", err)
@@ -599,7 +599,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 		return nil
 	}
 
-	pi, pierr := c.bpmnOperations.GetProcessInstance(ctx, state.ProcessInstanceId)
+	pi, pierr := c.operations.GetProcessInstance(ctx, state.ProcessInstanceId)
 	if errors2.Is(pierr, errors.ErrProcessInstanceNotFound) {
 		errTxt := "process instance not found"
 		log.Warn(errTxt, slog.String(keys.ProcessInstanceID, state.ProcessInstanceId))
@@ -607,7 +607,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 		return fmt.Errorf("activity complete processor failed to get process instance: %w", pierr)
 	}
 
-	wf, err := c.bpmnOperations.GetWorkflow(ctx, state.WorkflowId)
+	wf, err := c.operations.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("activity complete processor failed to get workflow: %w", err)
 	}
@@ -643,7 +643,7 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 			jobID := common.TrackingID(state.Id).Ancestor(2)
 			// If we are a sub workflow then complete the parent job
 			if jobID != state.ExecutionId {
-				j, joberr := c.bpmnOperations.GetJob(ctx, jobID)
+				j, joberr := c.operations.GetJob(ctx, jobID)
 				if errors2.Is(joberr, errors.ErrJobNotFound) {
 					log.Warn("job not found " + jobID + " : " + err.Error())
 				} else if joberr != nil {
@@ -652,19 +652,19 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 				if joberr == nil {
 					j.Vars = state.Vars
 					j.Error = state.Error
-					if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobLaunchComplete, j); err != nil {
+					if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowJobLaunchComplete, j); err != nil {
 						return fmt.Errorf("activity complete processor failed to publish job launch complete: %w", err)
 					}
 				}
-				if err := c.bpmnOperations.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
+				if err := c.operations.DeleteJob(ctx, jobID); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 					return fmt.Errorf("activity complete processor failed to delete job %s: %w", jobID, err)
 				}
-				execution, eerr := c.bpmnOperations.GetExecution(ctx, state.ExecutionId)
+				execution, eerr := c.operations.GetExecution(ctx, state.ExecutionId)
 				if eerr != nil && !errors2.Is(eerr, jetstream.ErrKeyNotFound) {
 					return fmt.Errorf("activity complete processor failed to get execution: %w", err)
 				}
 				if pierr == nil {
-					if err := c.bpmnOperations.DestroyProcessInstance(ctx, state, pi.ProcessInstanceId, execution.ExecutionId); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
+					if err := c.operations.DestroyProcessInstance(ctx, state, pi.ProcessInstanceId, execution.ExecutionId); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 						return fmt.Errorf("activity complete processor failed to destroy execution: %w", err)
 					}
 				}
@@ -676,13 +676,13 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 }
 
 func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState) error {
-	wf, err := c.bpmnOperations.GetWorkflow(ctx, state.WorkflowId)
+	wf, err := c.operations.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: errors.ErrWorkflowNotFound}
 	}
 	els := common.ElementTable(wf)
 	ctx = context.WithValue(ctx, ctxkey.Traceparent, state.TraceParent)
-	if _, _, err := c.bpmnOperations.LaunchWithParent(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.ProcessInstanceId, state.ElementId); err != nil {
+	if _, _, err := c.operations.LaunchWithParent(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.ProcessInstanceId, state.ElementId); err != nil {
 		return engineErr(ctx, "launch child workflow", &errors.ErrWorkflowFatal{Err: err})
 	}
 	return nil
@@ -691,7 +691,7 @@ func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState
 func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.WorkflowState, execution *model.Execution, due int64) (bool, int, error) {
 	ctx, log := logx.ContextWith(ctx, "engine.timedExecuteProcessor")
 	slog.Info("timedExecuteProcessor")
-	wf, err := c.bpmnOperations.GetWorkflow(ctx, state.WorkflowId)
+	wf, err := c.operations.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		log.Error("get timer proto workflow", "error", err)
 		return true, 0, fmt.Errorf("get timer proto workflow: %w", err)
@@ -734,7 +734,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 
 	if isTimer {
 		if shouldFire {
-			exec, err := c.bpmnOperations.CreateExecution(ctx, &model.Execution{
+			exec, err := c.operations.CreateExecution(ctx, &model.Execution{
 				WorkflowId:   state.WorkflowId,
 				WorkflowName: state.WorkflowName,
 			})
@@ -743,7 +743,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
 			}
 
-			pi, err := c.bpmnOperations.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
+			pi, err := c.operations.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
 			if err != nil {
 				log.Error("creating timed process instance", "error", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
@@ -756,11 +756,11 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 			processTrackingId := common.TrackingID([]string{}).Push(state.ExecutionId).Push(state.ProcessInstanceId)
 			processWfState.Id = processTrackingId
 
-			if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, processWfState); err != nil {
+			if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowProcessExecute, processWfState); err != nil {
 				log.Error("spawning process", "error", err)
 				return false, 0, nil
 			}
-			if err := c.bpmnOperations.RecordHistoryProcessStart(ctx, processWfState); err != nil {
+			if err := c.operations.RecordHistoryProcessStart(ctx, processWfState); err != nil {
 				log.Error("start events record process start", "error", err)
 				return false, 0, fmt.Errorf("publish initial traversal: %w", err)
 			}
@@ -772,7 +772,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				log.Error("traversing for timed workflow instance", "error", err)
 				return false, 0, nil
 			}
-			if err := c.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowTimedExecute, newTimer); err != nil {
+			if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowTimedExecute, newTimer); err != nil {
 				log.Error("publishing timer", "error", err)
 				return false, int(fireNext), nil
 			}
@@ -795,7 +795,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 			return false, fmt.Errorf("unmarshal traversal proto: %w", err)
 		}
 
-		if _, _, err := s.bpmnOperations.HasValidProcess(ctx, traversal.ProcessInstanceId, traversal.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.operations.HasValidProcess(ctx, traversal.ProcessInstanceId, traversal.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processTraversals aborted due to a missing process")
 			return true, nil
@@ -804,7 +804,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 		}
 
 		activityID := ksuid.New().String()
-		if err := s.bpmnOperations.SaveState(ctx, activityID, &traversal); err != nil {
+		if err := s.operations.SaveState(ctx, activityID, &traversal); err != nil {
 			return false, err
 		}
 		if err := s.activityStartProcessor(ctx, activityID, &traversal, false); errors.IsWorkflowFatal(err) {
@@ -815,7 +815,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 		}
 
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}
@@ -823,7 +823,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 }
 
 func (s *Engine) processTracking(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, s.bpmnOperations.SignalFatalError)
+	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("tracking processor: %w", err)
 	}
@@ -877,7 +877,7 @@ func (s *Engine) processCompletedJobs(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed job state: %w", err)
 		}
-		if _, _, err := s.bpmnOperations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processCompletedJobs aborted due to a missing process")
 			return true, nil
@@ -896,7 +896,7 @@ func (s *Engine) processCompletedJobs(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("completed job processor: %w", err)
 	}
@@ -910,19 +910,19 @@ func (s *Engine) processWorkflowEvents(ctx context.Context) error {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
 		}
 		if strings.HasSuffix(msg.Subject(), ".State.Execution.Complete") {
-			if _, err := s.bpmnOperations.HasValidExecution(ctx, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+			if _, err := s.operations.HasValidExecution(ctx, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processWorkflowEvents aborted due to a missing process")
 				return true, nil
 			} else if err != nil {
 				return false, err
 			}
-			if err := s.bpmnOperations.XDestroyProcessInstance(ctx, &job); err != nil {
+			if err := s.operations.XDestroyProcessInstance(ctx, &job); err != nil {
 				return false, fmt.Errorf("destroy process instance whilst processing workflow events: %w", err)
 			}
 		}
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("starting workflow event processing: %w", err)
 	}
@@ -950,7 +950,7 @@ func (s *Engine) processActivities(ctx context.Context) error {
 		}
 
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("starting activity processing: %w", err)
 	}
@@ -976,7 +976,7 @@ func (s *Engine) processLaunch(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("unmarshal during process launch: %w", err)
 		}
-		if _, _, err := s.bpmnOperations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
 			return true, err
@@ -987,7 +987,7 @@ func (s *Engine) processLaunch(ctx context.Context) error {
 			return false, fmt.Errorf("execute launch function: %w", err)
 		}
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
@@ -1000,7 +1000,7 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("job abort consumer failed to unmarshal state: %w", err)
 		}
-		if _, _, err := s.bpmnOperations.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.operations.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processJobAbort aborted due to a missing process")
 			return true, err
@@ -1013,14 +1013,14 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 			if err := s.deleteJob(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete job during service task abort: %w", err)
 			}
-			if err := s.bpmnOperations.RecordHistoryJobComplete(ctx, &state); err != nil {
+			if err := s.operations.RecordHistoryJobComplete(ctx, &state); err != nil {
 				return true, fmt.Errorf("complete job processor failed to record history job complete: %w", err)
 			}
 		default:
 			return true, nil
 		}
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start job abort processor: %w", err)
 	}
@@ -1033,7 +1033,7 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
 		}
-		pi, execution, err := s.bpmnOperations.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId)
+		pi, execution, err := s.operations.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId)
 		if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processProcessComplete aborted due to a missing process")
@@ -1042,11 +1042,11 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 			return false, err
 		}
 		state.State = model.CancellationState_completed
-		if err := s.bpmnOperations.DestroyProcessInstance(ctx, &state, pi.ProcessInstanceId, execution.ExecutionId); err != nil {
+		if err := s.operations.DestroyProcessInstance(ctx, &state, pi.ProcessInstanceId, execution.ExecutionId); err != nil {
 			return false, fmt.Errorf("delete prcess: %w", err)
 		}
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
 	}
@@ -1066,7 +1066,7 @@ func (s *Engine) processProcessTerminate(ctx context.Context) error {
 			}
 		}
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start process terminate processor: %w", err)
 	}
@@ -1089,14 +1089,14 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 		case strings.HasSuffix(msg.Subject(), ".State.Execution.Abort"):
 			abortState := common.CopyWorkflowState(&state)
 			abortState.State = model.CancellationState_terminated
-			if err := s.bpmnOperations.XDestroyProcessInstance(ctx, &state); err != nil {
+			if err := s.operations.XDestroyProcessInstance(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete process instance during general abort processor: %w", err)
 			}
 		default:
 			return true, nil
 		}
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start general abort processor: %w", err)
 	}
@@ -1113,7 +1113,7 @@ func (s *Engine) processFatalError(ctx context.Context) error {
 		switch fatalErr.WorkflowState.ElementType {
 		case element.ServiceTask, element.MessageIntermediateCatchEvent:
 			// These are both job based, so we need to abort the job
-			if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, fatalErr.WorkflowState); err != nil {
+			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, fatalErr.WorkflowState); err != nil {
 				log := logx.FromContext(ctx)
 				log.Error("publish workflow state for service task abort", "error", err)
 				return false, fmt.Errorf("publish abort task for handle fatal workflow error: %w", err)
@@ -1124,14 +1124,14 @@ func (s *Engine) processFatalError(ctx context.Context) error {
 		}
 
 		//get the execution
-		execution, err2 := s.bpmnOperations.GetExecution(ctx, fatalErr.WorkflowState.ExecutionId)
+		execution, err2 := s.operations.GetExecution(ctx, fatalErr.WorkflowState.ExecutionId)
 		if err2 != nil {
 			return false, fmt.Errorf("error retrieving execution when processing fatal err: %w", err2)
 		}
 		//loop over the process instance ids to tear them down
 		for _, processInstanceId := range execution.ProcessInstanceId {
 			fatalErr.WorkflowState.State = model.CancellationState_terminated
-			if err := s.bpmnOperations.DestroyProcessInstance(ctx, fatalErr.WorkflowState, processInstanceId, execution.ExecutionId); err != nil {
+			if err := s.operations.DestroyProcessInstance(ctx, fatalErr.WorkflowState, processInstanceId, execution.ExecutionId); err != nil {
 				log := logx.FromContext(ctx)
 				log.Error("failed destroying process instance", "err", err)
 			}
@@ -1154,13 +1154,13 @@ func (s *Engine) deleteActivity(ctx context.Context, state *model.WorkflowState)
 }
 
 func (s *Engine) deleteJob(ctx context.Context, state *model.WorkflowState) error {
-	if err := s.bpmnOperations.DeleteJob(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
+	if err := s.operations.DeleteJob(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete job: %w", err)
 	}
-	if activityState, err := s.bpmnOperations.GetOldState(ctx, common.TrackingID(state.Id).Pop().ID()); err != nil && !errors2.Is(err, errors.ErrStateNotFound) {
+	if activityState, err := s.operations.GetOldState(ctx, common.TrackingID(state.Id).Pop().ID()); err != nil && !errors2.Is(err, errors.ErrStateNotFound) {
 		return fmt.Errorf("fetch old state during delete job: %w", err)
 	} else if err == nil {
-		if err := s.bpmnOperations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), activityState); err != nil {
+		if err := s.operations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), activityState); err != nil {
 			return fmt.Errorf("publish activity abort during delete job: %w", err)
 		}
 	}

@@ -29,7 +29,7 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed gateway activation state: %w", err)
 		}
-		if _, _, err := s.bpmnOperations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+		if _, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
 			log.Log(ctx, slog.LevelInfo, "processCompletedJobs aborted due to a missing process")
 			return true, nil
@@ -52,16 +52,16 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 			if err := common.SaveObj(ctx, nsKVs.WfGateway, gwIID, gw); err != nil {
 				return false, fmt.Errorf("%s failed to save gateway to KV: %w", errors.Fn(), err)
 			}
-			if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskExecute, &job); err != nil {
+			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskExecute, &job); err != nil {
 				return false, fmt.Errorf("%s failed to execute gateway to KV: %w", errors.Fn(), err)
 			}
 		} else if err != nil {
 			return false, fmt.Errorf("%s could not load gateway information: %w", errors.Fn(), err)
-		} else if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskReEnter, &job); err != nil {
+		} else if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskReEnter, &job); err != nil {
 			return false, fmt.Errorf("%s failed to execute gateway to KV: %w", errors.Fn(), err)
 		}
 		return true, nil
-	}, s.bpmnOperations.SignalFatalError)
+	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("initialize gateway activation listener: %w", err)
 	}
@@ -69,10 +69,10 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 }
 
 func (s *Engine) processGatewayExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, s.bpmnOperations.SignalFatalError); err != nil {
+	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, s.operations.SignalFatalError); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
-	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, s.bpmnOperations.SignalFatalError); err != nil {
+	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, s.operations.SignalFatalError); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil
@@ -83,7 +83,7 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg
 	if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
-	if _, _, err := s.bpmnOperations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
+	if _, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
 		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
 		return true, err
@@ -91,7 +91,7 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg
 		return false, err
 	}
 	// Gateway logic
-	wf, err := s.bpmnOperations.GetWorkflow(ctx, job.WorkflowId)
+	wf, err := s.operations.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("process gateway execute failed: %w", err)}
 	}
@@ -148,7 +148,7 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg
 				return false, err
 			}
 		} else {
-			if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskAbort, &job); err != nil {
+			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskAbort, &job); err != nil {
 				return false, err
 			}
 		}
@@ -236,7 +236,7 @@ func (s *Engine) completeGateway(ctx context.Context, job *model.WorkflowState) 
 	}); err != nil {
 		return fmt.Errorf("%s failed to update gateway: %w", errors.Fn(), err)
 	}
-	if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskComplete, job); err != nil {
+	if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskComplete, job); err != nil {
 		return err
 	}
 	if err := common.Delete(ctx, nsKVs.WfGateway, *job.Execute); err != nil {

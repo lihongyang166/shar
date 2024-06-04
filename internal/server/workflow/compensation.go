@@ -33,7 +33,7 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 	if err != nil {
 		return fmt.Errorf("get kvs for compensate: %w", err)
 	}
-	wf, err := s.bpmnOperations.GetWorkflow(ctx, state.WorkflowId)
+	wf, err := s.operations.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("get workflow: %w", err)
 	}
@@ -43,7 +43,7 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 	hist := make(chan *model.ProcessHistoryEntry)
 	errs := make(chan error, 1)
 	//ids := make([]string, 0)
-	go s.bpmnOperations.GetProcessHistory(ctx, state.ProcessInstanceId, hist, errs)
+	go s.operations.GetProcessHistory(ctx, state.ProcessInstanceId, hist, errs)
 	stateID := common.TrackingID(state.Id)
 	planPrefix := subj.NS("WORKFLOW.%s.Compensate.", ns)
 	planSubject := planPrefix + stateID.ID()
@@ -124,7 +124,7 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 
 	state.State = model.CancellationState_compensating
 
-	if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowProcessCompensate, state); err != nil {
+	if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowProcessCompensate, state); err != nil {
 		return fmt.Errorf("publish compensation state: %w", err)
 	}
 	return nil
@@ -137,7 +137,7 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 		if err != nil {
 			return false, fmt.Errorf("unmarshal workflow state: %w", err)
 		}
-		wf, err := s.bpmnOperations.GetWorkflow(ctx, state.WorkflowId)
+		wf, err := s.operations.GetWorkflow(ctx, state.WorkflowId)
 		if err != nil {
 			return false, fmt.Errorf("get workflow: %w", err)
 		}
@@ -207,13 +207,13 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 			compensationJob.ExecuteVersion = *el.Version
 		}
 
-		if err := s.bpmnOperations.RecordHistoryCompensationCheckpoint(ctx, compensationJob); err != nil {
+		if err := s.operations.RecordHistoryCompensationCheckpoint(ctx, compensationJob); err != nil {
 			return false, fmt.Errorf("record compensation checkpoint: %w", err)
 		}
 		switch compensationJob.ElementType {
 		case element.ServiceTask:
 			jobSubject := subj.NS(messages.WorkflowJobServiceTaskExecute, ns) + "." + compensationJob.ExecuteVersion
-			if err := s.bpmnOperations.StartJob(ctx, jobSubject, compensationJob, el, state.Vars); err != nil {
+			if err := s.operations.StartJob(ctx, jobSubject, compensationJob, el, state.Vars); err != nil {
 				return false, fmt.Errorf("start job: %w", err)
 			}
 		}
@@ -228,11 +228,11 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 
 func (s *Engine) compensationJobComplete(ctx context.Context, job *model.WorkflowState) error {
 	id := common.TrackingID(job.Id).Pop()
-	checkpoint, err := s.bpmnOperations.GetProcessHistoryItem(ctx, job.ProcessInstanceId, id.ID(), model.ProcessHistoryType_compensationCheckpoint)
+	checkpoint, err := s.operations.GetProcessHistoryItem(ctx, job.ProcessInstanceId, id.ID(), model.ProcessHistoryType_compensationCheckpoint)
 	if err != nil {
 		return fmt.Errorf("get compensation checkpoint: %w", err)
 	}
-	wf, err := s.bpmnOperations.GetWorkflow(ctx, job.WorkflowId)
+	wf, err := s.operations.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("get workflow: %w", err)
 	}
@@ -246,7 +246,7 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 	state := common.CopyWorkflowState(job)
 	state.Vars = checkpoint.Vars
 	if state.Compensation.Step == state.Compensation.TotalSteps-1 {
-		activity, err := s.bpmnOperations.GetProcessHistoryItem(ctx, state.ProcessInstanceId, id.ID(), model.ProcessHistoryType_activityExecute)
+		activity, err := s.operations.GetProcessHistoryItem(ctx, state.ProcessInstanceId, id.ID(), model.ProcessHistoryType_activityExecute)
 		if err != nil {
 			return fmt.Errorf("get compensation history activity entry: %w", err)
 		}
@@ -256,10 +256,10 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 		common.DropStateParams(state)
 		state.Id = id
 
-		if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
+		if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
 			return fmt.Errorf("publish compensation activity complete: %w", err)
 		}
-		if err := s.bpmnOperations.RecordHistoryActivityComplete(ctx, state); err != nil {
+		if err := s.operations.RecordHistoryActivityComplete(ctx, state); err != nil {
 			return fmt.Errorf("record history activity complete for compensation: %w", err)
 		}
 
@@ -273,13 +273,13 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 				return fmt.Errorf("transform output vars: %w", err)
 			}
 			finalState.Vars = localVars
-			if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, finalState); err != nil {
+			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, finalState); err != nil {
 				return fmt.Errorf("publish workflow status: %w", err)
 			}
 		}
 	} else {
 		state.Id = id
-		if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowProcessCompensate, state); err != nil {
+		if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowProcessCompensate, state); err != nil {
 			return fmt.Errorf("publish workflow state: %w", err)
 		}
 		fmt.Println("wait")

@@ -25,7 +25,7 @@ const (
 )
 
 func (s *Engine) processMessages(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, s.bpmnOperations.SignalFatalError)
+	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start message processor: %w", err)
 	}
@@ -135,7 +135,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 		}
 
 		for _, recvr := range receivers {
-			job, err := s.bpmnOperations.GetJob(ctx, recvr.Id)
+			job, err := s.operations.GetJob(ctx, recvr.Id)
 			if errors2.Is(err, jetstream.ErrKeyNotFound) {
 				return nil
 			} else if err != nil {
@@ -143,7 +143,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 			}
 
 			job.Vars = exchange.Sender.Vars
-			if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
 				return fmt.Errorf("publishing complete message job: %w", err)
 			}
 		}
@@ -166,7 +166,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 }
 
 func (s *Engine) processAwaitMessageExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor, s.bpmnOperations.SignalFatalError); err != nil {
+	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor, s.operations.SignalFatalError); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil
@@ -183,7 +183,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
 
-	_, _, err := s.bpmnOperations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
+	_, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
 	if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
 		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
@@ -192,7 +192,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 		return false, err
 	}
 
-	el, err := s.bpmnOperations.GetElement(ctx, job)
+	el, err := s.operations.GetElement(ctx, job)
 	if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err), State: job}
 	} else if err != nil {

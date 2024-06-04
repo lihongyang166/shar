@@ -41,11 +41,11 @@ func (s *Endpoints) authorize(ctx context.Context, workflowName string) (context
 }
 
 func (s *Endpoints) authFromJobID(ctx context.Context, trackingID string) (context.Context, *model.WorkflowState, error) {
-	job, err := s.bpmnOperations.GetJob(ctx, trackingID)
+	job, err := s.operations.GetJob(ctx, trackingID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get job for authorization: %w", err)
 	}
-	w, err := s.bpmnOperations.GetWorkflow(ctx, job.WorkflowId)
+	w, err := s.operations.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow for authorization: %w", err)
 	}
@@ -57,7 +57,7 @@ func (s *Endpoints) authFromJobID(ctx context.Context, trackingID string) (conte
 }
 
 func (s *Endpoints) authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error) {
-	execution, err := s.bpmnOperations.GetExecution(ctx, executionID)
+	execution, err := s.operations.GetExecution(ctx, executionID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get execution for authorization: %w", err)
 	}
@@ -69,7 +69,7 @@ func (s *Endpoints) authFromExecutionID(ctx context.Context, executionID string)
 }
 
 func (s *Endpoints) authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error) {
-	pi, err := s.bpmnOperations.GetProcessInstance(ctx, instanceID)
+	pi, err := s.operations.GetProcessInstance(ctx, instanceID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow instance for authorization: %w", err)
 	}

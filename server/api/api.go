@@ -83,7 +83,7 @@ type WorkflowEngine interface {
 
 // Endpoints provides API endpoints for SHAR
 type Endpoints struct {
-	bpmnOperations       *workflow.Operations
+	operations           *workflow.Operations
 	subs                 *sync.Map
 	panicRecovery        bool
 	apiAuthZFn           authz.APIFunc
@@ -95,15 +95,15 @@ type Endpoints struct {
 }
 
 // New creates a new instance of the SHAR API server
-func New(bpmnOperations *workflow.Operations, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
+func New(operations *workflow.Operations, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
 	ss := &Endpoints{
-		apiAuthZFn:     options.ApiAuthorizer,
-		apiAuthNFn:     options.ApiAuthenticator,
-		nc:             nc,
-		bpmnOperations: bpmnOperations,
-		panicRecovery:  options.PanicRecovery,
-		subs:           &sync.Map{},
-		tr:             otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
+		apiAuthZFn:    options.ApiAuthorizer,
+		apiAuthNFn:    options.ApiAuthenticator,
+		nc:            nc,
+		operations:    operations,
+		panicRecovery: options.PanicRecovery,
+		subs:          &sync.Map{},
+		tr:            otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
 	}
 	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.CtxWithTraceParentFromNatsMsgMiddleware())
 	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.NatsMsgToCtxWithSpanMiddleware())

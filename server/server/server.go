@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"gitlab.com/shar-workflow/shar/server/server/option"
+	natz "gitlab.com/shar-workflow/shar/server/services/natz"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -35,6 +36,7 @@ type Server struct {
 	healthService *health.Checker
 	grpcServer    *gogrpc.Server
 	api           *api.Endpoints
+	engine        *workflow.Engine
 	serverOptions *option.ServerOptions
 	tr            trace.Tracer
 }
@@ -67,7 +69,23 @@ func New(options ...option.Option) (*Server, error) {
 		return nil, fmt.Errorf("connect nats: %w", err)
 	}
 
-	a, err := api.New(nc, defaultServerOptions)
+	natsService, err := natz.NewNatsService(nc)
+	if err != nil {
+		return nil, fmt.Errorf("create natsService: %w", err)
+	}
+
+	bpmnOperations, err := workflow.NewBpmnOperations(natsService)
+	if err != nil {
+		return nil, fmt.Errorf("create BPMNOperations: %w", err)
+	}
+
+	engine, err := workflow.New(natsService, bpmnOperations, defaultServerOptions)
+	if err != nil {
+		slog.Error("create workflow engine", slog.String("error", err.Error()))
+		return nil, fmt.Errorf("create workflow engine: %w", err)
+	}
+
+	a, err := api.New(bpmnOperations, nc, defaultServerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("create api: %w", err)
 	}
@@ -77,6 +95,7 @@ func New(options ...option.Option) (*Server, error) {
 		healthService: health.New(),
 		serverOptions: defaultServerOptions,
 		api:           a,
+		engine:        engine,
 	}
 
 	if s.serverOptions.ShowSplash {
@@ -132,13 +151,13 @@ func (s *Server) Listen() error {
 		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 	}
 
-	if err := s.api.Listen(); err != nil {
-		panic(err)
+	if err := s.engine.Start(context.Background()); err != nil {
+		panic(fmt.Errorf("start SHAR engine: %w", err))
 	}
-	//TODO should we call wfe.Start here? even though wfe is referenced from api???
-	//see note in api listen, it seems like engine.go/nats.go could potentially be split into
-	//separate things, an interface called from api/outside, an interface that is for backend processing
-	//which would mostly be the process* functions.
+
+	if err := s.api.Listen(); err != nil {
+		panic(fmt.Errorf("start SHAR api: %w", err))
+	}
 
 	// Log or exit
 	select {
@@ -181,6 +200,7 @@ setProvider:
 func (s *Server) Shutdown() {
 	s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 
+	s.engine.Shutdown()
 	s.api.Shutdown()
 	if s.serverOptions.HealthServiceEnabled {
 		s.grpcServer.GracefulStop()
@@ -206,7 +226,7 @@ func (s *Server) GetEndPoint() string {
 // Returns:
 // - NatsConnConfiguration: The NATS connection configuration.
 // - error: An error if the connection or account retrieval fails.
-func connectNats(options *option.ServerOptions) (*workflow.NatsConnConfiguration, error) {
+func connectNats(options *option.ServerOptions) (*natz.NatsConnConfiguration, error) {
 	// TODO why do we need a separate txConn?
 	conn, err := nats.Connect(options.NatsUrl)
 	if err != nil {
@@ -233,7 +253,7 @@ func connectNats(options *option.ServerOptions) (*workflow.NatsConnConfiguration
 	if options.EphemeralStorage {
 		store = jetstream.MemoryStorage
 	}
-	return &workflow.NatsConnConfiguration{
+	return &natz.NatsConnConfiguration{
 		Conn:        conn,
 		TxConn:      txConn,
 		StorageType: store,

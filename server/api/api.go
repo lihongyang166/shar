@@ -19,6 +19,7 @@ import (
 	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"gitlab.com/shar-workflow/shar/server/server/option"
+	"gitlab.com/shar-workflow/shar/server/services/natz"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"log/slog"
@@ -82,34 +83,27 @@ type WorkflowEngine interface {
 
 // Endpoints provides API endpoints for SHAR
 type Endpoints struct {
-	engine        WorkflowEngine
-	subs          *sync.Map
-	panicRecovery bool
-	apiAuthZFn    authz.APIFunc
-	apiAuthNFn    authn.Check
-	//receiveMiddleware    []middleware.Receive
+	bpmnOperations       *workflow.BpmnOperations
+	subs                 *sync.Map
+	panicRecovery        bool
+	apiAuthZFn           authz.APIFunc
+	apiAuthNFn           authn.Check
 	receiveApiMiddleware []middleware.Receive
 	sendMiddleware       []middleware.Send
 	tr                   trace.Tracer
-	nc                   *workflow.NatsConnConfiguration
+	nc                   *natz.NatsConnConfiguration
 }
 
 // New creates a new instance of the SHAR API server
-func New(nc *workflow.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
-	wfe, err := workflow.New(nc, options)
-	if err != nil {
-		slog.Error("create workflow engine", slog.String("error", err.Error()))
-		return nil, fmt.Errorf("create workflow engine: %w", err)
-	}
-
+func New(bpmnOperations *workflow.BpmnOperations, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
 	ss := &Endpoints{
-		apiAuthZFn:    options.ApiAuthorizer,
-		apiAuthNFn:    options.ApiAuthenticator,
-		nc:            nc,
-		engine:        wfe,
-		panicRecovery: options.PanicRecovery,
-		subs:          &sync.Map{},
-		tr:            otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
+		apiAuthZFn:     options.ApiAuthorizer,
+		apiAuthNFn:     options.ApiAuthenticator,
+		nc:             nc,
+		bpmnOperations: bpmnOperations,
+		panicRecovery:  options.PanicRecovery,
+		subs:           &sync.Map{},
+		tr:             otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
 	}
 	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.CtxWithTraceParentFromNatsMsgMiddleware())
 	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.NatsMsgToCtxWithSpanMiddleware())
@@ -119,7 +113,7 @@ func New(nc *workflow.NatsConnConfiguration, options *option.ServerOptions) (*En
 
 var shutdownOnce sync.Once
 
-// Shutdown gracefully shuts down the SHAR API server and Engine
+// Shutdown gracefully shuts down the SHAR API server
 func (s *Endpoints) Shutdown() {
 	slog.Info("stopping shar api listener")
 	shutdownOnce.Do(func() {
@@ -131,24 +125,12 @@ func (s *Endpoints) Shutdown() {
 			}
 			return true
 		})
-		s.engine.Shutdown()
 		slog.Info("shar api listener stopped")
 	})
 }
 
 // Listen starts the SHAR API server listening to incoming requests
 func (s *Endpoints) Listen() error {
-	//TODO this is Endpoints.Listen but engine.Start actually begins the backend process*
-	//threads so while it is better than engine.Start being called from a New() function, it still feels
-	//weird.
-	//Engine however is also called directly by Endpoints...
-	//We should probably look at the kinds of functions in engine (which is nats.go) and see if there is a broader
-	//split between api accessed functions and process* functions, basically an interface called by
-	//api/outside world, vs interface that is purely about backend/internal processing (which is called by engine.Start)
-
-	if err := s.engine.Start(context.Background()); err != nil {
-		return fmt.Errorf("start SHAR engine: %w", err)
-	}
 
 	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIStoreWorkflow, s.receiveApiMiddleware, &model.StoreWorkflowRequest{}, s.storeWorkflow); err != nil {
 		return fmt.Errorf("APIStoreWorkflow: %w", err)

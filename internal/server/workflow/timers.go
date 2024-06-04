@@ -102,7 +102,7 @@ func (s *Engine) listenForTimer(sCtx context.Context, js jetstream.JetStream, cl
 						continue
 					}
 					if strings.HasSuffix(m.Subject(), ".Timers.ElementExecute") {
-						_, err := s.hasValidExecution(sCtx, state.ExecutionId)
+						_, err := s.bpmnOperations.HasValidExecution(sCtx, state.ExecutionId)
 						if errors2.Is(err, errors.ErrExecutionNotFound) {
 							log := logx.FromContext(sCtx)
 							log.Log(sCtx, slog.LevelInfo, "listenForTimer aborted due to a missing instance")
@@ -111,7 +111,7 @@ func (s *Engine) listenForTimer(sCtx context.Context, js jetstream.JetStream, cl
 							continue
 						}
 
-						pi, err := s.GetProcessInstance(ctx, state.ProcessInstanceId)
+						pi, err := s.bpmnOperations.GetProcessInstance(ctx, state.ProcessInstanceId)
 						if errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 							if err := m.Ack(); err != nil {
 								log.Error("ack message after process instance not found", "error", err)
@@ -119,13 +119,13 @@ func (s *Engine) listenForTimer(sCtx context.Context, js jetstream.JetStream, cl
 							}
 							continue
 						}
-						wf, err := s.GetWorkflow(ctx, pi.WorkflowId)
+						wf, err := s.bpmnOperations.GetWorkflow(ctx, pi.WorkflowId)
 						if err != nil {
 							log.Error("get workflow", "error", err)
 							continue
 						}
 						activityID := common.TrackingID(state.Id).ID()
-						_, err = s.GetOldState(ctx, activityID)
+						_, err = s.bpmnOperations.GetOldState(ctx, activityID)
 						if errors2.Is(err, errors.ErrStateNotFound) {
 							if err := m.Ack(); err != nil {
 								log.Error("ack message after state not found", "error", err)
@@ -141,7 +141,7 @@ func (s *Engine) listenForTimer(sCtx context.Context, js jetstream.JetStream, cl
 							log.Error("traverse", "error", err)
 							continue
 						}
-						if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), state); err != nil {
+						if err := s.bpmnOperations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), state); err != nil {
 							if err != nil {
 								continue
 							}

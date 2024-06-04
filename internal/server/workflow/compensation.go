@@ -22,18 +22,18 @@ import (
 
 const consumerPrefix = "comp_plan_"
 
-// Compensate is a method of the Nats struct that performs the compensation process for a given workflow state.
+// Compensate is a method of the Engine struct that performs the compensation process for a given workflow state.
 // It retrieves the necessary information and history from the workflow and processes it to determine the compensation steps.
 // It then creates a compensation plan and publishes each step to a designated subject for further processing.
 // Finally, it updates the state of the workflow to indicate that the compensation is in progress.
 // It returns an error if any step of the compensation process encounters an issue.
 func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
-	kvs, err := s.KvsFor(ctx, ns)
+	kvs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("get kvs for compensate: %w", err)
 	}
-	wf, err := s.GetWorkflow(ctx, state.WorkflowId)
+	wf, err := s.bpmnOperations.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("get workflow: %w", err)
 	}
@@ -43,11 +43,11 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 	hist := make(chan *model.ProcessHistoryEntry)
 	errs := make(chan error, 1)
 	//ids := make([]string, 0)
-	go s.GetProcessHistory(ctx, state.ProcessInstanceId, hist, errs)
+	go s.bpmnOperations.GetProcessHistory(ctx, state.ProcessInstanceId, hist, errs)
 	stateID := common.TrackingID(state.Id)
 	planPrefix := subj.NS("WORKFLOW.%s.Compensate.", ns)
 	planSubject := planPrefix + stateID.ID()
-	if _, err := s.js.CreateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
+	if _, err := s.natsService.Js.CreateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
 		Name:              "",
 		Durable:           consumerPrefix + stateID.ID(),
 		Description:       "compensation plan for " + stateID.ID(),
@@ -60,7 +60,7 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 		MaxAckPending:     1,
 		MaxRequestBatch:   1,
 		InactiveThreshold: 0, // May need changing to ensure eventual cleanup
-		MemoryStorage:     s.storageType == jetstream.MemoryStorage,
+		MemoryStorage:     s.natsService.StorageType == jetstream.MemoryStorage,
 	}); err != nil {
 		return fmt.Errorf("create compensation consumer: %w", err)
 	}
@@ -89,7 +89,7 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 			if entry.ItemType == model.ProcessHistoryType_jobExecute && els[*entry.ElementId].CompensateWith != nil {
 				// check if the activity completed
 				completedId := fmt.Sprintf("%s.%s.%d", *entry.ProcessInstanceId, entryId.ParentID(), int(model.ProcessHistoryType_activityComplete))
-				if _, err := kvs.wfHistory.Get(ctx, completedId); errors.Is(err, jetstream.ErrKeyNotFound) {
+				if _, err := kvs.WfHistory.Get(ctx, completedId); errors.Is(err, jetstream.ErrKeyNotFound) {
 					continue
 				}
 				forCompensation = append(forCompensation, step{UnixTime: entry.UnixTimeNano, Item: fmt.Sprintf("%s.%s.%d", *entry.ProcessInstanceId, entryId.ID(), int(entry.ItemType))})
@@ -117,34 +117,34 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 		msg.Header.Set("Step", strconv.Itoa(i))
 		msg.Header.Set("Steps", strconv.Itoa(length))
 		msg.Data = []byte(v.Item)
-		if err := s.conn.PublishMsg(msg); err != nil {
+		if err := s.natsService.Conn.PublishMsg(msg); err != nil {
 			return fmt.Errorf("publish compensation plan entry: %w", err)
 		}
 	}
 
 	state.State = model.CancellationState_compensating
 
-	if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessCompensate, state); err != nil {
+	if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowProcessCompensate, state); err != nil {
 		return fmt.Errorf("publish compensation state: %w", err)
 	}
 	return nil
 }
 
 func (s *Engine) processProcessCompensate(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "processCompensate", s.closing, subj.NS(messages.WorkflowProcessCompensate, "*"), "ProcessCompensateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "processCompensate", s.closing, subj.NS(messages.WorkflowProcessCompensate, "*"), "ProcessCompensateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		state := &model.WorkflowState{}
 		err := proto.Unmarshal(msg.Data(), state)
 		if err != nil {
 			return false, fmt.Errorf("unmarshal workflow state: %w", err)
 		}
-		wf, err := s.GetWorkflow(ctx, state.WorkflowId)
+		wf, err := s.bpmnOperations.GetWorkflow(ctx, state.WorkflowId)
 		if err != nil {
 			return false, fmt.Errorf("get workflow: %w", err)
 		}
 		els := make(map[string]*model.Element)
 		common.IndexProcessElements(wf.Process[state.ProcessName].Elements, els)
 		id := common.TrackingID(state.Id)
-		consumer, err := s.js.Consumer(ctx, "WORKFLOW", consumerPrefix+id.ID())
+		consumer, err := s.natsService.Js.Consumer(ctx, "WORKFLOW", consumerPrefix+id.ID())
 		if err != nil {
 			return false, fmt.Errorf("get compensation consumer: %w", err)
 		}
@@ -166,12 +166,12 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 			return false, fmt.Errorf("ack compensation plan entry: %w", err)
 		}
 		ns := subj.GetNS(ctx)
-		kvs, err := s.KvsFor(ctx, ns)
+		kvs, err := s.natsService.KvsFor(ctx, ns)
 		if err != nil {
 			return false, fmt.Errorf("get key value stores for namespace: %w", err)
 		}
 		jobExecuteHistoryID := string(data)
-		v, err := kvs.wfHistory.Get(ctx, jobExecuteHistoryID)
+		v, err := kvs.WfHistory.Get(ctx, jobExecuteHistoryID)
 		if err != nil {
 			return false, fmt.Errorf("get compensation history entry: %w", err)
 		}
@@ -207,13 +207,13 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 			compensationJob.ExecuteVersion = *el.Version
 		}
 
-		if err := s.RecordHistoryCompensationCheckpoint(ctx, compensationJob); err != nil {
+		if err := s.bpmnOperations.RecordHistoryCompensationCheckpoint(ctx, compensationJob); err != nil {
 			return false, fmt.Errorf("record compensation checkpoint: %w", err)
 		}
 		switch compensationJob.ElementType {
 		case element.ServiceTask:
 			jobSubject := subj.NS(messages.WorkflowJobServiceTaskExecute, ns) + "." + compensationJob.ExecuteVersion
-			if err := s.StartJob(ctx, jobSubject, compensationJob, el, state.Vars); err != nil {
+			if err := s.bpmnOperations.StartJob(ctx, jobSubject, compensationJob, el, state.Vars); err != nil {
 				return false, fmt.Errorf("start job: %w", err)
 			}
 		}
@@ -228,11 +228,11 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 
 func (s *Engine) compensationJobComplete(ctx context.Context, job *model.WorkflowState) error {
 	id := common.TrackingID(job.Id).Pop()
-	checkpoint, err := s.GetProcessHistoryItem(ctx, job.ProcessInstanceId, id.ID(), model.ProcessHistoryType_compensationCheckpoint)
+	checkpoint, err := s.bpmnOperations.GetProcessHistoryItem(ctx, job.ProcessInstanceId, id.ID(), model.ProcessHistoryType_compensationCheckpoint)
 	if err != nil {
 		return fmt.Errorf("get compensation checkpoint: %w", err)
 	}
-	wf, err := s.GetWorkflow(ctx, job.WorkflowId)
+	wf, err := s.bpmnOperations.GetWorkflow(ctx, job.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("get workflow: %w", err)
 	}
@@ -246,7 +246,7 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 	state := common.CopyWorkflowState(job)
 	state.Vars = checkpoint.Vars
 	if state.Compensation.Step == state.Compensation.TotalSteps-1 {
-		activity, err := s.GetProcessHistoryItem(ctx, state.ProcessInstanceId, id.ID(), model.ProcessHistoryType_activityExecute)
+		activity, err := s.bpmnOperations.GetProcessHistoryItem(ctx, state.ProcessInstanceId, id.ID(), model.ProcessHistoryType_activityExecute)
 		if err != nil {
 			return fmt.Errorf("get compensation history activity entry: %w", err)
 		}
@@ -256,10 +256,10 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 		common.DropStateParams(state)
 		state.Id = id
 
-		if err := s.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
+		if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowActivityComplete, state); err != nil {
 			return fmt.Errorf("publish compensation activity complete: %w", err)
 		}
-		if err := s.RecordHistoryActivityComplete(ctx, state); err != nil {
+		if err := s.bpmnOperations.RecordHistoryActivityComplete(ctx, state); err != nil {
 			return fmt.Errorf("record history activity complete for compensation: %w", err)
 		}
 
@@ -273,37 +273,16 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 				return fmt.Errorf("transform output vars: %w", err)
 			}
 			finalState.Vars = localVars
-			if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, finalState); err != nil {
+			if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, finalState); err != nil {
 				return fmt.Errorf("publish workflow status: %w", err)
 			}
 		}
 	} else {
 		state.Id = id
-		if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessCompensate, state); err != nil {
+		if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowProcessCompensate, state); err != nil {
 			return fmt.Errorf("publish workflow state: %w", err)
 		}
 		fmt.Println("wait")
 	}
 	return nil
-}
-
-// GetCompensationInputVariables is a method of the Nats struct that retrieves the original input variables
-// for a specific process instance and tracking ID. It returns the variables in byte array format.
-func (s *Engine) GetCompensationInputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
-	entry, err := s.GetProcessHistoryItem(ctx, processInstanceId, trackingId, model.ProcessHistoryType_jobExecute)
-	if err != nil {
-		return nil, fmt.Errorf("get compensation history entry: %w", err)
-	}
-	return entry.Vars, nil
-}
-
-// GetCompensationOutputVariables is a method of the Nats struct that retrieves the original output variables
-// of a compensation history entry for a specific process instance and tracking ID.
-// It returns the output variables as a byte array.
-func (s *Engine) GetCompensationOutputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error) {
-	entry, err := s.GetProcessHistoryItem(ctx, processInstanceId, trackingId, model.ProcessHistoryType_jobComplete)
-	if err != nil {
-		return nil, fmt.Errorf("get compensation history entry: %w", err)
-	}
-	return entry.Vars, nil
 }

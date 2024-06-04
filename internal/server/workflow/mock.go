@@ -55,11 +55,11 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 		jc := &jobClient{trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
 		if job.State == model.CancellationState_compensating {
 			var err error
-			ins, err := s.GetCompensationInputVariables(ctx, job.ProcessInstanceId, trackingID)
+			ins, err := s.bpmnOperations.GetCompensationInputVariables(ctx, job.ProcessInstanceId, trackingID)
 			if err != nil {
 				return nil, fmt.Errorf("get input variables: %w", err)
 			}
-			outs, err := s.GetCompensationOutputVariables(ctx, job.ProcessInstanceId, trackingID)
+			outs, err := s.bpmnOperations.GetCompensationOutputVariables(ctx, job.ProcessInstanceId, trackingID)
 			if err != nil {
 				return nil, fmt.Errorf("get output variables: %w", err)
 			}
@@ -97,7 +97,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	}
 
 	svcTaskCompleter := func(ctx context.Context, trackingID string, newVars model.Vars, compensating bool) error {
-		job, err := s.GetJob(ctx, trackingID)
+		job, err := s.bpmnOperations.GetJob(ctx, trackingID)
 		if err != nil {
 			return fmt.Errorf("get job: %w", err)
 		}
@@ -105,7 +105,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("encode vars: %w", err)
 		}
-		err = s.CompleteServiceTask(ctx, job, b)
+		err = s.bpmnOperations.CompleteServiceTask(ctx, job, b)
 		if err != nil {
 			return fmt.Errorf("complete service task: %w", err)
 		}
@@ -117,11 +117,11 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	}
 
 	wfErrHandler := func(ctx context.Context, ns string, trackingID string, errorCode string, binVars []byte) (*model.HandleWorkflowErrorResponse, error) {
-		state, err := s.GetJob(ctx, trackingID)
+		state, err := s.bpmnOperations.GetJob(ctx, trackingID)
 		if err != nil {
 			return nil, fmt.Errorf("get job: %w", err)
 		}
-		if err := s.HandleWorkflowError(ctx, errorCode, "", binVars, state); errors2.Is(err, errors.ErrUnhandledWorkflowError) {
+		if err := s.bpmnOperations.HandleWorkflowError(ctx, errorCode, "", binVars, state); errors2.Is(err, errors.ErrUnhandledWorkflowError) {
 			return &model.HandleWorkflowErrorResponse{Handled: false}, nil
 		} else if err != nil {
 			return nil, fmt.Errorf("handle workflow error: %w", err)
@@ -130,7 +130,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	}
 
 	piErrHandler := func(ctx context.Context, processInstanceID string, wfe *model.Error) error {
-		pi, err := s.GetProcessInstance(ctx, processInstanceID)
+		pi, err := s.bpmnOperations.GetProcessInstance(ctx, processInstanceID)
 		if err != nil {
 			return fmt.Errorf("get process instance: %w", err)
 		}
@@ -140,7 +140,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 			State:             model.CancellationState_errored,
 			Error:             wfe,
 		}
-		if err := s.CancelProcessInstance(ctx, state); err != nil {
+		if err := s.bpmnOperations.CancelProcessInstance(ctx, state); err != nil {
 			return fmt.Errorf("cancel process instance: %w", err)
 		}
 		return nil
@@ -159,7 +159,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 
 	subject := messages.WorkflowJobServiceTaskExecute + ".*.Mock"
 
-	err := common.Process(ctx, s.js, "WORKFLOW", "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, false, s, params), s.SignalFatalError)
+	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, false, s.bpmnOperations, params), s.bpmnOperations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}
@@ -168,7 +168,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 
 func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	newVars := model.Vars{}
-	ts, err := s.GetTaskSpecByUID(ctx, ctx.Value(keys.ContextKey("taskDef")).(string))
+	ts, err := s.bpmnOperations.GetTaskSpecByUID(ctx, ctx.Value(keys.ContextKey("taskDef")).(string))
 	if err != nil {
 		return newVars, fmt.Errorf("get task spec: %w", err)
 	}

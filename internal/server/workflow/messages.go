@@ -5,7 +5,6 @@ import (
 	errors2 "errors"
 	"fmt"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -25,54 +24,8 @@ const (
 	receiverParty = "receiver"
 )
 
-func (s *Engine) ensureMessageBuckets(ctx context.Context, wf *model.Workflow) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	for _, m := range wf.Messages {
-
-		receivers, ok := wf.MessageReceivers[m.Name]
-		var rcvrBytes []byte
-		if !ok {
-			rcvrBytes = []byte{}
-		} else {
-			var err error
-			rcvrBytes, err = proto.Marshal(receivers)
-			if err != nil {
-				return fmt.Errorf("failed serialising message receivers: %w", err)
-			}
-		}
-
-		if err := common.Save(ctx, nsKVs.wfMsgTypes, m.Name, rcvrBytes); err != nil {
-			return &errors.ErrWorkflowFatal{Err: err}
-		}
-
-		ks := ksuid.New()
-
-		//TODO: this should only happen if there is a task associated with message send
-		if err := common.Save(ctx, nsKVs.wfClientTask, wf.Name+"_"+m.Name, []byte(ks.String())); err != nil {
-			return fmt.Errorf("create a client task during workflow creation: %w", err)
-		}
-
-		jxCfg := jetstream.ConsumerConfig{
-			Durable:       "ServiceTask_" + subj.GetNS(ctx) + "_" + wf.Name + "_" + m.Name,
-			Description:   "",
-			FilterSubject: subj.NS(messages.WorkflowJobSendMessageExecute, subj.GetNS(ctx)) + "." + wf.Name + "_" + m.Name,
-			AckPolicy:     jetstream.AckExplicitPolicy,
-			MaxAckPending: 65536,
-		}
-		if _, err := s.js.CreateOrUpdateConsumer(ctx, "WORKFLOW", jxCfg); err != nil {
-			return fmt.Errorf("add service task consumer: %w", err)
-		}
-	}
-	return nil
-}
-
 func (s *Engine) processMessages(ctx context.Context) error {
-	err := common.Process(ctx, s.js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, s.SignalFatalError)
+	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "message", s.closing, subj.NS(messages.WorkflowMessage, "*"), "Message", s.concurrency, s.receiveMiddleware, s.processMessage, s.bpmnOperations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("start message processor: %w", err)
 	}
@@ -105,7 +58,7 @@ type setPartyFn func(exch *model.Exchange) (*model.Exchange, error)
 
 func (s *Engine) handleMessageExchange(ctx context.Context, party string, setPartyFn setPartyFn, elementId string, exchange *model.Exchange, messageName string, correlationKey string) error {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ctx, ns)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
@@ -117,10 +70,10 @@ func (s *Engine) handleMessageExchange(ctx context.Context, party string, setPar
 		return fmt.Errorf("error serialising "+party+" message %w", err3)
 	}
 	//use optimistic locking capabilities on create/update to ensure no lost writes...
-	_, createErr := nsKVs.wfMessages.Create(ctx, messageKey, exchangeProto)
+	_, createErr := nsKVs.WfMessages.Create(ctx, messageKey, exchangeProto)
 
 	if errors2.Is(createErr, jetstream.ErrKeyExists) {
-		err3 := common.UpdateObj(ctx, nsKVs.wfMessages, messageKey, &model.Exchange{}, setPartyFn)
+		err3 := common.UpdateObj(ctx, nsKVs.WfMessages, messageKey, &model.Exchange{}, setPartyFn)
 		if err3 != nil {
 			return fmt.Errorf("failed to update exchange with %s: %w", party, err3)
 		}
@@ -129,7 +82,7 @@ func (s *Engine) handleMessageExchange(ctx context.Context, party string, setPar
 	}
 
 	updatedExchange := &model.Exchange{}
-	if err3 = common.LoadObj(ctx, nsKVs.wfMessages, messageKey, updatedExchange); err3 != nil {
+	if err3 = common.LoadObj(ctx, nsKVs.WfMessages, messageKey, updatedExchange); err3 != nil {
 		return fmt.Errorf("failed to retrieve exchange: %w", err3)
 	} else if err3 = s.attemptMessageDelivery(ctx, updatedExchange, elementId, party, messageName, correlationKey); err3 != nil {
 		return fmt.Errorf("failed attempted delivery: %w", err3)
@@ -140,13 +93,13 @@ func (s *Engine) handleMessageExchange(ctx context.Context, party string, setPar
 
 func (s *Engine) hasAllReceivers(ctx context.Context, exchange *model.Exchange, messageName string) (bool, error) {
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ctx, ns)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return false, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
 	expectedMessageReceivers := &model.MessageReceivers{}
-	err = common.LoadObj(ctx, nsKVs.wfMsgTypes, messageName, expectedMessageReceivers)
+	err = common.LoadObj(ctx, nsKVs.WfMsgTypes, messageName, expectedMessageReceivers)
 	if err != nil {
 		return false, fmt.Errorf("load expected receivers: %w", err)
 	}
@@ -168,7 +121,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 	slog.Debug("attemptMessageDelivery", "exchange", exchange, "messageName", messageName, "correlationKey", correlationKey)
 
 	ns := subj.GetNS(ctx)
-	nsKVs, err := s.KvsFor(ctx, ns)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
@@ -182,7 +135,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 		}
 
 		for _, recvr := range receivers {
-			job, err := s.GetJob(ctx, recvr.Id)
+			job, err := s.bpmnOperations.GetJob(ctx, recvr.Id)
 			if errors2.Is(err, jetstream.ErrKeyNotFound) {
 				return nil
 			} else if err != nil {
@@ -190,7 +143,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 			}
 
 			job.Vars = exchange.Sender.Vars
-			if err := s.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
+			if err := s.bpmnOperations.PublishWorkflowState(ctx, messages.WorkflowJobAwaitMessageComplete, job); err != nil {
 				return fmt.Errorf("publishing complete message job: %w", err)
 			}
 		}
@@ -201,7 +154,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 
 		if exchange.Sender != nil && hasAllReceivers {
 			messageKey := messageKeyFrom([]string{messageName, correlationKey})
-			err := nsKVs.wfMessages.Delete(ctx, messageKey)
+			err := nsKVs.WfMessages.Delete(ctx, messageKey)
 			if err != nil {
 				return fmt.Errorf("error deleting exchange %w", err)
 			}
@@ -213,7 +166,7 @@ func (s *Engine) attemptMessageDelivery(ctx context.Context, exchange *model.Exc
 }
 
 func (s *Engine) processAwaitMessageExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor, s.SignalFatalError); err != nil {
+	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "messageExecute", s.closing, subj.NS(messages.WorkflowJobAwaitMessageExecute, "*"), "AwaitMessageConsumer", s.concurrency, s.receiveMiddleware, s.awaitMessageProcessor, s.bpmnOperations.SignalFatalError); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil
@@ -230,7 +183,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
 
-	_, _, err := s.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
+	_, _, err := s.bpmnOperations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
 	if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
 		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
@@ -239,7 +192,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 		return false, err
 	}
 
-	el, err := s.GetElement(ctx, job)
+	el, err := s.bpmnOperations.GetElement(ctx, job)
 	if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err), State: job}
 	} else if err != nil {

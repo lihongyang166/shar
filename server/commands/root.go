@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/server/config"
 	"gitlab.com/shar-workflow/shar/server/flags"
 	"gitlab.com/shar-workflow/shar/server/server"
+	"gitlab.com/shar-workflow/shar/server/server/option"
 	"log"
 	"log/slog"
 	"os"
@@ -68,9 +69,14 @@ var RootCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		svr := server.New(server.Concurrency(cfg.Concurrency), server.NatsConn(conn), server.NatsUrl(cfg.NatsURL), server.GrpcPort(cfg.Port))
-		if err := svr.Listen(); err != nil {
-			panic(fmt.Errorf("create server: %w", err))
+
+		var svr *server.Server
+		if svr, err = server.New(option.Concurrency(cfg.Concurrency), option.NatsConn(conn), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port)); err != nil {
+			panic(fmt.Errorf("creating server: %w", err))
+		}
+
+		if err = svr.Listen(); err != nil {
+			panic(fmt.Errorf("starting server: %w", err))
 		}
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {

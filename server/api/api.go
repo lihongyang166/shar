@@ -18,6 +18,8 @@ import (
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
+	"gitlab.com/shar-workflow/shar/server/server/option"
+	"gitlab.com/shar-workflow/shar/server/services/natz"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"log/slog"
@@ -79,33 +81,29 @@ type WorkflowEngine interface {
 	Start(ctx context.Context) error
 }
 
-// SharServer provides API endpoints for SHAR
-type SharServer struct {
-	engine        WorkflowEngine
-	subs          *sync.Map
-	panicRecovery bool
-	apiAuthZFn    authz.APIFunc
-	apiAuthNFn    authn.Check
-	//receiveMiddleware    []middleware.Receive
+// Endpoints provides API endpoints for SHAR
+type Endpoints struct {
+	bpmnOperations       *workflow.Operations
+	subs                 *sync.Map
+	panicRecovery        bool
+	apiAuthZFn           authz.APIFunc
+	apiAuthNFn           authn.Check
 	receiveApiMiddleware []middleware.Receive
 	sendMiddleware       []middleware.Send
 	tr                   trace.Tracer
-	nc                   *workflow.NatsConnConfiguration
+	nc                   *natz.NatsConnConfiguration
 }
 
 // New creates a new instance of the SHAR API server
-func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, panicRecovery bool, apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check) (*SharServer, error) {
-	if err := engine.Start(context.Background()); err != nil {
-		return nil, fmt.Errorf("start SHAR engine: %w", err)
-	}
-	ss := &SharServer{
-		apiAuthZFn:    apiAuthZFn,
-		apiAuthNFn:    apiAuthNFn,
-		nc:            nc,
-		engine:        engine,
-		panicRecovery: panicRecovery,
-		subs:          &sync.Map{},
-		tr:            otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
+func New(bpmnOperations *workflow.Operations, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
+	ss := &Endpoints{
+		apiAuthZFn:     options.ApiAuthorizer,
+		apiAuthNFn:     options.ApiAuthenticator,
+		nc:             nc,
+		bpmnOperations: bpmnOperations,
+		panicRecovery:  options.PanicRecovery,
+		subs:           &sync.Map{},
+		tr:             otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
 	}
 	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.CtxWithTraceParentFromNatsMsgMiddleware())
 	ss.receiveApiMiddleware = append(ss.receiveApiMiddleware, telemetry.NatsMsgToCtxWithSpanMiddleware())
@@ -115,8 +113,8 @@ func New(nc *workflow.NatsConnConfiguration, engine WorkflowEngine, panicRecover
 
 var shutdownOnce sync.Once
 
-// Shutdown gracefully shuts down the SHAR API server and Engine
-func (s *SharServer) Shutdown() {
+// Shutdown gracefully shuts down the SHAR API server
+func (s *Endpoints) Shutdown() {
 	slog.Info("stopping shar api listener")
 	shutdownOnce.Do(func() {
 		s.subs.Range(func(key, _ any) bool {
@@ -127,140 +125,138 @@ func (s *SharServer) Shutdown() {
 			}
 			return true
 		})
-		s.engine.Shutdown()
 		slog.Info("shar api listener stopped")
 	})
 }
 
 // Listen starts the SHAR API server listening to incoming requests
-func (s *SharServer) Listen() error {
-	con := s.nc.Conn
+func (s *Endpoints) Listen() error {
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIStoreWorkflow, s.receiveApiMiddleware, &model.StoreWorkflowRequest{}, s.storeWorkflow); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIStoreWorkflow, s.receiveApiMiddleware, &model.StoreWorkflowRequest{}, s.storeWorkflow); err != nil {
 		return fmt.Errorf("APIStoreWorkflow: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APICancelProcessInstance, s.receiveApiMiddleware, &model.CancelProcessInstanceRequest{}, s.cancelProcessInstance); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APICancelProcessInstance, s.receiveApiMiddleware, &model.CancelProcessInstanceRequest{}, s.cancelProcessInstance); err != nil {
 		return fmt.Errorf("APICancelProcessInstance: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APILaunchProcess, s.receiveApiMiddleware, &model.LaunchWorkflowRequest{}, s.launchProcess); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APILaunchProcess, s.receiveApiMiddleware, &model.LaunchWorkflowRequest{}, s.launchProcess); err != nil {
 		return fmt.Errorf("APILaunchProcess: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APISendMessage, s.receiveApiMiddleware, &model.SendMessageRequest{}, s.sendMessage); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APISendMessage, s.receiveApiMiddleware, &model.SendMessageRequest{}, s.sendMessage); err != nil {
 		return fmt.Errorf("APISendMessage: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APICompleteManualTask, s.receiveApiMiddleware, &model.CompleteManualTaskRequest{}, s.completeManualTask); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APICompleteManualTask, s.receiveApiMiddleware, &model.CompleteManualTaskRequest{}, s.completeManualTask); err != nil {
 		return fmt.Errorf("APICompleteManualTask: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APICompleteServiceTask, s.receiveApiMiddleware, &model.CompleteServiceTaskRequest{}, s.completeServiceTask); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APICompleteServiceTask, s.receiveApiMiddleware, &model.CompleteServiceTaskRequest{}, s.completeServiceTask); err != nil {
 		return fmt.Errorf("APICompleteServiceTask: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APICompleteUserTask, s.receiveApiMiddleware, &model.CompleteUserTaskRequest{}, s.completeUserTask); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APICompleteUserTask, s.receiveApiMiddleware, &model.CompleteUserTaskRequest{}, s.completeUserTask); err != nil {
 		return fmt.Errorf("APICompleteUserTask: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetUserTask, s.receiveApiMiddleware, &model.GetUserTaskRequest{}, s.getUserTask); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetUserTask, s.receiveApiMiddleware, &model.GetUserTaskRequest{}, s.getUserTask); err != nil {
 		return fmt.Errorf("APIGetUserTask: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetJob, s.receiveApiMiddleware, &model.GetJobRequest{}, s.getJob); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetJob, s.receiveApiMiddleware, &model.GetJobRequest{}, s.getJob); err != nil {
 		return fmt.Errorf("APIGetJob: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIHandleWorkflowError, s.receiveApiMiddleware, &model.HandleWorkflowErrorRequest{}, s.handleWorkflowError); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIHandleWorkflowError, s.receiveApiMiddleware, &model.HandleWorkflowErrorRequest{}, s.handleWorkflowError); err != nil {
 		return fmt.Errorf("APIHandleWorkflowError: %w", err)
 	}
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIHandleWorkflowFatalError, s.receiveApiMiddleware, &model.HandleWorkflowFatalErrorRequest{}, s.handleWorkflowFatalError); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIHandleWorkflowFatalError, s.receiveApiMiddleware, &model.HandleWorkflowFatalErrorRequest{}, s.handleWorkflowFatalError); err != nil {
 		return fmt.Errorf("APIHandleWorkflowFatalError: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APICompleteSendMessageTask, s.receiveApiMiddleware, &model.CompleteSendMessageRequest{}, s.completeSendMessageTask); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APICompleteSendMessageTask, s.receiveApiMiddleware, &model.CompleteSendMessageRequest{}, s.completeSendMessageTask); err != nil {
 		return fmt.Errorf("APICompleteSendMessageTask: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetWorkflow, s.receiveApiMiddleware, &model.GetWorkflowRequest{}, s.getWorkflow); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetWorkflow, s.receiveApiMiddleware, &model.GetWorkflowRequest{}, s.getWorkflow); err != nil {
 		return fmt.Errorf("APIGetWorkflow: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetVersionInfo, s.receiveApiMiddleware, &model.GetVersionInfoRequest{}, s.versionInfo); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetVersionInfo, s.receiveApiMiddleware, &model.GetVersionInfoRequest{}, s.versionInfo); err != nil {
 		return fmt.Errorf("APIGetProcessHistory: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIRegisterTask, s.receiveApiMiddleware, &model.RegisterTaskRequest{}, s.registerTask); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIRegisterTask, s.receiveApiMiddleware, &model.RegisterTaskRequest{}, s.registerTask); err != nil {
 		return fmt.Errorf("APIRegisterTask: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetTaskSpec, s.receiveApiMiddleware, &model.GetTaskSpecRequest{}, s.getTaskSpec); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetTaskSpec, s.receiveApiMiddleware, &model.GetTaskSpecRequest{}, s.getTaskSpec); err != nil {
 		return fmt.Errorf("APIGetTaskSpec: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIDeprecateServiceTask, s.receiveApiMiddleware, &model.DeprecateServiceTaskRequest{}, s.deprecateServiceTask); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIDeprecateServiceTask, s.receiveApiMiddleware, &model.DeprecateServiceTaskRequest{}, s.deprecateServiceTask); err != nil {
 		return fmt.Errorf("APIGetTaskSpec: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetTaskSpecUsage, s.receiveApiMiddleware, &model.GetTaskSpecUsageRequest{}, s.getTaskSpecUsage); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetTaskSpecUsage, s.receiveApiMiddleware, &model.GetTaskSpecUsageRequest{}, s.getTaskSpecUsage); err != nil {
 		return fmt.Errorf("APIGetTaskSpec: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIHeartbeat, s.receiveApiMiddleware, &model.HeartbeatRequest{}, s.heartbeat); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIHeartbeat, s.receiveApiMiddleware, &model.HeartbeatRequest{}, s.heartbeat); err != nil {
 		return fmt.Errorf("APIGetTaskSpec: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APILog, s.receiveApiMiddleware, &model.LogRequest{}, s.log); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APILog, s.receiveApiMiddleware, &model.LogRequest{}, s.log); err != nil {
 		return fmt.Errorf("APIGetTaskSpec: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIResolveWorkflow, s.receiveApiMiddleware, &model.ResolveWorkflowRequest{}, s.resolveWorkflow); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIResolveWorkflow, s.receiveApiMiddleware, &model.ResolveWorkflowRequest{}, s.resolveWorkflow); err != nil {
 		return fmt.Errorf("APIResolveWorkflow: %w", err)
 	}
 
 	// TODO: Evaluate for list style
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIListExecutionProcesses, s.receiveApiMiddleware, &model.ListExecutionProcessesRequest{}, s.listExecutionProcesses); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListExecutionProcesses, s.receiveApiMiddleware, &model.ListExecutionProcessesRequest{}, s.listExecutionProcesses); err != nil {
 		return fmt.Errorf("APIListExecutionProcesses: %w", err)
 	}
 
 	// List style items
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIListTaskSpecUIDs, s.receiveApiMiddleware, &model.ListTaskSpecUIDsRequest{}, s.listTaskSpecUIDs); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListTaskSpecUIDs, s.receiveApiMiddleware, &model.ListTaskSpecUIDsRequest{}, s.listTaskSpecUIDs); err != nil {
 		return fmt.Errorf("APIListTaskSpecUIDs: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetTaskSpecVersions, s.receiveApiMiddleware, &model.GetTaskSpecVersionsRequest{}, s.getTaskSpecVersions); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetTaskSpecVersions, s.receiveApiMiddleware, &model.GetTaskSpecVersionsRequest{}, s.getTaskSpecVersions); err != nil {
 		return fmt.Errorf("APIGetTaskSpecVersions: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetCompensationInputVariables, s.receiveApiMiddleware, &model.GetCompensationInputVariablesRequest{}, s.getCompensationInputVariables); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetCompensationInputVariables, s.receiveApiMiddleware, &model.GetCompensationInputVariablesRequest{}, s.getCompensationInputVariables); err != nil {
 		return fmt.Errorf("APIListExecutableProcess: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIGetCompensationOutputVariables, s.receiveApiMiddleware, &model.GetCompensationOutputVariablesRequest{}, s.getCompensationOutputVariables); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetCompensationOutputVariables, s.receiveApiMiddleware, &model.GetCompensationOutputVariablesRequest{}, s.getCompensationOutputVariables); err != nil {
 		return fmt.Errorf("APIListExecutableProcess: %w", err)
 	}
 
-	if err := listen(con, s.panicRecovery, s.subs, messages.APIListUserTaskIDs, s.receiveApiMiddleware, &model.ListUserTasksRequest{}, s.listUserTaskIDs); err != nil {
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListUserTaskIDs, s.receiveApiMiddleware, &model.ListUserTasksRequest{}, s.listUserTaskIDs); err != nil {
 		return fmt.Errorf("APIListUserTaskIDs: %w", err)
 	}
 
 	/* COMPLETED */
-	if err := ListenReturnStream(con, s.panicRecovery, s.subs, messages.APIGetWorkflowVersions, s.receiveApiMiddleware, &model.GetWorkflowVersionsRequest{}, s.getWorkflowVersions); err != nil {
+	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetWorkflowVersions, s.receiveApiMiddleware, &model.GetWorkflowVersionsRequest{}, s.getWorkflowVersions); err != nil {
 		return fmt.Errorf("APIGetWorkflowVersions: %w", err)
 	}
 
-	if err := ListenReturnStream(con, s.panicRecovery, s.subs, messages.APIGetProcessInstanceStatus, s.receiveApiMiddleware, &model.GetProcessInstanceStatusRequest{}, s.getProcessInstanceStatus); err != nil {
+	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetProcessInstanceStatus, s.receiveApiMiddleware, &model.GetProcessInstanceStatusRequest{}, s.getProcessInstanceStatus); err != nil {
 		return fmt.Errorf("APIGetProcessInstanceStatus: %w", err)
 	}
 
-	if err := ListenReturnStream(con, s.panicRecovery, s.subs, messages.APIListWorkflows, s.receiveApiMiddleware, &model.ListWorkflowsRequest{}, s.listWorkflows); err != nil {
+	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListWorkflows, s.receiveApiMiddleware, &model.ListWorkflowsRequest{}, s.listWorkflows); err != nil {
 		return fmt.Errorf("APIListWorkflows: %w", err)
 	}
 
-	if err := ListenReturnStream(con, s.panicRecovery, s.subs, messages.APIListExecution, s.receiveApiMiddleware, &model.ListExecutionRequest{}, s.listExecution); err != nil {
+	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListExecution, s.receiveApiMiddleware, &model.ListExecutionRequest{}, s.listExecution); err != nil {
 		return fmt.Errorf("APIListExecution: %w", err)
 	}
 
-	if err := ListenReturnStream(con, s.panicRecovery, s.subs, messages.APIGetProcessHistory, s.receiveApiMiddleware, &model.GetProcessHistoryRequest{}, s.getProcessHistory); err != nil {
+	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetProcessHistory, s.receiveApiMiddleware, &model.GetProcessHistoryRequest{}, s.getProcessHistory); err != nil {
 		return fmt.Errorf("APIGetProcessHistory: %w", err)
 	}
 
-	if err := ListenReturnStream(con, s.panicRecovery, s.subs, messages.APIListExecutableProcess, s.receiveApiMiddleware, &model.ListExecutableProcessesRequest{}, s.listExecutableProcesses); err != nil {
+	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListExecutableProcess, s.receiveApiMiddleware, &model.ListExecutableProcessesRequest{}, s.listExecutableProcesses); err != nil {
 		return fmt.Errorf("APIListExecutableProcess: %w", err)
 	}
 

@@ -1,4 +1,4 @@
-package server
+package option
 
 import (
 	version2 "github.com/hashicorp/go-version"
@@ -6,11 +6,29 @@ import (
 	"gitlab.com/shar-workflow/shar/common/authn"
 	"gitlab.com/shar-workflow/shar/common/authz"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
+	"log/slog"
 )
+
+// ServerOptions contains settings that control various aspects of shar operation and behaviour
+type ServerOptions struct {
+	EphemeralStorage        bool
+	PanicRecovery           bool
+	AllowOrphanServiceTasks bool
+	Concurrency             int
+	ApiAuthorizer           authz.APIFunc
+	ApiAuthenticator        authn.Check
+	HealthServiceEnabled    bool
+	SharVersion             *version2.Version
+	NatsUrl                 string
+	conn                    *nats.Conn
+	GrpcPort                int
+	TelemetryConfig         telemetry.Config
+	ShowSplash              bool
+}
 
 // Option represents a SHAR server option
 type Option interface {
-	configure(server *Server)
+	Configure(serverOptions *ServerOptions)
 }
 
 // EphemeralStorage instructs SHAR to use memory rather than disk for storage.
@@ -22,8 +40,8 @@ func EphemeralStorage() ephemeralStorageOption { //nolint
 type ephemeralStorageOption struct {
 }
 
-func (o ephemeralStorageOption) configure(server *Server) {
-	server.ephemeralStorage = true
+func (o ephemeralStorageOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.EphemeralStorage = true
 }
 
 // PanicRecovery enables or disables SHAR's ability to recover from server panics.
@@ -34,8 +52,8 @@ func PanicRecovery(enabled bool) panicOption { //nolint
 
 type panicOption struct{ value bool }
 
-func (o panicOption) configure(server *Server) {
-	server.panicRecovery = o.value
+func (o panicOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.PanicRecovery = o.value
 }
 
 // PreventOrphanServiceTasks enables or disables SHAR's validation of service task names againt existing workflows.
@@ -45,8 +63,8 @@ func PreventOrphanServiceTasks() orphanTaskOption { //nolint
 
 type orphanTaskOption struct{ value bool }
 
-func (o orphanTaskOption) configure(server *Server) {
-	server.allowOrphanServiceTasks = o.value
+func (o orphanTaskOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.AllowOrphanServiceTasks = o.value
 }
 
 // Concurrency specifies the number of threads for each of SHAR's queue listeneres.
@@ -56,8 +74,8 @@ func Concurrency(n int) concurrencyOption { //nolint
 
 type concurrencyOption struct{ value int }
 
-func (o concurrencyOption) configure(server *Server) {
-	server.concurrency = o.value
+func (o concurrencyOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.Concurrency = o.value
 }
 
 // WithApiAuthorizer specifies a handler function for API authorization.
@@ -67,8 +85,9 @@ func WithApiAuthorizer(authFn authz.APIFunc) apiAuthorizerOption { //nolint
 
 type apiAuthorizerOption struct{ value authz.APIFunc }
 
-func (o apiAuthorizerOption) configure(server *Server) {
-	server.apiAuthorizer = o.value
+func (o apiAuthorizerOption) Configure(serverOptions *ServerOptions) {
+	slog.Warn("AuthZ set")
+	serverOptions.ApiAuthorizer = o.value
 }
 
 // WithAuthentication specifies a handler function for API authorization.
@@ -78,8 +97,9 @@ func WithAuthentication(authFn authn.Check) authenticationOption { //nolint
 
 type authenticationOption struct{ value authn.Check }
 
-func (o authenticationOption) configure(server *Server) {
-	server.apiAuthenticator = o.value
+func (o authenticationOption) Configure(serverOptions *ServerOptions) {
+	slog.Warn("AuthN set")
+	serverOptions.ApiAuthenticator = o.value
 }
 
 // WithNoHealthServer specifies a handler function for API authorization.
@@ -89,8 +109,8 @@ func WithNoHealthServer() noHealthServerOption { //nolint
 
 type noHealthServerOption struct{}
 
-func (o noHealthServerOption) configure(server *Server) {
-	server.healthServiceEnabled = false
+func (o noHealthServerOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.HealthServiceEnabled = false
 }
 
 // WithSharVersion instructs SHAR to claim it is a specific version.
@@ -103,8 +123,8 @@ type sharVersionOption struct {
 	version *version2.Version
 }
 
-func (o sharVersionOption) configure(server *Server) {
-	server.setSharVersion(o.version)
+func (o sharVersionOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.SharVersion = o.version
 }
 
 // NatsUrl specifies the nats URL to connect to
@@ -114,8 +134,8 @@ func NatsUrl(url string) natsUrlOption { //nolint
 
 type natsUrlOption struct{ value string }
 
-func (o natsUrlOption) configure(server *Server) {
-	server.natsUrl = o.value
+func (o natsUrlOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.NatsUrl = o.value
 }
 
 // NatsConn specifies the nats Conn to use
@@ -125,8 +145,8 @@ func NatsConn(conn *nats.Conn) natsConnOption { //nolint
 
 type natsConnOption struct{ value *nats.Conn }
 
-func (o natsConnOption) configure(server *Server) {
-	server.conn = o.value
+func (o natsConnOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.conn = o.value
 }
 
 // GrpcPort specifies the port healthcheck is listening on
@@ -136,8 +156,8 @@ func GrpcPort(port int) grpcPortOption { //nolint
 
 type grpcPortOption struct{ value int }
 
-func (o grpcPortOption) configure(server *Server) {
-	server.grpcPort = o.value
+func (o grpcPortOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.GrpcPort = o.value
 }
 
 // WithTelemetryEndpoint specifies a handler function for API authorization.
@@ -149,20 +169,20 @@ type telemetryEndpointOption struct {
 	endpoint string
 }
 
-func (o telemetryEndpointOption) configure(server *Server) {
-	server.telemetryConfig = telemetry.Config{Enabled: o.endpoint != "", Endpoint: o.endpoint}
+func (o telemetryEndpointOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.TelemetryConfig = telemetry.Config{Enabled: o.endpoint != "", Endpoint: o.endpoint}
 }
 
-type noSplashOption struct {
-	noSplash bool
+// WithShowSplash specifies whether to show a splash screen on the SHAR server startup.
+// Enabling this option will make the splash screen be displayed.
+func WithShowSplash() showSplashOption {
+	return showSplashOption{showSplash: true}
 }
 
-func (o noSplashOption) configure(server *Server) {
-	server.noSplash = o.noSplash
+type showSplashOption struct {
+	showSplash bool
 }
 
-// WithNoSplash specifies whether to show a splash screen on the SHAR server startup.
-// Enabling this option will prevent the splash screen from being displayed.
-func WithNoSplash() noSplashOption {
-	return noSplashOption{noSplash: true}
+func (o showSplashOption) Configure(serverOptions *ServerOptions) {
+	serverOptions.ShowSplash = o.showSplash
 }

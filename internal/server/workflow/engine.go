@@ -879,13 +879,14 @@ func (s *Engine) track(ctx context.Context, log *slog.Logger, msg jetstream.Msg)
 	}
 
 	sj := msg.Subject()
+
 	switch {
 	case
-		strings.HasSuffix(sj, ".State.Execution.Execute"),
-		strings.HasSuffix(sj, ".State.Process.Execute"),
-		strings.HasSuffix(sj, ".State.Traversal.Execute"),
-		strings.HasSuffix(sj, ".State.Activity.Execute"),
-		strings.Contains(sj, ".State.Job.Execute."):
+		strings.HasSuffix(sj, messages.StateExecutionExecute),
+		strings.HasSuffix(sj, messages.StateProcessExecute),
+		strings.HasSuffix(sj, messages.StateTraversalExecute),
+		strings.HasSuffix(sj, messages.StateActivityExecute),
+		strings.Contains(sj, messages.StateJobExecute):
 		st := &model.WorkflowState{}
 		if err := proto.Unmarshal(msg.Data(), st); err != nil {
 			return false, fmt.Errorf("unmarshal failed during tracking 'execute' event: %w", err)
@@ -894,11 +895,11 @@ func (s *Engine) track(ctx context.Context, log *slog.Logger, msg jetstream.Msg)
 			return false, fmt.Errorf("save tracking information: %w", err)
 		}
 	case
-		strings.HasSuffix(sj, ".State.Execution.Complete"),
-		strings.HasSuffix(sj, ".State.Process.Complete"),
-		strings.HasSuffix(sj, ".State.Traversal.Complete"),
-		strings.HasSuffix(sj, ".State.Activity.Complete"),
-		strings.Contains(sj, ".State.Job.Complete."):
+		strings.HasSuffix(sj, messages.StateExecutionComplete),
+		strings.HasSuffix(sj, messages.StateProcessComplete),
+		strings.HasSuffix(sj, messages.StateTraversalComplete),
+		strings.HasSuffix(sj, messages.StateActivityComplete),
+		strings.Contains(sj, messages.StateJobComplete):
 		st := &model.WorkflowState{}
 		if err := proto.Unmarshal(msg.Data(), st); err != nil {
 			return false, fmt.Errorf("unmarshall failed during tracking 'complete' event: %w", err)
@@ -950,7 +951,7 @@ func (s *Engine) processWorkflowEvents(ctx context.Context) error {
 		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
 		}
-		if strings.HasSuffix(msg.Subject(), ".State.Execution.Complete") {
+		if strings.HasSuffix(msg.Subject(), messages.StateExecutionComplete) {
 			if _, err := s.operations.HasValidExecution(ctx, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
 				log.Log(ctx, slog.LevelInfo, "processWorkflowEvents aborted due to a missing process")
@@ -974,9 +975,9 @@ func (s *Engine) processActivities(ctx context.Context) error {
 	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "activity", s.closing, subj.NS(messages.WorkflowActivityAll, "*"), "ActivityConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var activity model.WorkflowState
 		switch {
-		case strings.HasSuffix(msg.Subject(), ".State.Activity.Execute"):
+		case strings.HasSuffix(msg.Subject(), messages.StateActivityExecute):
 
-		case strings.HasSuffix(msg.Subject(), ".State.Activity.Complete"):
+		case strings.HasSuffix(msg.Subject(), messages.StateActivityComplete):
 			if err := proto.Unmarshal(msg.Data(), &activity); err != nil {
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
@@ -1049,8 +1050,9 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 			return false, err
 		}
 		//TODO: Make these idempotently work given missing values
+
 		switch {
-		case strings.Contains(msg.Subject(), ".State.Job.Abort.ServiceTask"), strings.Contains(msg.Subject(), ".State.Job.Abort.Gateway"):
+		case strings.Contains(msg.Subject(), messages.StateJobAbortServiceTask), strings.Contains(msg.Subject(), messages.StateJobAbortGateway):
 			if err := s.deleteJob(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete job during service task abort: %w", err)
 			}
@@ -1123,11 +1125,11 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 		}
 		//TODO: Make these idempotently work given missing values
 		switch {
-		case strings.HasSuffix(msg.Subject(), ".State.Activity.Abort"):
+		case strings.HasSuffix(msg.Subject(), messages.StateActivityAbort):
 			if err := s.deleteActivity(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete activity during general abort processor: %w", err)
 			}
-		case strings.HasSuffix(msg.Subject(), ".State.Execution.Abort"):
+		case strings.HasSuffix(msg.Subject(), messages.StateExecutionAbort):
 			abortState := common.CopyWorkflowState(&state)
 			abortState.State = model.CancellationState_terminated
 			if err := s.operations.XDestroyProcessInstance(ctx, &state); err != nil {

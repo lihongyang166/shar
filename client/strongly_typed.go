@@ -6,6 +6,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/model"
+	"log/slog"
 	"os"
 	"reflect"
 )
@@ -118,7 +119,22 @@ func validateParamsToSpec(s reflect.Type, input []*model.Parameter) (map[string]
 		if !ok {
 			return nil, fmt.Errorf("field %s not found", p.Name)
 		}
-		fmt.Println(f.Type)
+		var comp any
+		switch p.Type {
+		case "string":
+			comp = ""
+		case "float":
+			comp = 0.0
+		case "bool":
+			comp = false
+		case "int":
+			comp = 0
+		}
+		if comp != nil {
+			if !reflect.TypeOf(comp).AssignableTo(f.Type) {
+				return nil, fmt.Errorf("field %s.(%s) cannot be assigned %s.(%s) ", p.Name, p.Type, f.Name, f.Type.Name())
+			}
+		}
 	}
 	return mapping, nil
 }
@@ -136,4 +152,32 @@ func getMapping(s reflect.Type) map[string]string {
 		mapping[k] = f.Name
 	}
 	return mapping
+}
+
+func coerceVarsToType(typ reflect.Type, inVars model.Vars, mapping map[string]string) reflect.Value {
+	val := reflect.New(typ)
+	for k, kv := range inVars {
+		switch kv.(type) {
+		case string, int, int64, float64, bool:
+			v := reflect.ValueOf(kv)
+			f := val.Elem().FieldByName(mapping[k])
+			if f.Kind() != reflect.Invalid {
+				f.Set(v)
+			}
+		default:
+			slog.Warn("struct serialization is not supported in this version", "type", val.Type().Name())
+			/* TODO: Add support for strongly typed structs
+			f := val.Elem().FieldByName(mapping[k])
+			if f.Kind() == reflect.Struct {
+				v := reflect.ValueOf(kv).Interface()
+				switch v.(type) {
+				case map[string]string:
+					populateStruct(val.Elem().Interface(), v)
+				}
+			}
+			*/
+		}
+
+	}
+	return val
 }

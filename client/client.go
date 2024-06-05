@@ -427,26 +427,14 @@ func (c *Client) listen(ctx context.Context) error {
 	return nil
 }
 
-func coerceVarsToType(typ reflect.Type, inVars model.Vars, mapping map[string]string) reflect.Value {
-	val := reflect.New(typ)
-	for k, kv := range inVars {
-		v := reflect.ValueOf(kv)
-		f := val.Elem().FieldByName(mapping[k])
-		if f.Kind() != 0 {
-			f.Set(v)
-		}
-	}
-	return val
-}
-
 func (c *Client) signalFatalErr(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
 	res := &model.HandleWorkflowFatalErrorResponse{}
 	req := &model.HandleWorkflowFatalErrorRequest{WorkflowState: state}
 	ctx = subj.SetNS(ctx, c.ns)
 
 	if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowFatalError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {
-		reterr := fmt.Errorf("handle workflow fatal error: %w", err2)
-		log.Error("handle a workflow fatal error call failed", "err", reterr)
+		retErr := fmt.Errorf("handle workflow fatal error: %w", err2)
+		log.Error("handle a workflow fatal error call failed", "err", retErr)
 	}
 }
 

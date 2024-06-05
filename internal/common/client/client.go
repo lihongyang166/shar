@@ -31,13 +31,13 @@ import (
 )
 
 // ServiceFnExecutor is the prototype function for executing a service task function.
-type ServiceFnExecutor func(ctx context.Context, trackingID string, job *model.WorkflowState, svcFn task.ServiceFn, inVars model.Vars) (model.Vars, error)
+type ServiceFnExecutor func(ctx context.Context, trackingID string, job *model.WorkflowState, def *task.FnDef, inVars model.Vars) (model.Vars, error)
 
 // ServiceFnLocator is the prototype function for locating a service task function.
-type ServiceFnLocator func(job *model.WorkflowState) (task.ServiceFn, error)
+type ServiceFnLocator func(job *model.WorkflowState) (*task.FnDef, error)
 
 // MessageFnLocator is the prototype function for locating a message task function.
-type MessageFnLocator func(job *model.WorkflowState) (task.SenderFn, error)
+type MessageFnLocator func(job *model.WorkflowState) (*task.FnDef, error)
 
 // ServiceTaskCompleter is the prototype function for completing a service task.
 type ServiceTaskCompleter func(ctx context.Context, trackingID string, newVars model.Vars, compensating bool) error
@@ -46,7 +46,7 @@ type ServiceTaskCompleter func(ctx context.Context, trackingID string, newVars m
 type MessageSendCompleter func(ctx context.Context, trackingID string, newVars model.Vars) error
 
 // MessageFnExecutor is the prototype function for executing a message task function.
-type MessageFnExecutor func(ctx context.Context, trackingID string, job *model.WorkflowState, fn task.SenderFn, inVars model.Vars) error
+type MessageFnExecutor func(ctx context.Context, trackingID string, job *model.WorkflowState, def *task.FnDef, inVars model.Vars) error
 
 // WorkflowErrorHandler is the prototype function for handling a workflow error.
 type WorkflowErrorHandler func(ctx context.Context, ns string, trackingID string, errorCode string, binVars []byte) (*model.HandleWorkflowErrorResponse, error)

@@ -35,6 +35,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -86,14 +87,14 @@ type Client struct {
 	id                              string
 	host                            string
 	js                              jetstream.JetStream
-	SvcTasks                        map[string]task2.ServiceFn
+	SvcTasks                        map[string]*task2.FnDef
 	con                             *nats.Conn
-	MsgSender                       map[string]task2.SenderFn
+	MsgSender                       map[string]*task2.FnDef
 	storageType                     jetstream.StorageType
 	ns                              string
 	listenTasks                     map[string]struct{}
 	msgListenTasks                  map[string]struct{}
-	proCompleteTasks                map[string]task2.ProcessTerminateFn
+	proCompleteTasks                map[string]*task2.FnDef
 	txJS                            jetstream.JetStream
 	txCon                           *nats.Conn
 	concurrency                     int
@@ -125,11 +126,11 @@ func New(option ...ConfigurationOption) *Client {
 		id:                              ksuid.New().String(),
 		host:                            host,
 		storageType:                     jetstream.FileStorage,
-		SvcTasks:                        make(map[string]task2.ServiceFn),
-		MsgSender:                       make(map[string]task2.SenderFn),
+		SvcTasks:                        make(map[string]*task2.FnDef),
+		MsgSender:                       make(map[string]*task2.FnDef),
 		listenTasks:                     make(map[string]struct{}),
 		msgListenTasks:                  make(map[string]struct{}),
-		proCompleteTasks:                make(map[string]task2.ProcessTerminateFn),
+		proCompleteTasks:                make(map[string]*task2.FnDef),
 		ns:                              ns.Default,
 		concurrency:                     10,
 		version:                         ver,
@@ -231,6 +232,19 @@ func (c *Client) StoreTask(ctx context.Context, spec *model.TaskSpec) error {
 // RegisterTaskFunction registers a service task function.
 // If the service task spec has no UID then it will be calculated and written to the Metadata.Uid field.
 func (c *Client) RegisterTaskFunction(ctx context.Context, spec *model.TaskSpec, fn task2.ServiceFn) error {
+	def := &task2.FnDef{
+		Type: task2.ExecutionTypeVars,
+	}
+	if fn != nil {
+		def.Fn = fn
+	}
+	if err := c.registerTaskFunction(ctx, spec, def); err != nil {
+		return fmt.Errorf("register task function: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) registerTaskFunction(ctx context.Context, spec *model.TaskSpec, def *task2.FnDef) error {
 	if spec.Metadata == nil {
 		return fmt.Errorf("task metadata is nil")
 	}
@@ -241,11 +255,11 @@ func (c *Client) RegisterTaskFunction(ctx context.Context, spec *model.TaskSpec,
 		}
 		spec.Metadata.Uid = uid
 	}
-	if fn != nil {
+	if def.Fn != nil {
 		if _, ok := c.SvcTasks[spec.Metadata.Uid]; ok {
 			return fmt.Errorf("service task '%s' already registered: %w", spec.Metadata.Type, errors2.ErrServiceTaskAlreadyRegistered)
 		}
-		c.SvcTasks[spec.Metadata.Uid] = fn
+		c.SvcTasks[spec.Metadata.Uid] = def
 		c.listenTasks[spec.Metadata.Uid] = struct{}{}
 	}
 	return nil
@@ -256,7 +270,10 @@ func (c *Client) RegisterMessageSender(ctx context.Context, workflowName string,
 	if _, ok := c.MsgSender[workflowName+"_"+messageName]; ok {
 		return fmt.Errorf("message sender '%s' already registered: %w", messageName, errors2.ErrMessageSenderAlreadyRegistered)
 	}
-	c.MsgSender[workflowName+"_"+messageName] = sender
+	c.MsgSender[workflowName+"_"+messageName] = &task2.FnDef{
+		Type: task2.ExecutionTypeVars,
+		Fn:   sender,
+	}
 	c.msgListenTasks[workflowName+"_"+messageName] = struct{}{}
 	return nil
 }
@@ -286,35 +303,66 @@ func (c *Client) listen(ctx context.Context) error {
 		tasks[i] = subj.NS(messages.WorkflowJobSendMessageExecute+"."+i, c.ns)
 	}
 
-	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, svcFn task2.ServiceFn, inVars model.Vars) (model.Vars, error) {
-		pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
-		pidCtx = client.ReParentSpan(pidCtx, job)
-		jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
-		if job.State == model.CancellationState_compensating {
-			var err error
-			jc.originalInputs, jc.originalOutputs, err = c.getCompensationVariables(ctx, job.ProcessInstanceId, job.Compensation.ForTrackingId)
-			if err != nil {
-				return make(model.Vars), fmt.Errorf("get compensation variables: %w", err)
+	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, def *task2.FnDef, inVars model.Vars) (model.Vars, error) {
+		switch def.Type {
+		case task2.ExecutionTypeVars:
+			pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+			pidCtx = client.ReParentSpan(pidCtx, job)
+			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+			if job.State == model.CancellationState_compensating {
+				var err error
+				jc.originalInputs, jc.originalOutputs, err = c.getCompensationVariables(ctx, job.ProcessInstanceId, job.Compensation.ForTrackingId)
+				if err != nil {
+					return make(model.Vars), fmt.Errorf("get compensation variables: %w", err)
+				}
 			}
+			svcFn := def.Fn.(task2.ServiceFn)
+			v, err := svcFn(pidCtx, jc, inVars)
+			if err != nil {
+				return v, fmt.Errorf("execute service task: %w", err)
+			}
+			return v, nil
+		case task2.ExecutionTypeTyped:
+			fn := reflect.TypeOf(def.Fn)
+			x := fn.In(2)
+			t := coerceVarsToType(x, inVars, def.InMapping)
+			vl := reflect.ValueOf(def.Fn)
+			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+			params := []reflect.Value{
+				reflect.ValueOf(ctx),
+				reflect.ValueOf(jc),
+				reflect.ValueOf(t.Elem().Interface()),
+			}
+			out := vl.Call(params)
+			str := out[0].Interface()
+			if err := out[1].Interface(); err != nil {
+				return model.Vars{}, fmt.Errorf("execute task: %w", err.(error))
+			}
+			newVars := model.Vars{}
+			outType := reflect.TypeOf(str)
+			nf := outType.NumField()
+			for i := 0; i < nf; i++ {
+				nm := outType.Field(i).Name
+				v := out[i].Field(i).Interface()
+				newVars[def.OutMapping[nm]] = v
+			}
+			return newVars, nil
+		default:
+			return model.Vars{}, fmt.Errorf("bad execution type: %d", def.Type)
 		}
-		v, err := svcFn(pidCtx, jc, inVars)
-		if err != nil {
-			return v, fmt.Errorf("execute service task: %w", err)
-		}
-		return v, nil
 	}
 
-	svcFnLocator := func(job *model.WorkflowState) (task2.ServiceFn, error) {
-		fn, ok := c.SvcTasks[job.ExecuteVersion]
+	svcFnLocator := func(job *model.WorkflowState) (*task2.FnDef, error) {
+		fnDef, ok := c.SvcTasks[job.ExecuteVersion]
 		if !ok {
 			err := fmt.Errorf("service task '%s' not found", job.ExecuteVersion)
 			slog.Error("find service function", "error", err, slog.String("fn", *job.Execute))
 			return nil, fmt.Errorf("find service task function: %w", errors2.ErrWorkflowFatal{Err: err})
 		}
-		return fn, nil
+		return fnDef, nil
 	}
 
-	msgFnLocator := func(job *model.WorkflowState) (task2.SenderFn, error) {
+	msgFnLocator := func(job *model.WorkflowState) (*task2.FnDef, error) {
 		sendFn, ok := c.MsgSender[job.WorkflowName+"_"+*job.Execute]
 		if !ok {
 			return nil, fmt.Errorf("msg send task '%s' not found", *job.Execute)
@@ -322,12 +370,18 @@ func (c *Client) listen(ctx context.Context) error {
 		return sendFn, nil
 	}
 
-	msgFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, fn task2.SenderFn, inVars model.Vars) error {
-		if err := fn(ctx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, inVars); err != nil {
-			slog.Warn("nats listener", "error", err)
-			return err
+	msgFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, def *task2.FnDef, inVars model.Vars) error {
+		switch def.Type {
+		case task2.ExecutionTypeVars:
+			fn := def.Fn.(task2.SenderFn)
+			if err := fn(ctx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, inVars); err != nil {
+				slog.Warn("nats listener", "error", err)
+				return err
+			}
+			return nil
+		default:
+			return fmt.Errorf("bad execution type: %d", def.Type)
 		}
-		return nil
 	}
 
 	workflowErrorHandler := func(ctx context.Context, ns string, trackingID string, errorCode string, binVars []byte) (*model.HandleWorkflowErrorResponse, error) {
@@ -373,6 +427,18 @@ func (c *Client) listen(ctx context.Context) error {
 	return nil
 }
 
+func coerceVarsToType(typ reflect.Type, inVars model.Vars, mapping map[string]string) reflect.Value {
+	val := reflect.New(typ)
+	for k, kv := range inVars {
+		v := reflect.ValueOf(kv)
+		f := val.Elem().FieldByName(mapping[k])
+		if f.Kind() != 0 {
+			f.Set(v)
+		}
+	}
+	return val
+}
+
 func (c *Client) signalFatalErr(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
 	res := &model.HandleWorkflowFatalErrorResponse{}
 	req := &model.HandleWorkflowFatalErrorRequest{WorkflowState: state}
@@ -397,8 +463,25 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 		if err != nil {
 			return true, fmt.Errorf("listenProcessTerminate decoding vars: %w", err)
 		}
-		if fn, ok := c.proCompleteTasks[st.ProcessName]; ok {
-			fn(callCtx, v, st.Error, st.State)
+		if def, ok := c.proCompleteTasks[st.ProcessName]; ok {
+			switch def.Type {
+			case task2.ExecutionTypeVars:
+				fn := def.Fn.(task2.ProcessTerminateFn)
+				fn(callCtx, v, st.Error, st.State)
+			case task2.ExecutionTypeTyped:
+				typ := reflect.TypeOf(def.Fn).In(1)
+				val := coerceVarsToType(typ, v, def.InMapping)
+				params := []reflect.Value{
+					reflect.ValueOf(ctx),
+					reflect.ValueOf(val.Elem().Interface()),
+					reflect.ValueOf(st.Error),
+					reflect.ValueOf(st.State),
+				}
+				fn := reflect.ValueOf(def.Fn)
+				fn.Call(params)
+			default:
+				return true, fmt.Errorf("unknown processterminate function type: %d", def.Type)
+			}
 		}
 		return true, nil
 	}, nil)
@@ -726,7 +809,7 @@ func (c *Client) clientErr(_ context.Context, err error) error {
 
 // RegisterProcessComplete registers a function to be executed when a shar workflow process terminates.
 func (c *Client) RegisterProcessComplete(processId string, fn task2.ProcessTerminateFn) error {
-	c.proCompleteTasks[processId] = fn
+	c.proCompleteTasks[processId] = &task2.FnDef{Fn: fn, Type: task2.ExecutionTypeVars}
 	return nil
 }
 

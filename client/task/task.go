@@ -33,3 +33,21 @@ type ProcessTerminateFn func(ctx context.Context, vars model.Vars, wfError *mode
 
 // SenderFn provides the signature for functions that can act as Workflow Message senders.
 type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars) error
+
+// ExecutionType defines the style of execution required for a function e.g. Strongly Typed, or vars Map[string]interface
+type ExecutionType int
+
+const (
+	// ExecutionTypeVars signals a function is loosely typed.
+	ExecutionTypeVars ExecutionType = iota
+	// ExecutionTypeTyped signals a function is strongly typed.
+	ExecutionTypeTyped
+)
+
+// FnDef is a general definition of a function including any mapping needed to call it.
+type FnDef struct {
+	Type       ExecutionType
+	Fn         any
+	OutMapping map[string]string
+	InMapping  map[string]string
+}

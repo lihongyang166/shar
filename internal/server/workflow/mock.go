@@ -48,7 +48,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	ackTimeout := time.Second * 30
 	counter := atomic.Int64{}
 
-	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, svcFn task.ServiceFn, inVars model.Vars) (model.Vars, error) {
+	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, svcFn *task.FnDef, inVars model.Vars) (model.Vars, error) {
 		pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
 		pidCtx = client.ReParentSpan(pidCtx, job)
 		pidCtx = context.WithValue(pidCtx, keys.ContextKey("taskDef"), job.ExecuteVersion)
@@ -76,24 +76,26 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 				return make(model.Vars), fmt.Errorf("get compensation variables: %w", err)
 			}
 		}
-		v, err := svcFn(pidCtx, jc, inVars)
+		v, err := svcFn.Fn.(task.ServiceFn)(pidCtx, jc, inVars)
 		if err != nil {
 			return v, fmt.Errorf("execute service task: %w", err)
 		}
 		return v, nil
 	}
 
-	msgFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, fn task.SenderFn, inVars model.Vars) error {
+	msgFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, fn *task.FnDef, inVars model.Vars) error {
 		// Call a message function
 		return nil
 	}
 
-	svcFnLocator := func(job *model.WorkflowState) (task.ServiceFn, error) {
-		return s.mockServiceFunction, nil
+	svcFnLocator := func(job *model.WorkflowState) (*task.FnDef, error) {
+		var fn task.ServiceFn = s.mockServiceFunction
+		return &task.FnDef{Fn: fn}, nil
 	}
 
-	msgFnLocator := func(job *model.WorkflowState) (task.SenderFn, error) {
-		return s.mockMessageFunction, nil
+	msgFnLocator := func(job *model.WorkflowState) (*task.FnDef, error) {
+		var fn task.SenderFn = s.mockMessageFunction
+		return &task.FnDef{Fn: fn}, nil
 	}
 
 	svcTaskCompleter := func(ctx context.Context, trackingID string, newVars model.Vars, compensating bool) error {

@@ -3,6 +3,7 @@ package error
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
@@ -70,10 +71,12 @@ func TestUnhandledError(t *testing.T) {
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 30*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
+	assert.False(t, d.fixed)
 }
 
 type testErrorUnhandledHandlerDef struct {
 	finished chan struct{}
+	fixed    bool
 }
 
 // A "Hello World" service task
@@ -86,6 +89,7 @@ func (d *testErrorUnhandledHandlerDef) mayFail(_ context.Context, _ task.JobClie
 func (d *testErrorUnhandledHandlerDef) fixSituation(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Fixing")
 	fmt.Println("carried", vars["carried"])
+	d.fixed = true
 	return model.Vars{}, nil
 }
 

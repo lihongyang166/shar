@@ -68,7 +68,7 @@ func TestExclusiveRun(t *testing.T) {
 
 	require.NoError(t, err)
 
-	g := &gatewayTest{finished: make(chan struct{})}
+	g := &gatewayTest{finished: make(chan struct{}), t: t, typ: model.GatewayType_exclusive}
 
 	// Register service tasks
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
@@ -98,6 +98,8 @@ func TestExclusiveRun(t *testing.T) {
 
 	support.WaitForChan(t, g.finished, time.Second*20)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
+	assert.NotEqual(t, g.stg1, g.stg2)
+	assert.True(t, g.stg3)
 }
 
 func TestInclusiveRun(t *testing.T) {
@@ -113,7 +115,7 @@ func TestInclusiveRun(t *testing.T) {
 
 	require.NoError(t, err)
 
-	g := &gatewayTest{finished: make(chan struct{})}
+	g := &gatewayTest{finished: make(chan struct{}), t: t, typ: model.GatewayType_inclusive}
 
 	// Register service tasks
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
@@ -142,28 +144,50 @@ func TestInclusiveRun(t *testing.T) {
 	}()
 
 	support.WaitForChan(t, g.finished, 20*time.Second)
+	assert.True(t, g.stg1)
+	assert.True(t, g.stg2)
+	assert.True(t, g.stg3)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
 type gatewayTest struct {
 	finished chan struct{}
+	t        *testing.T
+	stg3     bool
+	stg2     bool
+	stg1     bool
+	typ      model.GatewayType
 }
 
 func (g *gatewayTest) stage3(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 3")
+	g.stg3 = true
 	return vars, nil
 }
 
 func (g *gatewayTest) stage2(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 2")
+	g.stg2 = true
 	return model.Vars{"value2": 2}, nil
 }
 
 func (g *gatewayTest) stage1(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 1")
+	g.stg1 = true
 	return model.Vars{"value1": 1}, nil
 }
 
 func (g *gatewayTest) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+	switch g.typ {
+	case model.GatewayType_inclusive:
+		assert.Equal(g.t, 1, vars["value1"])
+		assert.Equal(g.t, 2, vars["value2"])
+		assert.Equal(g.t, true, g.stg3)
+	case model.GatewayType_exclusive:
+		assert.True(g.t, vars["value1"] != vars["value2"], "values are equal")
+		assert.True(g.t, vars["value1"] == 1 || vars["value2"] == 2, "both values are present")
+		assert.True(g.t, vars["value1"] == nil || vars["value2"] == nil, "both values are nil")
+		assert.Equal(g.t, true, g.stg3)
+	}
 	close(g.finished)
 }

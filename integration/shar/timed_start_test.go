@@ -2,7 +2,6 @@ package intTest
 
 import (
 	"context"
-	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
@@ -59,7 +58,6 @@ func TestTimedStart(t *testing.T) {
 	defer d.mx.Unlock()
 	assert.Equal(t, 32768, d.tst.FinalVars["carried"])
 	assert.Equal(t, 3, d.count)
-	fmt.Println("good")
 	tst.AssertCleanKV(ns, t, tst.Cooldown)
 }
 

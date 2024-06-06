@@ -103,5 +103,6 @@ func (d *testLinkHandlerDef) wipeItUp(_ context.Context, _ task.JobClient, vars 
 }
 
 func (d *testLinkHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+	assert.Equal(d.t, "beer", vars["substance"])
 	close(d.finished)
 }

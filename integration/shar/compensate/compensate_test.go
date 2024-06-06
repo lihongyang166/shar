@@ -2,6 +2,7 @@ package simple
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
@@ -71,31 +72,43 @@ func TestCompensate(t *testing.T) {
 	support.WaitForChan(t, d.finished, 20*time.Second)
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)
+	assert.True(t, d.task1hit)
+	assert.True(t, d.task2hit)
+	assert.True(t, d.compensate1hit)
+	assert.True(t, d.compensate2hit)
 }
 
 type testSimpleHandlerDef struct {
 	t                *testing.T
 	finished         chan struct{}
 	trackingReceived chan struct{}
+	task2hit         bool
+	task1hit         bool
+	compensate1hit   bool
+	compensate2hit   bool
 }
 
 func (d *testSimpleHandlerDef) task1(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("Task1")
+	d.task1hit = true
 	return vars, nil
 }
 
 func (d *testSimpleHandlerDef) task2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("Task2")
+	d.task2hit = true
 	return vars, nil
 }
 func (d *testSimpleHandlerDef) compensate1(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("Compensate Task1")
+	d.compensate1hit = true
 	return vars, nil
 }
 func (d *testSimpleHandlerDef) compensate2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("Compensate Task2")
+	d.compensate2hit = true
 	return vars, nil
 }
-func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *model.Error, _ model.CancellationState) {
+func (d *testSimpleHandlerDef) processEnd(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
 	close(d.finished)
 }

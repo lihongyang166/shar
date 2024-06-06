@@ -67,6 +67,7 @@ func TestHandledError(t *testing.T) {
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
+	assert.True(t, d.fixed)
 }
 
 type errorHandledHandlerDef struct {

@@ -18,6 +18,7 @@ import (
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
+	"gitlab.com/shar-workflow/shar/common/structs"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
@@ -323,15 +324,21 @@ func (c *Client) listen(ctx context.Context) error {
 			}
 			return v, nil
 		case task2.ExecutionTypeTyped:
+			revMapping := make(map[string]string, len(def.OutMapping))
+			for k, v := range def.OutMapping {
+				revMapping[v] = k
+			}
 			fn := reflect.TypeOf(def.Fn)
 			x := fn.In(2)
 			t := coerceVarsToType(x, inVars, def.InMapping)
+			em := t.Interface()
+			fmt.Println(em)
 			vl := reflect.ValueOf(def.Fn)
 			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
 			params := []reflect.Value{
 				reflect.ValueOf(ctx),
 				reflect.ValueOf(jc),
-				reflect.ValueOf(t.Elem().Interface()),
+				reflect.ValueOf(em),
 			}
 			out := vl.Call(params)
 			str := out[0].Interface()
@@ -342,9 +349,16 @@ func (c *Client) listen(ctx context.Context) error {
 			outType := reflect.TypeOf(str)
 			nf := outType.NumField()
 			for i := 0; i < nf; i++ {
-				nm := outType.Field(i).Name
-				v := out[i].Field(i).Interface()
-				newVars[def.OutMapping[nm]] = v
+				typ := outType.Field(i)
+				nm := typ.Name
+				var v any
+				if typ.Type.Kind() == reflect.Struct {
+					v = structs.Map(reflect.ValueOf(str).Field(i).Interface())
+
+				} else {
+					v = out[i].Field(i).Interface()
+				}
+				newVars[revMapping[nm]] = v
 			}
 			return newVars, nil
 		default:
@@ -461,7 +475,7 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 				val := coerceVarsToType(typ, v, def.InMapping)
 				params := []reflect.Value{
 					reflect.ValueOf(ctx),
-					reflect.ValueOf(val.Elem().Interface()),
+					reflect.ValueOf(val.Interface()),
 					reflect.ValueOf(st.Error),
 					reflect.ValueOf(st.State),
 				}

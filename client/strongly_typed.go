@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"reflect"
+	"strings"
 )
 
 // ParseTaskSpecFromFile reads a task specification from a file and parses it into a *model.TaskSpec.
@@ -164,20 +165,42 @@ func coerceVarsToType(typ reflect.Type, inVars model.Vars, mapping map[string]st
 			if f.Kind() != reflect.Invalid {
 				f.Set(v)
 			}
-		default:
-			slog.Warn("struct serialization is not supported in this version", "type", val.Type().Name())
-			/* TODO: Add support for strongly typed structs
-			f := val.Elem().FieldByName(mapping[k])
-			if f.Kind() == reflect.Struct {
-				v := reflect.ValueOf(kv).Interface()
-				switch v.(type) {
-				case map[string]string:
-					populateStruct(val.Elem().Interface(), v)
-				}
+		case map[string]interface{}:
+			realName := mapping[k]
+			f := val.Elem().FieldByName(realName)
+			if f.Kind() != reflect.Invalid {
+				v := populateStruct(f.Type(), inVars[k].(map[string]interface{}))
+				f.Set(reflect.ValueOf(v))
 			}
-			*/
+		default:
+			slog.Warn(val.Type().Name()+" serialization is not supported in this version", "type", val.Type().Name())
 		}
 
 	}
-	return val
+	return val.Elem()
+}
+
+func populateStruct(strType reflect.Type, m map[string]interface{}) any {
+	typ := reflect.New(strType)
+	numFields := typ.Elem().NumField()
+	for i := 0; i < numFields; i++ {
+		f := typ.Elem().Field(i)
+		fieldType := strType.Field(i)
+		mapName := fieldType.Name
+		if tag := fieldType.Tag.Get("shar"); tag != "" {
+			newName := strings.Split(tag, ",")[0]
+			if newName != "" {
+				mapName = newName
+			}
+		}
+		v, ok := m[mapName]
+		if !ok {
+			continue
+		}
+		if f.Kind() == reflect.Struct {
+			v = populateStruct(f.Type(), m[mapName].(map[string]interface{}))
+		}
+		typ.Elem().Field(i).Set(reflect.ValueOf(v))
+	}
+	return typ.Elem().Interface()
 }

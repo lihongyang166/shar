@@ -7,15 +7,27 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
+	"gitlab.com/shar-workflow/shar/common/structs"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"log/slog"
+	"reflect"
 )
+
+func init() {
+	gob.Register(map[string]interface{}{})
+}
 
 // Encode encodes the map of workflow variables into a go binary to be sent across the wire.
 func Encode(ctx context.Context, vars model.Vars) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
+	for k, v := range vars {
+		if reflect.TypeOf(v).Kind() == reflect.Struct {
+			vars[k] = structs.Map(v)
+		}
+	}
+
 	if err := enc.Encode(vars); err != nil {
 		return nil, logx.Err(ctx, "encode vars", &errors.ErrWorkflowFatal{Err: err}, slog.Any("vars", vars))
 	}

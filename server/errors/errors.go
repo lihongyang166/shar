@@ -73,13 +73,16 @@ func Fn() string {
 	return fn
 }
 
-var integrityErrors = []error{
+var jetStreamNotFound = []error{
 	jetstream.ErrKeyNotFound,
 	jetstream.ErrNoKeysFound,
 	jetstream.ErrConsumerNotFound,
 	jetstream.ErrStreamNotFound,
 	jetstream.ErrObjectNotFound,
 	jetstream.ErrMsgNotFound,
+}
+
+var integrityErrors = append([]error{
 	ErrElementNotFound,
 	ErrJobNotFound,
 	ErrExecutionNotFound,
@@ -90,7 +93,7 @@ var integrityErrors = []error{
 	ErrGatewayInstanceNotFound,
 	ErrWorkflowVersionNotFound,
 	ErrWorkflowErrorNotFound,
-}
+}, jetStreamNotFound...)
 
 // CheckIfFatal will return *ErrWorkflowFatal if the error is obviously unrecoverable
 func CheckIfFatal(err error) error {
@@ -113,6 +116,22 @@ func Errorf(format string, a ...any) error {
 
 // IsNotFound will return true if the error is a SHAR or NATS not found error type
 func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	for _, e := range integrityErrors {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsJetStreamNotFound will return true if the error is a NATS JetStream not found error type
+func IsJetStreamNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
 	for _, e := range integrityErrors {
 		if errors.Is(err, e) {
 			return true

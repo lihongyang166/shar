@@ -187,6 +187,13 @@ streams:
           ack_wait: 30s
           filter_subject: WORKFLOW.System.Process.FatalError
           max_ack_pending: 65535
+      - nats-config:
+          durable_name: DeleteCommandConsumer
+          description: Consumer for SHAR delete commands.
+          ack_policy: 0
+          ack_wait: 30s
+          filter_subject: WORKFLOW.*.Command.Delete
+          max_ack_pending: 65535
   - nats-config:
       name: WORKFLOW-MIRROR
       retention: 0

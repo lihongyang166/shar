@@ -89,6 +89,6 @@ func (d *testErrorEndEventHandlerDef) fixSituation(_ context.Context, _ task.Job
 func (d *testErrorEndEventHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	assert.Equal(d.t, "103", wfError.Code)
 	assert.Equal(d.t, "CatastrophicError", wfError.Name)
-	assert.Equal(d.t, model.CancellationState_completed, state)
+	assert.Equal(d.t, model.CancellationState_errored, state)
 	close(d.finished)
 }

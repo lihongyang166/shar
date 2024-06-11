@@ -953,69 +953,10 @@ func (s *Operations) XDestroyProcessInstance(ctx context.Context, state *model.W
 	log := logx.FromContext(ctx)
 	log.Info("destroying process instance", slog.String(keys.ProcessInstanceID, state.ProcessInstanceId))
 
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
 	// TODO: soft error
-	execution, err := s.GetExecution(ctx, state.ExecutionId)
-	if err != nil {
-		return fmt.Errorf("x destroy process instance, get execution: %w", err)
-	}
-	pi, err := s.GetProcessInstance(ctx, state.ProcessInstanceId)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("x destroy process instance, get process instance: %w", err)
-	}
-	err = s.DestroyProcessInstance(ctx, state, pi.ProcessInstanceId, execution.ExecutionId)
+	err := s.DeleteCommandWithState(ctx, model.DeleteCommandType_DeleteProcessInstance, state, state.ProcessInstanceId)
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
-	}
-	// Get the workflow
-	wf := &model.Workflow{}
-	if execution.WorkflowId != "" {
-		if err := common.LoadObj(ctx, nsKVs.Wf, execution.WorkflowId, wf); err != nil {
-			log.Warn("fetch workflow definition",
-				slog.String(keys.ExecutionID, execution.ExecutionId),
-				slog.String(keys.WorkflowID, execution.WorkflowId),
-				slog.String(keys.WorkflowName, wf.Name),
-			)
-		}
-	}
-	tState := common.CopyWorkflowState(state)
-
-	if tState.Error != nil {
-		tState.State = model.CancellationState_errored
-	}
-
-	if err := s.deleteExecution(ctx, tState); err != nil {
-		return fmt.Errorf("delete workflow state whilst destroying execution: %w", err)
-	}
-	return nil
-}
-
-func (s *Operations) deleteExecution(ctx context.Context, state *model.WorkflowState) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	if err := nsKVs.WfExecution.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return fmt.Errorf("delete workflow instance: %w", err)
-	}
-
-	//TODO: Loop through all messages checking for process subscription and remove
-
-	if err := nsKVs.WfTracking.Delete(ctx, state.ExecutionId); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return fmt.Errorf("delete workflow tracking: %w", err)
-	}
-	if err := s.PublishWorkflowState(ctx, messages.ExecutionTerminated, state); err != nil {
-		return fmt.Errorf("send workflow terminate message: %w", err)
 	}
 	return nil
 }
@@ -1073,20 +1014,6 @@ func (s *Operations) GetJob(ctx context.Context, trackingID string) (*model.Work
 	} else {
 		return job, nil
 	}
-}
-
-// DeleteJob removes a workflow task state.
-func (s *Operations) DeleteJob(ctx context.Context, trackingID string) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	if err := common.Delete(ctx, nsKVs.Job, trackingID); err != nil {
-		return fmt.Errorf("delete job: %w", err)
-	}
-	return nil
 }
 
 // ListExecutions returns a list of running workflows and versions given a workflow Name
@@ -1523,44 +1450,6 @@ func (s *Operations) GetProcessInstance(ctx context.Context, processInstanceID s
 		return nil, fmt.Errorf("get process instance failed to load instance: %w", err)
 	}
 	return pi, nil
-}
-
-// DestroyProcessInstance deletes a process instance and removes the workflow instance dependent on all process instances being satisfied.
-func (s *Operations) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	e := &model.Execution{}
-	err = common.UpdateObj(ctx, nsKVs.WfExecution, executionId, e, func(v *model.Execution) (*model.Execution, error) {
-		v.ProcessInstanceId = remove(v.ProcessInstanceId, processInstanceId)
-		return v, nil
-	})
-	if len(e.ProcessInstanceId) == 0 {
-		if err := common.Delete(ctx, nsKVs.WfExecution, executionId); err != nil {
-			return fmt.Errorf("destroy process instance delete execution: %w", err)
-		}
-	}
-	if err != nil {
-		return fmt.Errorf("destroy process instance failed to update execution: %w", err)
-	}
-	err = common.Delete(ctx, nsKVs.WfProcessInstance, processInstanceId)
-	// TODO: Key not found
-	if err != nil {
-		return fmt.Errorf("destroy process instance failed to delete process instance: %w", err)
-	}
-
-	if err := s.PublishWorkflowState(ctx, messages.WorkflowProcessTerminated, state); err != nil {
-		return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
-	}
-	if len(e.ProcessInstanceId) == 0 {
-		if err := s.PublishWorkflowState(ctx, messages.WorkflowExecutionComplete, state); err != nil {
-			return fmt.Errorf("destroy process instance failed initiaite completing workflow instance: %w", err)
-		}
-	}
-	return nil
 }
 
 // DeprecateTaskSpec deprecates one or more task specs by ID.

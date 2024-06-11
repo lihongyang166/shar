@@ -193,16 +193,16 @@ func (s *Engine) mergeGatewayVars(ctx context.Context, gw *model.Gateway) ([]byt
 	}
 	base, err := vars.Decode(ctx, gw.Vars[0])
 	if err != nil {
-		return nil, fmt.Errorf("merge gateway vars failed to decode base variables: %w", err)
+		return nil, fmt.Errorf("decode base variables: %w", err)
 	}
 	ret, err := vars.Decode(ctx, gw.Vars[0])
 	if err != nil {
-		return nil, fmt.Errorf("merge gateway vars failed to decode initial variables: %w", err)
+		return nil, fmt.Errorf("decode initial variables: %w", err)
 	}
 	for i := 1; i < len(gw.Vars); i++ {
 		v2, err := vars.Decode(ctx, gw.Vars[i])
 		if err != nil {
-			return nil, fmt.Errorf("merge gateway vars failed to decode variable set %d: %w", i, err)
+			return nil, fmt.Errorf("decode variable set %d: %w", i, err)
 		}
 		for k, v := range v2 {
 			bv, ok := base[k]
@@ -213,7 +213,7 @@ func (s *Engine) mergeGatewayVars(ctx context.Context, gw *model.Gateway) ([]byt
 	}
 	retb, err := vars.Encode(ctx, ret)
 	if err != nil {
-		return nil, fmt.Errorf("merge gateway vars failed to encode variable set: %w", err)
+		return nil, fmt.Errorf("encode variable set: %w", err)
 	}
 	return retb, nil
 }
@@ -234,13 +234,14 @@ func (s *Engine) completeGateway(ctx context.Context, job *model.WorkflowState) 
 		v.GatewayComplete[*job.Execute] = true
 		return v, nil
 	}); err != nil {
-		return fmt.Errorf("%s failed to update gateway: %w", errors.Fn(), err)
+		return fmt.Errorf("%s update gateway: %w", errors.Fn(), err)
 	}
 	if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskComplete, job); err != nil {
 		return err
 	}
-	if err := common.Delete(ctx, nsKVs.WfGateway, *job.Execute); err != nil {
-		return fmt.Errorf("complete gateway failed with: %w", err)
+
+	if err := s.operations.DeleteCommand(ctx, model.DeleteCommandType_DeleteGateway, *job.Execute); err != nil {
+		return fmt.Errorf("delete gateway: %w", err)
 	}
 	return nil
 }

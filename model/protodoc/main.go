@@ -5,6 +5,7 @@ import (
 	"github.com/yoheimuta/go-protoparser"
 	"github.com/yoheimuta/go-protoparser/parser"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -180,7 +181,12 @@ func output(m map[string]modelType, enums map[string]enum, s string, done map[st
 		}
 	}
 	done[s] = struct{}{}
+	todoSorted := make([]string, 0, len(todo))
 	for k := range todo {
+		todoSorted = append(todoSorted, k)
+	}
+	sort.Strings(todoSorted)
+	for _, k := range todoSorted {
 		if _, ok := done[k]; ok {
 			continue
 		}
@@ -188,7 +194,12 @@ func output(m map[string]modelType, enums map[string]enum, s string, done map[st
 			return fmt.Errorf("recursing into type %s: %w", k, err)
 		}
 	}
-	for k := range etodo {
+	eTodoSorted := make([]string, 0, len(todo))
+	for k := range todo {
+		eTodoSorted = append(eTodoSorted, k)
+	}
+	sort.Strings(eTodoSorted)
+	for _, k := range eTodoSorted {
 		if _, ok := done[k]; ok {
 			continue
 		}

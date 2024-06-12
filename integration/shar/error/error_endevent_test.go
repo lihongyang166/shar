@@ -25,33 +25,41 @@ func TestEndEventError(t *testing.T) {
 	// Dial shar
 	ns := ksuid.New().String()
 	cl := client.New(client.WithNamespace(ns))
-	err := cl.Dial(ctx, tst.NatsURL)
-	require.NoError(t, err)
+	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
+		panic(err)
+	}
 
 	d := &testErrorEndEventHandlerDef{finished: make(chan struct{}), t: t}
 
 	// Register service tasks
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_couldThrowError.yaml", d.mayFail3)
+	_, err := support.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_couldThrowError.yaml", d.mayFail3)
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_fixSituation.yaml", d.fixSituation)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/errors.bpmn")
-	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestEndEventError", b)
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestEndEventError", b); err != nil {
+		panic(err)
+	}
 
 	err = cl.RegisterProcessComplete("Process_07lm3kx", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
 	_, _, err = cl.LaunchProcess(ctx, "Process_07lm3kx", model.Vars{})
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
-		require.NoError(t, err)
+		if err != nil {
+			panic(err)
+		}
 	}()
 
 	// wait for the workflow to complete

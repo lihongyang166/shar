@@ -61,12 +61,13 @@ func TestConcurrentMessaging(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
 			// Launch the processes
-			_, _, err := cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst})
-			require.NoError(t, err)
-
-			handlers.mx.Lock()
-			handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
-			handlers.mx.Unlock()
+			if _, _, err := cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
+				panic(err)
+			} else {
+				handlers.mx.Lock()
+				handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
+				handlers.mx.Unlock()
+			}
 		}(inst)
 	}
 

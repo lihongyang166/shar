@@ -61,11 +61,13 @@ func TestConcurrentMessaging2(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
 			// Launch the workflow
-			_, _, err := cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst})
-			require.NoError(t, err)
-			handlers.mx.Lock()
-			handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
-			handlers.mx.Unlock()
+			if _, _, err := cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
+				panic(err)
+			} else {
+				handlers.mx.Lock()
+				handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
+				handlers.mx.Unlock()
+			}
 		}(inst)
 	}
 
@@ -105,7 +107,7 @@ func (x *testConcurrentMessaging2HandlerDef) sendMessage(ctx context.Context, cm
 func (x *testConcurrentMessaging2HandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	x.mx.Lock()
 	_, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]
-	assert.True(x.test, ok, "testConcurrentMessaging2HandlerDef too many calls")
+	assert.True(x.test, ok, "too many calls")
 	delete(x.instComplete, strconv.Itoa(vars["orderId"].(int)))
 	x.received++
 	x.mx.Unlock()

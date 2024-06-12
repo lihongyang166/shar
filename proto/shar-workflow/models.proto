@@ -926,6 +926,8 @@ enum DeleteCommandType {
   DeleteProcessHistory = 2;
   DeleteJob = 3;
   DeleteGateway = 4;
+  DeleteTracking = 5;
+  DeleteVarState = 6;
 }
 
 message DeleteCommand {

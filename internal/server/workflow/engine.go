@@ -859,7 +859,7 @@ func (s *Engine) track(ctx context.Context, log *slog.Logger, msg jetstream.Msg)
 		if err := proto.Unmarshal(msg.Data(), st); err != nil {
 			return false, fmt.Errorf("unmarshall failed during tracking 'complete' event: %w", err)
 		}
-		if err := nsKVs.WfTracking.Delete(ctx, st.ExecutionId); err != nil {
+		if err := s.operations.DeleteCommand(ctx, model.DeleteCommandType_DeleteTracking, st.ExecutionId); err != nil {
 			return false, fmt.Errorf("delete workflow instance upon completion: %w", err)
 		}
 	default:
@@ -940,8 +940,7 @@ func (s *Engine) processActivities(ctx context.Context) error {
 			if err := s.activityCompleteProcessor(ctx, &activity); err != nil {
 				return false, err
 			}
-			err := s.deleteSavedState(ctx, activityID)
-			if err != nil {
+			if err := s.operations.DeleteCommand(ctx, model.DeleteCommandType_DeleteVarState, activityID); err != nil {
 				return true, fmt.Errorf("delete saved state upon activity completion: %w", err)
 			}
 		}
@@ -950,19 +949,6 @@ func (s *Engine) processActivities(ctx context.Context) error {
 	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("starting activity processing: %w", err)
-	}
-	return nil
-}
-
-func (s *Engine) deleteSavedState(ctx context.Context, activityID string) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	if err := common.Delete(ctx, nsKVs.WfVarState, activityID); err != nil {
-		return fmt.Errorf("delete saved state: %w", err)
 	}
 	return nil
 }
@@ -1124,7 +1110,7 @@ func (s *Engine) processFatalError(ctx context.Context) error {
 }
 
 func (s *Engine) deleteActivity(ctx context.Context, state *model.WorkflowState) error {
-	if err := s.deleteSavedState(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
+	if err := s.operations.DeleteCommand(ctx, model.DeleteCommandType_DeleteVarState, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete activity: %w", err)
 	}
 	return nil

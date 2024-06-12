@@ -72,22 +72,32 @@ func (s *Operations) deleteCommandProcessor(ctx context.Context, log *slog.Logge
 	case model.DeleteCommandType_DeleteProcessInstance:
 		b, err := s.deleteCmdProcessInstance(ctx, cmd.State, cmd.Id, kvs.WfExecution, kvs.WfProcessInstance)
 		if err != nil {
-			return b, fmt.Errorf("delete process: %w", err)
+			return b, fmt.Errorf("delete process instance: %w", err)
 		}
 	case model.DeleteCommandType_DeleteProcessHistory:
 		b, err := s.deleteCmdProcessHistory(ctx, cmd.Id, kvs.WfHistory)
 		if err != nil {
-			return b, fmt.Errorf("delete process: %w", err)
+			return b, fmt.Errorf("delete process history: %w", err)
 		}
 	case model.DeleteCommandType_DeleteJob:
 		b, err := s.deleteCmdJob(ctx, cmd.Id, kvs.Job)
 		if err != nil {
-			return b, fmt.Errorf("delete process: %w", err)
+			return b, fmt.Errorf("delete job: %w", err)
 		}
 	case model.DeleteCommandType_DeleteGateway:
 		b, err := s.deleteCmdGateway(ctx, cmd.Id, kvs.WfGateway)
 		if err != nil {
-			return b, fmt.Errorf("delete process: %w", err)
+			return b, fmt.Errorf("delete gateway: %w", err)
+		}
+	case model.DeleteCommandType_DeleteTracking:
+		b, err := s.deleteCmdTracking(ctx, cmd.Id, kvs.WfTracking)
+		if err != nil {
+			return b, fmt.Errorf("delete tracking: %w", err)
+		}
+	case model.DeleteCommandType_DeleteVarState:
+		b, err := s.deleteCmdVarState(ctx, cmd.Id, kvs.WfVarState)
+		if err != nil {
+			return b, fmt.Errorf("delete varstate: %w", err)
 		}
 	}
 
@@ -111,9 +121,7 @@ func (s *Operations) deleteCmdExecution(ctx context.Context, state *model.Workfl
 		}
 	}
 
-	if err := common.Delete(ctx, wfTracking, executionId); errors2.IsJetStreamNotFound(err) {
-		return true, nil
-	} else if err != nil {
+	if err := s.DeleteCommand(ctx, model.DeleteCommandType_DeleteTracking, executionId); err != nil {
 		return false, fmt.Errorf("delete workflow tracking: %w", err)
 	}
 
@@ -235,6 +243,26 @@ func (s *Operations) deleteCmdGateway(ctx context.Context, gatewayInstanceId str
 		return true, nil
 	} else if err != nil {
 		return false, fmt.Errorf("delete gateway instance: %w", err)
+	}
+	return true, nil
+}
+
+// deleteCmdTracking deletes the tracking for a given execution ID in A SHAR namespace.
+func (s *Operations) deleteCmdTracking(ctx context.Context, executionId string, wfTracking jetstream.KeyValue) (bool, error) {
+	if err := common.Delete(ctx, wfTracking, executionId); errors2.IsJetStreamNotFound(err) {
+		return true, nil
+	} else if err != nil {
+		return false, fmt.Errorf("delete tracking instance: %w", err)
+	}
+	return true, nil
+}
+
+// deleteCmdTracking deletes the tracking for a given execution ID in A SHAR namespace.
+func (s *Operations) deleteCmdVarState(ctx context.Context, activityId string, wfVarState jetstream.KeyValue) (bool, error) {
+	if err := common.Delete(ctx, wfVarState, activityId); errors2.IsJetStreamNotFound(err) {
+		return true, nil
+	} else if err != nil {
+		return false, fmt.Errorf("delete tracking instance: %w", err)
 	}
 	return true, nil
 }

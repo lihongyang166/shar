@@ -290,6 +290,13 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 					}
 					continue
 				}
+				md, err := m.Metadata()
+				if err != nil {
+					log.Error("get message metadata")
+				}
+				if md.NumDelivered > 1 {
+					fmt.Println("redelivery:", "num_delivered", md.NumDelivered, "subject", m.Subject())
+				}
 				//          log.Debug("Process:"+traceName, slog.String("subject", msg[0].Subject))
 				if embargo := m.Headers().Get("embargo"); embargo != "" && embargo != "0" {
 					e, err := strconv.Atoi(embargo)

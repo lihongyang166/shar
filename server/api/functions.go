@@ -362,7 +362,7 @@ func (s *Endpoints) registerTask(ctx context.Context, req *model.RegisterTaskReq
 	}
 
 	if err := validation.ValidateTaskSpec(req.Spec); err != nil {
-		return nil, fmt.Errorf("validate service task: %w", err)
+		return nil, fmt.Errorf("validaet service task: %w", err)
 	}
 
 	uid, err := s.operations.PutTaskSpec(ctx, req.Spec)

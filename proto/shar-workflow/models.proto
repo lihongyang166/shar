@@ -919,3 +919,19 @@ message FatalError {
   HandlingStrategy handlingStrategy = 1;
   WorkflowState workflowState = 2;
 }
+
+enum DeleteCommandType {
+  DeleteExecution = 0;
+  DeleteProcessInstance = 1;
+  DeleteProcessHistory = 2;
+  DeleteJob = 3;
+  DeleteGateway = 4;
+  DeleteTracking = 5;
+  DeleteVarState = 6;
+}
+
+message DeleteCommand {
+  DeleteCommandType deleteType = 1;
+  WorkflowState state = 2;
+  string id = 3;
+}

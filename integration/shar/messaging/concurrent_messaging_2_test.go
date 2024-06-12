@@ -106,9 +106,8 @@ func (x *testConcurrentMessaging2HandlerDef) sendMessage(ctx context.Context, cm
 
 func (x *testConcurrentMessaging2HandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	x.mx.Lock()
-	if _, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]; !ok {
-		panic("too many calls")
-	}
+	_, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]
+	assert.True(x.test, ok, "too many calls")
 	delete(x.instComplete, strconv.Itoa(vars["orderId"].(int)))
 	x.received++
 	x.mx.Unlock()

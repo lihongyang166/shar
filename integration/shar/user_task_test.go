@@ -25,9 +25,8 @@ func TestUserTasks(t *testing.T) {
 	// Dial shar
 	ns := ksuid.New().String()
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
-	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
-		panic(err)
-	}
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 
 	//sub := tracer.Trace(NatsURL)
 	//defer sub.Drain()
@@ -36,34 +35,27 @@ func TestUserTasks(t *testing.T) {
 	d.finalVars = make(model.Vars)
 
 	// Register service tasks
-	_, err := support.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "user_task_test_Complete.yaml", d.complete)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/usertask.bpmn")
-	if err != nil {
-		panic(err)
-	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestUserTasks", b); err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestUserTasks", b)
+	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("TestUserTasks", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
 	_, _, err = cl.LaunchProcess(ctx, "TestUserTasks", model.Vars{"OrderId": 68})
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	go func() {

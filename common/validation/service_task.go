@@ -118,5 +118,7 @@ func validExpName(name string) error {
 }
 
 func validNATSName(name string) bool {
-	return !strings.ContainsAny(name, ". ")
+	startsWithDot := strings.HasPrefix(name, ".")
+	hasDoubleDot := strings.HasPrefix(name, "..")
+	return !strings.ContainsAny(name, " ") && !hasDoubleDot && !startsWithDot
 }

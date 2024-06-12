@@ -867,6 +867,9 @@ func (s *Operations) GetWorkflowNameFor(ctx context.Context, processName string)
 		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
+	ks, _ := nsKVs.WfProcess.Keys(ctx)
+	fmt.Println(ks)
+
 	if entry, err := common.Load(ctx, nsKVs.WfProcess, processName); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return "", fmt.Errorf(fmt.Sprintf("get workflow name for process %s: %%w", processName), errors.ErrProcessNotFound)
 	} else if err != nil {

@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/common/authn"
@@ -255,6 +254,7 @@ func purgeOld(natsPersistHostRootForTest string, dataDirectories []os.DirEntry, 
 func (s *Integration) AssertCleanKV(namespce string, t *testing.T, cooldown time.Duration) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errs := make(chan error, 1)
+	var dkvs []string
 	var err error
 	go func(ctx context.Context, cancel context.CancelFunc) {
 		for {
@@ -262,7 +262,8 @@ func (s *Integration) AssertCleanKV(namespce string, t *testing.T, cooldown time
 				cancel()
 				return
 			}
-			err = s.checkCleanKVFor(ctx, namespce, t)
+			err, dirtyKVs := s.checkCleanKVFor(ctx, namespce, t)
+			dkvs = dirtyKVs
 			if err == nil {
 				cancel()
 				close(errs)
@@ -281,21 +282,23 @@ func (s *Integration) AssertCleanKV(namespce string, t *testing.T, cooldown time
 	select {
 	case err2 := <-errs:
 		cancel()
+		fmt.Println(dkvs)
 		assert.NoError(t, err2, "KV not clean")
 		return
 	case <-time.After(cooldown):
 		cancel()
 		if err != nil {
-			assert.NoErrorf(t, err, "KV not clean")
+			fmt.Println(dkvs)
+			assert.NoErrorf(t, err, "KV not clean:")
 		}
 		return
 	}
 }
 
-func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *testing.T) error {
+func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *testing.T) (error, []string) {
 	js, err := s.GetJetstream()
 	require.NoError(t, err)
-
+	var dkvs []string
 	for n := range js.KeyValueStores(ctx).Status() {
 
 		name := n.Bucket()
@@ -332,77 +335,85 @@ func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *
 			//noop
 		default:
 			if len(keys) > 0 {
-				sc := spew.ConfigState{
-					Indent:                  "\t",
-					MaxDepth:                2,
-					DisableMethods:          true,
-					DisablePointerMethods:   true,
-					DisablePointerAddresses: true,
-					DisableCapacities:       true,
-					ContinueOnMethod:        false,
-					SortKeys:                false,
-					SpewKeys:                true,
-				}
-
-				for _, i := range keys {
-					p, err := kvs.Get(ctx, i)
-					if err == nil {
-						str := &model.WorkflowState{}
-						err := proto.Unmarshal(p.Value(), str)
-						if err == nil {
-							fmt.Println("k=" + i)
-							fmt.Println(kvs.Bucket())
-							sc.Dump(str)
-						} else {
-							str := &model.MessageInstance{}
-							err := proto.Unmarshal(p.Value(), str)
-							if err == nil {
-								fmt.Println(kvs.Bucket())
-								sc.Dump(str)
-							}
-						}
-					}
-				}
-				return fmt.Errorf("%d unexpected keys found in %s: %w", len(keys), name, errDirtyKV)
+				dkvs = append(dkvs, name)
 			}
 		}
 	}
 
 	b, err := js.KeyValue(ctx, ns.PrefixWith(namespace, "WORKFLOW_USERTASK"))
 	if err != nil && errors.Is(err, jetstream.ErrNoKeysFound) {
-		return nil
+		return nil, []string{}
 	}
 	if err != nil {
-		return fmt.Errorf("checkCleanKV failed to get usertasks: %w", err)
+		return fmt.Errorf("checkCleanKV failed to get usertasks: %w", err), nil
 	}
 
 	keys, err := b.Keys(ctx)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrNoKeysFound) {
-			return nil
+			return nil, []string{}
 		}
-		return fmt.Errorf("checkCleanKV failed to get user task keys: %w", err)
+		return fmt.Errorf("checkCleanKV failed to get user task keys: %w", err), nil
 	}
 
 	for _, k := range keys {
 		bts, err := b.Get(ctx, k)
 		if err != nil {
-			return fmt.Errorf("checkCleanKV failed to get user task value: %w", err)
+			return fmt.Errorf("checkCleanKV failed to get user task value: %w", err), nil
 		}
 		msg := &model.UserTasks{}
 		err = proto.Unmarshal(bts.Value(), msg)
 		if err != nil {
-			return fmt.Errorf("checkCleanKV failed to unmarshal user task: %w", err)
+			return fmt.Errorf("checkCleanKV failed to unmarshal user task: %w", err), nil
 		}
 		if len(msg.Id) > 0 {
-			return fmt.Errorf("unexpected UserTask %s found in WORKFLOW_USERTASK: %w", msg.Id, errDirtyKV)
+			return fmt.Errorf("unexpected UserTask %s found in WORKFLOW_USERTASK: %w", msg.Id, errDirtyKV), nil
 		}
 	}
 
-	return nil
+	return nil, dkvs
 }
 
-// Teardown - resposible for shutting down the integration test framework.
+/*
+func (s *Integration) funcName(ctx context.Context, keys []string, kv jetstream.KeyValue, name string) error {
+	sc := spew.ConfigState{
+		Indent:                  "\t",
+		MaxDepth:                2,
+		DisableMethods:          true,
+		DisablePointerMethods:   true,
+		DisablePointerAddresses: true,
+		DisableCapacities:       true,
+		ContinueOnMethod:        false,
+		SortKeys:                false,
+		SpewKeys:                true,
+	}
+
+	for _, i := range keys {
+		p, err := kv.Get(ctx, i)
+		if err == nil {
+			str := &model.WorkflowState{}
+			err := proto.Unmarshal(p.Value(), str)
+			if err == nil {
+				fmt.Println("k=" + i)
+				fmt.Println(kv.Bucket())
+				sc.Dump(str)
+			} else {
+				str := &model.MessageInstance{}
+				err := proto.Unmarshal(p.Value(), str)
+				if err == nil {
+					fmt.Println(kv.Bucket())
+					sc.Dump(str)
+				}
+			}
+		}
+	}
+	//return fmt.Errorf("%d unexpected keys found in %s: %w", len(keys), name, errDirtyKV)
+
+	return nil
+}
+*/
+
+// Teardown - responsible for shutting down the integration test framework.
 func (s *Integration) Teardown() {
 	if s.WithTrace {
 		s.traceSub.Close()

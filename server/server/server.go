@@ -55,7 +55,7 @@ func New(options ...option.Option) (*Server, error) {
 		AllowOrphanServiceTasks: true,
 		HealthServiceEnabled:    true,
 		Concurrency:             6,
-		ShowSplash:              false,
+		ShowSplash:              true,
 		ApiAuthorizer:           noopAuthZ,
 		ApiAuthenticator:        noopAuthN,
 	}

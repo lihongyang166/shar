@@ -16,7 +16,7 @@ In this upgrade the database changes are as follows:
 
 //goland:noinspection GoSnakeCaseUsage
 func v1_1_503(ctx context.Context, nc common.NatsConn, js jetstream.JetStream) error {
-	slog.Error("attempt upgrade to:", ver)
+	slog.Error("attempt upgrade to: " + ver)
 	// *Upgrade data in service task registry
 	/*
 		kv, err := js.KeyValue(ctx, messages.KvClientTaskID)

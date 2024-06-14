@@ -27,6 +27,7 @@ func (s *Operations) RecordHistory(ctx context.Context, state *model.WorkflowSta
 		WorkflowId:        &state.WorkflowId,
 		ExecutionId:       &state.ExecutionId,
 		ElementId:         &state.ElementId,
+		ElementName:       &state.ElementName,
 		ProcessInstanceId: &state.ProcessInstanceId,
 		CancellationState: &state.State,
 		Vars:              state.Vars,

@@ -290,6 +290,7 @@ message WorkflowState {
   map<string,GatewayExpectations> gatewayExpectations = 21; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
   string traceParent = 23; // TraceContext holds an OTEL trace context.
   Compensation compensation = 24; // Compensation holds compensation state parameters.
+  string elementName = 25; // ElementName - the human readable name of this element
 }
 
 message Compensation {
@@ -333,6 +334,7 @@ message ProcessHistoryEntry {
   optional string workflowId = 2;
   optional string executionId = 3;
   optional string elementId = 4;
+  optional string elementName = 15;
   optional string processInstanceId = 5;
   optional CancellationState cancellationState = 6;
   bytes vars = 7;

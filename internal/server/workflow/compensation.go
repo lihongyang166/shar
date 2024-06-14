@@ -185,6 +185,7 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 			WorkflowId:        *jobExe.WorkflowId,
 			ElementId:         el.Id,
 			ElementType:       el.Type,
+			ElementName:       el.Name,
 			Id:                id,
 			Execute:           &el.Execute,
 			State:             model.CancellationState_compensating,

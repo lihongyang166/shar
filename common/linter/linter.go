@@ -61,16 +61,16 @@ func Lint(wf *model.Workflow, warningsAsErrors bool) ([]Message, error) {
 	return m, err
 }
 
-func linkEventRules(msgs *[]Message, wf *model.Process) {
+func linkEventRules(msgs *[]Message, process *model.Process) {
 
 	c := make(map[string]string)
 	t := make(map[string]string)
-	for _, e := range wf.Elements {
+	for _, e := range process.Elements {
 		if e.Type == element.LinkIntermediateCatchEvent {
 			if x, ok := c[e.Execute]; !ok {
 				c[e.Execute] = e.Id
 			} else {
-				*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("Duplicate link catch: %s in %s", x, wf.Name)})
+				*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("Duplicate link catch: %s in %s", x, process.Name)})
 			}
 		}
 		if e.Type == element.LinkIntermediateThrowEvent {
@@ -79,12 +79,12 @@ func linkEventRules(msgs *[]Message, wf *model.Process) {
 	}
 	for k, v := range t {
 		if _, ok := c[k]; !ok {
-			*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("No link catch for throw %s in %s in %s", k, v, wf.Name)})
+			*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("No link catch for throw %s in %s in %s", k, v, process.Name)})
 		}
 	}
 	for k, v := range c {
 		if _, ok := t[k]; !ok {
-			*msgs = append(*msgs, Message{Type: MessageTypeWarning, Text: fmt.Sprintf("No link throw for catch %s in %s in %s", k, v, wf.Name)})
+			*msgs = append(*msgs, Message{Type: MessageTypeWarning, Text: fmt.Sprintf("No link throw for catch %s in %s in %s", k, v, process.Name)})
 		}
 	}
 }

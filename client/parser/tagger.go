@@ -47,6 +47,7 @@ func tagGateways(process *model.Process, els map[string]*model.Element, back map
 			}
 		}
 	}
+
 	return nil
 }
 

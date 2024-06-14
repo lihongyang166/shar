@@ -253,6 +253,7 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 		}
 		messagesContext, err := consumer.Messages(
 			jetstream.WithMessagesErrOnMissingHeartbeat(false),
+			jetstream.PullMaxMessages(1),
 		)
 		receivers = append(receivers, messagesContext)
 		if err != nil {

@@ -143,7 +143,7 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 	if outbound == nil {
 		return nil
 	}
-	commit := make(map[string]string, len(outbound.Target))
+	targets := make(map[string]string, len(outbound.Target))
 	// Traverse along all outbound edges
 	for ord, t := range outbound.Target {
 		if ord == int(outbound.DefaultTarget) {
@@ -170,13 +170,13 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 			}
 		}
 		if ok {
-			commit[t.Id] = t.Target
+			targets[t.Id] = t.Target
 		}
 	}
 
-	if len(commit) == 0 && outbound.DefaultTarget != -1 {
+	if len(targets) == 0 && outbound.DefaultTarget != -1 {
 		def := outbound.Target[outbound.DefaultTarget]
-		commit[def.Id] = def.Target
+		targets[def.Id] = def.Target
 	}
 
 	elem := el[state.ElementId]
@@ -188,19 +188,19 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 	// Check traversals from a reciprocated divergent gateway
 	if reciprocatedDivergentGateway {
 
-		ks := make([]string, 0, len(commit))
-		for k := range commit {
-			ks = append(ks, k)
+		expectedPaths := make([]string, 0, len(targets))
+		for k := range targets {
+			expectedPaths = append(expectedPaths, k)
 		}
 		if state.GatewayExpectations == nil {
 			state.GatewayExpectations = make(map[string]*model.GatewayExpectations)
 		}
 		state.GatewayExpectations[divergentGatewayReciprocalInstanceId] = &model.GatewayExpectations{
-			ExpectedPaths: ks,
+			ExpectedPaths: expectedPaths,
 		}
 	}
 
-	for branchID, elID := range commit {
+	for branchID, elID := range targets {
 		ws := proto.Clone(state).(*model.WorkflowState)
 		newID := ksuid.New().String()
 		tID := trackingID.Push(newID)

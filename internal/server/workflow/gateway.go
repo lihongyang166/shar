@@ -78,7 +78,7 @@ func (s *Engine) processGatewayExecute(ctx context.Context) error {
 	return nil
 }
 
-func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+func (s *Engine) gatewayExecProcessor(ctx context.Context, _ *slog.Logger, msg jetstream.Msg) (bool, error) {
 	var job model.WorkflowState
 	if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)

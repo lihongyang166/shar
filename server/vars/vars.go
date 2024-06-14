@@ -23,7 +23,8 @@ func Encode(ctx context.Context, vars model.Vars) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	for k, v := range vars {
-		if reflect.TypeOf(v).Kind() == reflect.Struct {
+		typeOfV := reflect.TypeOf(v)
+		if typeOfV != nil && typeOfV.Kind() == reflect.Struct {
 			vars[k] = structs.Map(v)
 		}
 	}

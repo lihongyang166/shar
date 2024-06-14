@@ -23,7 +23,6 @@ func TestSimpleNoEnd(t *testing.T) {
 }
 
 func TestCyclic(t *testing.T) {
-
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/bad/simple-cyclic.bpmn")
 	require.NoError(t, err)

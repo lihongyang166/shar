@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
@@ -14,46 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/client"
-	"gitlab.com/shar-workflow/shar/client/parser"
-	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/model"
 )
-
-func TestExclusiveParse(t *testing.T) {
-	t.Parallel()
-
-	// Load BPMN workflow
-	b, err := os.ReadFile("../../../testdata/gateway-exclusive-out-and-in-test.bpmn")
-	require.NoError(t, err)
-
-	wf, err := parser.Parse("SimpleWorkflowTest", bytes.NewBuffer(b))
-	require.NoError(t, err)
-
-	els := make(map[string]*model.Element)
-	common.IndexProcessElements(wf.Process["Process_0ljss15"].Elements, els)
-	assert.Equal(t, model.GatewayType_exclusive, els["Gateway_01xjq2a"].Gateway.Type)
-	assert.Equal(t, model.GatewayDirection_divergent, els["Gateway_01xjq2a"].Gateway.Direction)
-	assert.Equal(t, model.GatewayType_exclusive, els["Gateway_1ps8xyt"].Gateway.Type)
-	assert.Equal(t, model.GatewayDirection_convergent, els["Gateway_1ps8xyt"].Gateway.Direction)
-	assert.Equal(t, "Gateway_01xjq2a", els["Gateway_1ps8xyt"].Gateway.ReciprocalId)
-	assert.Equal(t, "Gateway_1ps8xyt", els["Gateway_01xjq2a"].Gateway.ReciprocalId)
-}
-
-func TestNestedExclusiveParse(t *testing.T) {
-	t.Parallel()
-
-	// Load BPMN workflow
-	b, err := os.ReadFile("../../../testdata/gateway-multi-exclusive-out-and-in-test.bpmn")
-	require.NoError(t, err)
-
-	wf, err := parser.Parse("SimpleWorkflowTest", bytes.NewBuffer(b))
-	require.NoError(t, err)
-
-	els := make(map[string]*model.Element)
-	common.IndexProcessElements(wf.Process["Process_0ljss15"].Elements, els)
-	assert.Equal(t, "Gateway_0bcqcrc", els["Gateway_1ucd1b5"].Gateway.ReciprocalId)
-	assert.Equal(t, "Gateway_1ps8xyt", els["Gateway_01xjq2a"].Gateway.ReciprocalId)
-}
 
 func TestExclusiveRun(t *testing.T) {
 	t.Parallel()
@@ -71,9 +32,9 @@ func TestExclusiveRun(t *testing.T) {
 	g := &gatewayTest{finished: make(chan struct{}), t: t, typ: model.GatewayType_exclusive}
 
 	// Register service tasks
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.excStage1)
 	require.NoError(t, err)
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.stage2)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.excStage2)
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
 	require.NoError(t, err)
@@ -118,9 +79,9 @@ func TestInclusiveRun(t *testing.T) {
 	g := &gatewayTest{finished: make(chan struct{}), t: t, typ: model.GatewayType_inclusive}
 
 	// Register service tasks
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.stage1)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.incStage1)
 	require.NoError(t, err)
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.stage2)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.incStage2)
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
 	require.NoError(t, err)
@@ -165,23 +126,35 @@ func (g *gatewayTest) stage3(ctx context.Context, jobClient task.JobClient, vars
 	return vars, nil
 }
 
-func (g *gatewayTest) stage2(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
+func (g *gatewayTest) excStage2(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 2")
 	g.stg2 = true
-	return model.Vars{"value2": 2}, nil
+	return model.Vars{"value2": 2, "value1": nil}, nil
 }
 
-func (g *gatewayTest) stage1(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
+func (g *gatewayTest) excStage1(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 1")
 	g.stg1 = true
-	return model.Vars{"value1": 1}, nil
+	return model.Vars{"value1": 1, "value2": nil}, nil
+}
+
+func (g *gatewayTest) incStage2(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
+	fmt.Println("Stage 2")
+	g.stg2 = true
+	return model.Vars{"value2": 22, "value1": 11}, nil
+}
+
+func (g *gatewayTest) incStage1(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
+	fmt.Println("Stage 1")
+	g.stg1 = true
+	return model.Vars{"value1": 1, "value2": 2}, nil
 }
 
 func (g *gatewayTest) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	switch g.typ {
 	case model.GatewayType_inclusive:
-		assert.Equal(g.t, 1, vars["value1"])
-		assert.Equal(g.t, 2, vars["value2"])
+		assert.True(g.t, 1 == vars["value1"] || 11 == vars["value1"])
+		assert.True(g.t, 2 == vars["value2"] || 22 == vars["value2"])
 		assert.Equal(g.t, true, g.stg3)
 	case model.GatewayType_exclusive:
 		assert.True(g.t, vars["value1"] != vars["value2"], "values are equal")

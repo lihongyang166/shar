@@ -4,7 +4,7 @@
     <bpmn:startEvent id="StartEvent_1">
       <bpmn:extensionElements>
         <zeebe:ioMapping>
-          <zeebe:output source="=testValue" target="testValue" />
+          <zeebe:output source="=testValue" target="testValueZZZ" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_0wonucf</bpmn:outgoing>
@@ -28,7 +28,6 @@
         <zeebe:taskDefinition type="stage1" />
         <zeebe:ioMapping>
           <zeebe:output source="=value1" target="value1" />
-          <zeebe:output source="=value2" target="value2" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_00fv8il</bpmn:incoming>
@@ -39,7 +38,6 @@
         <zeebe:taskDefinition type="stage2" />
         <zeebe:ioMapping>
           <zeebe:output source="=value2" target="value2" />
-          <zeebe:output source="=value1" target="value1" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1sw5yio</bpmn:incoming>
@@ -48,10 +46,6 @@
     <bpmn:serviceTask id="Activity_0p2e9w0" name="stage 3">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="stage3" />
-        <zeebe:ioMapping>
-          <zeebe:input source="=value1" target="value1" />
-          <zeebe:input source="=value2" target="value2" />
-        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_0xfay5w</bpmn:incoming>
       <bpmn:outgoing>Flow_1p0yiqa</bpmn:outgoing>

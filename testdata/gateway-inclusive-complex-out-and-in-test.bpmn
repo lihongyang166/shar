@@ -10,7 +10,7 @@
       <bpmn:outgoing>Flow_0wonucf</bpmn:outgoing>
     </bpmn:startEvent>
     <bpmn:sequenceFlow id="Flow_0wonucf" sourceRef="StartEvent_1" targetRef="Gateway_01xjq2a" />
-    <bpmn:sequenceFlow id="Flow_0d994rj" sourceRef="Activity_1kkc3w4" targetRef="Gateway_1ps8xyt" />
+    <bpmn:sequenceFlow id="Flow_0d994rj" sourceRef="Activity_1kkc3w4" targetRef="Activity_0vfp48s" />
     <bpmn:sequenceFlow id="Flow_1yzscdb" sourceRef="Activity_1ijdzv9" targetRef="Gateway_1ps8xyt" />
     <bpmn:endEvent id="Event_019tqxg">
       <bpmn:extensionElements>
@@ -28,7 +28,6 @@
         <zeebe:taskDefinition type="stage1" />
         <zeebe:ioMapping>
           <zeebe:output source="=value1" target="value1" />
-          <zeebe:output source="=value2" target="value2" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_00fv8il</bpmn:incoming>
@@ -68,10 +67,22 @@
       <bpmn:outgoing>Flow_00fv8il</bpmn:outgoing>
     </bpmn:inclusiveGateway>
     <bpmn:inclusiveGateway id="Gateway_1ps8xyt">
-      <bpmn:incoming>Flow_0d994rj</bpmn:incoming>
       <bpmn:incoming>Flow_1yzscdb</bpmn:incoming>
+      <bpmn:incoming>Flow_0g8l8oc</bpmn:incoming>
       <bpmn:outgoing>Flow_0xfay5w</bpmn:outgoing>
     </bpmn:inclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_0g8l8oc" sourceRef="Activity_0vfp48s" targetRef="Gateway_1ps8xyt" />
+    <bpmn:serviceTask id="Activity_0vfp48s" name="stage 4">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="stage4" />
+        <zeebe:ioMapping>
+          <zeebe:output source="=value4" target="value4" />
+          <zeebe:output source="=value2" target="value2" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0d994rj</bpmn:incoming>
+      <bpmn:outgoing>Flow_0g8l8oc</bpmn:outgoing>
+    </bpmn:serviceTask>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0ljss15">
@@ -99,14 +110,16 @@
       <bpmndi:BPMNShape id="Gateway_142poni_di" bpmnElement="Gateway_1ps8xyt">
         <dc:Bounds x="645" y="175" width="50" height="50" />
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_17ufvkl_di" bpmnElement="Activity_0vfp48s">
+        <dc:Bounds x="560" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0wonucf_di" bpmnElement="Flow_0wonucf">
         <di:waypoint x="188" y="200" />
         <di:waypoint x="265" y="200" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0d994rj_di" bpmnElement="Flow_0d994rj">
         <di:waypoint x="540" y="120" />
-        <di:waypoint x="670" y="120" />
-        <di:waypoint x="670" y="175" />
+        <di:waypoint x="560" y="120" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1yzscdb_di" bpmnElement="Flow_1yzscdb">
         <di:waypoint x="540" y="280" />
@@ -130,6 +143,12 @@
         <di:waypoint x="290" y="175" />
         <di:waypoint x="290" y="120" />
         <di:waypoint x="440" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0g8l8oc_di" bpmnElement="Flow_0g8l8oc">
+        <di:waypoint x="610" y="160" />
+        <di:waypoint x="610" y="168" />
+        <di:waypoint x="670" y="168" />
+        <di:waypoint x="670" y="175" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

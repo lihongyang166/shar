@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -175,7 +176,7 @@ type testSimpleDeprecateHandlerDef struct {
 	wait     chan struct{}
 }
 
-func (d *testSimpleDeprecateHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleDeprecateHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	<-d.wait
 	assert.Equal(d.t, 32768, vars["carried"].(int))

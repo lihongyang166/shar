@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -55,7 +56,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	for _, pi := range pis.ProcessInstanceId {
 		ps, err := cl.GetProcessInstanceStatus(ctx, pi)
 		require.NoError(t, err)
-		assert.Equal(t, "SimpleProcess", *ps.ProcessState[0].Execute)
+		assert.Equal(t, "SimpleProcess", *ps[0].Execute)
 	}
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 120*time.Second)
@@ -66,7 +67,7 @@ type testSimpleProcessStatsHandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *testSimpleProcessStatsHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleProcessStatsHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))

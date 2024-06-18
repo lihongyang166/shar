@@ -9,7 +9,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/services/storage"
+	"gitlab.com/shar-workflow/shar/server/services/natz"
 	show_nats_config "gitlab.com/shar-workflow/shar/telemetry/commands/show-nats-config"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"gitlab.com/shar-workflow/shar/telemetry/flags"
@@ -40,7 +40,7 @@ var RootCmd = &cobra.Command{
 				slog.Error("read nats configuration file", slog.String("error", err.Error()))
 				os.Exit(1)
 			}
-			storage.NatsConfig = string(b)
+			natz.NatsConfig = string(b)
 		}
 
 		// Connect to nats

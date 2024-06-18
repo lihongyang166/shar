@@ -4,18 +4,15 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
-	"gitlab.com/shar-workflow/shar/client/api"
 	"gitlab.com/shar-workflow/shar/client/parser"
+	task2 "gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
-	"gitlab.com/shar-workflow/shar/common/element"
-	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	middleware2 "gitlab.com/shar-workflow/shar/common/middleware"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
@@ -27,22 +24,21 @@ import (
 	version2 "gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	api2 "gitlab.com/shar-workflow/shar/internal/client/api"
-	"gitlab.com/shar-workflow/shar/internal/natsrpc"
+	"gitlab.com/shar-workflow/shar/internal/common/client"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
-	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
 	"io"
 	"log/slog"
 	"os"
 	"os/signal"
-	"strconv"
+	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -51,24 +47,12 @@ import (
 // HeartBeatInterval defines the time between client heartbeats.
 const HeartBeatInterval = 1 * time.Second
 
-type contextKey string
-
-const internalProcessInstanceId contextKey = "__INTERNAL_PIID"
-
-// LogClient represents a client which is capable of logging to the SHAR infrastructure.
-type LogClient interface {
-	// Log logs to the underlying SHAR infrastructure.
-	Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error
-}
-
-// JobClient represents a client that is sent to all service tasks to facilitate logging.
-type JobClient interface {
-	LogClient
-}
-
 type jobClient struct {
-	cl         *Client
-	trackingID string
+	cl                *Client
+	trackingID        string
+	processInstanceId string
+	originalInputs    map[string]interface{}
+	originalOutputs   map[string]interface{}
 }
 
 // Log logs to the span related to this jobClient instance.
@@ -76,11 +60,10 @@ func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, a
 	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
 }
 
-// MessageClient represents a client which supports logging and sending Workflow Messages to the underlying SHAR infrastructure.
-type MessageClient interface {
-	LogClient
-	// SendMessage sends a Workflow Message
-	SendMessage(ctx context.Context, name string, key any, vars model.Vars) error
+func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
+	inputVars = c.originalInputs
+	outputVars = c.originalOutputs
+	return
 }
 
 type messageClient struct {
@@ -99,28 +82,19 @@ func (c *messageClient) Log(ctx context.Context, level slog.Level, message strin
 	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
 }
 
-// ServiceFn provides the signature for service task functions.
-type ServiceFn func(ctx context.Context, client JobClient, vars model.Vars) (model.Vars, error)
-
-// ProcessTerminateFn provides the signature for process terminate functions.
-type ProcessTerminateFn func(ctx context.Context, vars model.Vars, wfError *model.Error, endState model.CancellationState)
-
-// SenderFn provides the signature for functions that can act as Workflow Message senders.
-type SenderFn func(ctx context.Context, client MessageClient, vars model.Vars) error
-
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and integrating with the API
 type Client struct {
 	id                              string
 	host                            string
 	js                              jetstream.JetStream
-	SvcTasks                        map[string]ServiceFn
+	SvcTasks                        map[string]*task2.FnDef
 	con                             *nats.Conn
-	MsgSender                       map[string]SenderFn
+	MsgSender                       map[string]*task2.FnDef
 	storageType                     jetstream.StorageType
 	ns                              string
 	listenTasks                     map[string]struct{}
 	msgListenTasks                  map[string]struct{}
-	proCompleteTasks                map[string]ProcessTerminateFn
+	proCompleteTasks                map[string]*task2.FnDef
 	txJS                            jetstream.JetStream
 	txCon                           *nats.Conn
 	concurrency                     int
@@ -128,12 +102,10 @@ type Client struct {
 	ExpectedServerVersion           *version.Version
 	version                         *version.Version
 	noRecovery                      bool
-	shar                            natsrpc.SharClient
 	closer                          chan struct{}
 	shutdownOnce                    sync.Once
 	sig                             chan os.Signal
-	processing                      int
-	processingMx                    sync.Mutex
+	processing                      atomic.Int64
 	noOSSig                         bool
 	telemetryConfig                 telemetry.Config
 	SendMiddleware                  []middleware2.Send
@@ -154,11 +126,11 @@ func New(option ...ConfigurationOption) *Client {
 		id:                              ksuid.New().String(),
 		host:                            host,
 		storageType:                     jetstream.FileStorage,
-		SvcTasks:                        make(map[string]ServiceFn),
-		MsgSender:                       make(map[string]SenderFn),
+		SvcTasks:                        make(map[string]*task2.FnDef),
+		MsgSender:                       make(map[string]*task2.FnDef),
 		listenTasks:                     make(map[string]struct{}),
 		msgListenTasks:                  make(map[string]struct{}),
-		proCompleteTasks:                make(map[string]ProcessTerminateFn),
+		proCompleteTasks:                make(map[string]*task2.FnDef),
 		ns:                              ns.Default,
 		concurrency:                     10,
 		version:                         ver,
@@ -210,7 +182,6 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 	c.txJS = txJS
 	c.con = n
 	c.txCon = txnc
-	c.shar = natsrpc.NewSharClient(c.con, nil, nil)
 	_, err = c.GetServerVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("server version: %w", err)
@@ -260,7 +231,20 @@ func (c *Client) StoreTask(ctx context.Context, spec *model.TaskSpec) error {
 
 // RegisterTaskFunction registers a service task function.
 // If the service task spec has no UID then it will be calculated and written to the Metadata.Uid field.
-func (c *Client) RegisterTaskFunction(ctx context.Context, spec *model.TaskSpec, fn ServiceFn) error {
+func (c *Client) RegisterTaskFunction(ctx context.Context, spec *model.TaskSpec, fn task2.ServiceFn) error {
+	def := &task2.FnDef{
+		Type: task2.ExecutionTypeVars,
+	}
+	if fn != nil {
+		def.Fn = fn
+	}
+	if err := c.registerTaskFunction(ctx, spec, def); err != nil {
+		return fmt.Errorf("register task function: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) registerTaskFunction(ctx context.Context, spec *model.TaskSpec, def *task2.FnDef) error {
 	if spec.Metadata == nil {
 		return fmt.Errorf("task metadata is nil")
 	}
@@ -271,22 +255,25 @@ func (c *Client) RegisterTaskFunction(ctx context.Context, spec *model.TaskSpec,
 		}
 		spec.Metadata.Uid = uid
 	}
-	if fn != nil {
+	if def.Fn != nil {
 		if _, ok := c.SvcTasks[spec.Metadata.Uid]; ok {
 			return fmt.Errorf("service task '%s' already registered: %w", spec.Metadata.Type, errors2.ErrServiceTaskAlreadyRegistered)
 		}
-		c.SvcTasks[spec.Metadata.Uid] = fn
+		c.SvcTasks[spec.Metadata.Uid] = def
 		c.listenTasks[spec.Metadata.Uid] = struct{}{}
 	}
 	return nil
 }
 
 // RegisterMessageSender registers a function that requires support for sending Workflow Messages
-func (c *Client) RegisterMessageSender(ctx context.Context, workflowName string, messageName string, sender SenderFn) error {
+func (c *Client) RegisterMessageSender(ctx context.Context, workflowName string, messageName string, sender task2.SenderFn) error {
 	if _, ok := c.MsgSender[workflowName+"_"+messageName]; ok {
 		return fmt.Errorf("message sender '%s' already registered: %w", messageName, errors2.ErrMessageSenderAlreadyRegistered)
 	}
-	c.MsgSender[workflowName+"_"+messageName] = sender
+	c.MsgSender[workflowName+"_"+messageName] = &task2.FnDef{
+		Type: task2.ExecutionTypeVars,
+		Fn:   sender,
+	}
 	c.msgListenTasks[workflowName+"_"+messageName] = struct{}{}
 	return nil
 }
@@ -315,6 +302,111 @@ func (c *Client) listen(ctx context.Context) error {
 	for i := range c.msgListenTasks {
 		tasks[i] = subj.NS(messages.WorkflowJobSendMessageExecute+"."+i, c.ns)
 	}
+
+	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, def *task2.FnDef, inVars model.Vars) (model.Vars, error) {
+		switch def.Type {
+		case task2.ExecutionTypeVars:
+			pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+			pidCtx = client.ReParentSpan(pidCtx, job)
+			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+			if job.State == model.CancellationState_compensating {
+				var err error
+				jc.originalInputs, jc.originalOutputs, err = c.getCompensationVariables(ctx, job.ProcessInstanceId, job.Compensation.ForTrackingId)
+				if err != nil {
+					return make(model.Vars), fmt.Errorf("get compensation variables: %w", err)
+				}
+			}
+			svcFn := def.Fn.(task2.ServiceFn)
+			v, err := svcFn(pidCtx, jc, inVars)
+			if err != nil {
+				return v, fmt.Errorf("execute service task: %w", err)
+			}
+			return v, nil
+		case task2.ExecutionTypeTyped:
+			fn := reflect.TypeOf(def.Fn)
+			x := fn.In(2)
+			t := coerceVarsToType(x, inVars, def.InMapping)
+			vl := reflect.ValueOf(def.Fn)
+			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+			params := []reflect.Value{
+				reflect.ValueOf(ctx),
+				reflect.ValueOf(jc),
+				reflect.ValueOf(t.Elem().Interface()),
+			}
+			out := vl.Call(params)
+			str := out[0].Interface()
+			if err := out[1].Interface(); err != nil {
+				return model.Vars{}, fmt.Errorf("execute task: %w", err.(error))
+			}
+			newVars := model.Vars{}
+			outType := reflect.TypeOf(str)
+			nf := outType.NumField()
+			for i := 0; i < nf; i++ {
+				nm := outType.Field(i).Name
+				v := out[i].Field(i).Interface()
+				newVars[def.OutMapping[nm]] = v
+			}
+			return newVars, nil
+		default:
+			return model.Vars{}, fmt.Errorf("bad execution type: %d", def.Type)
+		}
+	}
+
+	svcFnLocator := func(job *model.WorkflowState) (*task2.FnDef, error) {
+		fnDef, ok := c.SvcTasks[job.ExecuteVersion]
+		if !ok {
+			err := fmt.Errorf("service task '%s' not found", job.ExecuteVersion)
+			slog.Error("find service function", "error", err, slog.String("fn", *job.Execute))
+			return nil, fmt.Errorf("find service task function: %w", errors2.ErrWorkflowFatal{Err: err})
+		}
+		return fnDef, nil
+	}
+
+	msgFnLocator := func(job *model.WorkflowState) (*task2.FnDef, error) {
+		sendFn, ok := c.MsgSender[job.WorkflowName+"_"+*job.Execute]
+		if !ok {
+			return nil, fmt.Errorf("msg send task '%s' not found", *job.Execute)
+		}
+		return sendFn, nil
+	}
+
+	msgFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, def *task2.FnDef, inVars model.Vars) error {
+		switch def.Type {
+		case task2.ExecutionTypeVars:
+			fn := def.Fn.(task2.SenderFn)
+			if err := fn(ctx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, inVars); err != nil {
+				slog.Warn("nats listener", "error", err)
+				return err
+			}
+			return nil
+		default:
+			return fmt.Errorf("bad execution type: %d", def.Type)
+		}
+	}
+
+	workflowErrorHandler := func(ctx context.Context, ns string, trackingID string, errorCode string, binVars []byte) (*model.HandleWorkflowErrorResponse, error) {
+		res := &model.HandleWorkflowErrorResponse{}
+		req := &model.HandleWorkflowErrorRequest{TrackingId: trackingID, ErrorCode: errorCode, Vars: binVars}
+		ctx = subj.SetNS(ctx, ns)
+		if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {
+			// TODO: This isn't right.  If this call fails it assumes it is handled!
+			retErr := fmt.Errorf("handle workflow error: %w", err2)
+			return nil, logx.Err(ctx, "handle a workflow error", retErr, slog.Any("workflowError", errorCode))
+		}
+		return res, nil
+	}
+
+	params := client.ServiceTaskProcessParams{
+		SvcFnExecutor:    svcFnExecutor,
+		SvcFnLocator:     svcFnLocator,
+		MsgFnLocator:     msgFnLocator,
+		SvcTaskCompleter: c.completeServiceTask,
+		MsgSendCompleter: c.completeSendMessage,
+		MsgFnExecutor:    msgFnExecutor,
+		WfErrorHandler:   workflowErrorHandler,
+		PiErrorCanceller: c.cancelProcessInstanceWithError,
+	}
+
 	for k, v := range tasks {
 		cName := "ServiceTask_" + c.ns + "_" + k
 		slog.Info("listening for tasks", "subject", cName)
@@ -327,191 +419,7 @@ func (c *Client) listen(ctx context.Context) error {
 			return fmt.Errorf("listen obtaining consumer info for %s: %w", cName, err)
 		}
 		ackTimeout := cInf.Config.AckWait
-		err = common.Process(ctx, c.js, "WORKFLOW", "jobExecute", c.closer, v, cName, c.concurrency, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
-			c.processingMx.Lock()
-			c.processing++
-			c.processingMx.Unlock()
-			defer func() {
-				c.processingMx.Lock()
-				c.processing--
-				c.processingMx.Unlock()
-			}()
-			// Check version compatibility of incoming call.
-			sharCompat := msg.Headers().Get(header.NatsCompatHeader)
-			if sharCompat != "" {
-				sVer, err := version.NewVersion(sharCompat)
-				if err != nil {
-					return false, fmt.Errorf("compatibility issue: shar server version corrupt %s: %w", sVer, err)
-				}
-
-				if compat, ver := upgrader.IsCompatible(sVer); !compat {
-					return false, fmt.Errorf("compatibility issue: shar server level %s, client version level: %s: %w", sVer, ver, err)
-				}
-			}
-
-			// Start a loop keeping this connection alive.
-			ctx, cancel := context.WithCancel(ctx)
-			defer cancel()
-			var fnMx sync.Mutex
-			waitCancelSig := make(chan struct{})
-
-			// Acknowledge until waitCancel is closed
-			go func(ctx context.Context) {
-				select {
-				case <-time.After(ackTimeout / 2):
-
-				case <-waitCancelSig:
-					cancel()
-					return
-				}
-				fnMx.Lock()
-				select {
-				case <-waitCancelSig:
-					cancel()
-					return
-				default:
-				}
-				if err := msg.InProgress(); err != nil {
-					cancel()
-					fnMx.Unlock()
-					return
-				}
-				fnMx.Unlock()
-			}(ctx)
-
-			ut := &model.WorkflowState{}
-			if err := proto.Unmarshal(msg.Data(), ut); err != nil {
-				log.Error("unmarshalling", err)
-				return false, fmt.Errorf("service task listener: %w", err)
-			}
-
-			subj.SetNS(ctx, msg.Headers().Get(header.SharNamespace))
-			ctx = context.WithValue(ctx, ctxkey.ExecutionID, ut.ExecutionId)
-			ctx = context.WithValue(ctx, ctxkey.ProcessInstanceID, ut.ProcessInstanceId)
-			ctx = ReParentSpan(ctx, ut)
-			ctx, err := header.FromMsgHeaderToCtx(ctx, msg.Headers())
-			if err != nil {
-				return true, &errors2.ErrWorkflowFatal{Err: fmt.Errorf("obtain headers from message: %w", err)}
-			}
-
-			switch ut.ElementType {
-			case element.ServiceTask:
-				trackingID := common.TrackingID(ut.Id).ID()
-				job, err := c.GetJob(ctx, trackingID)
-				if err != nil {
-					log.Error("get job", err, slog.String("JobId", trackingID))
-					return false, fmt.Errorf("get service task job kv: %w", err)
-				}
-
-				svcFn, ok := c.SvcTasks[job.ExecuteVersion]
-
-				if !ok {
-					log.Error("find service function", err, slog.String("fn", *job.Execute))
-					return false, fmt.Errorf("find service task function: %w", errors2.ErrWorkflowFatal{Err: err})
-				}
-				dv, err := vars.Decode(ctx, job.Vars)
-				if err != nil {
-					log.Error("decode vars", err, slog.String("fn", *job.Execute))
-					return false, fmt.Errorf("decode service task job variables: %w", err)
-				}
-				newVars, err := func() (v model.Vars, e error) {
-					if !c.noRecovery {
-						defer func() {
-							if r := recover(); r != nil {
-								v = model.Vars{}
-								e = &errors2.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error))}
-							}
-						}()
-					}
-					fnMx.Lock()
-					pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
-					pidCtx = ReParentSpan(pidCtx, job)
-					v, e = svcFn(pidCtx, &jobClient{cl: c, trackingID: trackingID}, dv)
-					close(waitCancelSig)
-					fnMx.Unlock()
-					return
-				}()
-				if err != nil {
-					var handled bool
-					wfe := &workflow.Error{}
-					if errors.As(err, wfe) {
-						v, err := vars.Encode(ctx, newVars)
-						if err != nil {
-							return true, &errors2.ErrWorkflowFatal{Err: fmt.Errorf("encode service task variables: %w", err)}
-						}
-						res := &model.HandleWorkflowErrorResponse{}
-						req := &model.HandleWorkflowErrorRequest{TrackingId: trackingID, ErrorCode: wfe.Code, Vars: v}
-						ctx = subj.SetNS(ctx, c.ns)
-						if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {
-							// TODO: This isn't right.  If this call fails it assumes it is handled!
-							reterr := fmt.Errorf("handle workflow error: %w", err2)
-							return true, logx.Err(ctx, "handle a workflow error", reterr, slog.Any("workflowError", wfe))
-						}
-						handled = res.Handled
-					}
-					if !handled {
-						log.Warn("execution of service task function", "error", err)
-					}
-					return wfe.Code != "", err
-				}
-				err = c.completeServiceTask(ctx, trackingID, newVars)
-				ae := &api.Error{}
-				if errors.As(err, &ae) {
-					if codes.Code(ae.Code) == codes.Internal {
-						log.Error("complete service task", err)
-						e := &model.Error{
-							Id:   "",
-							Name: ae.Message,
-							Code: "client-" + strconv.Itoa(ae.Code),
-						}
-						if err := c.cancelProcessInstanceWithError(ctx, ut.ProcessInstanceId, e); err != nil {
-							log.Error("cancel execution in response to fatal error", err)
-						}
-						return true, nil
-					}
-				} else if errors2.IsWorkflowFatal(err) {
-					return true, err
-				}
-				if err != nil {
-					log.Warn("complete service task", err)
-					return false, fmt.Errorf("complete service task: %w", err)
-				}
-				return true, nil
-
-			case element.MessageIntermediateThrowEvent:
-				trackingID := common.TrackingID(ut.Id).ID()
-				job, err := c.GetJob(ctx, trackingID)
-				if err != nil {
-					log.Error("get send message task", err, slog.String("JobId", common.TrackingID(ut.Id).ID()))
-					return false, fmt.Errorf("complete send message task: %w", err)
-				}
-				sendFn, ok := c.MsgSender[job.WorkflowName+"_"+*job.Execute]
-				if !ok {
-					return true, nil
-				}
-
-				dv, err := vars.Decode(ctx, job.Vars)
-				if err != nil {
-					log.Error("decode vars", err, slog.String("fn", *job.Execute))
-					return false, &errors2.ErrWorkflowFatal{Err: fmt.Errorf("decode send message variables: %w", err)}
-				}
-				ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
-				pidCtx := context.WithValue(ctx, internalProcessInstanceId, job.ProcessInstanceId)
-				pidCtx = ReParentSpan(pidCtx, job)
-				if err := sendFn(pidCtx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, dv); err != nil {
-					log.Warn("nats listener", err)
-					return false, err
-				}
-				if err := c.completeSendMessage(ctx, trackingID, make(map[string]any)); errors2.IsWorkflowFatal(err) {
-					log.Error("a fatal error occurred in message sender "+*job.Execute, err)
-				} else if err != nil {
-					log.Error("API error", err)
-					return false, err
-				}
-				return true, nil
-			}
-			return true, nil
-		}, common.WithBackoffFn(c.backoff))
+		err = common.Process(ctx, c.js, "WORKFLOW", "jobExecute", c.closer, v, cName, c.concurrency, c.ReceiveMiddleware, client.ClientProcessFn(ackTimeout, &c.processing, c.noRecovery, c, params), c.signalFatalErr, common.WithBackoffFn(c.backoff))
 		if err != nil {
 			return fmt.Errorf("connect to service task consumer: %w", err)
 		}
@@ -519,23 +427,15 @@ func (c *Client) listen(ctx context.Context) error {
 	return nil
 }
 
-// ReParentSpan re-parents a span in the given context with the span ID obtained from the WorkflowState ID.
-// If the span context in the context is valid, it replaces the span ID with the 64-bit representation
-// obtained from the WorkflowState ID. Otherwise, it returns the original context.
-//
-// Parameters:
-// - ctx: The context to re-parent the span in.
-// - state: The WorkflowState containing the ID to extract the new span ID from.
-//
-// Returns:
-// - The context with the re-parented span ID or the original context if the span context is invalid.
-func ReParentSpan(ctx context.Context, state *model.WorkflowState) context.Context {
-	sCtx := trace.SpanContextFromContext(ctx)
-	if sCtx.IsValid() {
-		c := common.KSuidTo64bit(common.TrackingID(state.Id).ID())
-		return trace.ContextWithSpanContext(ctx, sCtx.WithSpanID(c))
+func (c *Client) signalFatalErr(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+	res := &model.HandleWorkflowFatalErrorResponse{}
+	req := &model.HandleWorkflowFatalErrorRequest{WorkflowState: state}
+	ctx = subj.SetNS(ctx, c.ns)
+
+	if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowFatalError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {
+		retErr := fmt.Errorf("handle workflow fatal error: %w", err2)
+		log.Error("handle a workflow fatal error call failed", "err", retErr)
 	}
-	return ctx
 }
 
 func (c *Client) listenProcessTerminate(ctx context.Context) error {
@@ -543,7 +443,7 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 	err := common.Process(ctx, c.js, "WORKFLOW", "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		st := &model.WorkflowState{}
 		if err := proto.Unmarshal(msg.Data(), st); err != nil {
-			log.Error("proto unmarshal error", err)
+			log.Error("proto unmarshal error", "error", err)
 			return true, fmt.Errorf("listenProcessTerminate unmarshalling proto: %w", err)
 		}
 		callCtx := context.WithValue(ctx, keys.ContextKey(keys.ProcessInstanceID), st.ProcessInstanceId)
@@ -551,11 +451,28 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 		if err != nil {
 			return true, fmt.Errorf("listenProcessTerminate decoding vars: %w", err)
 		}
-		if fn, ok := c.proCompleteTasks[st.ProcessName]; ok {
-			fn(callCtx, v, st.Error, st.State)
+		if def, ok := c.proCompleteTasks[st.ProcessName]; ok {
+			switch def.Type {
+			case task2.ExecutionTypeVars:
+				fn := def.Fn.(task2.ProcessTerminateFn)
+				fn(callCtx, v, st.Error, st.State)
+			case task2.ExecutionTypeTyped:
+				typ := reflect.TypeOf(def.Fn).In(1)
+				val := coerceVarsToType(typ, v, def.InMapping)
+				params := []reflect.Value{
+					reflect.ValueOf(ctx),
+					reflect.ValueOf(val.Elem().Interface()),
+					reflect.ValueOf(st.Error),
+					reflect.ValueOf(st.State),
+				}
+				fn := reflect.ValueOf(def.Fn)
+				fn.Call(params)
+			default:
+				return true, fmt.Errorf("unknown processterminate function type: %d", def.Type)
+			}
 		}
 		return true, nil
-	})
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("listen workflow complete process: %w", err)
 	}
@@ -599,13 +516,13 @@ func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID 
 	return nil
 }
 
-func (c *Client) completeServiceTask(ctx context.Context, trackingID string, newVars model.Vars) error {
+func (c *Client) completeServiceTask(ctx context.Context, trackingID string, newVars model.Vars, compensating bool) error {
 	ev, err := vars.Encode(ctx, newVars)
 	if err != nil {
 		return fmt.Errorf("decode variables for complete service task: %w", err)
 	}
 	res := &model.CompleteServiceTaskResponse{}
-	req := &model.CompleteServiceTaskRequest{TrackingId: trackingID, Vars: ev}
+	req := &model.CompleteServiceTaskRequest{TrackingId: trackingID, Vars: ev, Compensating: compensating}
 	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APICompleteServiceTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
@@ -677,20 +594,25 @@ func (c *Client) HasWorkflowDefinitionChanged(ctx context.Context, name string, 
 	if err != nil {
 		return false, c.clientErr(ctx, err)
 	}
-	return !bytes.Equal(versions.Version[len(versions.Version)-1].Sha256, hash), nil
+	return !bytes.Equal(versions[len(versions)-1].Sha256, hash), nil
 }
 
 // GetWorkflowVersions - returns a list of versions for a given workflow.
-func (c *Client) GetWorkflowVersions(ctx context.Context, name string) (*model.WorkflowVersions, error) {
+func (c *Client) GetWorkflowVersions(ctx context.Context, name string) ([]*model.WorkflowVersion, error) {
 	req := &model.GetWorkflowVersionsRequest{
 		Name: name,
 	}
-	res := &model.GetWorkflowVersionsResponse{}
+	res := &model.WorkflowVersion{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflowVersions, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.WorkflowVersion, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetWorkflowVersions, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.WorkflowVersion) error {
+		result = append(result, val)
+		return nil
+	})
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res.Versions, nil
+	return result, nil
 }
 
 // GetWorkflow - retrieves a workflow model given its ID
@@ -720,8 +642,8 @@ func (c *Client) GetTaskSpecUsage(ctx context.Context, id string) (*model.TaskSp
 }
 
 // CancelProcessInstance cancels a running Process Instance.
-func (c *Client) CancelProcessInstance(ctx context.Context, executionID string) error {
-	return c.cancelProcessInstanceWithError(ctx, executionID, nil)
+func (c *Client) CancelProcessInstance(ctx context.Context, processInstanceId string) error {
+	return c.cancelProcessInstanceWithError(ctx, processInstanceId, nil)
 }
 
 func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInstanceID string, wfe *model.Error) error {
@@ -732,7 +654,7 @@ func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInst
 		Error: wfe,
 	}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APICancelExecution, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	if err := api2.Call(ctx, c.txCon, messages.APICancelProcessInstance, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
 	return nil
@@ -761,23 +683,52 @@ func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars mode
 // ListExecution gets a list of running executions by workflow name.
 func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListExecutionItem, error) {
 	req := &model.ListExecutionRequest{WorkflowName: name}
-	res := &model.ListExecutionResponse{}
+	res := &model.ListExecutionItem{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.ListExecutionItem, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIListExecution, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ListExecutionItem) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res.Result, nil
+	return result, nil
+}
+
+// ListExecutableProcesses gets a list of executable processes.
+func (c *Client) ListExecutableProcesses(ctx context.Context) ([]*model.ListExecutableProcessesItem, error) {
+	req := &model.ListExecutableProcessesRequest{}
+	res := &model.ListExecutableProcessesItem{}
+	ctx = subj.SetNS(ctx, c.ns)
+	result := make([]*model.ListExecutableProcessesItem, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIListExecutableProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ListExecutableProcessesItem) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return result, nil
 }
 
 // ListWorkflows gets a list of launchable workflow in SHAR.
 func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowResponse, error) {
 	req := &model.ListWorkflowsRequest{}
-	res := &model.ListWorkflowsResponse{}
+	res := &model.ListWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.ListWorkflowResponse, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIListWorkflows, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ListWorkflowResponse) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res.Result, nil
+	return result, nil
 }
 
 // ListExecutionProcesses lists the current process IDs for an Execution.
@@ -792,14 +743,21 @@ func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.
 }
 
 // GetProcessInstanceStatus lists the current workflow states for a process instance.
-func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) (*model.GetProcessInstanceStatusResult, error) {
+func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) ([]*model.WorkflowState, error) {
 	req := &model.GetProcessInstanceStatusRequest{Id: id}
-	res := &model.GetProcessInstanceStatusResult{}
+	res := &model.WorkflowState{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+
+	result := make([]*model.WorkflowState, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.WorkflowState) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res, nil
+	return result, nil
 }
 
 // GetUserTask fetches details for a user task based upon an ID obtained from, ListUserTasks
@@ -819,13 +777,7 @@ func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID strin
 
 // SendMessage sends a Workflow Message to a specific workflow instance
 func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars model.Vars) error {
-	var skey string
-	switch key.(type) {
-	case string:
-		skey = "\"" + fmt.Sprintf("%+v", key) + "\""
-	default:
-		skey = fmt.Sprintf("%+v", key)
-	}
+	skey := fmt.Sprintf("%+v", key)
 	b, err := vars.Encode(ctx, mvars)
 	if err != nil {
 		return fmt.Errorf("encode variables for send message: %w", err)
@@ -844,20 +796,26 @@ func (c *Client) clientErr(_ context.Context, err error) error {
 }
 
 // RegisterProcessComplete registers a function to be executed when a shar workflow process terminates.
-func (c *Client) RegisterProcessComplete(processId string, fn ProcessTerminateFn) error {
-	c.proCompleteTasks[processId] = fn
+func (c *Client) RegisterProcessComplete(processId string, fn task2.ProcessTerminateFn) error {
+	c.proCompleteTasks[processId] = &task2.FnDef{Fn: fn, Type: task2.ExecutionTypeVars}
 	return nil
 }
 
 // GetProcessHistory gets the history for a process.
-func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string) (*model.GetProcessHistoryResponse, error) {
+func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string) ([]*model.ProcessHistoryEntry, error) {
 	req := &model.GetProcessHistoryRequest{Id: processInstanceId}
-	res := &model.GetProcessHistoryResponse{}
+	res := &model.ProcessHistoryEntry{}
 	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessHistory, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+	result := make([]*model.ProcessHistoryEntry, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetProcessHistory, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ProcessHistoryEntry) error {
+		result = append(result, val)
+		return nil
+	})
+
+	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
-	return res, nil
+	return result, nil
 }
 
 func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Level, message string, attrs map[string]string) error {
@@ -874,6 +832,11 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 	}
 	res := &model.LogResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
+	vals := make([]any, 0)
+	for key, v := range attrs {
+		vals = append(vals, slog.String(key, v))
+	}
+	slog.Log(ctx, level, message, vals...)
 	if err := api2.Call(ctx, c.txCon, messages.APILog, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return c.clientErr(ctx, err)
 	}
@@ -985,6 +948,15 @@ func (c *Client) ResolveWorkflow(ctx context.Context, workflow *model.Workflow) 
 	return res.Workflow, nil
 }
 
+// GetTaskUIDFromSpec returns a UID (string) based on a deterministic algorithm from a TaskSpec.
+func (c *Client) GetTaskUIDFromSpec(spec *model.TaskSpec) (string, error) {
+	uid, err := task.CreateUID(spec)
+	if err != nil {
+		return "", fmt.Errorf("create uid: %w", err)
+	}
+	return uid, nil
+}
+
 func (c *Client) heartbeat(ctx context.Context) error {
 	req := &model.HeartbeatRequest{
 		Host: c.host,
@@ -1022,12 +994,9 @@ func (c *Client) Shutdown() {
 	c.shutdownOnce.Do(func() {
 		close(c.closer)
 		for {
-			c.processingMx.Lock()
-			if c.processing == 0 {
-				c.processingMx.Unlock()
+			if c.processing.Load() == 0 {
 				return
 			}
-			c.processingMx.Unlock()
 			time.Sleep(500 * time.Millisecond)
 		}
 	})
@@ -1048,4 +1017,35 @@ func (c *Client) listenTerm(ctx context.Context) {
 			}
 		}()
 	}
+}
+
+func (c *Client) getCompensationVariables(ctx context.Context, processInstanceId string, trackingId string) (map[string]interface{}, map[string]interface{}, error) {
+	req1 := &model.GetCompensationInputVariablesRequest{
+		ProcessInstanceId: processInstanceId,
+		TrackingId:        trackingId,
+	}
+	res1 := &model.GetCompensationInputVariablesResponse{}
+
+	req2 := &model.GetCompensationOutputVariablesRequest{
+		ProcessInstanceId: processInstanceId,
+		TrackingId:        trackingId,
+	}
+	res2 := &model.GetCompensationOutputVariablesResponse{}
+
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIGetCompensationInputVariables, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req1, res1); err != nil {
+		return nil, nil, c.clientErr(ctx, err)
+	}
+	if err := api2.Call(ctx, c.txCon, messages.APIGetCompensationOutputVariables, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req2, res2); err != nil {
+		return nil, nil, c.clientErr(ctx, err)
+	}
+	in, err := vars.Decode(ctx, res1.Vars)
+	if err != nil {
+		return nil, nil, c.clientErr(ctx, err)
+	}
+	out, err := vars.Decode(ctx, res2.Vars)
+	if err != nil {
+		return nil, nil, c.clientErr(ctx, err)
+	}
+	return in, out, nil
 }

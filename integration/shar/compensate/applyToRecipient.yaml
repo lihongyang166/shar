@@ -1,0 +1,40 @@
+version: "1.0"
+kind: ServiceTask
+metadata:
+  type: applyToRecipient
+  version: "0.1"
+  short: Bank account apply to recipient task
+  description: An example task which applies an amount to a recipient balance
+  labels:
+    - test
+    - bankTransfer
+behaviour:
+  estimatedMaxDuration: 2343255
+  defaultRetry:
+    number: 3
+    initMilli: 100
+    intervalMilli: 100
+    maxMilli: 300
+    defaultExceeded:
+      action: 0
+parameters:
+  input:
+    - name: recipientAccountBalance
+      short: balance
+      description: A the balance of a recipient's account.
+      type: float
+      mandatory: true
+      validateExpr: =param["number"] matches "[0-9]*"
+      example: = 0
+    - name: transferAmount
+      short: The value of the credit
+      description: The value to credit the account with.
+      type: float
+      mandatory: true
+      example: = 0
+  output:
+    - name: recipientAccountBalance
+      short: The result
+      description: The result of the transfer
+      type: float
+      example: 0

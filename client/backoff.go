@@ -22,7 +22,7 @@ import (
 func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	state := &model.WorkflowState{}
 	if err := proto.Unmarshal(msg.Data(), state); err != nil {
-		slog.Error("unmarshalling state", err)
+		slog.Error("unmarshalling state", "error", err)
 		return fmt.Errorf("service task listener: %w", err)
 	}
 
@@ -52,8 +52,8 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	if uint32(meta.NumDelivered) >= retryBehaviour.Number {
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
-			if err := c.CancelProcessInstance(ctx, state.ExecutionId); err != nil {
-				return fmt.Errorf("cancelling workflow instance: %w", err)
+			if err := c.CancelProcessInstance(ctx, state.ProcessInstanceId); err != nil {
+				return fmt.Errorf("cancelling process instance: %w", err)
 			}
 			return nil
 		case model.RetryErrorAction_ThrowWorkflowError:
@@ -92,7 +92,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			default: // string
 				retVar = retryBehaviour.DefaultExceeded.VariableValue
 			}
-			if err := c.completeServiceTask(ctx, trackingID, model.Vars{retryBehaviour.DefaultExceeded.Variable: retVar}); err != nil {
+			if err := c.completeServiceTask(ctx, trackingID, model.Vars{retryBehaviour.DefaultExceeded.Variable: retVar}, state.State == model.CancellationState_compensating); err != nil {
 				return fmt.Errorf("completing service task with error variable: %w", err)
 			}
 		}

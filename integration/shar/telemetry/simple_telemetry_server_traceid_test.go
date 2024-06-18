@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -63,7 +64,7 @@ type testSimpleTelemetrySvrTraceHandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *testSimpleTelemetrySvrTraceHandlerDef) integrationSimple(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleTelemetrySvrTraceHandlerDef) integrationSimple(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	// sc := trace.SpanContextFromContext(ctx)
 	// assert.True(d.t, sc.IsValid(), "Invalid span context")
 	// assert.Equal(d.t, 32768, vars["carried"].(int))

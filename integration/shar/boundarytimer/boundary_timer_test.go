@@ -3,6 +3,7 @@ package boundarytimer
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"sync"
@@ -123,7 +124,7 @@ type testBoundaryTimerDef struct {
 	finished          chan struct{}
 }
 
-func (d *testBoundaryTimerDef) canTimeout(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerDef) canTimeout(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	d.mx.Lock()
 	d.CanTimeOutCalled++
 	d.mx.Unlock()
@@ -131,7 +132,7 @@ func (d *testBoundaryTimerDef) canTimeout(_ context.Context, _ client.JobClient,
 	return vars, nil
 }
 
-func (d *testBoundaryTimerDef) noTimeout(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerDef) noTimeout(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	d.mx.Lock()
 	d.NoTimeoutCalled++
 	d.mx.Unlock()
@@ -139,14 +140,14 @@ func (d *testBoundaryTimerDef) noTimeout(_ context.Context, _ client.JobClient, 
 	return vars, nil
 }
 
-func (d *testBoundaryTimerDef) timedOut(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerDef) timedOut(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	d.mx.Lock()
 	d.TimedOutCalled++
 	d.mx.Unlock()
 	return vars, nil
 }
 
-func (d *testBoundaryTimerDef) checkResult(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testBoundaryTimerDef) checkResult(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	d.mx.Lock()
 	d.CheckResultCalled++
 	d.mx.Unlock()

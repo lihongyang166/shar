@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/client"
+	task2 "gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
@@ -349,6 +350,7 @@ func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *
 						str := &model.WorkflowState{}
 						err := proto.Unmarshal(p.Value(), str)
 						if err == nil {
+							fmt.Println("k=" + i)
 							fmt.Println(kvs.Bucket())
 							sc.Dump(str)
 						} else {
@@ -526,7 +528,7 @@ func GetPackageName(packageNameStruct any) string {
 // It is not recommended to call the functions in succession in real world scenarios as it will cause a task version race condition.
 // Instead, call taskutil.LoadTaskFromYamlFile from an external application, and use taskutil.RegisterTaskFunctionFromYamlFile
 // inside the service task to register the function
-func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename string, fn client.ServiceFn) (string, error) {
+func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename string, fn task2.ServiceFn) (string, error) {
 	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, filename); err != nil {
 		return "", fmt.Errorf("load task from yaml file: %w", err)
 	}
@@ -535,4 +537,20 @@ func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename strin
 		return "", fmt.Errorf("register task function from yaml file: %w", err)
 	}
 	return ret, nil
+}
+
+// ListenForFatalErr will subscribe to the ProcessFatalError subject and will send a message to the fatalErrChan
+// on receipt of any messages on the subject
+func (s *Integration) ListenForFatalErr(t *testing.T, fatalErrChan chan struct{}) *nats.Subscription {
+	natsConnection, err := nats.Connect(s.NatsURL)
+	require.NoError(t, err)
+
+	subscription, err := natsConnection.Subscribe(messages.WorkflowSystemProcessFatalError, func(msg *nats.Msg) {
+		fatalError := &model.FatalError{}
+		err2 := proto.Unmarshal(msg.Data, fatalError)
+		require.NoError(t, err2)
+		fatalErrChan <- struct{}{}
+	})
+	require.NoError(t, err)
+	return subscription
 }

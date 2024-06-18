@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_0w45luc" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.22.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.5.0">
+  <bpmn:process id="Compensator" isExecutable="true">
+    <bpmn:startEvent id="StartCompensatedWorkflow" name="Start">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="=compensate" target="compensate" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_10du4x9</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_10du4x9" sourceRef="StartCompensatedWorkflow" targetRef="Task1" />
+    <bpmn:endEvent id="NonCompensatedEndEvent" name="Non compensated end event">
+      <bpmn:incoming>DontCompensate</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1930cle" sourceRef="Task1" targetRef="Task2" />
+    <bpmn:serviceTask id="Task1" name="Task1">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="Task1" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_10du4x9</bpmn:incoming>
+      <bpmn:outgoing>Flow_1930cle</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task2" name="Task2">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="Task2" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1930cle</bpmn:incoming>
+      <bpmn:outgoing>Flow_0lqfa6b</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="CompensateEndEvent" name="Compensated end event">
+      <bpmn:incoming>Compensate</bpmn:incoming>
+      <bpmn:compensateEventDefinition id="CompensateEventDefinition_0flrsso" />
+    </bpmn:endEvent>
+    <bpmn:exclusiveGateway id="CompensateGateway" name="Compensate?">
+      <bpmn:incoming>Flow_0lqfa6b</bpmn:incoming>
+      <bpmn:outgoing>DontCompensate</bpmn:outgoing>
+      <bpmn:outgoing>Compensate</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_0lqfa6b" sourceRef="Task2" targetRef="CompensateGateway" />
+    <bpmn:sequenceFlow id="DontCompensate" name="No" sourceRef="CompensateGateway" targetRef="NonCompensatedEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">= compensate == 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Compensate" name="Yes" sourceRef="CompensateGateway" targetRef="CompensateEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">= compensate != 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:boundaryEvent id="Event_00niz3z" attachedToRef="Task2">
+      <bpmn:compensateEventDefinition id="CompensateEventDefinition_0klxxfb" />
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="Event_0d7vb62" attachedToRef="Task1">
+      <bpmn:compensateEventDefinition id="CompensateEventDefinition_0suoxqu" />
+    </bpmn:boundaryEvent>
+    <bpmn:serviceTask id="CompensateTask1" name="Compensate1" isForCompensation="true">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="CompensateTask1" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="CompensateTask2" name="Compensate2" isForCompensation="true">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="CompensateTask2" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:association id="Association_17jo06d" associationDirection="One" sourceRef="Event_00niz3z" targetRef="CompensateTask2" />
+    <bpmn:association id="Association_026mu2z" associationDirection="One" sourceRef="Event_0d7vb62" targetRef="CompensateTask1" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Compensator">
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartCompensatedWorkflow">
+        <dc:Bounds x="179" y="159" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="185" y="202" width="24" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1flvu63_di" bpmnElement="Task1">
+        <dc:Bounds x="270" y="137" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0mng05p_di" bpmnElement="CompensateTask1">
+        <dc:Bounds x="270" y="270" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0gnm0ju_di" bpmnElement="Task2">
+        <dc:Bounds x="430" y="137" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1hw1qdd_di" bpmnElement="CompensateTask2">
+        <dc:Bounds x="430" y="270" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_18kg7uh_di" bpmnElement="NonCompensatedEndEvent">
+        <dc:Bounds x="732" y="72" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="706" y="115" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_0w2uunj_di" bpmnElement="CompensateGateway" isMarkerVisible="true">
+        <dc:Bounds x="595" y="152" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="666" y="167" width="69" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_00opgt0_di" bpmnElement="CompensateEndEvent">
+        <dc:Bounds x="732" y="252" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="707" y="295" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Association_026mu2z_di" bpmnElement="Association_026mu2z">
+        <di:waypoint x="320" y="235" />
+        <di:waypoint x="320" y="270" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_17jo06d_di" bpmnElement="Association_17jo06d">
+        <di:waypoint x="480" y="235" />
+        <di:waypoint x="480" y="270" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Event_02bigk1_di" bpmnElement="Event_0d7vb62">
+        <dc:Bounds x="302" y="199" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1rhc5ec_di" bpmnElement="Event_00niz3z">
+        <dc:Bounds x="462" y="199" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_10du4x9_di" bpmnElement="Flow_10du4x9">
+        <di:waypoint x="215" y="177" />
+        <di:waypoint x="270" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1930cle_di" bpmnElement="Flow_1930cle">
+        <di:waypoint x="370" y="177" />
+        <di:waypoint x="430" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0lqfa6b_di" bpmnElement="Flow_0lqfa6b">
+        <di:waypoint x="530" y="177" />
+        <di:waypoint x="595" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1ikcp6z_di" bpmnElement="DontCompensate">
+        <di:waypoint x="620" y="152" />
+        <di:waypoint x="620" y="90" />
+        <di:waypoint x="732" y="90" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="628" y="118" width="15" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0y62ttl_di" bpmnElement="Compensate">
+        <di:waypoint x="620" y="202" />
+        <di:waypoint x="620" y="270" />
+        <di:waypoint x="732" y="270" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="626" y="233" width="18" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

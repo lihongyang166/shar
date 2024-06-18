@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -69,7 +70,7 @@ type testSimpleHandlerDef struct {
 	trackingReceived chan struct{}
 }
 
-func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))
@@ -77,6 +78,8 @@ func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ client.Job
 	return vars, nil
 }
 
-func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *model.Error, _ model.CancellationState) {
+func (d *testSimpleHandlerDef) processEnd(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
+	assert.Equal(d.t, 32768, vars["carried"].(int))
+	assert.Equal(d.t, 42, vars["processVar"].(int))
 	close(d.finished)
 }

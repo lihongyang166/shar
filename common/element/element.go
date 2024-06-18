@@ -3,6 +3,7 @@ package element
 const (
 	CallActivity                  = "callActivity"                  // CallActivity - the name of the sub process launch element type.
 	EndEvent                      = "endEvent"                      // EndEvent - the name of the process end event element type.
+	CompensateEndEvent            = "compensateEndEvent"            // CompensateEndEvent - the name of the process compensate end event element type.
 	Gateway                       = "Gateway"                       // Gateway - the name of the decision or merge element type.
 	LinkIntermediateCatchEvent    = "intermediateLinkCatchEvent"    // LinkIntermediateCatchEvent - the name of the link receiver element type.
 	LinkIntermediateThrowEvent    = "intermediateLinkThrowEvent"    // LinkIntermediateThrowEvent - the name of the link sender element type.

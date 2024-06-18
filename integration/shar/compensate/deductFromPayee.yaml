@@ -1,0 +1,39 @@
+version: "1.0"
+kind: ServiceTask
+metadata:
+  type: deductFromPayee
+  version: "0.1"
+  short: Bank account deduct from payee task
+  description: An example task which deducts an amount from a payee balance
+  labels:
+    - test
+    - bankTransfer
+behaviour:
+  estimatedMaxDuration: 2343255
+  defaultRetry:
+    number: 3
+    initMilli: 100
+    intervalMilli: 100
+    maxMilli: 300
+    defaultExceeded:
+      action: 0
+parameters:
+  input:
+    - name: payeeAccountBalance
+      short: balance
+      description: A the balance of a payee's account.
+      type: float
+      mandatory: true
+      example: = 0
+    - name: transferAmount
+      short: The value of the deduction
+      description: The value to deduct from the account.
+      type: float
+      mandatory: true
+      example: = 0
+  output:
+    - name: payeeAccountBalance
+      short: The result
+      description: The result of the transfer
+      type: float
+      example: 0

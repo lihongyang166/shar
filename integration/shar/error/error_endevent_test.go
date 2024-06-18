@@ -25,23 +25,20 @@ func TestEndEventError(t *testing.T) {
 	// Dial shar
 	ns := ksuid.New().String()
 	cl := client.New(client.WithNamespace(ns))
-	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
-		panic(err)
-	}
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 
 	d := &testErrorEndEventHandlerDef{finished: make(chan struct{}), t: t}
 
 	// Register service tasks
-	_, err := support.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_couldThrowError.yaml", d.mayFail3)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_couldThrowError.yaml", d.mayFail3)
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "error_endevent_test_fixSituation.yaml", d.fixSituation)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/errors.bpmn")
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestEndEventError", b); err != nil {
 		panic(err)
 	}
@@ -50,16 +47,12 @@ func TestEndEventError(t *testing.T) {
 	require.NoError(t, err)
 	// Launch the workflow
 	_, _, err = cl.LaunchProcess(ctx, "Process_07lm3kx", model.Vars{})
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	// wait for the workflow to complete
@@ -83,7 +76,8 @@ func (d *testErrorEndEventHandlerDef) mayFail3(ctx context.Context, client task.
 // A "Hello World" service task
 func (d *testErrorEndEventHandlerDef) fixSituation(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("carried", vars["carried"])
-	panic("this event should not fire")
+	d.t.Fatal("this event should not fire")
+	return nil, nil
 }
 
 func (d *testErrorEndEventHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

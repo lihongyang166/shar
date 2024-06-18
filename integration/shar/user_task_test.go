@@ -26,7 +26,7 @@ func TestUserTasks(t *testing.T) {
 	ns := ksuid.New().String()
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
-		panic(err)
+		require.NoError(t, err)
 	}
 
 	//sub := tracer.Trace(NatsURL)
@@ -43,12 +43,9 @@ func TestUserTasks(t *testing.T) {
 
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/usertask.bpmn")
-	if err != nil {
-		panic(err)
-	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestUserTasks", b); err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestUserTasks", b)
+	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("TestUserTasks", d.processEnd)
 	require.NoError(t, err)
@@ -61,9 +58,7 @@ func TestUserTasks(t *testing.T) {
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	go func() {

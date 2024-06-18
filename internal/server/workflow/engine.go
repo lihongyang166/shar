@@ -486,7 +486,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		// If the workflow completed successfully, transform result if necessary.
 		if newState.State == model.CancellationState_completed {
 			outputTransform := els[newState.ElementId].OutputTransform
-			if outputTransform != nil && len(outputTransform) > 0 {
+			if len(outputTransform) > 0 {
 				// Transform if requested
 				finalVars := make([]byte, 0)
 				if err := vars.OutputVars(ctx, newState.Vars, &finalVars, els[newState.ElementId].OutputTransform); err != nil {

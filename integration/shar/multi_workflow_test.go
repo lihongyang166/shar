@@ -73,7 +73,7 @@ func TestMultiWorkflow(t *testing.T) {
 		go func(inst int) {
 			// Launch the processes
 			if wfiID, _, err := cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {
-				panic(err)
+				require.NoError(t, err)
 			} else {
 				mx.Lock()
 				instances[wfiID] = struct{}{}
@@ -81,7 +81,7 @@ func TestMultiWorkflow(t *testing.T) {
 			}
 
 			if wfiID2, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{}); err != nil {
-				panic(err)
+				require.NoError(t, err)
 			} else {
 				mx.Lock()
 				instances[wfiID2] = struct{}{}

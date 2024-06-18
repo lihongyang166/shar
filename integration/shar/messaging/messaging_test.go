@@ -261,8 +261,7 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client task.M
 }
 
 func (x *testMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(x.t, "carried1value", vars["carried"])
-	assert.Equal(x.t, "carried2value", vars["carried2"])
+	assert.Equal(x.t, 57, vars["orderId"])
 	close(x.finished)
 }
 

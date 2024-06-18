@@ -50,8 +50,8 @@
     <bpmn:endEvent id="TransactionSuccess" name="Transaction Success">
       <bpmn:extensionElements>
         <zeebe:ioMapping>
-          <zeebe:output source="=payeeAccountBalance" target="payeeAccountBalance" />
-          <zeebe:output source="=recipientAccountBalance" target="recipientAccountBalance" />
+          <zeebe:output source="=payeeAccountBalance" target="finalAccountBalance" />
+          <zeebe:output source="=recipientAccountBalance" target="finalRecipientAccountBalance" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>ApprovedFlow</bpmn:incoming>

@@ -254,6 +254,7 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 		state.State = model.CancellationState_executing
 		state.ElementId = *activity.ElementId
 		state.ElementType = els[*activity.ElementId].Type
+		state.ElementName = *activity.ElementName
 		common.DropStateParams(state)
 		state.Id = id
 

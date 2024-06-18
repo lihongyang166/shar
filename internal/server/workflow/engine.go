@@ -209,6 +209,14 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 		ws.ElementType = target.Type
 		ws.ElementId = target.Id
 
+		if wf, err := c.operations.GetWorkflow(ctx, ws.WorkflowId); err != nil {
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("get workflow: %w", err)}
+		} else {
+			els := map[string]*model.Element{}
+			common.IndexProcessElements(wf.Process[ws.ProcessName].Elements, els)
+			ws.ElementName = els[ws.ElementId].Name
+		}
+
 		// Check traversals that lead to solitary convergent gateways
 		if target.Type == element.Gateway && target.Gateway.Direction == model.GatewayDirection_convergent && target.Gateway.ReciprocalId == "" {
 			if ws.SatisfiesGatewayExpectation == nil {

@@ -1,0 +1,32 @@
+version: "1.0"
+kind: ServiceTask
+metadata:
+  type: compensatePayee
+  version: "0.1"
+  short: Bank account compensate payee
+  description: An example task which compensates a payee for a transaction.
+  labels:
+    - test
+    - bankTransfer
+behaviour:
+  estimatedMaxDuration: 2343255
+  defaultRetry:
+    number: 3
+    initMilli: 100
+    intervalMilli: 100
+    maxMilli: 300
+    defaultExceeded:
+      action: 0
+parameters:
+  input:
+    - name: payeeAccountBalance
+      short: The result
+      description: The current balance
+      type: float
+      example: 0
+  output:
+    - name: payeeAccountBalance
+      short: The result
+      description: The result of the compensation
+      type: float
+      example: 0

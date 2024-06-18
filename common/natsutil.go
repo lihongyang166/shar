@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/model"
 	"log/slog"
 	"math/big"
 	"reflect"
@@ -32,6 +33,7 @@ type NatsConn interface {
 	QueueSubscribe(subj string, queue string, cb nats.MsgHandler) (*nats.Subscription, error)
 	Publish(subj string, bytes []byte) error
 	PublishMsg(msg *nats.Msg) error
+	Subscribe(subj string, cb nats.MsgHandler) (*nats.Subscription, error)
 }
 
 func updateKV(ctx context.Context, wf jetstream.KeyValue, k string, msg proto.Message, updateFn func(v []byte, msg proto.Message) ([]byte, error)) error {
@@ -224,19 +226,7 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 }
 
 // Process processes messages from a nats consumer and executes a function against each one.
-func Process(
-	ctx context.Context,
-	js jetstream.JetStream,
-	streamName string,
-	traceName string,
-	closer chan struct{},
-	subject string,
-	durable string,
-	concurrency int,
-	middleware []middleware.Receive,
-	fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error),
-	opts ...ProcessOption,
-) error {
+func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), signalFatalErrFn func(ctx context.Context, state *model.WorkflowState, log *slog.Logger), opts ...ProcessOption) error {
 	set := &ProcessOpts{}
 	for _, i := range opts {
 		i.Set(set)
@@ -282,21 +272,21 @@ func Process(
 						continue
 					}
 					// Log Error
-					log.Error("message fetch error", err)
+					log.Error("message fetch error", "error", err)
 					continue
 				}
 				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())
 				if x := m.Headers().Get(header.SharNamespace); x == "" {
 					log.Error("message without namespace", slog.Any("subject", m.Subject))
 					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
+						log.Error("processing failed to ack", "error", err)
 					}
 					continue
 				}
 				if err != nil {
 					log.Error("get header values from incoming process message", slog.Any("error", &errors2.ErrWorkflowFatal{Err: err}))
 					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
+						log.Error("processing failed to ack", "error", err)
 					}
 					continue
 				}
@@ -304,7 +294,7 @@ func Process(
 				if embargo := m.Headers().Get("embargo"); embargo != "" && embargo != "0" {
 					e, err := strconv.Atoi(embargo)
 					if err != nil {
-						log.Error("bad embargo value", err)
+						log.Error("bad embargo value", "error", err)
 						continue
 					}
 					offset := time.Duration(int64(e) - time.Now().UnixNano())
@@ -331,13 +321,18 @@ func Process(
 				ack, err := fn(executeCtx, executeLog, m)
 				if err != nil {
 					if errors2.IsWorkflowFatal(err) {
-						executeLog.Error("workflow fatal error occurred processing function", err)
+						executeLog.Error("workflow fatal error occurred processing function", "error", err)
+						var eWfF *errors2.ErrWorkflowFatal
+						errors.As(err, &eWfF)
+						if signalFatalErrFn != nil && eWfF.State != nil {
+							signalFatalErrFn(executeCtx, eWfF.State, executeLog)
+						}
 						ack = true
 					} else {
 						wfe := &workflow.Error{}
 						if !errors.As(err, wfe) {
+							executeLog.Error("processing error", "error", err, "name", traceName)
 							if set.BackoffCalc != nil {
-								executeLog.Error("processing error", err, "name", traceName)
 								err := set.BackoffCalc(executeCtx, m)
 								if err != nil {
 									slog.Error("backoff error", "error", err)
@@ -349,11 +344,11 @@ func Process(
 				}
 				if ack {
 					if err := m.Ack(); err != nil {
-						log.Error("processing failed to ack", err)
+						log.Error("processing failed to ack", "error", err)
 					}
 				} else {
 					if err := m.Nak(); err != nil {
-						log.Error("processing failed to nak", err)
+						log.Error("processing failed to nak", "error", err)
 					}
 				}
 			}
@@ -697,9 +692,7 @@ func StreamingReplyClient(ctx context.Context, nc *nats.Conn, msg *nats.Msg, fn 
 			if eHdr != strEOF {
 				errs <- fmt.Errorf("%s", eHdr)
 			}
-			close(ret)
 			close(errs)
-			close(cancel)
 			ctxCancel()
 			return
 		}
@@ -721,24 +714,28 @@ func StreamingReplyClient(ctx context.Context, nc *nats.Conn, msg *nats.Msg, fn 
 		ctxCancel()
 		return fmt.Errorf("publish: %s", err)
 	}
-	for r := range ret {
-		if err := fn(r); err != nil {
-			close(cancel)
-			if errors.Is(err, ErrStreamCancel) {
-				ctxCancel()
-				return nil
-			} else {
-				ctxCancel()
-				return fmt.Errorf("StreamingReplyClient client: %w", err)
+	for {
+		select {
+		case r := <-ret:
+			if err := fn(r); err != nil {
+				close(cancel)
+				if errors.Is(err, ErrStreamCancel) {
+					ctxCancel()
+					return nil
+				} else {
+					ctxCancel()
+					return fmt.Errorf("StreamingReplyClient client: %w", err)
+				}
 			}
+		case err := <-errs:
+			if err != nil {
+				ctxCancel()
+				return fmt.Errorf("StreamingReplyClient server: %w", err)
+			}
+			ctxCancel()
+			return nil
 		}
 	}
-	if err := <-errs; err != nil {
-		ctxCancel()
-		return fmt.Errorf("StreamingReplyClient server: %w", err)
-	}
-	ctxCancel()
-	return nil
 }
 
 // ErrStreamCancel is an error variable that represents a stream cancellation.
@@ -794,7 +791,9 @@ func StreamingReplyServer(nc streamNatsReplyconnection, subject string, fn func(
 				if !ok {
 					retM.Header.Set(strErrHeader, strEOF)
 				} else if errors.Is(e, ErrStreamCancel) {
-					close(retErr)
+					exit = true
+					slog.Debug("client cancelled stream", "subject", msg.Subject)
+					break
 				} else {
 					retM.Header.Set(strErrHeader, e.Error())
 				}

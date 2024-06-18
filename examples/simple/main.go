@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"os"
 
@@ -63,7 +64,7 @@ func main() {
 }
 
 // A "Hello World" service task
-func simpleProcess(_ context.Context, _ client.JobClient, _ model.Vars) (model.Vars, error) {
+func simpleProcess(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Hello World")
 	return model.Vars{}, nil
 }

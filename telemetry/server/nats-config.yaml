@@ -13,7 +13,7 @@ streams:
       - nats-config:
           durable_name: Tracing
           description: Sequential trace consumer.
-          ack_policy: 2
+          ack_policy: 0
           ack_wait: 1s
           filter_subject: WORKFLOW.*.State.>
           max_ack_pending: 1

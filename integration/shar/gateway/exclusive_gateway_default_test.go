@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -63,17 +64,17 @@ type testExclusiveGatewayDefaultDef struct {
 	finished   chan struct{}
 }
 
-func (d *testExclusiveGatewayDefaultDef) defaultOption(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testExclusiveGatewayDefaultDef) defaultOption(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Default Triggered")
 	return vars, nil
 }
 
-func (d *testExclusiveGatewayDefaultDef) option1(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testExclusiveGatewayDefaultDef) option1(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Option 1")
 	return vars, nil
 }
 
-func (d *testExclusiveGatewayDefaultDef) option2(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testExclusiveGatewayDefaultDef) option2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Option 2")
 	return vars, nil
 }

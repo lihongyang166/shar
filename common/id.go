@@ -1,5 +1,7 @@
 package common
 
+import "github.com/segmentio/ksuid"
+
 // TrackingID is an ID stack that maintains the callstack
 type TrackingID []string
 
@@ -41,4 +43,9 @@ func (t TrackingID) Push(id string) TrackingID {
 	copy(c, t)
 	c = append(c, id)
 	return c
+}
+
+// NewID adds a new random ID to the trackingID
+func (t TrackingID) NewID() TrackingID {
+	return t.Push(ksuid.New().String())
 }

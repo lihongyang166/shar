@@ -3,22 +3,18 @@ default: clean configure proto server tracing cli zen-shar
 configure:
 	@echo "\033[92mConfigure\033[0m"
 	go version
-	go get -d google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
-	go get -d google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
-	go get -d github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go get -d github.com/vektra/mockery/v2@v2.41.0
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.1
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install github.com/vektra/mockery/v2@v2.41.0
+	go install github.com/vektra/mockery/v2@v2.43.1
 	go install gotest.tools/gotestsum@latest
 	mkdir -p build
 	curl --insecure https://gitlab.com/shar-workflow/nats-proto-gen-go/-/archive/main/nats-proto-gen-go-main.tar.gz --output build/nats-proto-gen-go-main.tar.gz
 	cd build && rm -rf nats-proto-gen-go-main protogen
-	cd build && tar -zxvf nats-proto-gen-go-main.tar.gz #&& rm nats-proto-gen-go-main.tar.gz
+	cd build && tar -zxvf nats-proto-gen-go-main.tar.gz #&& rm natz-proto-gen-go-main.tar.gz
 	cd build && mv nats-proto-gen-go-main protogen
 	cd build/protogen/cmd/nats-proto-gen-go && go build && cp nats-proto-gen-go ../../../
-	#rm -rf nats-proto-gen-go
+	#rm -rf natz-proto-gen-go
 
 all: proto server tracing cli zen-shar
 
@@ -29,7 +25,7 @@ proto: .FORCE
 	mv model/gitlab.com/shar-workflow/shar/model/models.pb.go model/
 	@echo "\033[92mRemove proto working directories\033[0m"
 	rm -rf model/gitlab.com
-	build/nats-proto-gen-go proto/shar-workflow/models.proto --module-namespace="gitlab.com/shar-workflow/shar" --output-package="internal/natsrpc" --message-prefix "WORKFLOW.Api."
+	#build/natz-proto-gen-go proto/shar-workflow/models.proto --module-namespace="gitlab.com/shar-workflow/shar" --output-package="internal/natsrpc" --message-prefix "WORKFLOW.Api."
 	cd model/protodoc && go build
 	model/protodoc/protodoc
 server: .FORCE proto
@@ -69,7 +65,8 @@ clean: .FORCE
 	rm -rf build
 	mkdir -p build
 generated-code: proto .FORCE
-	go generate server/workflow/nats-service.go
+	#go generate server/workflow/natz-service.go
+	go generate server/services/cache/cache.go
 ci-pipeline-test: clean configure test .FORCE
 test: proto generated-code server tracing examples .FORCE
 	golangci-lint cache clean

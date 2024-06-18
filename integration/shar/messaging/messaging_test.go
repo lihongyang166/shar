@@ -3,6 +3,7 @@ package messaging
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"log/slog"
 	"os"
@@ -168,14 +169,65 @@ func TestMessageStartEvent(t *testing.T) {
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
+func TestAwaitMessageFatalErr(t *testing.T) {
+	t.Skip("skip this test until we have a way to properly clean down execution/process/activity" +
+		"state on abortion/termination of an execution/process. " +
+		"This test currently intermittently fails as a fatal error in one process will not result in the" +
+		"clean teardown of a sibling processes varstate + jobs in the collaboration")
+
+	t.Parallel()
+	ns := ksuid.New().String()
+	ctx := context.Background()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
+
+	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{}), fatalErr: make(chan struct{})}
+
+	// Register service tasks
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
+	require.NoError(t, err)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
+	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../../testdata/message-workflow-no-correlation-key.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestAwaitMessageFatalErr", b)
+	require.NoError(t, err)
+
+	// Launch the processes
+	_, _, err = cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	// Listen for service tasks
+	go func() {
+		err := cl.Listen(ctx)
+		require.NoError(t, err)
+	}()
+
+	subscription := tst.ListenForFatalErr(t, handlers.fatalErr)
+	defer func() {
+		_ = subscription.Drain()
+	}()
+
+	support.WaitForChan(t, handlers.fatalErr, 20*time.Second)
+
+	tst.AssertCleanKV(ns, t, 60*time.Second)
+}
+
 type testMessagingHandlerDef struct {
 	wg       sync.WaitGroup
 	tst      *support.Integration
 	finished chan struct{}
+	fatalErr chan struct{}
 	t        *testing.T
 }
 
-func (x *testMessagingHandlerDef) step1(ctx context.Context, client client.JobClient, _ model.Vars) (model.Vars, error) {
+func (x *testMessagingHandlerDef) step1(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
@@ -185,7 +237,7 @@ func (x *testMessagingHandlerDef) step1(ctx context.Context, client client.JobCl
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+func (x *testMessagingHandlerDef) step2(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "Step 2", nil); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
@@ -195,7 +247,7 @@ func (x *testMessagingHandlerDef) step2(ctx context.Context, client client.JobCl
 	return model.Vars{}, nil
 }
 
-func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client client.MessageClient, vars model.Vars) error {
+func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client task.MessageClient, vars model.Vars) error {
 	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
 		return fmt.Errorf("log: %w", err)
 	}
@@ -219,7 +271,7 @@ type messageStartEventWorkflowEventHandler struct {
 	t         *testing.T
 }
 
-func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client client.JobClient, vars model.Vars) (model.Vars, error) {
+func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	if err := client.Log(ctx, slog.LevelInfo, "simpleServiceTaskHandler", nil); err != nil {
 		return nil, fmt.Errorf("failed logging: %w", err)
 	}

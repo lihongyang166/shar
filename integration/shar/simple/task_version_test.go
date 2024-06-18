@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/segmentio/ksuid"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -79,7 +80,7 @@ type testSTVersionDef struct {
 	finished chan struct{}
 }
 
-func (d *testSTVersionDef) integrationSimple(ctx context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSTVersionDef) integrationSimple(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	vars["region"] = "ireland"
 	vars["population"] = 3

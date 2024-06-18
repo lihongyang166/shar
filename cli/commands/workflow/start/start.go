@@ -80,7 +80,7 @@ func run(cmd *cobra.Command, args []string) error {
 		err = common.Process(ctx, js, "WORKFLOW_TELEMETRY", "trace", closer, subj.NS(messages.WorkflowStateAll, "*"), "Tracing", 1, nil, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 			workflowMessages <- msg
 			return true, nil
-		})
+		}, nil)
 		if err != nil {
 			return fmt.Errorf("starting debug trace processing: %w", err)
 		}
@@ -90,7 +90,7 @@ func run(cmd *cobra.Command, args []string) error {
 			err := proto.Unmarshal(msg.Data(), &state)
 			if err != nil {
 				log := logx.FromContext(ctx)
-				log.Error("unmarshal message", err)
+				log.Error("unmarshal message", "error", err)
 				return fmt.Errorf("unmarshal status trace message: %w", err)
 			}
 			//if state.WorkflowInstanceId == executionID {

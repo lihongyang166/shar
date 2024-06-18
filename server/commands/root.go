@@ -1,14 +1,17 @@
 package commands
 
 import (
+	"fmt"
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	show_nats_config "gitlab.com/shar-workflow/shar/server/commands/show-nats-config"
 	"gitlab.com/shar-workflow/shar/server/config"
+	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/flags"
 	"gitlab.com/shar-workflow/shar/server/server"
+	"gitlab.com/shar-workflow/shar/server/server/option"
 	"log"
 	"log/slog"
 	"os"
@@ -37,13 +40,17 @@ var RootCmd = &cobra.Command{
 			lev = slog.LevelInfo
 		case "warn":
 			lev = slog.LevelWarn
+		case "trace":
+			lev = errors.TraceLevel
+		case "verbose":
+			lev = errors.VerboseLevel
 		default:
 			lev = slog.LevelError
 		}
 
 		conn, err := nats.Connect(cfg.NatsURL)
 		if err != nil {
-			slog.Error("connect to NATS", err, slog.String("url", cfg.NatsURL))
+			slog.Error("connect to NATS", "error", err, slog.String("url", cfg.NatsURL))
 			panic(err)
 		}
 
@@ -67,8 +74,15 @@ var RootCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		svr := server.New(server.Concurrency(cfg.Concurrency), server.NatsConn(conn), server.NatsUrl(cfg.NatsURL), server.GrpcPort(cfg.Port))
-		svr.Listen()
+
+		var svr *server.Server
+		if svr, err = server.New(option.Concurrency(cfg.Concurrency), option.NatsConn(conn), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port)); err != nil {
+			panic(fmt.Errorf("creating server: %w", err))
+		}
+
+		if err = svr.Listen(); err != nil {
+			panic(fmt.Errorf("starting server: %w", err))
+		}
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 

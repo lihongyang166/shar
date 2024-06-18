@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"github.com/docker/docker/api/types/container"
 	"github.com/nats-io/nats.go"
 	"github.com/segmentio/ksuid"
+	options2 "gitlab.com/shar-workflow/shar/server/server/option"
 	"math/big"
 	"net/netip"
 	"net/url"
@@ -38,6 +40,7 @@ type zenOpts struct {
 	natsPersistHostPath         string
 	natsServerAddress           string
 	sharServerTelemetryEndpoint string
+	showSplash                  bool
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -68,6 +71,13 @@ func WithSharServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
 		cfg.natsServerImageUrl = imageUrl
+	}
+}
+
+// WithShowSplash will make zen-shar start nats server with splash screen
+func WithShowSplash() ZenSharOptionApplyFn {
+	return func(cfg *zenOpts) {
+		cfg.showSplash = true
 	}
 }
 
@@ -121,7 +131,7 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 	if defaults.sharServerImageUrl != "" {
 		ssvr = inContainerSharServer(defaults.sharServerImageUrl, dockerHostName, nPort, defaults.sharServerTelemetryEndpoint)
 	} else {
-		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint)
+		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint, defaults.showSplash)
 	}
 
 	slog.Info("Setup completed", "nats port", nPort)
@@ -187,7 +197,9 @@ func inProcessNatsServer(natsConfig string, defaultNatsHost string, defaults *ze
 	}
 
 	n := &NatsServer{natsConfig: natsConfig, host: nHost, port: nPort}
-	n.Listen()
+	if err := n.Listen(); err != nil {
+		panic(fmt.Errorf("server listen: %w", err))
+	}
 	return n, nil
 }
 
@@ -200,38 +212,50 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 			"NATS_URL": fmt.Sprintf("nats://%s:%d", natsHost, natsPort),
 		}})
 
-	ssvr.Listen()
+	if err := ssvr.Listen(); err != nil {
+		panic(fmt.Errorf("server listen: %w", err))
+	}
 
 	return ssvr
 }
 
-func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string) *sharsvr.Server {
+func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string, showSplash bool) *sharsvr.Server {
 	natsUrl := fmt.Sprintf("%s:%d", natsHost, natsPort)
 	conn, err := nats.Connect(natsUrl)
 	if err != nil {
-		slog.Error("connect to NATS", err, slog.String("url", natsUrl))
+		slog.Error("connect to NATS", "error", err, slog.String("url", natsUrl))
 		panic(err)
 	}
 
-	options := []sharsvr.Option{
-		sharsvr.EphemeralStorage(),
-		sharsvr.PanicRecovery(false),
-		sharsvr.Concurrency(sharConcurrency),
-		sharsvr.WithNoHealthServer(),
-		sharsvr.NatsUrl(natsUrl),
-		sharsvr.NatsConn(conn),
-		sharsvr.GrpcPort(0),
-		sharsvr.WithTelemetryEndpoint(telemetryEndpoint),
+	options := []options2.Option{
+		options2.EphemeralStorage(),
+		options2.PanicRecovery(false),
+		options2.Concurrency(sharConcurrency),
+		options2.NatsUrl(natsUrl),
+		options2.NatsConn(conn),
+		options2.GrpcPort(0),
+		options2.WithTelemetryEndpoint(telemetryEndpoint),
 	}
 	if apiAuth != nil {
-		options = append(options, sharsvr.WithApiAuthorizer(apiAuth))
+		options = append(options, options2.WithApiAuthorizer(apiAuth))
 	}
 	if authN != nil {
-		options = append(options, sharsvr.WithAuthentication(authN))
+		options = append(options, options2.WithAuthentication(authN))
 	}
 
-	ssvr := sharsvr.New(options...)
-	go ssvr.Listen()
+	if showSplash {
+		options = append(options, options2.WithShowSplash())
+	}
+
+	var ssvr *sharsvr.Server
+	if ssvr, err = sharsvr.New(options...); err != nil {
+		panic(fmt.Errorf("create server: %w", err))
+	}
+	go func() {
+		if err := ssvr.Listen(); err != nil {
+			panic(fmt.Errorf("server listen: %w", err))
+		}
+	}()
 	for {
 		if ssvr.Ready() {
 			break
@@ -242,19 +266,12 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	return ssvr
 }
 
-func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, natsConfigFileLocation string, natsPersistHostPath string) *containerisedServer {
-	mounts := []testcontainers.ContainerMount{
-		{
-			Source: testcontainers.GenericBindMountSource{HostPath: natsConfigFileLocation},
-			Target: "/etc/nats",
-		},
-	}
+func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, hostNatsConfigFileLocation string, natsPersistHostPath string) *containerisedServer {
+	natsConfigFilePath := "/etc/nats"
+	binds := []string{fmt.Sprintf("%s:%s", hostNatsConfigFileLocation, natsConfigFilePath)}
 
 	if natsPersistHostPath != "" {
-		mounts = append(mounts, testcontainers.ContainerMount{
-			Source: testcontainers.GenericBindMountSource{HostPath: natsPersistHostPath},
-			Target: "/tmp/nats/jetstream", // the default nats store dir (and in .conf file)
-		})
+		binds = append(binds, fmt.Sprintf("%s:/tmp/nats/jetstream", natsPersistHostPath))
 	}
 
 	ssvr := newContainerisedServer(testcontainers.ContainerRequest{
@@ -262,11 +279,15 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 		ExposedPorts: []string{containerNatsPort},
 		WaitingFor:   wait.ForLog("Listening for client connections").WithStartupTimeout(10 * time.Second),
 		Entrypoint:   []string{"/nats-server"},
-		Cmd:          []string{"--config", "/etc/nats/nats-server.conf"},
-		Mounts:       mounts,
+		Cmd:          []string{"--config", natsConfigFilePath + "/nats-server.conf"},
+		HostConfigModifier: func(config *container.HostConfig) {
+			config.Binds = binds
+		},
 	})
 
-	ssvr.Listen()
+	if err := ssvr.Listen(); err != nil {
+		panic(fmt.Errorf("server listen: %w", err))
+	}
 
 	return ssvr
 }
@@ -274,7 +295,7 @@ func inContainerNatsServer(natsServerImageUrl string, containerNatsPort string, 
 // Server is a general interface representing either an inprocess or in container Shar server
 type Server interface {
 	Shutdown()
-	Listen()
+	Listen() error
 	GetEndPoint() string
 }
 
@@ -288,7 +309,7 @@ type NatsServer struct {
 }
 
 // Listen starts an in process nats server
-func (natserver *NatsServer) Listen() {
+func (natserver *NatsServer) Listen() error {
 	//wd, err := os.Getwd()
 	//if err != nil {
 	//	return nil, nil, fmt.Errorf("failed to get working directory: %w", err)
@@ -296,7 +317,7 @@ func (natserver *NatsServer) Listen() {
 
 	natsOptions, err := server.ProcessConfigFile(natserver.natsConfig)
 	if err != nil {
-		panic(fmt.Errorf("failed to load conf with err %w", err))
+		return fmt.Errorf("failed to load conf with err %w", err)
 	}
 
 	natsOptions.Host = natserver.host
@@ -308,6 +329,7 @@ func (natserver *NatsServer) Listen() {
 
 	natserver.port = actualNatsPort
 	natserver.nsvr = natsSvr
+	return nil
 }
 
 func tryStartingNats(natsOptions *server.Options, natsPort int, attempt int) (*server.Server, int) {
@@ -368,8 +390,8 @@ type containerisedServer struct {
 	exposedToHostPorts map[string]int
 }
 
-// Listen will startup the server in a container
-func (cp *containerisedServer) Listen() {
+// Listen will start up the server in a container
+func (cp *containerisedServer) Listen() error {
 	ctx := context.Background()
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: cp.req,
@@ -377,8 +399,7 @@ func (cp *containerisedServer) Listen() {
 	})
 
 	if err != nil {
-		slog.Error(fmt.Sprintf("failed to start container for request: %+v", cp.req))
-		panic(err)
+		return fmt.Errorf("failed to start container for request %+v: %w", cp.req, err)
 	}
 
 	cp.container = container
@@ -387,12 +408,12 @@ func (cp *containerisedServer) Listen() {
 		for _, exposedPort := range cp.req.ExposedPorts {
 			natPort, err := container.MappedPort(ctx, nat.Port(exposedPort))
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("failed to get exposed port %s: %w", exposedPort, err)
 			}
 			cp.exposedToHostPorts[exposedPort] = natPort.Int()
 		}
 	}
-
+	return nil
 }
 
 // Shutdown will shutdown the containerised shar server

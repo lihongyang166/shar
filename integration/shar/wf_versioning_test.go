@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
 	"testing"
@@ -18,11 +19,6 @@ import (
 )
 
 func TestWfVersioning(t *testing.T) {
-	tst := support.NewIntegrationT(t, nil, nil, false, func() (bool, string) {
-		return !support.IsNatsPersist(), "only valid when NOT persisting to nats"
-	}, nil)
-	tst.Setup()
-	defer tst.Teardown()
 
 	// Create a starting context
 	ctx := context.Background()
@@ -51,6 +47,7 @@ func TestWfVersioning(t *testing.T) {
 	require.NoError(t, err)
 	res2, err := cl.ListWorkflows(ctx)
 	require.NoError(t, err)
+	t.Log(len(res2))
 	assert.Equal(t, int32(1), res2[0].Version)
 	nc, err := nats.Connect(tst.NatsURL)
 	require.NoError(t, err)
@@ -69,14 +66,16 @@ func TestWfVersioning(t *testing.T) {
 	require.NoError(t, err)
 	res3, err := cl.ListWorkflows(ctx)
 	require.NoError(t, err)
+	t.Log(len(res2))
 	assert.Equal(t, int32(2), res3[0].Version)
+	fmt.Println("YAY")
 	vers, err := cl.GetWorkflowVersions(ctx, "SimpleWorkflowTest")
 	require.NoError(t, err)
-	assert.Len(t, vers.Version, 2)
-	assert.Equal(t, vers.Version[0].Number, int32(1))
-	assert.Equal(t, vers.Version[1].Number, int32(2))
-	assert.Equal(t, vers.Version[0].Id, oldWfId)
-	assert.Equal(t, vers.Version[1].Id, newWfId)
+	assert.Len(t, vers, 2)
+	assert.Equal(t, int32(1), vers[0].Number)
+	assert.Equal(t, int32(2), vers[1].Number)
+	assert.Equal(t, oldWfId, vers[0].Id)
+	assert.Equal(t, newWfId, vers[1].Id)
 	keys, err = kv.Keys()
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(keys))
@@ -88,7 +87,7 @@ type wfTeestandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *wfTeestandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *wfTeestandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))

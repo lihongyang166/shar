@@ -350,6 +350,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 	state.Id = oldState.Id
 	state.WorkflowId = oldState.WorkflowId
 	state.ElementId = oldState.ElementId
+	state.ElementName = oldState.ElementName
 	state.Execute = oldState.Execute
 	state.Condition = oldState.Condition
 	state.ElementType = oldState.ElementType

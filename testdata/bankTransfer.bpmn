@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_0xnjvkl" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.15.1" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.3.0">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_0xnjvkl" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.24.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.3.0">
   <bpmn:process id="BankTransfer" name="BankTransfer" isExecutable="true">
     <bpmn:startEvent id="StartBankTransfer" name="Start Bank Transfer">
       <bpmn:extensionElements>
@@ -62,8 +62,8 @@
     <bpmn:endEvent id="TransactionDeclined" name="Transaction Declined">
       <bpmn:extensionElements>
         <zeebe:ioMapping>
-          <zeebe:output source="=payeeAccountBalance" target="payeeAccountBalance" />
-          <zeebe:output source="=recipientAccountBalance" target="recipientAccountBalance" />
+          <zeebe:output source="=payeeAccountBalance" target="finalAccountBalance" />
+          <zeebe:output source="=recipientAccountBalance" target="finalRecipientAccountBalance" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>DeclinedFlow</bpmn:incoming>
@@ -132,19 +132,11 @@
       <bpmndi:BPMNShape id="Activity_16o3c11_di" bpmnElement="CompensateRecipient">
         <dc:Bounds x="470" y="290" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Association_1i3zivu_di" bpmnElement="Association_1i3zivu">
-        <di:waypoint x="340" y="255" />
-        <di:waypoint x="340" y="290" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Association_0mi73ik_di" bpmnElement="Association_0mi73ik">
-        <di:waypoint x="520" y="255" />
-        <di:waypoint x="520" y="290" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="Event_0nlnhx5_di" bpmnElement="Event_09g3spi">
-        <dc:Bounds x="322" y="219" width="36" height="36" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0p4da2n_di" bpmnElement="Event_19600ok">
         <dc:Bounds x="502" y="219" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0nlnhx5_di" bpmnElement="Event_09g3spi">
+        <dc:Bounds x="322" y="219" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0gf07ee_di" bpmnElement="Flow_0gf07ee">
         <di:waypoint x="215" y="197" />
@@ -173,6 +165,14 @@
         <bpmndi:BPMNLabel>
           <dc:Bounds x="658" y="258" width="43" height="14" />
         </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_1i3zivu_di" bpmnElement="Association_1i3zivu">
+        <di:waypoint x="340" y="255" />
+        <di:waypoint x="340" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_0mi73ik_di" bpmnElement="Association_0mi73ik">
+        <di:waypoint x="520" y="255" />
+        <di:waypoint x="520" y="290" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

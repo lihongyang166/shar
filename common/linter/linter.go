@@ -63,27 +63,27 @@ func Lint(wf *model.Workflow, warningsAsErrors bool) ([]Message, error) {
 
 func linkEventRules(msgs *[]Message, process *model.Process) {
 
-	c := make(map[string]string)
-	t := make(map[string]string)
+	catch := make(map[string]string)
+	throw := make(map[string]string)
 	for _, e := range process.Elements {
 		if e.Type == element.LinkIntermediateCatchEvent {
-			if x, ok := c[e.Execute]; !ok {
-				c[e.Execute] = e.Id
+			if x, ok := catch[e.Execute]; !ok {
+				catch[e.Execute] = e.Id
 			} else {
 				*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("Duplicate link catch: %s in %s", x, process.Name)})
 			}
 		}
 		if e.Type == element.LinkIntermediateThrowEvent {
-			t[e.Execute] = e.Id
+			throw[e.Execute] = e.Id
 		}
 	}
-	for k, v := range t {
-		if _, ok := c[k]; !ok {
+	for k, v := range throw {
+		if _, ok := catch[k]; !ok {
 			*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("No link catch for throw %s in %s in %s", k, v, process.Name)})
 		}
 	}
-	for k, v := range c {
-		if _, ok := t[k]; !ok {
+	for k, v := range catch {
+		if _, ok := throw[k]; !ok {
 			*msgs = append(*msgs, Message{Type: MessageTypeWarning, Text: fmt.Sprintf("No link throw for catch %s in %s in %s", k, v, process.Name)})
 		}
 	}

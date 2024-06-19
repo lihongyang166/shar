@@ -62,7 +62,7 @@ func TestConcurrentMessaging(t *testing.T) {
 		go func(inst int) {
 			// Launch the processes
 			if _, _, err := cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
-				panic(err)
+				require.NoError(t, err)
 			} else {
 				handlers.mx.Lock()
 				handlers.instComplete[strconv.Itoa(inst)] = struct{}{}
@@ -107,7 +107,7 @@ func (x *testConcurrentMessagingHandlerDef) sendMessage(ctx context.Context, cmd
 func (x *testConcurrentMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	x.mx.Lock()
 	if _, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]; !ok {
-		panic("too many calls")
+		x.test.Fatal("too many calls")
 	}
 	delete(x.instComplete, strconv.Itoa(vars["orderId"].(int)))
 	x.received++

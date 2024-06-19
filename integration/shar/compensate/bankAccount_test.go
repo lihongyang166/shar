@@ -171,8 +171,8 @@ func (d *testBankAccount) compensatePayee(_ context.Context, c task.JobClient, v
 	return vars, nil
 }
 func (d *testBankAccount) processEnd(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
-	d.finalPayeeBalance = vars["payeeAccountBalance"].(float64)
-	d.finalRecipientBalance = vars["recipientAccountBalance"].(float64)
-	//assert.Equal(d.t, 2, len(vars))
+	d.finalPayeeBalance = vars["finalAccountBalance"].(float64)
+	d.finalRecipientBalance = vars["finalRecipientAccountBalance"].(float64)
+	assert.Equal(d.t, 2, len(vars))
 	close(d.finished)
 }

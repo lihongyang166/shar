@@ -209,6 +209,14 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 		ws.ElementType = target.Type
 		ws.ElementId = target.Id
 
+		if wf, err := c.operations.GetWorkflow(ctx, ws.WorkflowId); err != nil {
+			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("get workflow: %w", err)}
+		} else {
+			els := map[string]*model.Element{}
+			common.IndexProcessElements(wf.Process[ws.ProcessName].Elements, els)
+			ws.ElementName = els[ws.ElementId].Name
+		}
+
 		// Check traversals that lead to solitary convergent gateways
 		if target.Type == element.Gateway && target.Gateway.Direction == model.GatewayDirection_convergent && target.Gateway.ReciprocalId == "" {
 			if ws.SatisfiesGatewayExpectation == nil {
@@ -475,6 +483,18 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		newState.Id = []string{pi.ProcessInstanceId}
 		newState.State = status
 		newState.Error = el.Error
+		// If the workflow completed successfully, transform result if necessary.
+		if newState.State == model.CancellationState_completed {
+			outputTransform := els[newState.ElementId].OutputTransform
+			if len(outputTransform) > 0 {
+				// Transform if requested
+				finalVars := make([]byte, 0)
+				if err := vars.OutputVars(ctx, newState.Vars, &finalVars, els[newState.ElementId].OutputTransform); err != nil {
+					return fmt.Errorf("transform output vars: %w", err)
+				}
+				newState.Vars = finalVars
+			}
+		}
 		if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowProcessComplete, newState); err != nil {
 			return engineErr(ctx, "publish workflow status", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
@@ -667,6 +687,9 @@ func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.Wor
 					if err := c.operations.DestroyProcessInstance(ctx, state, pi.ProcessInstanceId, execution.ExecutionId); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 						return fmt.Errorf("activity complete processor failed to destroy execution: %w", err)
 					}
+				}
+				if err := c.operations.PublishWorkflowState(ctx, messages.WorkflowJobLaunchComplete, j); err != nil {
+					return fmt.Errorf("activity complete processor failed to publish job launch complete: %w", err)
 				}
 			}
 		}

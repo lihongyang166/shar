@@ -113,7 +113,7 @@ func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, 
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(x.t, "carried1value", vars["carried"])
-	assert.Equal(x.t, "carried2value", vars["carried2"])
+	assert.Equal(x.t, 57, vars["orderId"])
+	assert.Equal(x.t, 1, len(vars))
 	close(x.finished)
 }

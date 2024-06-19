@@ -350,6 +350,7 @@ func (s *Server) spanEnd(ctx context.Context, name string, state *model.Workflow
 	state.Id = oldState.Id
 	state.WorkflowId = oldState.WorkflowId
 	state.ElementId = oldState.ElementId
+	state.ElementName = oldState.ElementName
 	state.Execute = oldState.Execute
 	state.Condition = oldState.Condition
 	state.ElementType = oldState.ElementType
@@ -379,6 +380,7 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 	st := oldState.State.String()
 	at := map[string]*string{
 		keys.ElementID:   &oldState.ElementId,
+		keys.ElementName: &oldState.ElementName,
 		keys.ElementType: &oldState.ElementType,
 		keys.WorkflowID:  &oldState.WorkflowId,
 		keys.ExecutionID: &oldState.ExecutionId,

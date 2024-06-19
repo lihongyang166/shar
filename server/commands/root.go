@@ -8,6 +8,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	show_nats_config "gitlab.com/shar-workflow/shar/server/commands/show-nats-config"
 	"gitlab.com/shar-workflow/shar/server/config"
+	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/flags"
 	"gitlab.com/shar-workflow/shar/server/server"
 	"gitlab.com/shar-workflow/shar/server/server/option"
@@ -39,6 +40,10 @@ var RootCmd = &cobra.Command{
 			lev = slog.LevelInfo
 		case "warn":
 			lev = slog.LevelWarn
+		case "trace":
+			lev = errors.TraceLevel
+		case "verbose":
+			lev = errors.VerboseLevel
 		default:
 			lev = slog.LevelError
 		}

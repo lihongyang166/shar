@@ -8,8 +8,10 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/header"
+	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/model"
+	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
@@ -40,7 +42,10 @@ func (s *Engine) processTelemetryTimer(ctx context.Context) error {
 				var telMsg *nats.Msg
 				msgs, err := consumer.Fetch(1)
 				if err != nil || len(msgs.Messages()) == 0 {
-					slog.Debug("pulling client telemetry message")
+					log := logx.FromContext(ctx)
+					if log.Enabled(ctx, errors2.TraceLevel) {
+						log.Log(ctx, errors2.TraceLevel, "pulling client telemetry message")
+					}
 					time.Sleep(20 * time.Second)
 					continue
 				}

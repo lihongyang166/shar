@@ -277,6 +277,7 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 			exec := &model.WorkflowState{
 				ElementType: el.Type,
 				ElementId:   el.Id,
+				ElementName: el.Name,
 				WorkflowId:  wfID,
 				//WorkflowInstanceId: wfi.WorkflowInstanceId,
 				ExecutionId:       executionId,
@@ -616,6 +617,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 					WorkflowId:   wfID,
 					ExecutionId:  "",
 					ElementId:    el.Id,
+					ElementName:  el.Name,
 					UnixTimeNano: time.Now().UnixNano(),
 					Timer: &model.WorkflowTimer{
 						LastFired: 0,
@@ -2007,6 +2009,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
 		ElementType: target.Type,
 		ElementId:   target.Id,
+		ElementName: target.Name,
 		WorkflowId:  job.WorkflowId,
 		//WorkflowInstanceId: job.WorkflowInstanceId,
 		ExecutionId:       job.ExecutionId,
@@ -2024,6 +2027,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, &model.WorkflowState{
 		ElementType: target.Type,
 		ElementId:   target.Id,
+		ElementName: target.Name,
 		WorkflowId:  job.WorkflowId,
 		//WorkflowInstanceId: job.WorkflowInstanceId,
 		ExecutionId:       job.ExecutionId,

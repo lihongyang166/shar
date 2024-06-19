@@ -111,6 +111,102 @@ func TestInclusiveRun(t *testing.T) {
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
+func TestParallelGateway(t *testing.T) {
+	t.Parallel()
+
+	// Create a starting context
+	ctx := context.Background()
+
+	// Dial shar
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	err := cl.Dial(ctx, tst.NatsURL)
+
+	require.NoError(t, err)
+
+	g := &gatewayTest{finished: make(chan struct{}), t: t, typ: model.GatewayType_inclusive}
+
+	// Register service tasks
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage1.yaml", g.incStage1)
+	require.NoError(t, err)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage2.yaml", g.incStage2)
+	require.NoError(t, err)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_test_stage3.yaml", g.stage3)
+	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../../testdata/gateway-parallel-out-and-in-test.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ParallelGatewayTest", b)
+	require.NoError(t, err)
+
+	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
+	require.NoError(t, err)
+	// Launch the workflow
+	_, _, err = cl.LaunchProcess(ctx, "Process_0ljss15", model.Vars{"testValue": 32768})
+	require.NoError(t, err)
+
+	// Listen for service tasks
+	go func() {
+		err := cl.Listen(ctx)
+		require.NoError(t, err)
+	}()
+
+	support.WaitForChan(t, g.finished, 20*time.Second)
+	assert.True(t, g.stg1)
+	assert.True(t, g.stg2)
+	assert.True(t, g.stg3)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
+}
+
+func TestParallelJoiningGateway(t *testing.T) {
+	t.Parallel()
+
+	// Create a starting context
+	ctx := context.Background()
+
+	// Dial shar
+	ns := ksuid.New().String()
+	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	err := cl.Dial(ctx, tst.NatsURL)
+
+	require.NoError(t, err)
+
+	g := &gatewayTest{finished: make(chan struct{}), t: t, typ: model.GatewayType_inclusive}
+
+	// Register service tasks
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_joining_test_stage1.yaml", g.incStage1)
+	require.NoError(t, err)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_joining_test_stage2.yaml", g.incStage2)
+	require.NoError(t, err)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "gateway_joining_test_stage3.yaml", g.stage3)
+	require.NoError(t, err)
+
+	// Load BPMN workflow
+	b, err := os.ReadFile("../../../testdata/test-parallel-joining-gateway-diagram.bpmn")
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ParallelJoiningGatewayTest", b)
+	require.NoError(t, err)
+
+	err = cl.RegisterProcessComplete("testParallelJoiningGateway-0-0-2-process-1", g.processEnd)
+	require.NoError(t, err)
+	// Launch the workflow
+	_, _, err = cl.LaunchProcess(ctx, "testParallelJoiningGateway-0-0-2-process-1", model.Vars{"testValue": 32768})
+	require.NoError(t, err)
+
+	// Listen for service tasks
+	go func() {
+		err := cl.Listen(ctx)
+		require.NoError(t, err)
+	}()
+
+	support.WaitForChan(t, g.finished, 20*time.Second)
+	assert.True(t, g.stg1)
+	assert.True(t, g.stg2)
+	assert.True(t, g.stg3)
+	tst.AssertCleanKV(ns, t, 60*time.Second)
+}
+
 type gatewayTest struct {
 	finished chan struct{}
 	t        *testing.T
@@ -150,7 +246,7 @@ func (g *gatewayTest) incStage1(ctx context.Context, jobClient task.JobClient, v
 	return model.Vars{"value1": 1, "value2": 2}, nil
 }
 
-func (g *gatewayTest) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+func (g *gatewayTest) processEnd(ctx context.Context, vars model.Vars, _ *model.Error, state model.CancellationState) {
 	switch g.typ {
 	case model.GatewayType_inclusive:
 		assert.True(g.t, 1 == vars["value1"] || 11 == vars["value1"])

@@ -136,7 +136,7 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, _ *slog.Logger, msg j
 		if err := s.completeGateway(ctx, &job); err != nil {
 			return false, err
 		}
-	case model.GatewayType_inclusive:
+	case model.GatewayType_inclusive, model.GatewayType_parallel:
 		nv, err := s.mergeGatewayVars(ctx, gw)
 		if err != nil {
 			return false, fmt.Errorf("merge gateway variables: %w", &errors.ErrWorkflowFatal{Err: err})
@@ -152,7 +152,6 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, _ *slog.Logger, msg j
 				return false, err
 			}
 		}
-	case model.GatewayType_parallel:
 	}
 	return true, nil
 }
@@ -177,8 +176,8 @@ func (s *Engine) GetGatewayInstance(ctx context.Context, gatewayInstanceID strin
 func (s *Engine) GetGatewayInstanceID(state *model.WorkflowState) (string, string, error) {
 	var gatewayIID string
 	var route string
-	if _, ok := state.SatisfiesGatewayExpectation[state.ElementId]; ok {
-		r := state.SatisfiesGatewayExpectation[state.ElementId].InstanceTracking[len(state.SatisfiesGatewayExpectation[state.ElementId].InstanceTracking)-1]
+	if satisfiesGatewayExpectation, ok := state.SatisfiesGatewayExpectation[state.ElementId]; ok {
+		r := satisfiesGatewayExpectation.InstanceTracking[len(satisfiesGatewayExpectation.InstanceTracking)-1]
 		parts := strings.Split(r, ",")
 		gatewayIID = parts[0]
 		route = parts[1]

@@ -331,7 +331,7 @@ func (c *Client) listen(ctx context.Context) error {
 			fn := reflect.TypeOf(def.Fn)
 			x := fn.In(2)
 			t := coerceVarsToType(x, inVars, def.InMapping)
-			em := t.Interface()
+			em := t.Elem().Interface()
 			fmt.Println(em)
 			vl := reflect.ValueOf(def.Fn)
 			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
@@ -475,7 +475,7 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 				val := coerceVarsToType(typ, v, def.InMapping)
 				params := []reflect.Value{
 					reflect.ValueOf(ctx),
-					reflect.ValueOf(val.Interface()),
+					reflect.ValueOf(val.Elem().Interface()),
 					reflect.ValueOf(st.Error),
 					reflect.ValueOf(st.State),
 				}

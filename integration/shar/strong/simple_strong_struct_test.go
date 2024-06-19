@@ -19,7 +19,6 @@ import (
 )
 
 func TestSimpleStrongStruct(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()
@@ -100,7 +99,6 @@ type outStructParams struct {
 
 func (d *testSimpleStrongStructHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, in inStructParams) (outStructParams, error) {
 	fmt.Println("Hi")
-
 	assert.Equal(d.t, 32768, in.Carried)
 	assert.Equal(d.t, 42, in.LocalVar)
 

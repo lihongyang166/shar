@@ -19,7 +19,6 @@ import (
 )
 
 func TestSimpleStrong(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	// Create a starting context
 	ctx := context.Background()

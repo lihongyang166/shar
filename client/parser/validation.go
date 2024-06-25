@@ -67,6 +67,8 @@ func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.E
 		}
 		branchOutputVars[branchId] = outputVars
 	}
+	//TODO if convergent parallel gateway, need to get output vars from all prior
+	//branches so that forthcoming refs can correctly be validated
 
 	var outbounds []outbound
 	if len(ele.Errors) > 0 {

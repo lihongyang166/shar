@@ -1,0 +1,50 @@
+
+version: '1.0'
+kind: ServiceTask
+behaviour:
+  defaultRetry:
+    number: 3
+    strategy: 30000
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
+      action: 3
+  estimatedMaxDuration: 30000
+#  mock: true
+parameters:
+  parameterGroup:
+    - name: input
+      short: Input Variables
+      description: Input Variables
+    - name: output
+      short: Output Variables
+      description: Output Variables
+  input:
+    - name: name
+      short: name
+      type: string
+      group: input
+      example: from_three
+  output:
+    - name: sample
+      short: sample
+      type: string
+      group: output
+      example: branch_three_output
+    - name: branch_three
+      short: branch_three
+      type: string
+      group: output
+      example: three_output
+metadata:
+  category: functions
+  type: branchThree-0-0-1
+  short: Branch Three
+  description: Branch Three
+  labels:
+    - template
+    - mock
+    - branch three
+  version: 0.0.1
+events: {}

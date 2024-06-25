@@ -40,23 +40,14 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 		job.Id = common.TrackingID(job.Id).Push(gwIID)
 		gw := &model.Gateway{}
 		if err := common.LoadObj(ctx, nsKVs.WfGateway, gwIID, gw); errors2.Is(err, jetstream.ErrKeyNotFound) {
-			// create a new gateway job
-			gw = &model.Gateway{
-				MetExpectations: make(map[string]string),
-				Vars:            [][]byte{job.Vars},
-				Visits:          0,
-			}
+			return false, fmt.Errorf("%s could not load gateway information: %w", errors.Fn(), err)
+		} else if len(gw.Vars) == 1 { // first arrived branch
 			if err := common.SaveObj(ctx, nsKVs.Job, gwIID, &job); err != nil {
 				return false, fmt.Errorf("%s failed to save job to KV: %w", errors.Fn(), err)
-			}
-			if err := common.SaveObj(ctx, nsKVs.WfGateway, gwIID, gw); err != nil {
-				return false, fmt.Errorf("%s failed to save gateway to KV: %w", errors.Fn(), err)
 			}
 			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskExecute, &job); err != nil {
 				return false, fmt.Errorf("%s failed to execute gateway to KV: %w", errors.Fn(), err)
 			}
-		} else if err != nil {
-			return false, fmt.Errorf("%s could not load gateway information: %w", errors.Fn(), err)
 		} else if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskReEnter, &job); err != nil {
 			return false, fmt.Errorf("%s failed to execute gateway to KV: %w", errors.Fn(), err)
 		}

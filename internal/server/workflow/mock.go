@@ -49,7 +49,11 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	counter := atomic.Int64{}
 
 	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, svcFn *task.FnDef, inVars model.Vars) (model.Vars, error) {
+		id := common.TrackingID(job.Id)
 		pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+		pidCtx = context.WithValue(pidCtx, client.InternalExecutionId, job.ExecutionId)
+		pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
+		pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
 		pidCtx = client.ReParentSpan(pidCtx, job)
 		pidCtx = context.WithValue(pidCtx, keys.ContextKey("taskDef"), job.ExecuteVersion)
 		jc := &jobClient{trackingID: trackingID, processInstanceId: job.ProcessInstanceId}

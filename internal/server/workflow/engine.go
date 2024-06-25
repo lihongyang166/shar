@@ -187,7 +187,6 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 
 	// Check traversals from a reciprocated divergent gateway
 	if reciprocatedDivergentGateway {
-
 		expectedPaths := make([]string, 0, len(targets))
 		for k := range targets {
 			expectedPaths = append(expectedPaths, k)
@@ -198,6 +197,23 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 		state.GatewayExpectations[divergentGatewayReciprocalInstanceId] = &model.GatewayExpectations{
 			ExpectedPaths: expectedPaths,
 		}
+
+		gw := &model.Gateway{
+			MetExpectations: make(map[string]string),
+			Vars:            [][]byte{state.Vars},
+			Visits:          0,
+		}
+		gwIID := divergentGatewayReciprocalInstanceId
+
+		ns := subj.GetNS(ctx)
+		nsKVs, err := c.natsService.KvsFor(ctx, ns)
+		if err != nil {
+			return fmt.Errorf("traverse get kvs for ns: %w", err)
+		}
+		if err := common.SaveObj(ctx, nsKVs.WfGateway, gwIID, gw); err != nil {
+			return fmt.Errorf("%s failed to save gateway to KV: %w", errors.Fn(), err)
+		}
+
 	}
 
 	for branchID, elID := range targets {

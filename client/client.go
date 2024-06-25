@@ -307,7 +307,11 @@ func (c *Client) listen(ctx context.Context) error {
 	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, def *task2.FnDef, inVars model.Vars) (model.Vars, error) {
 		switch def.Type {
 		case task2.ExecutionTypeVars:
+			id := common.TrackingID(job.Id)
 			pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+			pidCtx = context.WithValue(pidCtx, client.InternalExecutionId, job.ExecutionId)
+			pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
+			pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
 			pidCtx = client.ReParentSpan(pidCtx, job)
 			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
 			if job.State == model.CancellationState_compensating {
@@ -324,6 +328,12 @@ func (c *Client) listen(ctx context.Context) error {
 			}
 			return v, nil
 		case task2.ExecutionTypeTyped:
+			id := common.TrackingID(job.Id)
+			pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+			pidCtx = context.WithValue(pidCtx, client.InternalExecutionId, job.ExecutionId)
+			pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
+			pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
+			pidCtx = client.ReParentSpan(pidCtx, job)
 			revMapping := make(map[string]string, len(def.OutMapping))
 			for k, v := range def.OutMapping {
 				revMapping[v] = k
@@ -336,7 +346,7 @@ func (c *Client) listen(ctx context.Context) error {
 			vl := reflect.ValueOf(def.Fn)
 			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
 			params := []reflect.Value{
-				reflect.ValueOf(ctx),
+				reflect.ValueOf(pidCtx),
 				reflect.ValueOf(jc),
 				reflect.ValueOf(em),
 			}

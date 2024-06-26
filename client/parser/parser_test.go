@@ -2,10 +2,12 @@ package parser
 
 import (
 	"bytes"
+	"context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
+	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/model"
 	"os"
 	"slices"
@@ -14,18 +16,22 @@ import (
 
 //goland:noinspection GoNilness
 func TestParseWorkflowDuration(t *testing.T) {
+	ctx := context.Background()
+	eng := &expression.ExprEngine{}
 	b, err := os.ReadFile("../../testdata/test-timer-parse-duration.bpmn")
 	require.NoError(t, err)
-	p, err := Parse("Test", bytes.NewBuffer(b))
+	p, err := Parse(ctx, eng, "Test", bytes.NewBuffer(b))
 	require.NoError(t, err)
 	assert.Equal(t, "2000000000", p.Process["Process_0cxoltv"].Elements[1].Execute)
 }
 
 func TestMessageStart(t *testing.T) {
+	ctx := context.Background()
+	eng := &expression.ExprEngine{}
 	b, err := os.ReadFile("../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
 	workflowName := "MessageStart"
-	wf, err := Parse(workflowName, bytes.NewBuffer(b))
+	wf, err := Parse(ctx, eng, workflowName, bytes.NewBuffer(b))
 	require.NoError(t, err)
 
 	processIdWithMessageStartEvent := "Process_0w6dssp"
@@ -61,12 +67,13 @@ func TestMessageStart(t *testing.T) {
 
 func TestExclusiveParse(t *testing.T) {
 	t.Parallel()
-
+	ctx := context.Background()
+	eng := &expression.ExprEngine{}
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/gateway-exclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
 
-	wf, err := Parse("SimpleWorkflowTest", bytes.NewBuffer(b))
+	wf, err := Parse(ctx, eng, "SimpleWorkflowTest", bytes.NewBuffer(b))
 	require.NoError(t, err)
 
 	els := make(map[string]*model.Element)
@@ -86,7 +93,9 @@ func TestNestedExclusiveParse(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/gateway-multi-exclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
 
-	wf, err := Parse("SimpleWorkflowTest", bytes.NewBuffer(b))
+	ctx := context.Background()
+	eng := &expression.ExprEngine{}
+	wf, err := Parse(ctx, eng, "SimpleWorkflowTest", bytes.NewBuffer(b))
 	require.NoError(t, err)
 
 	els := make(map[string]*model.Element)
@@ -104,7 +113,9 @@ func TestConvergentInclusiveGatewayHasOutputTransform(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/gateway-inclusive-complex-out-and-in-test.bpmn")
 	require.NoError(t, err)
 	workflowName := "GatewayInclusive"
-	wf, err := Parse(workflowName, bytes.NewBuffer(b))
+	ctx := context.Background()
+	eng := &expression.ExprEngine{}
+	wf, err := Parse(ctx, eng, workflowName, bytes.NewBuffer(b))
 	require.NoError(t, err)
 
 	elements := wf.Process["Process_0ljss15"].Elements

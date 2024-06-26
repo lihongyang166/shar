@@ -240,7 +240,7 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 	els := make(map[string]*model.Element, 0)
 	common.IndexProcessElements(wf.Process[job.ProcessName].Elements, els)
 
-	if err := vars.OutputVars(ctx, job.Vars, &checkpoint.Vars, els[job.ElementId].OutputTransform); err != nil {
+	if err := vars.OutputVars(ctx, s.exprEngine, job.Vars, &checkpoint.Vars, els[job.ElementId].OutputTransform); err != nil {
 		return fmt.Errorf("transform output vars: %w", err)
 	}
 
@@ -271,7 +271,7 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 			finalState.Id = []string{state.ProcessInstanceId}
 			finalState.State = model.CancellationState_completed
 			localVars := make([]byte, 0)
-			if err := vars.OutputVars(ctx, finalState.Vars, &localVars, el.OutputTransform); err != nil {
+			if err := vars.OutputVars(ctx, s.exprEngine, finalState.Vars, &localVars, el.OutputTransform); err != nil {
 				return fmt.Errorf("transform output vars: %w", err)
 			}
 			finalState.Vars = localVars

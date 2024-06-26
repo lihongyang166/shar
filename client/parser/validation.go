@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
@@ -14,7 +15,8 @@ import (
 	"strings"
 )
 
-func validModel(workflow *model.Workflow) error {
+func validModel(ctx context.Context, workflow *model.Workflow) error {
+	eng := &expression.ExprEngine{}
 	// Iterate the processes
 	for _, process := range workflow.Process {
 		// Check the name
@@ -37,7 +39,7 @@ func validModel(workflow *model.Workflow) error {
 				}
 			}
 		}
-		if err := checkVariables(process); err != nil {
+		if err := checkVariables(ctx, eng, process); err != nil {
 			return fmt.Errorf("invalid variable definition: %w", err)
 		}
 	}
@@ -53,7 +55,7 @@ type outbound interface {
 	GetTarget() string
 }
 
-func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.Element, elesReferencingUndefinedVars map[string]map[string]struct{}, branchContexts map[string]branchContext, branchId string) error {
+func findElementsReferencingUndefinedVars(ctx context.Context, eng expression.Engine, eleId string, eles map[string]*model.Element, elesReferencingUndefinedVars map[string]map[string]struct{}, branchContexts map[string]branchContext, branchId string) error {
 	ele := eles[eleId]
 
 	if ele.Type == "endEvent" {
@@ -88,7 +90,7 @@ func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.E
 
 	if ele.InputTransform != nil {
 		for _, inputVarExpr := range ele.InputTransform {
-			if err2 := checkUndefinedVarReference(eleId, inputVarExpr, outputVars, elesReferencingUndefinedVars); err2 != nil {
+			if err2 := checkUndefinedVarReference(ctx, eng, eleId, inputVarExpr, outputVars, elesReferencingUndefinedVars); err2 != nil {
 				return err2
 			}
 		}
@@ -98,7 +100,7 @@ func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.E
 		for _, target := range ele.Outbound.Target {
 			if target.Conditions != nil {
 				for _, conditionExpr := range target.Conditions {
-					if err2 := checkUndefinedVarReference(eleId, conditionExpr, outputVars, elesReferencingUndefinedVars); err2 != nil {
+					if err2 := checkUndefinedVarReference(ctx, eng, eleId, conditionExpr, outputVars, elesReferencingUndefinedVars); err2 != nil {
 						return err2
 					}
 				}
@@ -147,7 +149,7 @@ func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.E
 			newBranchId = branchId
 		}
 		if _, alreadyVisited := bCon.visited[outbound.GetTarget()]; !alreadyVisited {
-			e := findElementsReferencingUndefinedVars(outbound.GetTarget(), eles, elesReferencingUndefinedVars, branchContexts, newBranchId)
+			e := findElementsReferencingUndefinedVars(ctx, eng, outbound.GetTarget(), eles, elesReferencingUndefinedVars, branchContexts, newBranchId)
 			if e != nil {
 				return e
 			}
@@ -157,18 +159,18 @@ func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.E
 	return nil
 }
 
-func checkUndefinedVarReference(eleId string, expr string, outputVars map[string]struct{}, elesReferencingUndefinedVars map[string]map[string]struct{}) error {
-	vars, err := expression.GetVariables(expr)
+func checkUndefinedVarReference(ctx context.Context, eng expression.Engine, eleId string, expr string, outputVars map[string]struct{}, elesReferencingUndefinedVars map[string]map[string]struct{}) error {
+	vars, err := expression.GetVariables(ctx, eng, expr)
 	if err != nil {
 		return fmt.Errorf("invalid input variable expression: %w", err)
 	}
-	for vr := range vars {
-		if _, exists := outputVars[vr]; !exists {
+	for _, vr := range vars {
+		if _, exists := outputVars[vr.Name]; !exists {
 			undefinedVars, exists := elesReferencingUndefinedVars[eleId]
 			if !exists {
 				undefinedVars = make(map[string]struct{})
 			}
-			undefinedVars[vr] = struct{}{}
+			undefinedVars[vr.Name] = struct{}{}
 			elesReferencingUndefinedVars[eleId] = undefinedVars
 		}
 	}
@@ -180,7 +182,7 @@ type branchContext struct {
 	visited          map[string]struct{}
 }
 
-func checkVariables(process *model.Process) error {
+func checkVariables(ctx context.Context, eng expression.Engine, process *model.Process) error {
 	elesById := make(map[string]*model.Element)
 	common.IndexProcessElements(process.Elements, elesById)
 	startElementIds := make([]string, 0)
@@ -197,7 +199,7 @@ func checkVariables(process *model.Process) error {
 			visited:          alreadyVisited,
 		}
 		branchContexts[branchId] = bContext
-		err := findElementsReferencingUndefinedVars(startElementId, elesById, elementsReferencingUndefinedVars, branchContexts, branchId)
+		err := findElementsReferencingUndefinedVars(ctx, eng, startElementId, elesById, elementsReferencingUndefinedVars, branchContexts, branchId)
 		if err != nil {
 			return fmt.Errorf("error when findElementsReferencingUndefinedVars: %w", err)
 		}

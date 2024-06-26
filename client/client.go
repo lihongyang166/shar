@@ -13,6 +13,7 @@ import (
 	task2 "gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
+	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	middleware2 "gitlab.com/shar-workflow/shar/common/middleware"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
@@ -571,7 +572,7 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 // LoadBPMNWorkflowFromBytes loads, parses, and stores a BPMN workflow in SHAR. Returns the uuid uniquely identifying the workflow.
 func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b []byte) (string, error) {
 	rdr := bytes.NewReader(b)
-	wf, err := parser.Parse(name, rdr)
+	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, name, rdr)
 	if err != nil {
 		return "", c.clientErr(ctx, err)
 	}
@@ -604,7 +605,7 @@ func (c *Client) HasWorkflowDefinitionChanged(ctx context.Context, name string, 
 		return false, err
 	}
 	rdr := bytes.NewReader(b)
-	wf, err := parser.Parse(name, rdr)
+	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, name, rdr)
 	if err != nil {
 		return false, c.clientErr(ctx, err)
 	}

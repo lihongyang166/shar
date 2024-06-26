@@ -40,6 +40,7 @@ type Engine struct {
 	allowOrphanServiceTasks bool
 	telCfg                  telemetry.Config
 	receiveMiddleware       []middleware.Receive
+	exprEngine              expression.Engine
 }
 
 // New returns an instance of the core workflow engine.
@@ -57,6 +58,7 @@ func New(natsService *natz.NatsService, operations *Operations, options *option.
 		allowOrphanServiceTasks: options.AllowOrphanServiceTasks,
 		telCfg:                  options.TelemetryConfig,
 		closing:                 make(chan struct{}),
+		exprEngine:              &expression.ExprEngine{},
 	}
 
 	e.receiveMiddleware = append(e.receiveMiddleware, telemetry.NatsMsgToCtxWithSpanMiddleware())
@@ -160,7 +162,7 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 			}
 
 			// evaluate the condition
-			res, err := expression.Eval[bool](ctx, ex, exVars)
+			res, err := expression.Eval[bool](ctx, c.exprEngine, ex, exVars)
 			if err != nil {
 				return &errors.ErrWorkflowFatal{Err: err}
 			}
@@ -328,7 +330,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			if err != nil {
 				return fmt.Errorf("decode boundary timer variable: %w", err)
 			}
-			res, err := expression.EvalAny(ctx, i.Duration, v)
+			res, err := expression.EvalAny(ctx, c.exprEngine, i.Duration, v)
 			if err != nil {
 				return fmt.Errorf("evaluate boundary timer expression: %w", err)
 			}
@@ -354,7 +356,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 	switch el.Type {
 	case element.StartEvent:
 		initVars := make([]byte, 0)
-		err := vars.OutputVars(ctx, traversal.Vars, &initVars, el.OutputTransform)
+		err := vars.OutputVars(ctx, c.exprEngine, traversal.Vars, &initVars, el.OutputTransform)
 		if err != nil {
 			return fmt.Errorf("get output vars for start event: %w", err)
 		}
@@ -437,7 +439,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 		if err != nil {
 			return &errors.ErrWorkflowFatal{Err: err}
 		}
-		ret, err := expression.EvalAny(ctx, el.Execute, varmap)
+		ret, err := expression.EvalAny(ctx, c.exprEngine, el.Execute, varmap)
 		if err != nil {
 			return &errors.ErrWorkflowFatal{Err: err}
 		}
@@ -505,7 +507,7 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			if len(outputTransform) > 0 {
 				// Transform if requested
 				finalVars := make([]byte, 0)
-				if err := vars.OutputVars(ctx, newState.Vars, &finalVars, els[newState.ElementId].OutputTransform); err != nil {
+				if err := vars.OutputVars(ctx, c.exprEngine, newState.Vars, &finalVars, els[newState.ElementId].OutputTransform); err != nil {
 					return fmt.Errorf("transform output vars: %w", err)
 				}
 				newState.Vars = finalVars
@@ -595,7 +597,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	if err != nil {
 		return fmt.Errorf("complete job processor failed to get old state: %w", err)
 	}
-	if err := vars.OutputVars(ctx, job.Vars, &oldState.Vars, el.OutputTransform); err != nil {
+	if err := vars.OutputVars(ctx, c.exprEngine, job.Vars, &oldState.Vars, el.OutputTransform); err != nil {
 		return fmt.Errorf("complete job processor failed to transform variables: %w", err)
 	}
 	completeActivityState := common.CopyWorkflowState(oldState)
@@ -803,7 +805,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				log.Error("start events record process start", "error", err)
 				return false, 0, fmt.Errorf("publish initial traversal: %w", err)
 			}
-			if err := vars.OutputVars(ctx, newTimer.Vars, &newTimer.Vars, el.OutputTransform); err != nil {
+			if err := vars.OutputVars(ctx, c.exprEngine, newTimer.Vars, &newTimer.Vars, el.OutputTransform); err != nil {
 				log.Error("merging variables", "error", err)
 				return false, 0, nil
 			}

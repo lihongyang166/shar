@@ -34,7 +34,6 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
-	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -50,6 +49,7 @@ type Operations struct {
 	publishTimeout time.Duration
 	sendMiddleware []middleware.Send
 	tr             trace.Tracer
+	exprEngine     expression.Engine
 }
 
 // NewOperations constructs a new Operations instance
@@ -66,6 +66,7 @@ func NewOperations(natsService *natz.NatsService) (*Operations, error) {
 		publishTimeout: time.Second * 30,
 		sendMiddleware: []middleware.Send{telemetry.CtxSpanToNatsMsgMiddleware()},
 		tr:             otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
+		exprEngine:     &expression.ExprEngine{},
 	}, nil
 }
 
@@ -242,12 +243,12 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 		hasStartEvents = true
 		if el.OutputTransform != nil {
 			for _, v := range el.OutputTransform {
-				evs, err := expression.GetVariables(v)
+				evs, err := expression.GetVariables(ctx, c.exprEngine, v)
 				if err != nil {
 					return fmt.Errorf("extract variables from workflow during launch: %w", err)
 				}
-				for ev := range evs {
-					if _, ok := testVars[ev]; !ok {
+				for _, ev := range evs {
+					if _, ok := testVars[ev.Name]; !ok {
 						return fmt.Errorf("workflow expects variable '%s': %w", ev, errors.ErrExpectedVar)
 					}
 				}
@@ -380,7 +381,7 @@ func (c *Operations) CompleteManualTask(ctx context.Context, job *model.Workflow
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	job.Vars = newvars
-	err = vars.CheckVars(ctx, job, el)
+	err = vars.CheckVars(ctx, c.exprEngine, job, el)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -407,7 +408,7 @@ func (c *Operations) CompleteServiceTask(ctx context.Context, job *model.Workflo
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	job.Vars = newvars
-	err = vars.CheckVars(ctx, job, el)
+	err = vars.CheckVars(ctx, c.exprEngine, job, el)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -436,7 +437,7 @@ func (c *Operations) CompleteUserTask(ctx context.Context, job *model.WorkflowSt
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	job.Vars = newvars
-	err = vars.CheckVars(ctx, job, el)
+	err = vars.CheckVars(ctx, c.exprEngine, job, el)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -722,12 +723,14 @@ func (s *Operations) ProcessServiceTasks(ctx context.Context, wf *model.Workflow
 				// Collate all the variables from the output transforms
 				outVars := make(map[string]struct{})
 				for varN, exp := range j.OutputTransform {
-					vars, err := expression.GetVariables(exp)
+					vars, err := expression.GetVariables(ctx, s.exprEngine, exp)
 					if err != nil {
 						return fmt.Errorf("an error occurred getting the variables from the output expression for %s in service task %s", varN, j.Id)
 					}
 					// Take the variables and add them to the list
-					maps.Copy(outVars, vars)
+					for _, i := range vars {
+						outVars[i.Name] = struct{}{}
+					}
 				}
 				if def.Parameters != nil && def.Parameters.Output != nil {
 					for _, val := range def.Parameters.Output {
@@ -1787,13 +1790,13 @@ func (s *Operations) ListExecutableProcesses(ctx context.Context, wch chan<- *mo
 			for _, el := range p.Elements {
 				if el.Type == element.StartEvent {
 					for _, ex := range el.OutputTransform {
-						v, err := expression.GetVariables(ex)
+						v, err := expression.GetVariables(ctx, s.exprEngine, ex)
 						if err != nil {
 							errs <- fmt.Errorf("get expression variables: %w", err)
 							return
 						}
-						for n := range v {
-							startParam[n] = struct{}{}
+						for _, n := range v {
+							startParam[n.Name] = struct{}{}
 						}
 					}
 				}
@@ -1816,7 +1819,7 @@ func (s *Operations) StartJob(ctx context.Context, subject string, job *model.Wo
 	// skip if this job type requires no input transformation
 	if el.Type != element.MessageIntermediateCatchEvent {
 		job.Vars = nil
-		if err := vars.InputVars(ctx, v, &job.Vars, el); err != nil {
+		if err := vars.InputVars(ctx, s.exprEngine, v, &job.Vars, el); err != nil {
 			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to get input variables: %w", err)}
 		}
 	}
@@ -1893,7 +1896,7 @@ func (s *Operations) StartJob(ctx context.Context, subject string, job *model.Wo
 // evaluateOwners builds a list of groups
 func (s *Operations) evaluateOwners(ctx context.Context, owners string, vars model.Vars) ([]string, error) {
 	jobGroups := make([]string, 0)
-	groups, err := expression.Eval[interface{}](ctx, owners, vars)
+	groups, err := expression.Eval[interface{}](ctx, s.exprEngine, owners, vars)
 	if err != nil {
 		return nil, &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -2003,7 +2006,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	if err != nil {
 		return fmt.Errorf("get old state for handle workflow error: %w", err)
 	}
-	if err := vars.OutputVars(ctx, inVars, &oldState.Vars, caughtError.OutputTransform); err != nil {
+	if err := vars.OutputVars(ctx, c.exprEngine, inVars, &oldState.Vars, caughtError.OutputTransform); err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
@@ -2039,7 +2042,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", "error", err)
-		// We have already traversed so retunring an error here would be incorrect.
+		// We have already traversed so returning an error here would be incorrect.
 		// It would force reprocessing and possibly double traversing
 		// TODO: develop an idempotent behaviour based upon hash nats message ids + deduplication
 		return fmt.Errorf("publish abort task for handle workflow error: %w", err)

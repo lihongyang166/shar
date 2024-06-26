@@ -39,6 +39,9 @@
     <bpmn:serviceTask id="Activity_0p2e9w0" name="stage 3">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="stage3" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=value1" target="value1" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_0xfay5w</bpmn:incoming>
       <bpmn:outgoing>Flow_1p0yiqa</bpmn:outgoing>

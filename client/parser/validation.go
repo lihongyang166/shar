@@ -53,22 +53,28 @@ type outbound interface {
 	GetTarget() string
 }
 
-func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.Element, elesReferencingUndefinedVars map[string]map[string]struct{}, branchOutputVars map[string]map[string]struct{}, branchId string, visited map[string]struct{}) error {
+func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.Element, elesReferencingUndefinedVars map[string]map[string]struct{}, branchContexts map[string]branchContext, branchId string) error {
 	ele := eles[eleId]
 
 	if ele.Type == "endEvent" {
 		return nil
 	}
 
-	outputVars := branchOutputVars[branchId]
+	bContext := branchContexts[branchId]
+	outputVars := bContext.branchOutputVars
 	if ele.OutputTransform != nil {
 		for outputVar := range ele.OutputTransform {
 			outputVars[outputVar] = struct{}{}
 		}
-		branchOutputVars[branchId] = outputVars
+		branchContexts[branchId] = bContext
 	}
-	//TODO if convergent parallel gateway, need to get output vars from all prior
-	//branches so that forthcoming refs can correctly be validated
+	if ele.Type == element.Gateway && ele.Gateway.Direction == model.GatewayDirection_convergent && ele.Gateway.Type == model.GatewayType_parallel {
+		findConvergentGatewayOutputTransforms(eles, func(convergentGatewayOutboundTransform map[string]string, convergentGatewayId string, elesById map[string]*model.Element) {
+			for k := range convergentGatewayOutboundTransform {
+				outputVars[k] = struct{}{}
+			}
+		})
+	}
 
 	var outbounds []outbound
 	if len(ele.Errors) > 0 {
@@ -121,17 +127,27 @@ func findElementsReferencingUndefinedVars(eleId string, eles map[string]*model.E
 
 	for idx, outbound := range outbounds {
 		var newBranchId string
+
+		bCon := branchContexts[branchId]
+		bCon.visited[eleId] = struct{}{}
 		if isNewBranch {
 			parentOutputVars := make(map[string]struct{})
-			maps.Copy(parentOutputVars, branchOutputVars[branchId])
+			parentVisited := make(map[string]struct{})
+			maps.Copy(parentOutputVars, bCon.branchOutputVars)
+			maps.Copy(parentVisited, bCon.visited)
+
+			newBranchContext := branchContext{
+				branchOutputVars: parentOutputVars,
+				visited:          parentVisited,
+			}
+
 			newBranchId = branchId + "-" + strconv.Itoa(idx)
-			branchOutputVars[newBranchId] = parentOutputVars
+			branchContexts[newBranchId] = newBranchContext
 		} else {
 			newBranchId = branchId
 		}
-		visited[eleId] = struct{}{}
-		if _, alreadyVisited := visited[outbound.GetTarget()]; !alreadyVisited {
-			e := findElementsReferencingUndefinedVars(outbound.GetTarget(), eles, elesReferencingUndefinedVars, branchOutputVars, newBranchId, visited)
+		if _, alreadyVisited := bCon.visited[outbound.GetTarget()]; !alreadyVisited {
+			e := findElementsReferencingUndefinedVars(outbound.GetTarget(), eles, elesReferencingUndefinedVars, branchContexts, newBranchId)
 			if e != nil {
 				return e
 			}
@@ -159,19 +175,29 @@ func checkUndefinedVarReference(eleId string, expr string, outputVars map[string
 	return nil
 }
 
+type branchContext struct {
+	branchOutputVars map[string]struct{}
+	visited          map[string]struct{}
+}
+
 func checkVariables(process *model.Process) error {
 	elesById := make(map[string]*model.Element)
 	common.IndexProcessElements(process.Elements, elesById)
 	startElementIds := make([]string, 0)
 	startElementIds = findElementIdsWithType(startElementIds, element.StartEvent, process.Elements)
 
-	branchOutputVars := make(map[string]map[string]struct{})
+	branchContexts := make(map[string]branchContext)
 	elementsReferencingUndefinedVars := make(map[string]map[string]struct{})
 	for idx, startElementId := range startElementIds {
 		branchId := strconv.Itoa(idx)
-		branchOutputVars[branchId] = make(map[string]struct{})
+		branchOutputVars := make(map[string]struct{})
 		alreadyVisited := make(map[string]struct{})
-		err := findElementsReferencingUndefinedVars(startElementId, elesById, elementsReferencingUndefinedVars, branchOutputVars, branchId, alreadyVisited)
+		bContext := branchContext{
+			branchOutputVars: branchOutputVars,
+			visited:          alreadyVisited,
+		}
+		branchContexts[branchId] = bContext
+		err := findElementsReferencingUndefinedVars(startElementId, elesById, elementsReferencingUndefinedVars, branchContexts, branchId)
 		if err != nil {
 			return fmt.Errorf("error when findElementsReferencingUndefinedVars: %w", err)
 		}

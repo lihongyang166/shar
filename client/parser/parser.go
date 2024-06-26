@@ -1,10 +1,12 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 	"github.com/antchfx/xmlquery"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
+	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/linter"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
@@ -21,7 +23,7 @@ import (
 const bpmnNS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 
 // Parse parses BPMN, and turns it into a SHAR state machine
-func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
+func Parse(ctx context.Context, defaultEngine expression.Engine, name string, rdr io.Reader) (*model.Workflow, error) {
 
 	msgs := make(map[string]string)
 	errs := make(map[string]string)
@@ -69,7 +71,7 @@ func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
 		return nil, fmt.Errorf("linting found issues: %w", err)
 	}
 
-	if err := validModel(wf); err != nil {
+	if err := validModel(ctx, wf); err != nil {
 		return nil, fmt.Errorf("model is invalid: %w", err)
 	}
 	for _, process := range wf.Process {

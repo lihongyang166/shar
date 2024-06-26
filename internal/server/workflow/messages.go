@@ -203,7 +203,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 	if err != nil {
 		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("decoding vars for message correlation: %w", err), State: job}
 	}
-	resAny, err := expression.EvalAny(ctx, "= "+el.Execute, vrs)
+	resAny, err := expression.EvalAny(ctx, s.exprEngine, "= "+el.Execute, vrs)
 	if err != nil || resAny == nil {
 		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("message correlation expression evaluation errored or was empty '=%s'=%v : %w", el.Execute, resAny, err), State: job}
 	}

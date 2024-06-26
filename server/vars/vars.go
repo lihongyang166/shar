@@ -50,7 +50,7 @@ func Decode(ctx context.Context, vars []byte) (model.Vars, error) {
 }
 
 // InputVars returns a set of variables matching an input requirement after transformation through expressions contained in an element.
-func InputVars(ctx context.Context, oldVarsBin []byte, newVarsBin *[]byte, el *model.Element) error {
+func InputVars(ctx context.Context, eng expression.Engine, oldVarsBin []byte, newVarsBin *[]byte, el *model.Element) error {
 	localVars := make(map[string]interface{})
 	if el.InputTransform != nil {
 		processVars, err := Decode(ctx, oldVarsBin)
@@ -58,7 +58,7 @@ func InputVars(ctx context.Context, oldVarsBin []byte, newVarsBin *[]byte, el *m
 			return fmt.Errorf("decode old input variables: %w", err)
 		}
 		for k, v := range el.InputTransform {
-			res, err := expression.EvalAny(ctx, v, processVars)
+			res, err := expression.EvalAny(ctx, eng, v, processVars)
 			if err != nil {
 				return fmt.Errorf("expression evalutaion failed: %w", err)
 			}
@@ -74,7 +74,7 @@ func InputVars(ctx context.Context, oldVarsBin []byte, newVarsBin *[]byte, el *m
 }
 
 // OutputVars merges one variable set into another based upon any expressions contained in an element.
-func OutputVars(ctx context.Context, newVarsBin []byte, mergeVarsBin *[]byte, transform map[string]string) error {
+func OutputVars(ctx context.Context, eng expression.Engine, newVarsBin []byte, mergeVarsBin *[]byte, transform map[string]string) error {
 	if transform != nil {
 		localVars, err := Decode(ctx, newVarsBin)
 		if err != nil {
@@ -91,7 +91,7 @@ func OutputVars(ctx context.Context, newVarsBin []byte, mergeVarsBin *[]byte, tr
 			processVars = make(map[string]interface{})
 		}
 		for k, v := range transform {
-			res, err := expression.EvalAny(ctx, v, localVars)
+			res, err := expression.EvalAny(ctx, eng, v, localVars)
 			if err != nil {
 				return fmt.Errorf("evaluate output transform expression: %w", err)
 			}
@@ -107,19 +107,19 @@ func OutputVars(ctx context.Context, newVarsBin []byte, mergeVarsBin *[]byte, tr
 }
 
 // CheckVars checks for missing variables expected in a result
-func CheckVars(ctx context.Context, state *model.WorkflowState, el *model.Element) error {
+func CheckVars(ctx context.Context, eng expression.Engine, state *model.WorkflowState, el *model.Element) error {
 	if el.OutputTransform != nil {
 		vrs, err := Decode(ctx, state.Vars)
 		if err != nil {
 			return fmt.Errorf("falied to decode variables to check: %w", err)
 		}
 		for _, v := range el.OutputTransform {
-			list, err := expression.GetVariables(v)
+			list, err := expression.GetVariables(ctx, eng, v)
 			if err != nil {
 				return fmt.Errorf("get the variables to check from output transform: %w", err)
 			}
-			for i := range list {
-				if _, ok := vrs[i]; !ok {
+			for _, i := range list {
+				if _, ok := vrs[i.Name]; !ok {
 					return &errors.ErrWorkflowFatal{Err: fmt.Errorf("expected output variable [%s] missing", i)}
 				}
 			}

@@ -73,8 +73,11 @@ func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
 		return nil, fmt.Errorf("model is invalid: %w", err)
 	}
 	for _, process := range wf.Process {
-		populateConvergentGatewayOutputTransform(process)
+		elesById := make(map[string]*model.Element)
+		common.IndexProcessElements(process.Elements, elesById)
+		findConvergentGatewayOutputTransforms(elesById, populateConvergentGatewayOutputTransforms)
 	}
+
 	return wf, nil
 }
 
@@ -126,9 +129,17 @@ func parseProcess(doc *xmlquery.Node, wf *model.Workflow, prXML *xmlquery.Node, 
 	return nil
 }
 
-func populateConvergentGatewayOutputTransform(pr *model.Process) {
+func populateConvergentGatewayOutputTransforms(convergentGatewayOutboundTransform map[string]string, convergentGatewayId string, elesById map[string]*model.Element) {
+	convergentGateway := elesById[convergentGatewayId]
+	convergentGateway.OutputTransform = make(map[string]string, len(convergentGatewayOutboundTransform))
+	for k, v := range convergentGatewayOutboundTransform {
+		convergentGateway.OutputTransform[k] = v
+	}
+}
+
+func findConvergentGatewayOutputTransforms(elesById map[string]*model.Element, convergentGatewayOutboundTransformHandlerFn func(map[string]string, string, map[string]*model.Element)) {
 	inclusiveDivergentConvergentGateways := make(map[string]string)
-	for _, e := range pr.Elements {
+	for _, e := range elesById {
 		if e.Type == element.Gateway && e.Gateway.Direction == model.GatewayDirection_convergent {
 			convergentGatewayId := e.Id
 			divergentGatewayId := e.Gateway.ReciprocalId
@@ -137,26 +148,19 @@ func populateConvergentGatewayOutputTransform(pr *model.Process) {
 	}
 
 	for divergentGatewayId, convergentGatewayId := range inclusiveDivergentConvergentGateways {
-		divergentGatewayIdx := findElementIdxWith(divergentGatewayId, pr.Elements)
-		divergentGateway := pr.Elements[divergentGatewayIdx]
+		divergentGateway := elesById[divergentGatewayId]
 
 		convergentGatewayOutboundTransform := make(map[string]string)
-		populateGatewayOutputTransform(convergentGatewayOutboundTransform, divergentGateway, pr.Elements, convergentGatewayId)
+		findGatewayBranchOutputTransforms(convergentGatewayOutboundTransform, divergentGateway, convergentGatewayId, elesById)
 
-		convergentGatewayIdx := findElementIdxWith(convergentGatewayId, pr.Elements)
-		convergentGateway := pr.Elements[convergentGatewayIdx]
-		convergentGateway.OutputTransform = make(map[string]string, len(convergentGatewayOutboundTransform))
-		for k, v := range convergentGatewayOutboundTransform {
-			convergentGateway.OutputTransform[k] = v
-		}
+		convergentGatewayOutboundTransformHandlerFn(convergentGatewayOutboundTransform, convergentGatewayId, elesById)
 	}
 
 }
 
-func populateGatewayOutputTransform(outboundTransform map[string]string, el *model.Element, eles []*model.Element, convergentGatewayId string) {
+func findGatewayBranchOutputTransforms(outboundTransform map[string]string, el *model.Element, convergentGatewayId string, elesById map[string]*model.Element) {
 	for _, target := range el.Outbound.Target {
-		targetEleIdx := findElementIdxWith(target.Target, eles)
-		targetEle := eles[targetEleIdx]
+		targetEle := elesById[target.Target]
 
 		if targetEle.OutputTransform != nil {
 			for k, v := range targetEle.OutputTransform {
@@ -167,16 +171,10 @@ func populateGatewayOutputTransform(outboundTransform map[string]string, el *mod
 		if targetEle.Id == convergentGatewayId {
 			return
 		} else {
-			populateGatewayOutputTransform(outboundTransform, targetEle, eles, convergentGatewayId)
+			findGatewayBranchOutputTransforms(outboundTransform, targetEle, convergentGatewayId, elesById)
 		}
 	}
 
-}
-
-func findElementIdxWith(id string, elements []*model.Element) int {
-	return slices.IndexFunc(elements, func(e *model.Element) bool {
-		return e.Id == id
-	})
 }
 
 func findElementIdsWithType(eleIds []string, typ string, elements []*model.Element) []string {

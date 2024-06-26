@@ -44,3 +44,10 @@ func TestValidateSucceedsWhenInputReferencesErrorVar(t *testing.T) {
 	_, err = Parse("TestWorkflow", bytes.NewBuffer(b))
 	assert.NoError(t, err)
 }
+
+func TestValidationSucceedsWhenParallelGatewayDefinesDistinctVarsOnDistinctBranches(t *testing.T) {
+	b, err := os.ReadFile("../../testdata/gateway-parallel-out-and-in-test.bpmn")
+	require.NoError(t, err)
+	_, err = Parse("TestWorkflow", bytes.NewBuffer(b))
+	assert.NoError(t, err)
+}

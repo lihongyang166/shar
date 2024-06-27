@@ -15,7 +15,12 @@ type JobClient interface {
 // LogClient represents a client which is capable of logging to the SHAR infrastructure.
 type LogClient interface {
 	// Log logs to the underlying SHAR infrastructure.
+	// Deprecated: Use Logger or LoggerWith to obtain a SHAR slog.Logger instance
 	Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error
+	// Logger returns a SHAR slog.Logger based on the default logger.  This is syntactic sugar around c.LoggerWith(slog.Default())
+	Logger() *slog.Logger
+	// LoggerWith returns a SHAR slog.Logger based on the provided logger.
+	LoggerWith(logger *slog.Logger) *slog.Logger
 }
 
 // MessageClient represents a client which supports logging and sending Workflow Messages to the underlying SHAR infrastructure.

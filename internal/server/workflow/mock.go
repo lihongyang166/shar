@@ -21,8 +21,10 @@ import (
 )
 
 type jobClient struct {
-	trackingID        string
-	processInstanceId string
+	jobID             string
+	processInstanceID string
+	activityID        string
+	executionID       string
 	originalInputs    map[string]interface{}
 	originalOutputs   map[string]interface{}
 }
@@ -37,6 +39,22 @@ func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, a
 	return fmt.Errorf(message)
 }
 
+func (c *jobClient) Logger() *slog.Logger {
+	return c.LoggerWith(slog.Default())
+}
+
+func (c *jobClient) LoggerWith(logger *slog.Logger) *slog.Logger {
+	return slogWith(logger, c.executionID, c.processInstanceID, c.activityID, c.jobID)
+}
+
+func slogWith(logger *slog.Logger, executionID, processInstanceID, activityID, jobID string) *slog.Logger {
+	return logger.With(
+		slog.String(keys.ExecutionID, executionID),
+		slog.String(keys.ProcessInstanceID, processInstanceID),
+		slog.String(keys.ActivityID, activityID),
+		slog.String(keys.JobID, jobID),
+	)
+}
 func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
 	inputVars = c.originalInputs
 	outputVars = c.originalOutputs
@@ -56,7 +74,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 		pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
 		pidCtx = client.ReParentSpan(pidCtx, job)
 		pidCtx = context.WithValue(pidCtx, keys.ContextKey("taskDef"), job.ExecuteVersion)
-		jc := &jobClient{trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+		jc := &jobClient{jobID: trackingID, processInstanceID: job.ProcessInstanceId}
 		if job.State == model.CancellationState_compensating {
 			var err error
 			ins, err := s.operations.GetCompensationInputVariables(ctx, job.ProcessInstanceId, trackingID)

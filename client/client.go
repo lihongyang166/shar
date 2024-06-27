@@ -51,15 +51,26 @@ const HeartBeatInterval = 1 * time.Second
 
 type jobClient struct {
 	cl                *Client
-	trackingID        string
-	processInstanceId string
+	jobID             string
+	activityID        string
+	processInstanceID string
+	executionID       string
 	originalInputs    map[string]interface{}
 	originalOutputs   map[string]interface{}
 }
 
 // Log logs to the span related to this jobClient instance.
+// Deprecated: Use Logger or LoggerWith methods to obtain a logger instance.
 func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error {
-	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
+	return c.cl.clientLog(ctx, c.jobID, level, message, attrs)
+}
+
+func (c *jobClient) Logger() *slog.Logger {
+	return c.LoggerWith(slog.Default())
+}
+
+func (c *jobClient) LoggerWith(logger *slog.Logger) *slog.Logger {
+	return slogWith(logger, c.executionID, c.processInstanceID, c.activityID, c.jobID)
 }
 
 func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
@@ -68,10 +79,21 @@ func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars
 	return
 }
 
+func slogWith(logger *slog.Logger, executionID, processInstanceID, activityID, jobID string) *slog.Logger {
+	return logger.With(
+		slog.String(keys.ExecutionID, executionID),
+		slog.String(keys.ProcessInstanceID, processInstanceID),
+		slog.String(keys.ActivityID, activityID),
+		slog.String(keys.JobID, jobID),
+	)
+}
+
 type messageClient struct {
-	cl          *Client
-	executionId string
-	trackingID  string
+	cl                *Client
+	jobID             string
+	activityID        string
+	processInstanceID string
+	executionID       string
 }
 
 // SendMessage sends a Workflow Message into the SHAR engine
@@ -79,9 +101,18 @@ func (c *messageClient) SendMessage(ctx context.Context, name string, key any, v
 	return c.cl.SendMessage(ctx, name, key, vars)
 }
 
-// Log logs to the span related to this jobClient instance.
+// Log logs to the span related to this messageClient instance.
+// Deprecated: Use Logger or LoggerWith methods to obtain a logger instance.
 func (c *messageClient) Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error {
-	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
+	return c.cl.clientLog(ctx, c.jobID, level, message, attrs)
+}
+
+func (c *messageClient) Logger() *slog.Logger {
+	return c.LoggerWith(slog.Default())
+}
+
+func (c *messageClient) LoggerWith(logger *slog.Logger) *slog.Logger {
+	return slogWith(logger, c.executionID, c.processInstanceID, c.activityID, c.jobID)
 }
 
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and integrating with the API
@@ -124,7 +155,7 @@ func New(option ...ConfigurationOption) *Client {
 	if err != nil {
 		panic(err)
 	}
-	client := &Client{
+	c := &Client{
 		id:                              ksuid.New().String(),
 		host:                            host,
 		storageType:                     jetstream.FileStorage,
@@ -144,9 +175,9 @@ func New(option ...ConfigurationOption) *Client {
 		ReceiveMiddleware:               make([]middleware2.Receive, 0),
 	}
 	for _, i := range option {
-		i.configure(client)
+		i.configure(c)
 	}
-	return client
+	return c
 }
 
 // Dial instructs the client to connect to a NATS server.
@@ -314,7 +345,13 @@ func (c *Client) listen(ctx context.Context) error {
 			pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
 			pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
 			pidCtx = client.ReParentSpan(pidCtx, job)
-			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+			jc := &jobClient{
+				cl:                c,
+				activityID:        id.ParentID(),
+				executionID:       job.ExecutionId,
+				processInstanceID: job.ProcessInstanceId,
+				jobID:             id.ID(),
+			}
 			if job.State == model.CancellationState_compensating {
 				var err error
 				jc.originalInputs, jc.originalOutputs, err = c.getCompensationVariables(ctx, job.ProcessInstanceId, job.Compensation.ForTrackingId)
@@ -345,7 +382,13 @@ func (c *Client) listen(ctx context.Context) error {
 			em := t.Elem().Interface()
 			fmt.Println(em)
 			vl := reflect.ValueOf(def.Fn)
-			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+			jc := &jobClient{
+				cl:                c,
+				jobID:             id.ID(),
+				processInstanceID: job.ProcessInstanceId,
+				activityID:        id.ParentID(),
+				executionID:       job.ExecutionId,
+			}
 			params := []reflect.Value{
 				reflect.ValueOf(pidCtx),
 				reflect.ValueOf(jc),
@@ -399,7 +442,12 @@ func (c *Client) listen(ctx context.Context) error {
 		switch def.Type {
 		case task2.ExecutionTypeVars:
 			fn := def.Fn.(task2.SenderFn)
-			if err := fn(ctx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, inVars); err != nil {
+			if err := fn(ctx, &messageClient{
+				cl: c, jobID: trackingID,
+				executionID:       job.ExecutionId,
+				processInstanceID: job.ProcessInstanceId,
+				activityID:        common.TrackingID(job.Id).ParentID(),
+			}, inVars); err != nil {
 				slog.Warn("nats listener", "error", err)
 				return err
 			}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
-	"log/slog"
 	"os"
 	"testing"
 	"time"
@@ -67,9 +66,8 @@ type testErrorEndEventHandlerDef struct {
 
 // A "Hello World" service task
 func (d *testErrorEndEventHandlerDef) mayFail3(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, slog.LevelInfo, "service task completed successfully", nil); err != nil {
-		return nil, fmt.Errorf("logging failed: %w", err)
-	}
+	logger := client.Logger()
+	logger.Info("service task completed successfully")
 	return model.Vars{"success": true}, nil
 }
 

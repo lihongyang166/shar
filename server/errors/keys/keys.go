@@ -14,7 +14,9 @@ const (
 	ProcessInstanceID = "pi.id"
 	// WorkflowID is the key for the originating versioned workflow that started the instance.
 	WorkflowID = "wf.id"
-	// JobType is the key for the name of the job type associated with an executing Job.
+	// ActivityID is the key for the name of the activity ID associated with an executing Job.
+	ActivityID = "job.ac.id"
+	// JobType is the key for the type of executing job.
 	JobType = "job.type"
 	// JobID is the key for the executing job ID.
 	JobID = "job.id"

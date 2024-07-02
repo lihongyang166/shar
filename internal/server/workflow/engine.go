@@ -597,24 +597,7 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	if err != nil {
 		return fmt.Errorf("complete job processor failed to get old state: %w", err)
 	}
-
-	oldState := &model.WorkflowState{
-		Id:                          activityStart.Id,
-		WorkflowId:                  *activityStart.WorkflowId,
-		ExecutionId:                 *activityStart.ExecutionId,
-		ElementId:                   *activityStart.ElementId,
-		ProcessInstanceId:           *activityStart.ProcessInstanceId,
-		State:                       *activityStart.CancellationState,
-		Vars:                        activityStart.Vars,
-		Timer:                       activityStart.Timer,
-		Error:                       activityStart.Error,
-		UnixTimeNano:                activityStart.UnixTimeNano,
-		Execute:                     activityStart.Execute,
-		ProcessName:                 activityStart.ProcessName,
-		SatisfiesGatewayExpectation: activityStart.SatisfiesGatewayExpectation,
-		GatewayExpectations:         activityStart.GatewayExpectations,
-		WorkflowName:                activityStart.WorkflowName,
-	}
+	oldState := workfFlowStateFrom(activityStart)
 
 	if err := vars.OutputVars(ctx, c.exprEngine, job.Vars, &oldState.Vars, el.OutputTransform); err != nil {
 		return fmt.Errorf("complete job processor failed to transform variables: %w", err)
@@ -636,6 +619,26 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 		return fmt.Errorf("complete job processor failed to delete job: %w", err)
 	}
 	return nil
+}
+
+func workfFlowStateFrom(activityStart *model.ProcessHistoryEntry) *model.WorkflowState {
+	return &model.WorkflowState{
+		Id:                          activityStart.Id,
+		WorkflowId:                  *activityStart.WorkflowId,
+		ExecutionId:                 *activityStart.ExecutionId,
+		ElementId:                   *activityStart.ElementId,
+		ProcessInstanceId:           *activityStart.ProcessInstanceId,
+		State:                       *activityStart.CancellationState,
+		Vars:                        activityStart.Vars,
+		Timer:                       activityStart.Timer,
+		Error:                       activityStart.Error,
+		UnixTimeNano:                activityStart.UnixTimeNano,
+		Execute:                     activityStart.Execute,
+		ProcessName:                 activityStart.ProcessName,
+		SatisfiesGatewayExpectation: activityStart.SatisfiesGatewayExpectation,
+		GatewayExpectations:         activityStart.GatewayExpectations,
+		WorkflowName:                activityStart.WorkflowName,
+	}
 }
 
 func engineErr(ctx context.Context, msg string, err error, z ...any) error {
@@ -1189,10 +1192,10 @@ func (s *Engine) deleteJob(ctx context.Context, state *model.WorkflowState) erro
 	if err := s.operations.DeleteJob(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("delete job: %w", err)
 	}
-	if activityState, err := s.operations.GetOldState(ctx, common.TrackingID(state.Id).Pop().ID()); err != nil && !errors2.Is(err, errors.ErrStateNotFound) {
+	if activityStart, err := s.operations.GetProcessHistoryItem(ctx, state.ProcessInstanceId, common.TrackingID(state.Id).Pop().ID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return fmt.Errorf("fetch old state during delete job: %w", err)
 	} else if err == nil {
-		//TODO we'd need to recreate the activity state if we get old state from history
+		activityState := workfFlowStateFrom(activityStart)
 		if err := s.operations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), activityState); err != nil {
 			return fmt.Errorf("publish activity abort during delete job: %w", err)
 		}

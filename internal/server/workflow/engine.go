@@ -999,13 +999,8 @@ func (s *Engine) processActivities(ctx context.Context) error {
 			if err := proto.Unmarshal(msg.Data(), &activity); err != nil {
 				return false, fmt.Errorf("unmarshal state activity complete: %w", err)
 			}
-			activityID := common.TrackingID(activity.Id).ID()
 			if err := s.activityCompleteProcessor(ctx, &activity); err != nil {
 				return false, err
-			}
-			err := s.deleteSavedState(ctx, activityID)
-			if err != nil {
-				return true, fmt.Errorf("delete saved state upon activity completion: %w", err)
 			}
 		}
 
@@ -1013,19 +1008,6 @@ func (s *Engine) processActivities(ctx context.Context) error {
 	}, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("starting activity processing: %w", err)
-	}
-	return nil
-}
-
-func (s *Engine) deleteSavedState(ctx context.Context, activityID string) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	if err := common.Delete(ctx, nsKVs.WfVarState, activityID); err != nil {
-		return fmt.Errorf("delete saved state: %w", err)
 	}
 	return nil
 }
@@ -1143,10 +1125,6 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 		}
 		//TODO: Make these idempotently work given missing values
 		switch {
-		case strings.HasSuffix(msg.Subject(), messages.StateActivityAbort):
-			if err := s.deleteActivity(ctx, &state); err != nil {
-				return false, fmt.Errorf("delete activity during general abort processor: %w", err)
-			}
 		case strings.HasSuffix(msg.Subject(), messages.StateExecutionAbort):
 			abortState := common.CopyWorkflowState(&state)
 			abortState.State = model.CancellationState_terminated
@@ -1203,13 +1181,6 @@ func (s *Engine) processFatalError(ctx context.Context) error {
 
 	if err != nil {
 		return fmt.Errorf("start process fatal error processor: %w", err)
-	}
-	return nil
-}
-
-func (s *Engine) deleteActivity(ctx context.Context, state *model.WorkflowState) error {
-	if err := s.deleteSavedState(ctx, common.TrackingID(state.Id).ID()); err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return fmt.Errorf("delete activity: %w", err)
 	}
 	return nil
 }

@@ -394,7 +394,7 @@ func (c *Operations) CompleteManualTask(ctx context.Context, job *model.Workflow
 // CompleteServiceTask completes a workflow service task
 func (c *Operations) CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	if job.State != model.CancellationState_compensating {
-		if _, err := c.GetOldState(ctx, common.TrackingID(job.Id).ParentID()); errors2.Is(err, errors.ErrStateNotFound) {
+		if _, err := c.GetProcessHistoryItem(ctx, job.ProcessInstanceId, common.TrackingID(job.Id).ParentID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
 				return fmt.Errorf("complete service task failed to publish workflow state: %w", err)
 			}

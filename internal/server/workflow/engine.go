@@ -866,9 +866,6 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 		}
 
 		activityID := ksuid.New().String()
-		if err := s.operations.SaveState(ctx, activityID, &traversal); err != nil {
-			return false, err
-		}
 		if err := s.activityStartProcessor(ctx, activityID, &traversal, false); errors.IsWorkflowFatal(err) {
 			logx.FromContext(ctx).Error("workflow fatally terminated whilst processing activity", "error", err, slog.String(keys.ExecutionID, traversal.ExecutionId), slog.String(keys.WorkflowID, traversal.WorkflowId), "error", err, slog.String(keys.ElementID, traversal.ElementId))
 			return true, nil

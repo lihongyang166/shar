@@ -554,8 +554,8 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	ctx, log := logx.ContextWith(ctx, "engine.completeJobProcessor")
 	// Validate if it safe to end this job
 	// Get the saved job state
-	if _, err := c.operations.GetOldState(ctx, common.TrackingID(job.Id).ParentID()); errors2.Is(err, errors.ErrStateNotFound) {
-		// We can't find the job's saved state
+	if _, err := c.operations.GetProcessHistoryItem(ctx, job.ProcessInstanceId, common.TrackingID(job.Id).ParentID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
+		// We can't find the job's old state
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("get old state for complete job processor: %w", err)
@@ -590,13 +590,32 @@ func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowSt
 	els := common.ElementTable(wf)
 	el := els[job.ElementId]
 	newID := common.TrackingID(job.Id).Pop()
-	oldState, err := c.operations.GetOldState(ctx, newID.ID())
-	if errors2.Is(err, errors.ErrStateNotFound) {
+	activityStart, err := c.operations.GetProcessHistoryItem(ctx, job.ProcessInstanceId, newID.ID(), model.ProcessHistoryType_activityExecute)
+	if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("complete job processor failed to get old state: %w", err)
 	}
+
+	oldState := &model.WorkflowState{
+		Id:                          activityStart.Id,
+		WorkflowId:                  *activityStart.WorkflowId,
+		ExecutionId:                 *activityStart.ExecutionId,
+		ElementId:                   *activityStart.ElementId,
+		ProcessInstanceId:           *activityStart.ProcessInstanceId,
+		State:                       *activityStart.CancellationState,
+		Vars:                        activityStart.Vars,
+		Timer:                       activityStart.Timer,
+		Error:                       activityStart.Error,
+		UnixTimeNano:                activityStart.UnixTimeNano,
+		Execute:                     activityStart.Execute,
+		ProcessName:                 activityStart.ProcessName,
+		SatisfiesGatewayExpectation: activityStart.SatisfiesGatewayExpectation,
+		GatewayExpectations:         activityStart.GatewayExpectations,
+		WorkflowName:                activityStart.WorkflowName,
+	}
+
 	if err := vars.OutputVars(ctx, c.exprEngine, job.Vars, &oldState.Vars, el.OutputTransform); err != nil {
 		return fmt.Errorf("complete job processor failed to transform variables: %w", err)
 	}
@@ -629,11 +648,13 @@ func engineErr(ctx context.Context, msg string, err error, z ...any) error {
 
 func (c *Engine) activityCompleteProcessor(ctx context.Context, state *model.WorkflowState) error {
 	ctx, log := logx.ContextWith(ctx, "engine.activityCompleteProcessor")
-	if old, err := c.operations.GetOldState(ctx, common.TrackingID(state.Id).ID()); errors2.Is(err, errors.ErrStateNotFound) {
-		log.Warn("old state not found", slog.Any("error", err))
+	var old *model.ProcessHistoryEntry
+	var err error
+	if old, err = c.operations.GetProcessHistoryItem(ctx, state.ProcessInstanceId, common.TrackingID(state.Id).ID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
+		log.Warn("old var state not found", slog.Any("error", err))
 	} else if err != nil {
 		return fmt.Errorf("activity complete processor failed to get old state: %w", err)
-	} else if old.State == model.CancellationState_obsolete && state.State == model.CancellationState_obsolete {
+	} else if *old.CancellationState == model.CancellationState_obsolete && state.State == model.CancellationState_obsolete {
 		return nil
 	}
 
@@ -1203,6 +1224,7 @@ func (s *Engine) deleteJob(ctx context.Context, state *model.WorkflowState) erro
 	if activityState, err := s.operations.GetOldState(ctx, common.TrackingID(state.Id).Pop().ID()); err != nil && !errors2.Is(err, errors.ErrStateNotFound) {
 		return fmt.Errorf("fetch old state during delete job: %w", err)
 	} else if err == nil {
+		//TODO we'd need to recreate the activity state if we get old state from history
 		if err := s.operations.PublishWorkflowState(ctx, subj.NS(messages.WorkflowActivityAbort, subj.GetNS(ctx)), activityState); err != nil {
 			return fmt.Errorf("publish activity abort during delete job: %w", err)
 		}

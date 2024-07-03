@@ -394,7 +394,7 @@ func (c *Operations) CompleteManualTask(ctx context.Context, job *model.Workflow
 // CompleteServiceTask completes a workflow service task
 func (c *Operations) CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	if job.State != model.CancellationState_compensating {
-		if _, err := c.GetOldState(ctx, common.TrackingID(job.Id).ParentID()); errors2.Is(err, errors.ErrStateNotFound) {
+		if _, err := c.GetProcessHistoryItem(ctx, job.ProcessInstanceId, common.TrackingID(job.Id).ParentID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
 				return fmt.Errorf("complete service task failed to publish workflow state: %w", err)
 			}
@@ -1434,44 +1434,6 @@ func (s *Operations) OwnerName(ctx context.Context, id string) (string, error) {
 	return string(nm.Value()), nil
 }
 
-// GetOldState gets a task state given its tracking ID.
-func (s *Operations) GetOldState(ctx context.Context, id string) (*model.WorkflowState, error) {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	oldState := &model.WorkflowState{}
-	err = common.LoadObj(ctx, nsKVs.WfVarState, id, oldState)
-	if err == nil {
-		return oldState, nil
-	} else if errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return nil, fmt.Errorf("get old state failed to load object: %w", errors.ErrStateNotFound)
-	}
-	return nil, fmt.Errorf("retrieving task state: %w", err)
-}
-
-// SaveState saves the task state.
-func (s *Operations) SaveState(ctx context.Context, id string, state *model.WorkflowState) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	saveState := proto.Clone(state).(*model.WorkflowState)
-	saveState.Id = common.TrackingID(saveState.Id).Pop().Push(id)
-	data, err := proto.Marshal(saveState)
-	if err != nil {
-		return fmt.Errorf("unmarshal saved state: %w", err)
-	}
-	if err := common.Save(ctx, nsKVs.WfVarState, id, data); err != nil {
-		return fmt.Errorf("save state: %w", err)
-	}
-	return nil
-}
-
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
 func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
 	id := ksuid.New().String()
@@ -1941,18 +1903,18 @@ func (s *Operations) GetCompensationOutputVariables(ctx context.Context, process
 // determining the appropriate action to take, and publishing the necessary workflow state updates.
 // It returns an error if there was an issue retrieving the workflow definition, if the workflow
 // doesn't support the specified error code.
-func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, message string, inVars []byte, job *model.WorkflowState) error {
+func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, inVars []byte, state *model.WorkflowState) error {
 	// Get the workflow, so we can look up the error definitions
-	wf, err := c.GetWorkflow(ctx, job.WorkflowId)
+	wf, err := c.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("get workflow definition for handle workflow error: %w", err)
 	}
 
-	// Get the element corresponding to the job
+	// Get the element corresponding to the state
 	els := common.ElementTable(wf)
 
 	// Get the current element
-	el := els[job.ElementId]
+	el := els[state.ElementId]
 
 	// Get the errors supported by this workflow
 	var found bool
@@ -1966,11 +1928,11 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	if !found {
 		werr := &errors.ErrWorkflowFatal{Err: fmt.Errorf("workflow-fatal: can't handle error code %s as the workflow doesn't support it: %w", errorCode, errors.ErrWorkflowErrorNotFound)}
 		// TODO: This always assumes service task.  Wrong!
-		if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
-			return fmt.Errorf("cencel job: %w", werr)
+		if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), state); err != nil {
+			return fmt.Errorf("cencel state: %w", werr)
 		}
 
-		cancelState := common.CopyWorkflowState(job)
+		cancelState := common.CopyWorkflowState(state)
 		cancelState.State = model.CancellationState_errored
 		cancelState.Error = &model.Error{
 			Id:   "UNKNOWN",
@@ -2002,25 +1964,25 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	// Get the target workflow activity
 	target := els[caughtError.Target]
 
-	oldState, err := c.GetOldState(ctx, common.TrackingID(job.Id).Pop().ID())
+	activityStart, err := c.GetProcessHistoryItem(ctx, state.ProcessInstanceId, common.TrackingID(state.Id).Pop().ID(), model.ProcessHistoryType_activityExecute)
 	if err != nil {
-		return fmt.Errorf("get old state for handle workflow error: %w", err)
+		return fmt.Errorf("get activity start state for handle workflow error: %w", err)
 	}
-	if err := vars.OutputVars(ctx, c.exprEngine, inVars, &oldState.Vars, caughtError.OutputTransform); err != nil {
+	if err := vars.OutputVars(ctx, c.exprEngine, inVars, &activityStart.Vars, caughtError.OutputTransform); err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
 		ElementType: target.Type,
 		ElementId:   target.Id,
 		ElementName: target.Name,
-		WorkflowId:  job.WorkflowId,
-		//WorkflowInstanceId: job.WorkflowInstanceId,
-		ExecutionId:       job.ExecutionId,
-		Id:                common.TrackingID(job.Id).Pop().Pop(),
-		Vars:              oldState.Vars,
+		WorkflowId:  state.WorkflowId,
+		//WorkflowInstanceId: state.WorkflowInstanceId,
+		ExecutionId:       state.ExecutionId,
+		Id:                common.TrackingID(state.Id).Pop().Pop(),
+		Vars:              activityStart.Vars,
 		WorkflowName:      wf.Name,
-		ProcessInstanceId: job.ProcessInstanceId,
-		ProcessName:       job.ProcessName,
+		ProcessInstanceId: state.ProcessInstanceId,
+		ProcessName:       state.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", "error", err)
@@ -2031,14 +1993,14 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		ElementType: target.Type,
 		ElementId:   target.Id,
 		ElementName: target.Name,
-		WorkflowId:  job.WorkflowId,
-		//WorkflowInstanceId: job.WorkflowInstanceId,
-		ExecutionId:       job.ExecutionId,
-		Id:                job.Id,
-		Vars:              job.Vars,
+		WorkflowId:  state.WorkflowId,
+		//WorkflowInstanceId: state.WorkflowInstanceId,
+		ExecutionId:       state.ExecutionId,
+		Id:                state.Id,
+		Vars:              state.Vars,
 		WorkflowName:      wf.Name,
-		ProcessInstanceId: job.ProcessInstanceId,
-		ProcessName:       job.ProcessName,
+		ProcessInstanceId: state.ProcessInstanceId,
+		ProcessName:       state.ProcessName,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", "error", err)

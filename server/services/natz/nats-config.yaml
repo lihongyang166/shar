@@ -226,9 +226,6 @@ buckets:
       bucket: WORKFLOW_GATEWAY
       description: ""
   - nats-config:
-      bucket: WORKFLOW_VARSTATE
-      description: ""
-  - nats-config:
       bucket: WORKFLOW_GENLCK
       description: ""
       ttl: 30s

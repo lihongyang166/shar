@@ -145,7 +145,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 		if err != nil {
 			return nil, fmt.Errorf("get job: %w", err)
 		}
-		if err := s.operations.HandleWorkflowError(ctx, errorCode, "", binVars, state); errors2.Is(err, errors.ErrUnhandledWorkflowError) {
+		if err := s.operations.HandleWorkflowError(ctx, errorCode, binVars, state); errors2.Is(err, errors.ErrUnhandledWorkflowError) {
 			return &model.HandleWorkflowErrorResponse{Handled: false}, nil
 		} else if err != nil {
 			return nil, fmt.Errorf("handle workflow error: %w", err)

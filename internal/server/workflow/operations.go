@@ -1434,44 +1434,6 @@ func (s *Operations) OwnerName(ctx context.Context, id string) (string, error) {
 	return string(nm.Value()), nil
 }
 
-// GetOldState gets a task state given its tracking ID.
-func (s *Operations) GetOldState(ctx context.Context, id string) (*model.WorkflowState, error) {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	oldState := &model.WorkflowState{}
-	err = common.LoadObj(ctx, nsKVs.WfVarState, id, oldState)
-	if err == nil {
-		return oldState, nil
-	} else if errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return nil, fmt.Errorf("get old state failed to load object: %w", errors.ErrStateNotFound)
-	}
-	return nil, fmt.Errorf("retrieving task state: %w", err)
-}
-
-// SaveState saves the task state.
-func (s *Operations) SaveState(ctx context.Context, id string, state *model.WorkflowState) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	saveState := proto.Clone(state).(*model.WorkflowState)
-	saveState.Id = common.TrackingID(saveState.Id).Pop().Push(id)
-	data, err := proto.Marshal(saveState)
-	if err != nil {
-		return fmt.Errorf("unmarshal saved state: %w", err)
-	}
-	if err := common.Save(ctx, nsKVs.WfVarState, id, data); err != nil {
-		return fmt.Errorf("save state: %w", err)
-	}
-	return nil
-}
-
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
 func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
 	id := ksuid.New().String()

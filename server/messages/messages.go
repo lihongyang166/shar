@@ -207,13 +207,11 @@ var (
 	KvTracking         = "WORKFLOW_TRACKING"        // KvTracking is the name of the key value store that holds the state of a workflow task.
 	KvInstance         = "WORKFLOW_INSTANCE"        // KvInstance is the name of the key value store that holds workflow instance information.
 	KvExecution        = "WORKFLOW_EXECUTION"       // KvExecution is the name of the key value store that holds execution information.
-	KvMessageInterest  = "WORKFLOW_MSGNAME"         // KvMessageInterest is the name of the key value store that holds recipients for messages.
 	KvUserTask         = "WORKFLOW_USERTASK"        // KvUserTask is the name of the key value store that holds active user tasks.
 	KvOwnerName        = "WORKFLOW_OWNERNAME"       // KvOwnerName is the name of the key value store that holds owner names for owner IDs
 	KvOwnerID          = "WORKFLOW_OWNERID"         // KvOwnerID is the name of the key value store that holds owner IDs for owner names.
 	KvClientTaskID     = "WORKFLOW_CLIENTTASK"      // KvClientTaskID is the name of the key value store that holds the unique ID used by clients to subscribe to service task messages.
 	KvWfName           = "WORKFLOW_NAME"            // KvWfName is the name of the key value store that holds workflow IDs for workflow names.
-	KvVarState         = "WORKFLOW_VARSTATE"        // KvVarState is the name of the key value store that holds the state of variables upon entering a task.
 	KvProcessInstance  = "WORKFLOW_PROCESS"         // KvProcessInstance is the name of the key value store holding process instances.
 	KvGateway          = "WORKFLOW_GATEWAY"         // KvGateway is the name of the key value store holding gateway instances.
 	KvHistory          = "WORKFLOW_HISTORY"         // KvHistory is the name of the key value store holding process histories.

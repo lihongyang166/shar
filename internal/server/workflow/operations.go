@@ -225,7 +225,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 	return executionId, wfID, nil
 }
 
-func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, prName string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
+func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, prId string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
 	ctx, sp := c.tr.Start(ctx, "launchProcess")
 	defer func() {
 		sp.End()
@@ -285,7 +285,7 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 				Id:                trackingID,
 				Vars:              vrs,
 				WorkflowName:      workflowName,
-				ProcessName:       prName,
+				ProcessId:         prId,
 				ProcessInstanceId: pi.ProcessInstanceId,
 			}
 
@@ -626,7 +626,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 					},
 					Vars:         []byte{},
 					WorkflowName: wf.Name,
-					ProcessName:  pr.Id,
+					ProcessId:    pr.Id,
 				}
 				if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, ns), timer); err != nil {
 					return fmt.Errorf("publish workflow timed execute: %w", err)
@@ -1982,7 +1982,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		Vars:              activityStart.Vars,
 		WorkflowName:      wf.Name,
 		ProcessInstanceId: state.ProcessInstanceId,
-		ProcessName:       state.ProcessName,
+		ProcessId:         state.ProcessId,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", "error", err)
@@ -2000,7 +2000,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		Vars:              state.Vars,
 		WorkflowName:      wf.Name,
 		ProcessInstanceId: state.ProcessInstanceId,
-		ProcessName:       state.ProcessName,
+		ProcessId:         state.ProcessId,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", "error", err)

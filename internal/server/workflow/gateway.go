@@ -87,7 +87,7 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, _ *slog.Logger, msg j
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("process gateway execute failed: %w", err)}
 	}
 	els := make(map[string]*model.Element)
-	common.IndexProcessElements(wf.Process[job.ProcessName].Elements, els)
+	common.IndexProcessElements(wf.Process[job.ProcessId].Elements, els)
 	el := els[job.ElementId]
 
 	gatewayIID, route, err := s.GetGatewayInstanceID(&job)

@@ -524,7 +524,7 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 		if err != nil {
 			return true, fmt.Errorf("listenProcessTerminate decoding vars: %w", err)
 		}
-		if def, ok := c.proCompleteTasks[st.ProcessName]; ok {
+		if def, ok := c.proCompleteTasks[st.ProcessId]; ok {
 			switch def.Type {
 			case task2.ExecutionTypeVars:
 				fn := def.Fn.(task2.ProcessTerminateFn)

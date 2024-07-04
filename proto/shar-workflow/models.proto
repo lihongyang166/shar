@@ -284,7 +284,7 @@ message WorkflowState {
   Error error = 14; // Error - an error being carried by the state if it has faulted.
   WorkflowTimer timer = 16; // Timer - a time needed to transition to the next state.
   string workflowName = 17; // WorkflowName - name of this workflow to avoid lookups.
-  string processName = 18; // ProcessName - name of this process to avoid lookups.
+  string processId = 18; // ProcessId - id of this process to avoid lookups.
   string processInstanceId = 19; // ProcessInstanceId - the unique ID for the process instance.
   map<string,SatisfiesGateway> satisfiesGatewayExpectation = 20; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
   map<string,GatewayExpectations> gatewayExpectations = 21; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
@@ -344,7 +344,7 @@ message ProcessHistoryEntry {
   optional string execute = 11;
   repeated string id = 12;
   bool compensating = 14;
-  string processName = 16;
+  string processId = 16;
   map<string,SatisfiesGateway> satisfiesGatewayExpectation = 17; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
   map<string,GatewayExpectations> gatewayExpectations = 18; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
   string workflowName = 19;

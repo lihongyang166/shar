@@ -36,7 +36,7 @@ func (s *Operations) RecordHistory(ctx context.Context, state *model.WorkflowSta
 		Error:                       state.Error,
 		UnixTimeNano:                state.UnixTimeNano,
 		Execute:                     state.Execute,
-		ProcessName:                 state.ProcessName,
+		ProcessId:                   state.ProcessId,
 		SatisfiesGatewayExpectation: maps.Clone(state.SatisfiesGatewayExpectation),
 		GatewayExpectations:         maps.Clone(state.GatewayExpectations),
 		WorkflowName:                state.WorkflowName,

@@ -149,7 +149,7 @@ message Metadata {
 // Process describes a single workflow state machine.
 message Process {
   repeated Element elements = 1; // Elements describes each state in the state machine.
-  string Name = 2; // Name - the common name of the state machine.
+  string Id = 2; // Id - the id of the process .
   optional Metadata metadata = 6; // Metadata created by SHAR to describe process behavior.
 }
 

@@ -20,7 +20,7 @@ func validModel(ctx context.Context, workflow *model.Workflow) error {
 	// Iterate the processes
 	for _, process := range workflow.Process {
 		// Check the name
-		if err := validName(process.Name); err != nil {
+		if err := validName(process.Id); err != nil {
 			return fmt.Errorf("invalid process name: %w", err)
 		}
 		// Iterate through the elements

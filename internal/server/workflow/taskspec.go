@@ -129,7 +129,7 @@ func (s *Operations) GetTaskSpecUsageByName(ctx context.Context, name string) (*
 		for _, pr := range wf.Process {
 			for _, el := range pr.Elements {
 				if el.Type == element.ServiceTask && el.Version != nil && slices.Contains(taskSpecVersions.Id, *el.Version) {
-					rptPr[pr.Name] = struct{}{}
+					rptPr[pr.Id] = struct{}{}
 					rptWf[wf.Name] = struct{}{}
 				}
 			}
@@ -209,7 +209,7 @@ func (s *Operations) GetTaskSpecUsage(ctx context.Context, uid []string) (*model
 		for _, pr := range wf.Process {
 			for _, el := range pr.Elements {
 				if el.Type == element.ServiceTask && el.Version != nil && slices.Contains(uid, *el.Version) {
-					rptPr[pr.Name] = struct{}{}
+					rptPr[pr.Id] = struct{}{}
 					rptWf[wf.Name] = struct{}{}
 				}
 			}

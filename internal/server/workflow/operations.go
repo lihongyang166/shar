@@ -216,7 +216,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 		launchProcesses = append(launchProcesses, pr)
 	}
 	for _, pr := range launchProcesses {
-		err2 := c.launchProcess(ctx, ID, pr.Name, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
+		err2 := c.launchProcess(ctx, ID, pr.Id, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
 		if err2 != nil {
 			return "", "", err2
 		}
@@ -264,7 +264,7 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 
 	if hasStartEvents {
 
-		pi, err := c.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Name, workflowName, wfID)
+		pi, err := c.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Id, workflowName, wfID)
 		if err != nil {
 			reterr = fmt.Errorf("launch failed to create new process instance: %w", err)
 			return reterr
@@ -559,7 +559,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 	wfID := ksuid.New().String()
 
 	createWorkflowProcessMappingFn := func(ctx context.Context, wf *model.Workflow, i *model.Process) (uint64, error) {
-		ret, err := nsKVs.WfProcess.Put(ctx, i.Name, []byte(wf.Name))
+		ret, err := nsKVs.WfProcess.Put(ctx, i.Id, []byte(wf.Name))
 		if err != nil {
 			return 0, fmt.Errorf("store the workflow process mapping: %w", err)
 		}
@@ -626,7 +626,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 					},
 					Vars:         []byte{},
 					WorkflowName: wf.Name,
-					ProcessName:  pr.Name,
+					ProcessName:  pr.Id,
 				}
 				if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, ns), timer); err != nil {
 					return fmt.Errorf("publish workflow timed execute: %w", err)
@@ -637,7 +637,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 		})
 
 		if vErr != nil {
-			return "", fmt.Errorf("initialize all workflow timed start events for %s: %w", pr.Name, vErr)
+			return "", fmt.Errorf("initialize all workflow timed start events for %s: %w", pr.Id, vErr)
 		}
 	}
 
@@ -1746,7 +1746,7 @@ func (s *Operations) ListExecutableProcesses(ctx context.Context, wch chan<- *mo
 		}
 		for _, p := range wf.Process {
 			ret := &model.ListExecutableProcessesItem{Parameter: make([]*model.ExecutableStartParameter, 0)}
-			ret.ProcessName = p.Name
+			ret.ProcessName = p.Id
 			ret.WorkflowName = wf.Name
 			startParam := make(map[string]struct{})
 			for _, el := range p.Elements {

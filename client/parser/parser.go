@@ -53,11 +53,11 @@ func Parse(ctx context.Context, defaultEngine expression.Engine, name string, rd
 		}
 		msgXML := doc.SelectElements("//bpmn:message")
 		errXML := doc.SelectElements("//bpmn:error")
-		pr.Name = prXML.SelectAttr("id")
+		pr.Id = prXML.SelectAttr("id")
 		if err := parseProcess(doc, wf, prXML, pr, msgXML, errXML, msgs, errs); err != nil {
 			return nil, fmt.Errorf("parse process: %w", err)
 		}
-		wf.Process[pr.Name] = pr
+		wf.Process[pr.Id] = pr
 	}
 
 	if err := tagWorkflow(wf); err != nil {
@@ -233,7 +233,7 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 		case "intermediateThrowEvent":
 			parseIntermediateThrowEvent(i, el)
 		case "startEvent":
-			if err := parseStartEvent(i, el, msgs, pr.Name, wf); err != nil {
+			if err := parseStartEvent(i, el, msgs, pr.Id, wf); err != nil {
 				return fmt.Errorf("parse start event: %w", err)
 			}
 		case "endEvent":

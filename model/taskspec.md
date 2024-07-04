@@ -8,39 +8,6 @@
 | behaviour | TaskBehaviour | Behaviour documents instance behaviour. |  -  |
 | parameters | TaskParameters | Parameters document input and output parameters for the task. |  -  |
 | events | TaskEvents | Events document errors and messages that can be emitted from the task. |  -  |
-### TaskEvents
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| error | TaskError | Error workflow events that can be returned from the task. |  -  |
-| message | Message | Message workflow events that can be returned from the task. |  -  |
-### TaskError
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| name | string | Name of the error. | arbitrary string |
-| code | string | Code a unique code for the error. | NATS-safe identifier |
-| short | string | Short description of the error. | arbitrary string |
-| description | string | Description - a long description of the error. | arbitrary string |
-### Message
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| name | string | Name - Message name for a workflow message. | arbitrary string |
-| correlationKey | string | CorrelationKey - the workflow message correlation key. | NATS-safe identifier |
-| short | string | Short description of the parameter. | arbitrary string |
-| description | string | Description - a long description of the parameter. | arbitrary string |
-### TaskMetadata
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| uid | string | Uid of the task. | a ksuid |
-| type | string | Type - the name for the task when referred to by process. | arbitrary string |
-| version | string | Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters. | semantic version number |
-| short | string | Short description of the task. | arbitrary string |
-| description | string | Description - a long description of the task. | arbitrary string |
-| labels | string | Labels - a list of searchable tags for the task. | arbitrary string |
-| extensionData | map[string]string | ExtensionData - a map of values that can be used by third party tools. | arbitrary string |
 ### TaskBehaviour
 
 | name | type | description | validation |
@@ -51,12 +18,6 @@
 | mock | bool | Mock this task as it has no concrete implementation. | boolean |
 | deprecated | bool | Deprecated task.  Workflows can not be executed that include this task. | boolean |
 | mockBehaviour | TaskMockBehaviours | MockBehaviour lists behaviours exhibited by the task when mocked. |  -  |
-### TaskMockBehaviours
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
-| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
 ### DefaultTaskRetry
 
 | name | type | description | validation |
@@ -90,6 +51,12 @@
 |------|------|-------------|
 | Linear | 0 | Retry at regular intervals. |
 | Incremental | 1 | Retry at increasingly large intervals. |
+### TaskMockBehaviours
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
+| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
 ### TaskParameters
 
 | name | type | description | validation |
@@ -119,3 +86,36 @@
 | mandatory | bool | Mandatory specifies that this parameter is required. | bool |
 | validateExpr | string | ValidateExpr - an EXPR that is used to validate the field value. | a valid EXPR expression prefixed by'=' |
 | example | string | Example - an example EXPR that is used to provide a hint to a user on the nature of a task.  It is also used when the task is being used as a mock before implementation. | a valid EXPR expression prefixed by'=' |
+### TaskEvents
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| error | TaskError | Error workflow events that can be returned from the task. |  -  |
+| message | Message | Message workflow events that can be returned from the task. |  -  |
+### Message
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| name | string | Name - Message name for a workflow message. | arbitrary string |
+| correlationKey | string | CorrelationKey - the workflow message correlation key. | NATS-safe identifier |
+| short | string | Short description of the parameter. | arbitrary string |
+| description | string | Description - a long description of the parameter. | arbitrary string |
+### TaskError
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| name | string | Name of the error. | arbitrary string |
+| code | string | Code a unique code for the error. | NATS-safe identifier |
+| short | string | Short description of the error. | arbitrary string |
+| description | string | Description - a long description of the error. | arbitrary string |
+### TaskMetadata
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| uid | string | Uid of the task. | a ksuid |
+| type | string | Type - the name for the task when referred to by process. | arbitrary string |
+| version | string | Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters. | semantic version number |
+| short | string | Short description of the task. | arbitrary string |
+| description | string | Description - a long description of the task. | arbitrary string |
+| labels | string | Labels - a list of searchable tags for the task. | arbitrary string |
+| extensionData | map[string]string | ExtensionData - a map of values that can be used by third party tools. | arbitrary string |

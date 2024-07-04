@@ -1435,11 +1435,11 @@ func (s *Operations) OwnerName(ctx context.Context, id string) (string, error) {
 }
 
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
-func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
+func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
 	id := ksuid.New().String()
 	pi := &model.ProcessInstance{
 		ProcessInstanceId: id,
-		ProcessName:       processName,
+		ProcessId:         processId,
 		ParentProcessId:   &parentProcessID,
 		ParentElementId:   &parentElementID,
 		ExecutionId:       executionId,

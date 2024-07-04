@@ -403,7 +403,7 @@ message ProcessInstance {
   optional string parentElementId = 4; // ParentElementId - the ID of the element in the parent process that triggered the launch of this process instance.
   string workflowId = 5; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 6; // WorkflowName - name of this workflow to avoid lookups.
-  string processName = 7; // ProcessName - name of this process to avoid lookups.
+  string processId = 7; // ProcessId - id of this process to avoid lookups.
   map<string,bool> gatewayComplete = 8; // GatewayComplete - completed gateway instances register
 }
 

@@ -231,7 +231,7 @@ func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, tracki
 			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("get workflow: %w", err)}
 		} else {
 			els := map[string]*model.Element{}
-			common.IndexProcessElements(wf.Process[ws.ProcessName].Elements, els)
+			common.IndexProcessElements(wf.Process[ws.ProcessId].Elements, els)
 			ws.ElementName = els[ws.ElementId].Name
 		}
 
@@ -634,7 +634,7 @@ func workfFlowStateFrom(activityStart *model.ProcessHistoryEntry) *model.Workflo
 		Error:                       activityStart.Error,
 		UnixTimeNano:                activityStart.UnixTimeNano,
 		Execute:                     activityStart.Execute,
-		ProcessName:                 activityStart.ProcessName,
+		ProcessId:                   activityStart.ProcessId,
 		SatisfiesGatewayExpectation: activityStart.SatisfiesGatewayExpectation,
 		GatewayExpectations:         activityStart.GatewayExpectations,
 		WorkflowName:                activityStart.WorkflowName,
@@ -808,7 +808,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
 			}
 
-			pi, err := c.operations.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessName, wf.Name, state.WorkflowId)
+			pi, err := c.operations.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessId, wf.Name, state.WorkflowId)
 			if err != nil {
 				log.Error("creating timed process instance", "error", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)

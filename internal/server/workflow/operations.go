@@ -81,21 +81,21 @@ func (c *Operations) LoadWorkflow(ctx context.Context, model *model.Workflow) (s
 }
 
 // Launch starts a new instance of a workflow and returns an execution ID.
-func (c *Operations) Launch(ctx context.Context, processName string, vars []byte) (string, string, error) {
-	return c.LaunchWithParent(ctx, processName, []string{}, vars, "", "")
+func (c *Operations) Launch(ctx context.Context, processId string, vars []byte) (string, string, error) {
+	return c.LaunchWithParent(ctx, processId, []string{}, vars, "", "")
 }
 
 // LaunchWithParent contains the underlying logic to start a workflow.  It is also called to spawn new instances of child workflows.
-func (c *Operations) LaunchWithParent(ctx context.Context, processName string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
+func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
 	var reterr error
 	ctx, log := logx.ContextWith(ctx, "engine.launch")
 
-	workflowName, err := c.GetWorkflowNameFor(ctx, processName)
+	workflowName, err := c.GetWorkflowNameFor(ctx, processId)
 	if err != nil {
 		reterr = engineErr(ctx, "get the workflow name for this process name", err,
 			slog.String(keys.ParentInstanceElementID, parentElID),
 			slog.String(keys.ParentProcessInstanceID, parentpiID),
-			slog.String(keys.ProcessName, processName),
+			slog.String(keys.ProcessId, processId),
 		)
 		return "", "", reterr
 	}
@@ -124,7 +124,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 		return "", "", reterr
 	}
 
-	if err := c.CheckProcessTaskDeprecation(ctx, wf, processName); err != nil {
+	if err := c.CheckProcessTaskDeprecation(ctx, wf, processId); err != nil {
 		return "", "", fmt.Errorf("check task deprecation: %w", err)
 	}
 
@@ -195,12 +195,12 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 	collabProcesses := make([]*model.Process, 0, len(wf.Collaboration.Participant))
 
 	for _, i := range wf.Collaboration.Participant {
-		if i.ProcessId == processName {
+		if i.ProcessId == processId {
 			partOfCollaboration = true
 		}
 		pr, ok := wf.Process[i.ProcessId]
 		if !ok {
-			return "", "", fmt.Errorf("find collaboration process with name %s: %w", processName, err)
+			return "", "", fmt.Errorf("find collaboration process with name %s: %w", processId, err)
 		}
 		collabProcesses = append(collabProcesses, pr)
 	}
@@ -209,9 +209,9 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 		launchProcesses = collabProcesses
 
 	} else {
-		pr, ok := wf.Process[processName]
+		pr, ok := wf.Process[processId]
 		if !ok {
-			return "", "", fmt.Errorf("find process with name %s: %w", processName, err)
+			return "", "", fmt.Errorf("find process with name %s: %w", processId, err)
 		}
 		launchProcesses = append(launchProcesses, pr)
 	}
@@ -488,7 +488,7 @@ func (s *Operations) ListWorkflows(ctx context.Context, res chan<- *model.ListWo
 	}
 }
 
-func (s *Operations) validateUniqueProcessNameFor(ctx context.Context, wf *model.Workflow) error {
+func (s *Operations) validateUniqueProcessIdFor(ctx context.Context, wf *model.Workflow) error {
 	existingProcessWorkflowNames := make(map[string]string)
 
 	ns := subj.GetNS(ctx)
@@ -497,14 +497,14 @@ func (s *Operations) validateUniqueProcessNameFor(ctx context.Context, wf *model
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	for processName := range wf.Process {
-		workFlowName, err := nsKVs.WfProcess.Get(ctx, processName)
+	for processId := range wf.Process {
+		workFlowName, err := nsKVs.WfProcess.Get(ctx, processId)
 		if errors2.Is(err, jetstream.ErrKeyNotFound) {
 			continue
 		}
 		wfName := string(workFlowName.Value())
 		if wfName != wf.Name {
-			existingProcessWorkflowNames[processName] = wfName
+			existingProcessWorkflowNames[processId] = wfName
 		}
 	}
 
@@ -524,7 +524,7 @@ func (s *Operations) validateUniqueProcessNameFor(ctx context.Context, wf *model
 
 // StoreWorkflow stores a workflow definition and returns a unique ID
 func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
-	err := s.validateUniqueProcessNameFor(ctx, wf)
+	err := s.validateUniqueProcessIdFor(ctx, wf)
 	if err != nil {
 		return "", fmt.Errorf("process names are not unique: %w", err)
 	}
@@ -865,15 +865,15 @@ func (s *Operations) GetWorkflow(ctx context.Context, workflowID string) (*model
 }
 
 // GetWorkflowNameFor - get the worflow name a process is associated with
-func (s *Operations) GetWorkflowNameFor(ctx context.Context, processName string) (string, error) {
+func (s *Operations) GetWorkflowNameFor(ctx context.Context, processId string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	if entry, err := common.Load(ctx, nsKVs.WfProcess, processName); errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return "", fmt.Errorf(fmt.Sprintf("get workflow name for process %s: %%w", processName), errors.ErrProcessNotFound)
+	if entry, err := common.Load(ctx, nsKVs.WfProcess, processId); errors2.Is(err, jetstream.ErrKeyNotFound) {
+		return "", fmt.Errorf(fmt.Sprintf("get workflow name for process %s: %%w", processId), errors.ErrProcessNotFound)
 	} else if err != nil {
 		return "", fmt.Errorf("load workflow name for process: %w", err)
 	} else {
@@ -1591,8 +1591,8 @@ func (s *Operations) validateUniqueMessageNames(ctx context.Context, wf *model.W
 }
 
 // CheckProcessTaskDeprecation checks if all the tasks in a process have not been deprecated.
-func (s *Operations) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processName string) error {
-	pr := workflow.Process[processName]
+func (s *Operations) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processId string) error {
+	pr := workflow.Process[processId]
 	for _, el := range pr.Elements {
 		if el.Type == element.ServiceTask {
 			st, err := s.GetTaskSpecByUID(ctx, *el.Version)
@@ -1600,7 +1600,7 @@ func (s *Operations) CheckProcessTaskDeprecation(ctx context.Context, workflow *
 				return fmt.Errorf("get task spec by uid: %w", err)
 			}
 			if st.Behaviour != nil && st.Behaviour.Deprecated {
-				return fmt.Errorf("process %s contains deprecated task %s", processName, el.Execute)
+				return fmt.Errorf("process %s contains deprecated task %s", processId, el.Execute)
 			}
 		}
 	}
@@ -1746,7 +1746,7 @@ func (s *Operations) ListExecutableProcesses(ctx context.Context, wch chan<- *mo
 		}
 		for _, p := range wf.Process {
 			ret := &model.ListExecutableProcessesItem{Parameter: make([]*model.ExecutableStartParameter, 0)}
-			ret.ProcessName = p.Id
+			ret.ProcessId = p.Id
 			ret.WorkflowName = wf.Name
 			startParam := make(map[string]struct{})
 			for _, el := range p.Elements {

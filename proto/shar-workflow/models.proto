@@ -86,7 +86,7 @@ message ListExecutableProcessesRequest{
 
 }
 message ListExecutableProcessesItem{
-  string processName = 1;
+  string processId = 1;
   string workflowName = 2;
   repeated ExecutableStartParameter parameter = 3;
 }

@@ -37,7 +37,7 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 	if err != nil {
 		return fmt.Errorf("get workflow: %w", err)
 	}
-	pr := wf.Process[state.ProcessName]
+	pr := wf.Process[state.ProcessId]
 	els := make(map[string]*model.Element)
 	common.IndexProcessElements(pr.Elements, els)
 	hist := make(chan *model.ProcessHistoryEntry)
@@ -142,7 +142,7 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 			return false, fmt.Errorf("get workflow: %w", err)
 		}
 		els := make(map[string]*model.Element)
-		common.IndexProcessElements(wf.Process[state.ProcessName].Elements, els)
+		common.IndexProcessElements(wf.Process[state.ProcessId].Elements, els)
 		id := common.TrackingID(state.Id)
 		consumer, err := s.natsService.Js.Consumer(ctx, "WORKFLOW", consumerPrefix+id.ID())
 		if err != nil {
@@ -193,7 +193,7 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 			UnixTimeNano:      time.Now().UnixNano(),
 			Vars:              state.Vars,
 			WorkflowName:      state.WorkflowName,
-			ProcessName:       state.ProcessName,
+			ProcessId:         state.ProcessId,
 			ProcessInstanceId: state.ProcessInstanceId,
 			Compensation: &model.Compensation{
 				Step:          int64(step),
@@ -238,7 +238,7 @@ func (s *Engine) compensationJobComplete(ctx context.Context, job *model.Workflo
 		return fmt.Errorf("get workflow: %w", err)
 	}
 	els := make(map[string]*model.Element, 0)
-	common.IndexProcessElements(wf.Process[job.ProcessName].Elements, els)
+	common.IndexProcessElements(wf.Process[job.ProcessId].Elements, els)
 
 	if err := vars.OutputVars(ctx, s.exprEngine, job.Vars, &checkpoint.Vars, els[job.ElementId].OutputTransform); err != nil {
 		return fmt.Errorf("transform output vars: %w", err)

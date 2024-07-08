@@ -70,7 +70,7 @@ func linkEventRules(msgs *[]Message, process *model.Process) {
 			if x, ok := catch[e.Execute]; !ok {
 				catch[e.Execute] = e.Id
 			} else {
-				*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("Duplicate link catch: %s in %s", x, process.Name)})
+				*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("Duplicate link catch: %s in %s", x, process.Id)})
 			}
 		}
 		if e.Type == element.LinkIntermediateThrowEvent {
@@ -79,12 +79,12 @@ func linkEventRules(msgs *[]Message, process *model.Process) {
 	}
 	for k, v := range throw {
 		if _, ok := catch[k]; !ok {
-			*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("No link catch for throw %s in %s in %s", k, v, process.Name)})
+			*msgs = append(*msgs, Message{Type: MessageTypeError, Text: fmt.Sprintf("No link catch for throw %s in %s in %s", k, v, process.Id)})
 		}
 	}
 	for k, v := range catch {
 		if _, ok := throw[k]; !ok {
-			*msgs = append(*msgs, Message{Type: MessageTypeWarning, Text: fmt.Sprintf("No link throw for catch %s in %s in %s", k, v, process.Name)})
+			*msgs = append(*msgs, Message{Type: MessageTypeWarning, Text: fmt.Sprintf("No link throw for catch %s in %s in %s", k, v, process.Id)})
 		}
 	}
 }

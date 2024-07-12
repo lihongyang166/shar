@@ -74,6 +74,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			goto notifyRetryExceeded
 		case model.RetryErrorAction_PauseWorkflow:
 			goto notifyRetryExceeded
+			//TODO we probably want to make this the default for when we exceed backoff retries???
 		case model.RetryErrorAction_SetVariableValue:
 			trackingID := common.TrackingID(state.Id).ID()
 			var retVar any

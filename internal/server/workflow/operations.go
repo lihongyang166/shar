@@ -1219,10 +1219,19 @@ func (s *Operations) PublishWorkflowState(ctx context.Context, stateName string,
 	return nil
 }
 
-// SignalFatalError publishes a FatalError message on death of a process in a workflow
-func (s *Operations) SignalFatalError(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+// SignalFatalErrorTeardown publishes a FatalError message on FatalErr of a process in a workflow with a Teardown strategy
+func (s *Operations) SignalFatalErrorTeardown(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+	s.signaFatalError(ctx, state, log, model.HandlingStrategy_TearDown)
+}
+
+// SignalFatalErrorPause publishes a FatalError message on FatalErr of a process in a workflow with a Pause strategy
+func (s *Operations) SignalFatalErrorPause(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+	s.signaFatalError(ctx, state, log, model.HandlingStrategy_Pause)
+}
+
+func (s *Operations) signaFatalError(ctx context.Context, state *model.WorkflowState, log *slog.Logger, handlingStrategy model.HandlingStrategy) {
 	fataError := &model.FatalError{
-		HandlingStrategy: 1,
+		HandlingStrategy: handlingStrategy,
 		WorkflowState:    state,
 	}
 

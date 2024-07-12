@@ -455,19 +455,49 @@ func (s *Integration) TrackingUpdatesFor(namespace string, executionId string, r
 	for {
 		select {
 		case <-timeOutChannel:
-			assert.Fail(t, "failed to get tracking update channel")
+			assert.Fail(t, "failed to get "+messages.KvTracking+" update channel")
 		default:
-			trackingKv, err := jetStream.KeyValue(ctx, ns.PrefixWith(namespace, messages.KvTracking))
+			kv, err := jetStream.KeyValue(ctx, ns.PrefixWith(namespace, messages.KvTracking))
 
 			if errors.Is(err, jetstream.ErrBucketNotFound) {
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
 
-			watch, err := trackingKv.Watch(ctx, executionId, jetstream.UpdatesOnly())
+			watch, err := kv.Watch(ctx, executionId, jetstream.UpdatesOnly())
 			require.NoError(t, err)
 			<-watch.Updates()
 			received <- struct{}{}
+			return
+		}
+	}
+}
+
+func (s *Integration) AssertExpectedKVKey(namespace string, kvName string, key string, timeout time.Duration, t *testing.T) {
+	jetStream, err := s.GetJetstream()
+	require.NoError(t, err)
+	ctx := context.Background()
+	timeOutChannel := time.After(timeout)
+	startTime := time.Now()
+
+	for {
+		kv, err := jetStream.KeyValue(ctx, ns.PrefixWith(namespace, kvName))
+
+		if errors.Is(err, jetstream.ErrBucketNotFound) {
+			time.Sleep(500 * time.Millisecond)
+			now := time.Now()
+			require.WithinDuration(t, startTime, now, timeout)
+			continue
+		}
+
+		watch, err := kv.Watch(ctx, key)
+		require.NoError(t, err)
+
+		select {
+		case <-timeOutChannel:
+			assert.Fail(t, "failed to get "+kvName+" update channel")
+			return
+		case <-watch.Updates():
 			return
 		}
 	}

@@ -223,4 +223,5 @@ var (
 	KvProcess          = "WORKFLOW_PROCESS_MAPPING" // KvProcess is the name of the key value store mapping process names to workflow names.
 	KvMessages         = "WORKFLOW_MESSAGES"        // KvMessages is the name of the key value store containing messages.
 	KvClients          = "WORKFLOW_CLIENTS"         // KvClients is the name of the key value store containing connected clients.
+	KvFatalError       = "WORKFLOW_FATAL_ERROR"     // KvFatalError is the name of the key value store containing fatal errs.
 )

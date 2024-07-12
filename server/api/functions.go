@@ -226,7 +226,7 @@ func (s *Endpoints) handleWorkflowFatalError(ctx context.Context, req *model.Han
 	if err != nil {
 		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
 	}
-	s.operations.SignalFatalError(ctx, req.WorkflowState, logx.FromContext(ctx))
+	s.operations.SignalFatalErrorPause(ctx, req.WorkflowState, logx.FromContext(ctx))
 	return &model.HandleWorkflowFatalErrorResponse{}, nil
 }
 

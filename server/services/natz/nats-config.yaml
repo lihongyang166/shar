@@ -256,3 +256,6 @@ buckets:
   - nats-config:
       bucket: WORKFLOW_MSGTYPES
       description: ""
+  - nats-config:
+      bucket: WORKFLOW_FATAL_ERROR
+      description: ""

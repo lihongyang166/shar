@@ -5662,8 +5662,9 @@ type HandleWorkflowFatalErrorRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	WorkflowState *WorkflowState `protobuf:"bytes,1,opt,name=workflowState,proto3" json:"workflowState,omitempty"`
-	Message       string         `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	WorkflowState    *WorkflowState   `protobuf:"bytes,1,opt,name=workflowState,proto3" json:"workflowState,omitempty"`
+	Message          string           `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	HandlingStrategy HandlingStrategy `protobuf:"varint,3,opt,name=handlingStrategy,proto3,enum=HandlingStrategy" json:"handlingStrategy,omitempty"`
 }
 
 func (x *HandleWorkflowFatalErrorRequest) Reset() {
@@ -5710,6 +5711,13 @@ func (x *HandleWorkflowFatalErrorRequest) GetMessage() string {
 		return x.Message
 	}
 	return ""
+}
+
+func (x *HandleWorkflowFatalErrorRequest) GetHandlingStrategy() HandlingStrategy {
+	if x != nil {
+		return x.HandlingStrategy
+	}
+	return HandlingStrategy_Pause
 }
 
 type HandleWorkflowFatalErrorResponse struct {
@@ -9682,14 +9690,18 @@ var file_shar_workflow_models_proto_rawDesc = []byte{
 	0x76, 0x61, 0x72, 0x73, 0x22, 0x37, 0x0a, 0x1b, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x57, 0x6f,
 	0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f,
 	0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x68, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x64, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x68, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x64, 0x22, 0x71, 0x0a,
-	0x1f, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x46,
-	0x61, 0x74, 0x61, 0x6c, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x12, 0x34, 0x0a, 0x0d, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x53, 0x74, 0x61, 0x74,
-	0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c,
-	0x6f, 0x77, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x0d, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f,
-	0x77, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67,
-	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x68, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x64, 0x22, 0xb0, 0x01,
+	0x0a, 0x1f, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77,
+	0x46, 0x61, 0x74, 0x61, 0x6c, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x12, 0x34, 0x0a, 0x0d, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x53, 0x74, 0x61,
+	0x74, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x57, 0x6f, 0x72, 0x6b, 0x66,
+	0x6c, 0x6f, 0x77, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x0d, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c,
+	0x6f, 0x77, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61,
+	0x67, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67,
+	0x65, 0x12, 0x3d, 0x0a, 0x10, 0x68, 0x61, 0x6e, 0x64, 0x6c, 0x69, 0x6e, 0x67, 0x53, 0x74, 0x72,
+	0x61, 0x74, 0x65, 0x67, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x11, 0x2e, 0x48, 0x61,
+	0x6e, 0x64, 0x6c, 0x69, 0x6e, 0x67, 0x53, 0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x79, 0x52, 0x10,
+	0x68, 0x61, 0x6e, 0x64, 0x6c, 0x69, 0x6e, 0x67, 0x53, 0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x79,
 	0x22, 0x3c, 0x0a, 0x20, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c,
 	0x6f, 0x77, 0x46, 0x61, 0x74, 0x61, 0x6c, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70,
 	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x68, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x64, 0x18,
@@ -10526,116 +10538,117 @@ var file_shar_workflow_models_proto_depIdxs = []int32{
 	6,   // 58: WorkflowInstanceComplete.workflowState:type_name -> CancellationState
 	43,  // 59: WorkflowInstanceComplete.error:type_name -> Error
 	46,  // 60: HandleWorkflowFatalErrorRequest.workflowState:type_name -> WorkflowState
-	35,  // 61: GetWorkflowVersionsResponse.versions:type_name -> WorkflowVersions
-	27,  // 62: GetWorkflowResponse.definition:type_name -> Workflow
-	49,  // 63: GetProcessHistoryResponse.entry:type_name -> ProcessHistoryEntry
-	46,  // 64: GetJobResponse.job:type_name -> WorkflowState
-	27,  // 65: ResolveWorkflowRequest.workflow:type_name -> Workflow
-	27,  // 66: ResolveWorkflowResponse.workflow:type_name -> Workflow
-	46,  // 67: TelemetryState.state:type_name -> WorkflowState
-	162, // 68: TelemetryState.log:type_name -> TelemetryState.LogEntry
-	7,   // 69: TelemetryLogEntry.source:type_name -> LogSource
-	163, // 70: TelemetryLogEntry.attributes:type_name -> TelemetryLogEntry.AttributesEntry
-	112, // 71: TaskSpec.metadata:type_name -> TaskMetadata
-	115, // 72: TaskSpec.behaviour:type_name -> TaskBehaviour
-	113, // 73: TaskSpec.parameters:type_name -> TaskParameters
-	114, // 74: TaskSpec.events:type_name -> TaskEvents
-	164, // 75: TaskMetadata.extensionData:type_name -> TaskMetadata.ExtensionDataEntry
-	119, // 76: TaskParameters.parameterGroup:type_name -> ParameterGroup
-	120, // 77: TaskParameters.input:type_name -> Parameter
-	120, // 78: TaskParameters.output:type_name -> Parameter
-	122, // 79: TaskEvents.error:type_name -> TaskError
-	121, // 80: TaskEvents.message:type_name -> Message
-	117, // 81: TaskBehaviour.defaultRetry:type_name -> DefaultTaskRetry
-	116, // 82: TaskBehaviour.mockBehaviour:type_name -> TaskMockBehaviours
-	8,   // 83: DefaultTaskRetry.strategy:type_name -> RetryStrategy
-	118, // 84: DefaultTaskRetry.defaultExceeded:type_name -> DefaultRetryExceededBehaviour
-	9,   // 85: DefaultRetryExceededBehaviour.action:type_name -> RetryErrorAction
-	165, // 86: Parameter.extensionData:type_name -> Parameter.ExtensionDataEntry
-	111, // 87: RegisterTaskRequest.spec:type_name -> TaskSpec
-	111, // 88: GetTaskSpecResponse.spec:type_name -> TaskSpec
-	132, // 89: DeprecateServiceTaskResponse.usage:type_name -> TaskSpecUsageReport
-	110, // 90: GetTaskSpecVersionsResponse.versions:type_name -> TaskSpecVersions
-	135, // 91: Exchange.sender:type_name -> Sender
-	166, // 92: Exchange.receivers:type_name -> Exchange.ReceiversEntry
-	7,   // 93: LogRequest.source:type_name -> LogSource
-	167, // 94: LogRequest.attributes:type_name -> LogRequest.AttributesEntry
-	168, // 95: GetProcessHeadersResponse.headers:type_name -> GetProcessHeadersResponse.HeadersEntry
-	10,  // 96: FatalError.handlingStrategy:type_name -> HandlingStrategy
-	46,  // 97: FatalError.workflowState:type_name -> WorkflowState
-	34,  // 98: Workflow.ProcessEntry.value:type_name -> Process
-	28,  // 99: Workflow.MessageReceiversEntry.value:type_name -> MessageReceivers
-	51,  // 100: WorkflowState.SatisfiesGatewayExpectationEntry.value:type_name -> SatisfiesGateway
-	52,  // 101: WorkflowState.GatewayExpectationsEntry.value:type_name -> GatewayExpectations
-	51,  // 102: ProcessHistoryEntry.SatisfiesGatewayExpectationEntry.value:type_name -> SatisfiesGateway
-	52,  // 103: ProcessHistoryEntry.GatewayExpectationsEntry.value:type_name -> GatewayExpectations
-	109, // 104: TelemetryState.LogEntry.value:type_name -> TelemetryLogEntry
-	136, // 105: Exchange.ReceiversEntry.value:type_name -> Receiver
-	11,  // 106: Shar.StoreWorkflow:input_type -> StoreWorkflowRequest
-	67,  // 107: Shar.CancelProcessInstance:input_type -> CancelProcessInstanceRequest
-	65,  // 108: Shar.LaunchProcess:input_type -> LaunchWorkflowRequest
-	14,  // 109: Shar.ListWorkflows:input_type -> ListWorkflowsRequest
-	68,  // 110: Shar.ListExecutionProcesses:input_type -> ListExecutionProcessesRequest
-	72,  // 111: Shar.ListExecution:input_type -> ListExecutionRequest
-	79,  // 112: Shar.SendMessage:input_type -> SendMessageRequest
-	82,  // 113: Shar.CompleteManualTask:input_type -> CompleteManualTaskRequest
-	83,  // 114: Shar.CompleteServiceTask:input_type -> CompleteServiceTaskRequest
-	85,  // 115: Shar.CompleteUserTask:input_type -> CompleteUserTaskRequest
-	86,  // 116: Shar.ListUserTaskIDs:input_type -> ListUserTasksRequest
-	87,  // 117: Shar.GetUserTask:input_type -> GetUserTaskRequest
-	89,  // 118: Shar.HandleWorkflowError:input_type -> HandleWorkflowErrorRequest
-	91,  // 119: Shar.HandleWorkflowFatalError:input_type -> HandleWorkflowFatalErrorRequest
-	84,  // 120: Shar.CompleteSendMessageTask:input_type -> CompleteSendMessageRequest
-	93,  // 121: Shar.GetWorkflowVersions:input_type -> GetWorkflowVersionsRequest
-	95,  // 122: Shar.GetWorkflow:input_type -> GetWorkflowRequest
-	70,  // 123: Shar.GetProcessInstanceStatus:input_type -> GetProcessInstanceStatusRequest
-	97,  // 124: Shar.GetProcessHistory:input_type -> GetProcessHistoryRequest
-	101, // 125: Shar.GetVersionInfo:input_type -> GetVersionInfoRequest
-	123, // 126: Shar.RegisterTask:input_type -> RegisterTaskRequest
-	125, // 127: Shar.GetTaskSpec:input_type -> GetTaskSpecRequest
-	127, // 128: Shar.DeprecateServiceTask:input_type -> DeprecateServiceTaskRequest
-	129, // 129: Shar.GetTaskSpecVersions:input_type -> GetTaskSpecVersionsRequest
-	131, // 130: Shar.GetTaskSpecUsage:input_type -> GetTaskSpecUsageRequest
-	133, // 131: Shar.ListTaskSpecUIDs:input_type -> ListTaskSpecUIDsRequest
-	25,  // 132: Shar.Heartbeat:input_type -> HeartbeatRequest
-	139, // 133: Shar.Log:input_type -> LogRequest
-	103, // 134: Shar.GetJob:input_type -> GetJobRequest
-	105, // 135: Shar.ResolveWorkflow:input_type -> ResolveWorkflowRequest
-	12,  // 136: Shar.StoreWorkflow:output_type -> StoreWorkflowResponse
-	13,  // 137: Shar.CancelProcessInstance:output_type -> CancelProcessInstanceResponse
-	66,  // 138: Shar.LaunchProcess:output_type -> LaunchWorkflowResponse
-	77,  // 139: Shar.ListWorkflows:output_type -> ListWorkflowsResponse
-	69,  // 140: Shar.ListExecutionProcesses:output_type -> ListExecutionProcessesResponse
-	73,  // 141: Shar.ListExecution:output_type -> ListExecutionResponse
-	80,  // 142: Shar.SendMessage:output_type -> SendMessageResponse
-	15,  // 143: Shar.CompleteManualTask:output_type -> CompleteManualTaskResponse
-	16,  // 144: Shar.CompleteServiceTask:output_type -> CompleteServiceTaskResponse
-	17,  // 145: Shar.CompleteUserTask:output_type -> CompleteUserTaskResponse
-	18,  // 146: Shar.ListUserTaskIDs:output_type -> ListUserTasksResponse
-	88,  // 147: Shar.GetUserTask:output_type -> GetUserTaskResponse
-	90,  // 148: Shar.HandleWorkflowError:output_type -> HandleWorkflowErrorResponse
-	92,  // 149: Shar.HandleWorkflowFatalError:output_type -> HandleWorkflowFatalErrorResponse
-	19,  // 150: Shar.CompleteSendMessageTask:output_type -> CompleteSendMessageResponse
-	94,  // 151: Shar.GetWorkflowVersions:output_type -> GetWorkflowVersionsResponse
-	96,  // 152: Shar.GetWorkflow:output_type -> GetWorkflowResponse
-	20,  // 153: Shar.GetProcessInstanceStatus:output_type -> GetProcessInstanceStatusResponse
-	98,  // 154: Shar.GetProcessHistory:output_type -> GetProcessHistoryResponse
-	102, // 155: Shar.GetVersionInfo:output_type -> GetVersionInfoResponse
-	124, // 156: Shar.RegisterTask:output_type -> RegisterTaskResponse
-	126, // 157: Shar.GetTaskSpec:output_type -> GetTaskSpecResponse
-	128, // 158: Shar.DeprecateServiceTask:output_type -> DeprecateServiceTaskResponse
-	130, // 159: Shar.GetTaskSpecVersions:output_type -> GetTaskSpecVersionsResponse
-	21,  // 160: Shar.GetTaskSpecUsage:output_type -> GetTaskSpecUsageResponse
-	134, // 161: Shar.ListTaskSpecUIDs:output_type -> ListTaskSpecUIDsResponse
-	26,  // 162: Shar.Heartbeat:output_type -> HeartbeatResponse
-	140, // 163: Shar.Log:output_type -> LogResponse
-	104, // 164: Shar.GetJob:output_type -> GetJobResponse
-	106, // 165: Shar.ResolveWorkflow:output_type -> ResolveWorkflowResponse
-	136, // [136:166] is the sub-list for method output_type
-	106, // [106:136] is the sub-list for method input_type
-	106, // [106:106] is the sub-list for extension type_name
-	106, // [106:106] is the sub-list for extension extendee
-	0,   // [0:106] is the sub-list for field type_name
+	10,  // 61: HandleWorkflowFatalErrorRequest.handlingStrategy:type_name -> HandlingStrategy
+	35,  // 62: GetWorkflowVersionsResponse.versions:type_name -> WorkflowVersions
+	27,  // 63: GetWorkflowResponse.definition:type_name -> Workflow
+	49,  // 64: GetProcessHistoryResponse.entry:type_name -> ProcessHistoryEntry
+	46,  // 65: GetJobResponse.job:type_name -> WorkflowState
+	27,  // 66: ResolveWorkflowRequest.workflow:type_name -> Workflow
+	27,  // 67: ResolveWorkflowResponse.workflow:type_name -> Workflow
+	46,  // 68: TelemetryState.state:type_name -> WorkflowState
+	162, // 69: TelemetryState.log:type_name -> TelemetryState.LogEntry
+	7,   // 70: TelemetryLogEntry.source:type_name -> LogSource
+	163, // 71: TelemetryLogEntry.attributes:type_name -> TelemetryLogEntry.AttributesEntry
+	112, // 72: TaskSpec.metadata:type_name -> TaskMetadata
+	115, // 73: TaskSpec.behaviour:type_name -> TaskBehaviour
+	113, // 74: TaskSpec.parameters:type_name -> TaskParameters
+	114, // 75: TaskSpec.events:type_name -> TaskEvents
+	164, // 76: TaskMetadata.extensionData:type_name -> TaskMetadata.ExtensionDataEntry
+	119, // 77: TaskParameters.parameterGroup:type_name -> ParameterGroup
+	120, // 78: TaskParameters.input:type_name -> Parameter
+	120, // 79: TaskParameters.output:type_name -> Parameter
+	122, // 80: TaskEvents.error:type_name -> TaskError
+	121, // 81: TaskEvents.message:type_name -> Message
+	117, // 82: TaskBehaviour.defaultRetry:type_name -> DefaultTaskRetry
+	116, // 83: TaskBehaviour.mockBehaviour:type_name -> TaskMockBehaviours
+	8,   // 84: DefaultTaskRetry.strategy:type_name -> RetryStrategy
+	118, // 85: DefaultTaskRetry.defaultExceeded:type_name -> DefaultRetryExceededBehaviour
+	9,   // 86: DefaultRetryExceededBehaviour.action:type_name -> RetryErrorAction
+	165, // 87: Parameter.extensionData:type_name -> Parameter.ExtensionDataEntry
+	111, // 88: RegisterTaskRequest.spec:type_name -> TaskSpec
+	111, // 89: GetTaskSpecResponse.spec:type_name -> TaskSpec
+	132, // 90: DeprecateServiceTaskResponse.usage:type_name -> TaskSpecUsageReport
+	110, // 91: GetTaskSpecVersionsResponse.versions:type_name -> TaskSpecVersions
+	135, // 92: Exchange.sender:type_name -> Sender
+	166, // 93: Exchange.receivers:type_name -> Exchange.ReceiversEntry
+	7,   // 94: LogRequest.source:type_name -> LogSource
+	167, // 95: LogRequest.attributes:type_name -> LogRequest.AttributesEntry
+	168, // 96: GetProcessHeadersResponse.headers:type_name -> GetProcessHeadersResponse.HeadersEntry
+	10,  // 97: FatalError.handlingStrategy:type_name -> HandlingStrategy
+	46,  // 98: FatalError.workflowState:type_name -> WorkflowState
+	34,  // 99: Workflow.ProcessEntry.value:type_name -> Process
+	28,  // 100: Workflow.MessageReceiversEntry.value:type_name -> MessageReceivers
+	51,  // 101: WorkflowState.SatisfiesGatewayExpectationEntry.value:type_name -> SatisfiesGateway
+	52,  // 102: WorkflowState.GatewayExpectationsEntry.value:type_name -> GatewayExpectations
+	51,  // 103: ProcessHistoryEntry.SatisfiesGatewayExpectationEntry.value:type_name -> SatisfiesGateway
+	52,  // 104: ProcessHistoryEntry.GatewayExpectationsEntry.value:type_name -> GatewayExpectations
+	109, // 105: TelemetryState.LogEntry.value:type_name -> TelemetryLogEntry
+	136, // 106: Exchange.ReceiversEntry.value:type_name -> Receiver
+	11,  // 107: Shar.StoreWorkflow:input_type -> StoreWorkflowRequest
+	67,  // 108: Shar.CancelProcessInstance:input_type -> CancelProcessInstanceRequest
+	65,  // 109: Shar.LaunchProcess:input_type -> LaunchWorkflowRequest
+	14,  // 110: Shar.ListWorkflows:input_type -> ListWorkflowsRequest
+	68,  // 111: Shar.ListExecutionProcesses:input_type -> ListExecutionProcessesRequest
+	72,  // 112: Shar.ListExecution:input_type -> ListExecutionRequest
+	79,  // 113: Shar.SendMessage:input_type -> SendMessageRequest
+	82,  // 114: Shar.CompleteManualTask:input_type -> CompleteManualTaskRequest
+	83,  // 115: Shar.CompleteServiceTask:input_type -> CompleteServiceTaskRequest
+	85,  // 116: Shar.CompleteUserTask:input_type -> CompleteUserTaskRequest
+	86,  // 117: Shar.ListUserTaskIDs:input_type -> ListUserTasksRequest
+	87,  // 118: Shar.GetUserTask:input_type -> GetUserTaskRequest
+	89,  // 119: Shar.HandleWorkflowError:input_type -> HandleWorkflowErrorRequest
+	91,  // 120: Shar.HandleWorkflowFatalError:input_type -> HandleWorkflowFatalErrorRequest
+	84,  // 121: Shar.CompleteSendMessageTask:input_type -> CompleteSendMessageRequest
+	93,  // 122: Shar.GetWorkflowVersions:input_type -> GetWorkflowVersionsRequest
+	95,  // 123: Shar.GetWorkflow:input_type -> GetWorkflowRequest
+	70,  // 124: Shar.GetProcessInstanceStatus:input_type -> GetProcessInstanceStatusRequest
+	97,  // 125: Shar.GetProcessHistory:input_type -> GetProcessHistoryRequest
+	101, // 126: Shar.GetVersionInfo:input_type -> GetVersionInfoRequest
+	123, // 127: Shar.RegisterTask:input_type -> RegisterTaskRequest
+	125, // 128: Shar.GetTaskSpec:input_type -> GetTaskSpecRequest
+	127, // 129: Shar.DeprecateServiceTask:input_type -> DeprecateServiceTaskRequest
+	129, // 130: Shar.GetTaskSpecVersions:input_type -> GetTaskSpecVersionsRequest
+	131, // 131: Shar.GetTaskSpecUsage:input_type -> GetTaskSpecUsageRequest
+	133, // 132: Shar.ListTaskSpecUIDs:input_type -> ListTaskSpecUIDsRequest
+	25,  // 133: Shar.Heartbeat:input_type -> HeartbeatRequest
+	139, // 134: Shar.Log:input_type -> LogRequest
+	103, // 135: Shar.GetJob:input_type -> GetJobRequest
+	105, // 136: Shar.ResolveWorkflow:input_type -> ResolveWorkflowRequest
+	12,  // 137: Shar.StoreWorkflow:output_type -> StoreWorkflowResponse
+	13,  // 138: Shar.CancelProcessInstance:output_type -> CancelProcessInstanceResponse
+	66,  // 139: Shar.LaunchProcess:output_type -> LaunchWorkflowResponse
+	77,  // 140: Shar.ListWorkflows:output_type -> ListWorkflowsResponse
+	69,  // 141: Shar.ListExecutionProcesses:output_type -> ListExecutionProcessesResponse
+	73,  // 142: Shar.ListExecution:output_type -> ListExecutionResponse
+	80,  // 143: Shar.SendMessage:output_type -> SendMessageResponse
+	15,  // 144: Shar.CompleteManualTask:output_type -> CompleteManualTaskResponse
+	16,  // 145: Shar.CompleteServiceTask:output_type -> CompleteServiceTaskResponse
+	17,  // 146: Shar.CompleteUserTask:output_type -> CompleteUserTaskResponse
+	18,  // 147: Shar.ListUserTaskIDs:output_type -> ListUserTasksResponse
+	88,  // 148: Shar.GetUserTask:output_type -> GetUserTaskResponse
+	90,  // 149: Shar.HandleWorkflowError:output_type -> HandleWorkflowErrorResponse
+	92,  // 150: Shar.HandleWorkflowFatalError:output_type -> HandleWorkflowFatalErrorResponse
+	19,  // 151: Shar.CompleteSendMessageTask:output_type -> CompleteSendMessageResponse
+	94,  // 152: Shar.GetWorkflowVersions:output_type -> GetWorkflowVersionsResponse
+	96,  // 153: Shar.GetWorkflow:output_type -> GetWorkflowResponse
+	20,  // 154: Shar.GetProcessInstanceStatus:output_type -> GetProcessInstanceStatusResponse
+	98,  // 155: Shar.GetProcessHistory:output_type -> GetProcessHistoryResponse
+	102, // 156: Shar.GetVersionInfo:output_type -> GetVersionInfoResponse
+	124, // 157: Shar.RegisterTask:output_type -> RegisterTaskResponse
+	126, // 158: Shar.GetTaskSpec:output_type -> GetTaskSpecResponse
+	128, // 159: Shar.DeprecateServiceTask:output_type -> DeprecateServiceTaskResponse
+	130, // 160: Shar.GetTaskSpecVersions:output_type -> GetTaskSpecVersionsResponse
+	21,  // 161: Shar.GetTaskSpecUsage:output_type -> GetTaskSpecUsageResponse
+	134, // 162: Shar.ListTaskSpecUIDs:output_type -> ListTaskSpecUIDsResponse
+	26,  // 163: Shar.Heartbeat:output_type -> HeartbeatResponse
+	140, // 164: Shar.Log:output_type -> LogResponse
+	104, // 165: Shar.GetJob:output_type -> GetJobResponse
+	106, // 166: Shar.ResolveWorkflow:output_type -> ResolveWorkflowResponse
+	137, // [137:167] is the sub-list for method output_type
+	107, // [107:137] is the sub-list for method input_type
+	107, // [107:107] is the sub-list for extension type_name
+	107, // [107:107] is the sub-list for extension extendee
+	0,   // [0:107] is the sub-list for field type_name
 }
 
 func init() { file_shar_workflow_models_proto_init() }

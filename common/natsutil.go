@@ -228,9 +228,9 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 
 // Process processes messages from a nats consumer and executes a function against each one.
 func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), signalFatalErrFn func(ctx context.Context, state *model.WorkflowState, log *slog.Logger), opts ...ProcessOption) error {
-	set := &ProcessOpts{}
+	processOpt := &ProcessOpts{}
 	for _, i := range opts {
-		i.Set(set)
+		i.Set(processOpt)
 	}
 	log := logx.FromContext(ctx)
 
@@ -339,12 +339,18 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 								log.Error("fetching message metadata")
 							}
 
-							if set.BackoffCalc != nil {
-								err := set.BackoffCalc(executeCtx, m)
+							if processOpt.BackoffCalc != nil {
+								err := processOpt.BackoffCalc(executeCtx, m)
 								if err != nil {
 									slog.Error("backoff error", "error", err)
 								}
 								continue
+								//TODO does this mean we don't ack and we actually
+								//retry the same msg (depending on the backoff policy?)
+								//in the event of a non workflow.Error ???
+								//it basically means any non workflow.Error/errors.ErrWorkflowFatal
+								//is potentially intermitent and might succeed on retry...
+								//but if we don't define a backoff, will this infinitely retry???
 							}
 						}
 					}

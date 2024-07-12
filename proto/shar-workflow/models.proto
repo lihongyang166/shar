@@ -606,6 +606,7 @@ message HandleWorkflowErrorResponse {
 message HandleWorkflowFatalErrorRequest {
   WorkflowState workflowState = 1;
   string message = 2;
+  HandlingStrategy handlingStrategy = 3;
 }
 
 message HandleWorkflowFatalErrorResponse {

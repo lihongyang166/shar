@@ -563,7 +563,7 @@ func (c *Client) listen(ctx context.Context) error {
 
 func (c *Client) signalFatalErr(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
 	res := &model.HandleWorkflowFatalErrorResponse{}
-	req := &model.HandleWorkflowFatalErrorRequest{WorkflowState: state}
+	req := &model.HandleWorkflowFatalErrorRequest{WorkflowState: state, HandlingStrategy: model.HandlingStrategy_Pause}
 	ctx = subj.SetNS(ctx, c.ns)
 
 	if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowFatalError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {

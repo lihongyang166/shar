@@ -11,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
+	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"os"
@@ -579,7 +580,7 @@ func (s *Integration) ListenForFatalErr(t *testing.T, fatalErrChan chan struct{}
 	natsConnection, err := nats.Connect(s.NatsURL)
 	require.NoError(t, err)
 
-	subscription, err := natsConnection.Subscribe(messages.WorkflowSystemProcessFatalError, func(msg *nats.Msg) {
+	subscription, err := natsConnection.Subscribe(subj.NS(messages.WorkflowSystemProcessFatalError, "*"), func(msg *nats.Msg) {
 		fatalError := &model.FatalError{}
 		err2 := proto.Unmarshal(msg.Data, fatalError)
 		require.NoError(t, err2)

@@ -1234,8 +1234,7 @@ func (s *Operations) signaFatalError(ctx context.Context, state *model.WorkflowS
 		HandlingStrategy: handlingStrategy,
 		WorkflowState:    state,
 	}
-
-	err := s.PublishMsg(ctx, messages.WorkflowSystemProcessFatalError, fataError)
+	err := s.PublishMsg(ctx, subj.NS(messages.WorkflowSystemProcessFatalError, subj.GetNS(ctx)), fataError)
 	if err != nil {
 		log.Error("failed publishing fatal err", "err", err)
 	}

@@ -1152,7 +1152,7 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 }
 
 func (s *Engine) processFatalError(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "fatalError", s.closing, messages.WorkflowSystemProcessFatalError, "FatalErrorConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "fatalError", s.closing, subj.NS(messages.WorkflowSystemProcessFatalError, "*"), "FatalErrorConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var fatalErr model.FatalError
 		if err := proto.Unmarshal(msg.Data(), &fatalErr); err != nil {
 			return false, fmt.Errorf("unmarshal during fatal error processor: %w", err)

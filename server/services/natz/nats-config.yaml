@@ -6,7 +6,7 @@ streams:
         - WORKFLOW.System.Task.Update
         - WORKFLOW.System.Process.Pause
         - WORKFLOW.System.Process.Error
-        - WORKFLOW.System.Process.FatalError
+        - WORKFLOW.*.System.Process.FatalError
         - WORKFLOW.*.State.Job.Abort.*
         - WORKFLOW.*.State.Job.Complete.*
         - WORKFLOW.*.State.Activity.Abort
@@ -185,7 +185,7 @@ streams:
           description: Tracking queue for process fatal errors
           ack_policy: 0
           ack_wait: 30s
-          filter_subject: WORKFLOW.System.Process.FatalError
+          filter_subject: WORKFLOW.*.System.Process.FatalError
           max_ack_pending: 65535
 buckets:
   - nats-config:

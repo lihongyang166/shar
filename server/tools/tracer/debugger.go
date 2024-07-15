@@ -44,7 +44,7 @@ func Debug(natsURL string, filename string) *OpenDebug {
 		if r.MatchString(msg.Subject) {
 			debugOutput(msg, of)
 		} else {
-			//fmt.Println(msg.Subject)
+			fmt.Println(msg.Subject)
 		}
 	})
 	if err != nil {
@@ -53,6 +53,10 @@ func Debug(natsURL string, filename string) *OpenDebug {
 	return &OpenDebug{sub: sub, file: of}
 }
 
+// OutputState represents the output state of a workflow.
+// It embeds the model.WorkflowState struct and extends it with additional fields:
+//   - Subject: the subject of the message
+//   - VarMap: a map of variables
 type OutputState struct {
 	model.WorkflowState
 	Subject string

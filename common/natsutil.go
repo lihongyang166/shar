@@ -347,9 +347,6 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 								continue
 								//TODO does this mean we don't ack and we actually
 								//retry the same msg (depending on the backoff policy?)
-								//in the event of a non workflow.Error ???
-								//it basically means any non workflow.Error/errors.ErrWorkflowFatal
-								//is potentially intermitent and might succeed on retry...
 								//but if we don't define a backoff, will this infinitely retry???
 							}
 						}

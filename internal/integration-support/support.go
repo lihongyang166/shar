@@ -474,6 +474,7 @@ func (s *Integration) TrackingUpdatesFor(namespace string, executionId string, r
 	}
 }
 
+// AssertExpectedKVKey waits for timeout for the existence of the expected key in the given kv and namespace.
 func (s *Integration) AssertExpectedKVKey(namespace string, kvName string, key string, timeout time.Duration, t *testing.T) {
 	jetStream, err := s.GetJetstream()
 	require.NoError(t, err)
@@ -576,11 +577,11 @@ func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename strin
 
 // ListenForFatalErr will subscribe to the ProcessFatalError subject and will send a message to the fatalErrChan
 // on receipt of any messages on the subject
-func (s *Integration) ListenForFatalErr(t *testing.T, fatalErrChan chan struct{}) *nats.Subscription {
+func (s *Integration) ListenForFatalErr(t *testing.T, fatalErrChan chan struct{}, ns string) *nats.Subscription {
 	natsConnection, err := nats.Connect(s.NatsURL)
 	require.NoError(t, err)
 
-	subscription, err := natsConnection.Subscribe(subj.NS(messages.WorkflowSystemProcessFatalError, "*"), func(msg *nats.Msg) {
+	subscription, err := natsConnection.Subscribe(subj.NS(messages.WorkflowSystemProcessFatalError, ns), func(msg *nats.Msg) {
 		fatalError := &model.FatalError{}
 		err2 := proto.Unmarshal(msg.Data, fatalError)
 		require.NoError(t, err2)

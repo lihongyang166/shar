@@ -621,6 +621,7 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b []byte) (string, error) {
 	rdr := bytes.NewReader(b)
 	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, name, rdr)
+
 	if err != nil {
 		return "", c.clientErr(ctx, err)
 	}

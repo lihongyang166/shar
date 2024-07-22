@@ -82,9 +82,12 @@ func TestVarsWithAtCharacters(t *testing.T) {
 	d := &testSimpleHandlerDef{t: t, finished: make(chan struct{}), trackingReceived: make(chan struct{}, 1)}
 
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "create-halo-ticket-task.yaml", d.createHaloTicket)
+	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "var-with-at-symbol-task.yaml", d.sendEmail100)
+	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "send-sms-task.yaml", d.sendSMS)
 	require.NoError(t, err)
+	
 	processId := "demoWorkflow-1-0-1-process-1"
 	err = cl.RegisterProcessComplete(processId, func(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
 		close(d.finished)

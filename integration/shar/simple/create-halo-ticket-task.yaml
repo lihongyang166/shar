@@ -1,0 +1,48 @@
+version: '1.0'
+kind: ServiceTask
+behaviour:
+  defaultRetry:
+    number: 30
+    strategy: 30000
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
+      action: 3
+  estimatedMaxDuration: 2343255
+parameters:
+  parameterGroup:
+    - name: create_halo_input
+      short: Email parameters
+      description: Email parameters
+  input:
+    - name: ClientID
+      short: To
+      description: To
+      type: number
+      group: create_halo_input
+      mandatory: true
+      example: 333
+    - name: TicketTypeID
+      short: TicketTypeID
+      description: TicketTypeID
+      type: number
+      group: create_halo_input
+      mandatory: true
+      example: 444
+    - name: Summary
+      short: Summary
+      type: string
+      group: create_halo_input
+      mandatory: true
+      example: smry
+metadata:
+  category: communications
+  type: createHaloTicket-0-0-1
+  short: CreateHaloTicket
+  description: 'call HALO'
+  labels:
+    - template
+    - mock
+  version: 0.0.1
+events: {}

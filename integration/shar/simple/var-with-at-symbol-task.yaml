@@ -1,0 +1,48 @@
+version: '1.0'
+kind: ServiceTask
+behaviour:
+  defaultRetry:
+    number: 30
+    strategy: 30000
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
+      action: 3
+  estimatedMaxDuration: 2343255
+parameters:
+  parameterGroup:
+    - name: email_input
+      short: Email parameters
+      description: Email parameters
+  input:
+    - name: To
+      short: To
+      description: To
+      type: string
+      group: email_input
+      mandatory: true
+      example: matthew.brazel
+    - name: Subject
+      short: Subject
+      description: Subject
+      type: string
+      group: email_input
+      mandatory: true
+      example: Fallout
+    - name: Body
+      short: Body
+      type: string
+      group: email_input
+      mandatory: true
+      example: Iguana
+metadata:
+  category: communications
+  type: sendEmail-1-0-0
+  short: SendEmail
+  description: 'SMTP Amazon SES '
+  labels:
+    - template
+    - mock
+  version: 1.0.0
+events: {}

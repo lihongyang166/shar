@@ -1,0 +1,42 @@
+version: '1.0'
+kind: ServiceTask
+behaviour:
+  defaultRetry:
+    number: 30
+    strategy: 30000
+    initMilli: 30000
+    intervalMilli: 10000
+    maxMilli: 120000
+    defaultExceeded:
+      action: 3
+  estimatedMaxDuration: 2343255
+parameters:
+  parameterGroup:
+    - name: send_sms_input
+      short: Email parameters
+      description: Email parameters
+  input:
+    - name: PhoneNumber
+      short: PhoneNumber
+      description: PhoneNumber
+      type: number
+      group: send_sms_input
+      mandatory: true
+      example: 33333333333
+    - name: Message
+      short: Message
+      description: Message
+      type: string
+      group: send_sms_input
+      mandatory: true
+      example: msg
+metadata:
+  category: communications
+  type: sendSMS-0-0-1
+  short: sendSMS
+  description: 'send SMS'
+  labels:
+    - template
+    - mock
+  version: 0.0.1
+events: {}

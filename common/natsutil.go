@@ -620,10 +620,10 @@ func KeyPrefixSearch(ctx context.Context, js jetstream.JetStream, kv jetstream.K
 		return nil, fmt.Errorf("get stream info: %w", err)
 	}
 	ret := make([]string, 0, len(nfo.State.Subjects))
-	trim := len(subjectTrim)
+	kvNameSubjectPrefixLength := len(subjectTrim)
 	for s := range nfo.State.Subjects {
-		if len(s) >= trim {
-			ret = append(ret, s[trim:])
+		if len(s) >= kvNameSubjectPrefixLength {
+			ret = append(ret, s[kvNameSubjectPrefixLength:])
 		}
 	}
 

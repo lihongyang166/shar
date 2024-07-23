@@ -193,6 +193,7 @@ const (
 	APIGetVersionInfo                 = "WORKFLOW.API.GetVersionInfo"                 // APIGetVersionInfo is the get server version information API message subject.
 	APIGetTaskSpecUsage               = "WORKFLOW.Api.GetTaskSpecUsage"               // APIGetTaskSpecUsage is the get task spec usage API message subject.
 	APIListTaskSpecUIDs               = "WORKFLOW.Api.ListTaskSpecUIDs"               // APIListTaskSpecUIDs is the list task spec UIDs API message subject.
+	APIGetFatalErrors                 = "WORKFLOW.Api.GetFatalErrors"                 //APIGetFatalErrors gets fatal errors given a key prefix to search against
 	APIHeartbeat                      = "WORKFLOW.Api.Heartbeat"                      // APIHeartbeat // is the heartbeat API message subject.
 	APILog                            = "WORKFLOW.Api.Log"                            // APILog // is the client logging message subject.
 	APIGetJob                         = "WORKFLOW.Api.GetJob"                         // APIGetJob is the get job API subject.

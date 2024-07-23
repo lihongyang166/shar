@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -88,23 +89,48 @@ func TestFatalErrorPersistedWithPauseHandlingStrategy(t *testing.T) {
 		panic(err)
 	}
 
-	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
-	require.NoError(t, err)
+	executionIds := map[int]string{1: "", 2: "", 3: ""}
 
-	// Listen for service tasks
-	go func() {
-		err := cl.Listen(ctx)
+	for i, _ := range executionIds {
+		// Launch the workflow
+		executionId, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
 		require.NoError(t, err)
-	}()
 
-	tst.ListenForFatalErr(t, d.fatalErr, ns)
+		executionIds[i] = executionId
 
-	// wait for the fatal err to appear
-	support.WaitForChan(t, d.fatalErr, 20*time.Second)
+		// Listen for service tasks
+		go func() {
+			err := cl.Listen(ctx)
+			require.NoError(t, err)
+		}()
 
-	expectedFatalErrorKey := fmt.Sprintf("%s.%s.>", wfName, executionId)
-	tst.AssertExpectedKVKey(ns, messages.KvFatalError, expectedFatalErrorKey, 20*time.Second, t)
+		tst.ListenForFatalErr(t, d.fatalErr, ns)
+		// wait for the fatal err to appear
+		support.WaitForChan(t, d.fatalErr, 20*time.Second)
+
+		expectedFatalErrorKey := fmt.Sprintf("%s.%s.>", wfName, executionId)
+		tst.AssertExpectedKVKey(ns, messages.KvFatalError, expectedFatalErrorKey, 20*time.Second, t)
+	}
+
+	assert.Eventually(t, func() bool {
+		fatalErrors, err := cl.GetFatalErrors(ctx, fmt.Sprintf("%s.>", wfName))
+		require.NoError(t, err)
+		return len(fatalErrors) == len(executionIds)
+	}, 3*time.Second, 100*time.Millisecond)
+
+	for _, executionId := range executionIds {
+		assert.Eventually(t, func() bool {
+			fatalErrors, err := cl.GetFatalErrors(ctx, fmt.Sprintf("%s.%s.>", wfName, executionId))
+			require.NoError(t, err)
+			return len(fatalErrors) == 1 && fatalErrors[0].WorkflowState.ExecutionId == executionId
+		}, 3*time.Second, 100*time.Millisecond)
+	}
+
+	assert.Eventually(t, func() bool {
+		fatalErrors, err := cl.GetFatalErrors(ctx, fmt.Sprintf("%s.*.*", wfName))
+		require.NoError(t, err)
+		return len(fatalErrors) == len(executionIds)
+	}, 3*time.Second, 100*time.Millisecond)
 }
 
 func TestFatalErrorPersistedWhenRetriesAreExhaustedAndErrorActionIsPause(t *testing.T) {

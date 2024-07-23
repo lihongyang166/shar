@@ -983,6 +983,21 @@ func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string
 	return result, nil
 }
 
+func (c *Client) GetFatalErrors(ctx context.Context, fatalErrorPrefix string) ([]*model.FatalError, error) {
+	req := &model.GetFatalErrorRequest{ErrPrefix: fatalErrorPrefix}
+	res := &model.FatalError{}
+	ctx = subj.SetNS(ctx, c.ns)
+	result := make([]*model.FatalError, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetFatalErrors, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(fatalErr *model.FatalError) error {
+		result = append(result, fatalErr)
+		return nil
+	})
+	if err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return result, nil
+}
+
 func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Level, message string, attrs map[string]string) error {
 	k := common.KSuidTo128bit(trackingID)
 	req := &model.LogRequest{

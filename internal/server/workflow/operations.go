@@ -2001,3 +2001,29 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	}
 	return nil
 }
+
+func (s *Operations) GetFatalErrors(ctx context.Context, keyPrefix string, fatalErrs chan<- *model.FatalError, errs chan<- error) {
+	ns := subj.GetNS(ctx)
+	kvs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		errs <- fmt.Errorf("get kvs for fatal errors: %w", err)
+		return
+	}
+
+	kvFatalError := kvs.WfFatalError
+	matchingKeys, err := common.KeyPrefixSearch(ctx, s.natsService.Js, kvFatalError, keyPrefix, common.KeyPrefixResultOpts{Sort: true})
+	if err != nil {
+		errs <- fmt.Errorf("get fatal errors: %w", err)
+		return
+	}
+
+	for _, matchingKey := range matchingKeys {
+		fatalErr := &model.FatalError{}
+		err := common.LoadObj(ctx, kvFatalError, matchingKey, fatalErr)
+		if err != nil {
+			errs <- fmt.Errorf("load fatal errors: %w", err)
+			return
+		}
+		fatalErrs <- fatalErr
+	}
+}

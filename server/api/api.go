@@ -218,6 +218,11 @@ func (s *Endpoints) Listen() error {
 	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetProcessInstanceHeaders, s.receiveApiMiddleware, &model.GetProcessHeadersRequest{}, s.getProcessHeaders); err != nil {
 		return fmt.Errorf("APIGetProcessInstanceHeaders: %w", err)
 	}
+
+	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetFatalErrors, s.receiveApiMiddleware, &model.GetFatalErrorRequest{}, s.getFatalErrors); err != nil {
+		return fmt.Errorf("APIGetFatalErrors: %w", err)
+	}
+
 	slog.Info("shar api listener started")
 	return nil
 }

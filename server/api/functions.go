@@ -331,6 +331,16 @@ func (s *Endpoints) getProcessHistory(ctx context.Context, req *model.GetProcess
 	s.operations.GetProcessHistory(ctx, req.Id, wch, errs)
 }
 
+func (s *Endpoints) getFatalErrors(ctx context.Context, req *model.GetFatalErrorRequest, wch chan<- *model.FatalError, errs chan<- error) {
+	//TODO sort out auth
+	//ctx, _, err := s.authFromProcessInstanceID(ctx, req.Id)
+	//if err != nil {
+	//	errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	//	return
+	//}
+	s.operations.GetFatalErrors(ctx, req.ErrPrefix, wch, errs)
+}
+
 func (s *Endpoints) versionInfo(ctx context.Context, req *model.GetVersionInfoRequest) (*model.GetVersionInfoResponse, error) {
 	ctx, _, err2 := s.authenticate(ctx)
 	if err2 != nil {

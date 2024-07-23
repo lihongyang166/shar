@@ -637,6 +637,10 @@ message GetProcessHistoryResponse {
   repeated ProcessHistoryEntry entry = 1;
 }
 
+message GetFatalErrorRequest {
+  string errPrefix = 1;
+}
+
 message GetServiceTaskRoutingIDRequest {
   string name = 1;
   string requestedId = 2;

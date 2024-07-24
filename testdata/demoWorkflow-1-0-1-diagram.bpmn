@@ -76,7 +76,7 @@
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="sendEmail-1-0-0" />
         <zeebe:ioMapping>
-          <zeebe:input source="=&#34;matthew.brazel@vitrifi.net, keshava.gavigowda@vitrifi.net&#34;" target="To" />
+          <zeebe:input source="=&#34;fred.smith@altavista.com, joe.bloggs@lycos.com&#34;" target="To" />
           <zeebe:input source="=&#34;Halo ticket created &#34; + string(ticketID)" target="Subject" />
           <zeebe:input source="=&#34;Halo ticket created &#34; + string(ticketID)" target="Body" />
         </zeebe:ioMapping>

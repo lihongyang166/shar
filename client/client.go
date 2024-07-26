@@ -5,6 +5,18 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"os/signal"
+	"reflect"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"testing"
+	"time"
+
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -33,17 +45,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
 	"google.golang.org/protobuf/proto"
-	"io"
-	"log/slog"
-	"os"
-	"os/signal"
-	"reflect"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"syscall"
-	"testing"
-	"time"
 )
 
 // HeartBeatInterval defines the time between client heartbeats.
@@ -182,7 +183,6 @@ func New(option ...ConfigurationOption) *Client {
 
 // Dial instructs the client to connect to a NATS server.
 func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) error {
-
 	if c.telemetryConfig.Enabled {
 		c.SendMiddleware = append(c.SendMiddleware,
 			telemetry.CtxSpanToNatsMsgMiddleware(),
@@ -408,7 +408,6 @@ func (c *Client) listen(ctx context.Context) error {
 				var v any
 				if typ.Type.Kind() == reflect.Struct {
 					v = structs.Map(reflect.ValueOf(str).Field(i).Interface())
-
 				} else {
 					v = out[i].Field(i).Interface()
 				}
@@ -483,7 +482,8 @@ func (c *Client) listen(ctx context.Context) error {
 	for k, v := range tasks {
 		cName := "ServiceTask_" + c.ns + "_" + k
 		slog.Info("listening for tasks", "subject", cName)
-		consumer, err := c.js.Consumer(ctx, "WORKFLOW", cName)
+		ccfg := jetstream.ConsumerConfig{Name: cName}
+		consumer, err := c.js.CreateOrUpdateConsumer(ctx, "WORKFLOW", ccfg)
 		if err != nil {
 			return fmt.Errorf("get consumer '%s': %w", cName, err)
 		}
@@ -621,7 +621,6 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b []byte) (string, error) {
 	rdr := bytes.NewReader(b)
 	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, name, rdr)
-
 	if err != nil {
 		return "", c.clientErr(ctx, err)
 	}
@@ -764,7 +763,6 @@ func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListE
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -781,7 +779,6 @@ func (c *Client) ListExecutableProcesses(ctx context.Context) ([]*model.ListExec
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -798,7 +795,6 @@ func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowRespon
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -827,7 +823,6 @@ func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) ([]*mo
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -885,7 +880,6 @@ func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}

@@ -163,12 +163,12 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 	require.NoError(t, err)
 
 	//assert receipt of completion msg for both original and retried executions
-	support.WaitForChanZ(t, completionChan, time.Second*20, func(ele processCompletion) {
+	support.WaitForChan(t, completionChan, time.Second*20, func(ele processCompletion) {
 		pId := ele.vars["pId"]
 		assert.Equal(t, pId1, pId)
 	})
 
-	support.WaitForChanZ(t, completionChan, time.Second*20, func(ele processCompletion) {
+	support.WaitForChan(t, completionChan, time.Second*20, func(ele processCompletion) {
 		pId := ele.vars["pId"]
 		assert.Equal(t, pId2, pId)
 	})

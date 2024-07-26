@@ -639,7 +639,9 @@ message GetProcessHistoryResponse {
 }
 
 message GetFatalErrorRequest {
-  string errPrefix = 1;
+  string wfName = 1;
+  string executionId = 2;
+  string processInstanceId = 3;
 }
 
 message GetServiceTaskRoutingIDRequest {

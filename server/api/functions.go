@@ -19,6 +19,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"strings"
 )
 
 func (s *Endpoints) getProcessInstanceStatus(ctx context.Context, req *model.GetProcessInstanceStatusRequest, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
@@ -331,17 +332,39 @@ func (s *Endpoints) getProcessHistory(ctx context.Context, req *model.GetProcess
 	s.operations.GetProcessHistory(ctx, req.Id, wch, errs)
 }
 
+func fatalErrorKeyPrefixBuilder(req *model.GetFatalErrorRequest) string {
+	keyPrefixSegments := []string{req.WfName, req.ExecutionId, req.ProcessInstanceId}
+	mappedKeyPrefixSegments := make([]string, 0, len(keyPrefixSegments))
+
+	for _, segment := range keyPrefixSegments {
+		if segment == "" {
+			mappedKeyPrefixSegments = append(mappedKeyPrefixSegments, "*")
+		} else {
+			mappedKeyPrefixSegments = append(mappedKeyPrefixSegments, segment)
+		}
+	}
+
+	return strings.Join(mappedKeyPrefixSegments, ".")
+}
+
 func (s *Endpoints) getFatalErrors(ctx context.Context, req *model.GetFatalErrorRequest, wch chan<- *model.FatalError, errs chan<- error) {
-	//TODO sort out auth
+	//TODO sort out auth - it depends on whether we can resolve wf name...
+	//what if the client doesn't specify any field?? is this even allowable? should we validate against it???
 	//ctx, _, err := s.authFromProcessInstanceID(ctx, req.Id)
 	//if err != nil {
 	//	errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
 	//	return
 	//}
-	s.operations.GetFatalErrors(ctx, req.ErrPrefix, wch, errs)
+
+	s.operations.GetFatalErrors(ctx, fatalErrorKeyPrefixBuilder(req), wch, errs)
 }
 
 func (s *Endpoints) retryActivity(ctx context.Context, req *model.RetryActivityRequest) (*model.RetryActivityResponse, error) {
+	ctx, err := s.authForNamedWorkflow(ctx, req.WorkflowState.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	}
+
 	if err := s.operations.RetryActivity(ctx, req.WorkflowState); err != nil {
 		return nil, fmt.Errorf("failed retrying activity: %w", err)
 	}

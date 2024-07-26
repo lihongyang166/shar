@@ -91,21 +91,21 @@ func TestFatalErrorPersistedWithPauseHandlingStrategy(t *testing.T) {
 	wfName, executionIds, _ := runExecutions(t, ctx, cl, ns, execParams, willPanicAndCauseWorkflowFatalError)
 
 	assert.Eventually(t, func() bool {
-		fatalErrors, err := cl.GetFatalErrors(ctx, fmt.Sprintf("%s.>", wfName))
+		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, "", "")
 		require.NoError(t, err)
 		return len(fatalErrors) == len(executionIds)
 	}, 3*time.Second, 100*time.Millisecond)
 
 	for _, executionId := range executionIds {
 		assert.Eventually(t, func() bool {
-			fatalErrors, err := cl.GetFatalErrors(ctx, fmt.Sprintf("%s.%s.>", wfName, executionId))
+			fatalErrors, err := cl.GetFatalErrors(ctx, wfName, executionId, "")
 			require.NoError(t, err)
 			return len(fatalErrors) == 1 && fatalErrors[0].WorkflowState.ExecutionId == executionId
 		}, 3*time.Second, 100*time.Millisecond)
 	}
 
 	assert.Eventually(t, func() bool {
-		fatalErrors, err := cl.GetFatalErrors(ctx, fmt.Sprintf("%s.*.*", wfName))
+		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, "*", "*")
 		require.NoError(t, err)
 		return len(fatalErrors) == len(executionIds)
 	}, 3*time.Second, 100*time.Millisecond)
@@ -134,7 +134,7 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		successExecutionId := executionIds[0]
-		fatalErrors, err := cl.GetFatalErrors(ctx, fmt.Sprintf("%s.%s.>", wfName, successExecutionId))
+		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, successExecutionId, "")
 		require.NoError(t, err)
 		return len(fatalErrors) == 0
 	}, 3*time.Second, 100*time.Millisecond)
@@ -142,7 +142,7 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 	var fatalErrors []*model.FatalError
 	failedExecutionId := executionIds[1]
 	require.Eventually(t, func() bool {
-		fatalErrors, err = cl.GetFatalErrors(ctx, fmt.Sprintf("%s.%s.>", wfName, failedExecutionId))
+		fatalErrors, err = cl.GetFatalErrors(ctx, wfName, failedExecutionId, "")
 		require.NoError(t, err)
 		return len(fatalErrors) == 1 && fatalErrors[0].WorkflowState.ExecutionId == failedExecutionId
 	}, 3*time.Second, 100*time.Millisecond)
@@ -175,7 +175,7 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 
 	//assert non existence of FatalError
 	assert.Eventually(t, func() bool {
-		fatalErrors, err := cl.GetFatalErrors(ctx, fmt.Sprintf("%s.%s.>", wfName, failedExecutionId))
+		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, failedExecutionId, "")
 		require.NoError(t, err)
 		return len(fatalErrors) == 0
 	}, 3*time.Second, 100*time.Millisecond)

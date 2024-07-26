@@ -984,8 +984,8 @@ func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string
 }
 
 // GetFatalErrors calls the api endpoint to retrieve FatalErrors given a key prefix of <workflowName>.<executionId>.<processInstanceId>
-func (c *Client) GetFatalErrors(ctx context.Context, fatalErrorPrefix string) ([]*model.FatalError, error) {
-	req := &model.GetFatalErrorRequest{ErrPrefix: fatalErrorPrefix}
+func (c *Client) GetFatalErrors(ctx context.Context, wfName string, executionId string, processInstanceId string) ([]*model.FatalError, error) {
+	req := &model.GetFatalErrorRequest{WfName: wfName, ExecutionId: executionId, ProcessInstanceId: processInstanceId}
 	res := &model.FatalError{}
 	ctx = subj.SetNS(ctx, c.ns)
 	result := make([]*model.FatalError, 0)

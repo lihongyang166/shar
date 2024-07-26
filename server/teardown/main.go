@@ -69,13 +69,3 @@ func main() {
 	fmt.Printf("Could not delete %d streams\n", errDeletedStream)
 	fmt.Printf("Deleted %d streams successfully\n", deletedStreamCount)
 }
-
-func kvDelete(ctx context.Context, js jetstream.JetStream, buckets ...string) {
-	for _, v := range buckets {
-		if err := js.DeleteKeyValue(ctx, "KV_default_"+v); err != nil {
-			fmt.Printf("*Not Deleted %s: %s\n", v, err.Error())
-		} else {
-			fmt.Printf("Deleted %s\n", v)
-		}
-	}
-}

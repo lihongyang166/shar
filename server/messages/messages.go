@@ -70,6 +70,7 @@ const (
 	WorkflowJobGatewayTaskActivate    = "WORKFLOW.%s.State.Job.Activate.Gateway"          // WorkflowJobGatewayTaskActivate is the state message subject for activating a gateway task for creation or re-entry.
 	WorkflowJobGatewayTaskReEnter     = "WORKFLOW.%s.State.Job.ReEnter.Gateway"           // WorkflowJobGatewayTaskReEnter is the state message subject for re entering an existing gateway task.
 	WorkflowJobGatewayTaskAbort       = "WORKFLOW.%s" + StateJobAbortGateway              // WorkflowJobGatewayTaskAbort is the state message subject for aborting a gateway task.
+	WorkflowJobRetry                  = "WORKFLOW.%s.State.Job.Retry"                     //WorkflowJobRetry is the state message to attempt retry of a prior failed job
 	WorkflowLog                       = "WORKFLOW.%s" + StateLog                          // WorkflowLog is the state message subject for logging messages to a workflow activity.
 	WorkflowLogAll                    = "WORKFLOW.%s" + StateLog + ".*"                   // WorkflowLogAll is the wildcard state message subject for all logging messages.
 	WorkflowMessage                   = "WORKFLOW.%s.Message"                             // WorkflowMessage is the state message subject for all workflow messages.
@@ -200,6 +201,7 @@ const (
 	APIResolveWorkflow                = "WORKFLOW.Api.ResolveWorkflow"                // APIResolveWorkflow is the resolve workflow API subject.
 	APIGetCompensationInputVariables  = "WORKFLOW.Api.GetCompensationInputVariables"  // APIGetCompensationInputVariables is the get compensation input variables message subject.
 	APIGetCompensationOutputVariables = "WORKFLOW.Api.GetCompensationOutputVariables" // APIGetCompensationOutputVariables is the get compensation output variables message subject.
+	APIRetry                          = "WORKFLOW.Api.Retry"                          // APIRetry attempts to execute a previously failed activity again
 )
 
 var (

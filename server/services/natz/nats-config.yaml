@@ -23,6 +23,7 @@ streams:
         - WORKFLOW.*.State.Job.Execute.Gateway
         - WORKFLOW.*.State.Job.Execute.Timer
         - WORKFLOW.*.State.Job.Execute.UserTask
+        - WORKFLOW.*.State.Job.Retry
         - WORKFLOW.*.State.Log.*
         - WORKFLOW.*.Message
         - WORKFLOW.*.State.Process.Complete
@@ -103,6 +104,13 @@ streams:
           ack_policy: 0
           ack_wait: 30s
           filter_subject: WORKFLOW.*.State.Job.Complete.*
+          max_ack_pending: 65535
+      - nats-config:
+          durable_name: JobRetryConsumer
+          description: Job retry processing queue
+          ack_policy: 0
+          ack_wait: 30s
+          filter_subject: WORKFLOW.*.State.Job.Retry
           max_ack_pending: 65535
       - nats-config:
           durable_name: ActivityConsumer

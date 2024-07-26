@@ -983,6 +983,7 @@ func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string
 	return result, nil
 }
 
+// GetFatalErrors calls the api endpoint to retrieve FatalErrors given a key prefix of <workflowName>.<executionId>.<processInstanceId>
 func (c *Client) GetFatalErrors(ctx context.Context, fatalErrorPrefix string) ([]*model.FatalError, error) {
 	req := &model.GetFatalErrorRequest{ErrPrefix: fatalErrorPrefix}
 	res := &model.FatalError{}
@@ -1279,4 +1280,16 @@ func (c *Client) GetProcessInstanceHeaders(ctx context.Context, processInstanceI
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Headers, nil
+}
+
+// Retry will attempt execution of the activity speficied within WorkflowState
+func (c *Client) Retry(ctx context.Context, state *model.WorkflowState) error {
+	req := &model.RetryActivityRequest{WorkflowState: state}
+	res := &model.RetryActivityResponse{}
+
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIRetry, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		return c.clientErr(ctx, err)
+	}
+	return nil
 }

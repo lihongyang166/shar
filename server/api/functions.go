@@ -341,6 +341,13 @@ func (s *Endpoints) getFatalErrors(ctx context.Context, req *model.GetFatalError
 	s.operations.GetFatalErrors(ctx, req.ErrPrefix, wch, errs)
 }
 
+func (s *Endpoints) retryActivity(ctx context.Context, req *model.RetryActivityRequest) (*model.RetryActivityResponse, error) {
+	if err := s.operations.RetryActivity(ctx, req.WorkflowState); err != nil {
+		return nil, fmt.Errorf("failed retrying activity: %w", err)
+	}
+	return &model.RetryActivityResponse{}, nil
+}
+
 func (s *Endpoints) versionInfo(ctx context.Context, req *model.GetVersionInfoRequest) (*model.GetVersionInfoResponse, error) {
 	ctx, _, err2 := s.authenticate(ctx)
 	if err2 != nil {

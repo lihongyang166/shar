@@ -509,6 +509,21 @@ func (s *Integration) AssertExpectedKVKey(namespace string, kvName string, key s
 func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
 	select {
 	case <-c:
+
+		return
+	case <-time.After(d):
+		assert.Fail(t, "timed out waiting for completion")
+		return
+	}
+}
+
+// WaitForChanZ waits for a chan T with a duration timeout and runs the provided assertion functions.
+func WaitForChanZ[T any](t *testing.T, c chan T, d time.Duration, assertions ...func(ele T)) {
+	select {
+	case ele := <-c:
+		for _, a := range assertions {
+			a(ele)
+		}
 		return
 	case <-time.After(d):
 		assert.Fail(t, "timed out waiting for completion")

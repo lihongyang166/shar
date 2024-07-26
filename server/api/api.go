@@ -190,6 +190,10 @@ func (s *Endpoints) Listen() error {
 		return fmt.Errorf("APIListUserTaskIDs: %w", err)
 	}
 
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIRetry, s.receiveApiMiddleware, &model.RetryActivityRequest{}, s.retryActivity); err != nil {
+		return fmt.Errorf("APIRetry: %w", err)
+	}
+
 	/* COMPLETED */
 	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetWorkflowVersions, s.receiveApiMiddleware, &model.GetWorkflowVersionsRequest{}, s.getWorkflowVersions); err != nil {
 		return fmt.Errorf("APIGetWorkflowVersions: %w", err)

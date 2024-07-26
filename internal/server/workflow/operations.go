@@ -2002,6 +2002,8 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	return nil
 }
 
+// GetFatalErrors queries the fatal error KV with a key prefix of the format <workflowName>.<executionId>.<processInstanceId>.
+// and sends the results down the provided fatalErrs channel.
 func (s *Operations) GetFatalErrors(ctx context.Context, keyPrefix string, fatalErrs chan<- *model.FatalError, errs chan<- error) {
 	ns := subj.GetNS(ctx)
 	kvs, err := s.natsService.KvsFor(ctx, ns)
@@ -2011,7 +2013,7 @@ func (s *Operations) GetFatalErrors(ctx context.Context, keyPrefix string, fatal
 	}
 
 	kvFatalError := kvs.WfFatalError
-	matchingKeys, err := common.KeyPrefixSearch(ctx, s.natsService.Js, kvFatalError, keyPrefix, common.KeyPrefixResultOpts{Sort: true})
+	matchingKeys, err := common.KeyPrefixSearch(ctx, s.natsService.Js, kvFatalError, keyPrefix, common.KeyPrefixResultOpts{Sort: true, ExcludeDeleted: true})
 	if err != nil {
 		errs <- fmt.Errorf("get fatal errors: %w", err)
 		return
@@ -2026,4 +2028,80 @@ func (s *Operations) GetFatalErrors(ctx context.Context, keyPrefix string, fatal
 		}
 		fatalErrs <- fatalErr
 	}
+}
+
+// RetryActivity publishes the state from a prior FatalError to attempt a retry
+func (s *Operations) RetryActivity(ctx context.Context, state *model.WorkflowState) error {
+	if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobRetry, subj.GetNS(ctx)), state); err != nil {
+		return fmt.Errorf("failed publishing to job retry: %w", err)
+	}
+
+	return nil
+}
+
+// PersistFatalError saves a fatal error to the kv
+func (s *Operations) PersistFatalError(ctx context.Context, fatalError *model.FatalError) (bool, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return false, fmt.Errorf("persistFatalError get KVs for ns %s: %w", ns, err)
+	}
+	workFlowName := fatalError.WorkflowState.WorkflowName
+	k := fatalErrorKey(workFlowName, fatalError.WorkflowState.ExecutionId, fatalError.WorkflowState.ProcessInstanceId, fatalError.WorkflowState.ElementId)
+	if err := common.SaveObj(ctx, nsKVs.WfFatalError, k, fatalError); err != nil {
+		return false, fmt.Errorf("save fatal error: %w", err)
+	}
+
+	return true, nil
+}
+
+func fatalErrorKey(workFlowName string, executionId, processInstanceId, elementId string) string {
+	return fmt.Sprintf("%s.%s.%s.%s", workFlowName, executionId, processInstanceId, elementId)
+}
+
+// TearDownWorkflow removes any state associated with a fatal errored workflow
+func (s *Operations) TearDownWorkflow(ctx context.Context, state *model.WorkflowState) (bool, error) {
+	switch state.ElementType {
+	case element.ServiceTask, element.MessageIntermediateCatchEvent:
+		// These are both job based, so we need to abort the job
+		if err := s.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, state); err != nil {
+			log := logx.FromContext(ctx)
+			log.Error("publish workflow state for service task abort", "error", err)
+			return false, fmt.Errorf("publish abort task for handle fatal workflow error: %w", err)
+		}
+	default:
+		//add more cases as more element types need to be supported for cleaning down fatal errs
+		//just remove the process/executions below
+	}
+
+	//get the execution
+	execution, err2 := s.GetExecution(ctx, state.ExecutionId)
+	if err2 != nil {
+		return false, fmt.Errorf("error retrieving execution when processing fatal err: %w", err2)
+	}
+	//loop over the process instance ids to tear them down
+	for _, processInstanceId := range execution.ProcessInstanceId {
+		state.State = model.CancellationState_terminated
+		if err := s.DestroyProcessInstance(ctx, state, processInstanceId, execution.ExecutionId); err != nil {
+			log := logx.FromContext(ctx)
+			log.Error("failed destroying process instance", "err", err)
+		}
+	}
+	return true, nil
+}
+
+// DeleteFatalError removes the fatal error for a given workflow state
+func (s *Operations) DeleteFatalError(ctx context.Context, state *model.WorkflowState) error {
+	ns := subj.GetNS(ctx)
+	kvsFor, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return fmt.Errorf("get kvs for delete fatal error: %w", err)
+	}
+
+	err = common.Delete(ctx, kvsFor.WfFatalError, fatalErrorKey(state.WorkflowName, state.ExecutionId, state.ProcessInstanceId, state.ElementId))
+	if err != nil {
+		return fmt.Errorf("delete fatal error: %w", err)
+	}
+
+	return nil
 }

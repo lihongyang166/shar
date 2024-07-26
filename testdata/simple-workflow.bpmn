@@ -7,6 +7,8 @@
         <zeebe:ioMapping>
           <zeebe:output source="= 32768" target="carried" />
           <zeebe:output source="= 42" target="processVar" />
+          <zeebe:output source="blowUp" target="blowUp" />
+          <zeebe:output source="pId" target="pId" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_1f45p7m</bpmn:outgoing>
@@ -19,6 +21,8 @@
         <zeebe:ioMapping>
           <zeebe:input source="= carried" target="carried" />
           <zeebe:input source="= processVar" target="localVar" />
+          <zeebe:input source="= blowUp" target="blowUp" />
+          <zeebe:input source="= pId" target="pId" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1f45p7m</bpmn:incoming>

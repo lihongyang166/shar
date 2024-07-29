@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"os"
 )
 
 func main() {
@@ -25,29 +26,46 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	if err := js.DeleteStream(ctx, "WORKFLOW"); err != nil {
-		fmt.Printf("*Not Deleted Stream WORKFLOW: %s\n", err.Error())
-	} else {
-		fmt.Printf("Deleted stream WORKFLOW\n")
+	kvStreams := []string{
+		"WORKFLOW",
+		"WORKFLOW-MIRROR",
+		"WORKFLOW_TELEMETRY",
+		"KV_default_" + messages.KvJob,
+		"KV_default_" + messages.KvVersion,
+		"KV_default_" + messages.KvDefinition,
+		"KV_default_" + messages.KvTracking,
+		"KV_default_" + messages.KvInstance,
+		"KV_default_" + messages.KvExecution,
+		"KV_default_" + messages.KvUserTask,
+		"KV_default_" + messages.KvOwnerName,
+		"KV_default_" + messages.KvOwnerID,
+		"KV_default_" + messages.KvClientTaskID,
+		"KV_default_" + messages.KvWfName,
+		"KV_default_" + messages.KvProcessInstance,
+		"KV_default_" + messages.KvGateway,
+		"KV_default_" + messages.KvHistory,
+		"KV_default_" + messages.KvLock,
+		"KV_default_" + messages.KvMessageTypes,
+		"KV_default_" + messages.KvTaskSpecVersions,
+		"KV_default_" + messages.KvTaskSpec,
+		"KV_default_" + messages.KvProcess,
+		"KV_default_" + messages.KvMessages,
+		"KV_default_" + messages.KvClients,
+		"KV_MsgTx_default_continueMessage",
+		"KV_default_WORKFLOW_VARSTATE",
 	}
-	kvDelete(ctx, js,
-		messages.KvUserTask,
-		messages.KvInstance,
-		messages.KvDefinition,
-		messages.KvJob,
-		messages.KvTracking,
-		messages.KvVersion,
-	)
-
-}
-
-func kvDelete(ctx context.Context, js jetstream.JetStream, buckets ...string) {
-	for _, v := range buckets {
-		if err := js.DeleteKeyValue(ctx, v); err != nil {
-			fmt.Printf("*Not Deleted %s: %s\n", v, err.Error())
+	deletedStreamCount := 0
+	errDeletedStream := 0
+	for _, v := range kvStreams {
+		if err := js.DeleteStream(ctx, v); err != nil {
+			fmt.Printf("*Error Deleting Stream %s: %s\n", v, err.Error())
+			errDeletedStream++
 		} else {
-			fmt.Printf("Deleted %s\n", v)
+			fmt.Printf("Deleted stream %s\n", v)
+			deletedStreamCount++
 		}
 	}
+
+	fmt.Printf("Could not delete %d streams\n", errDeletedStream)
+	fmt.Printf("Deleted %d streams successfully\n", deletedStreamCount)
 }

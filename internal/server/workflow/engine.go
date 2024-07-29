@@ -1207,8 +1207,6 @@ func (s *Engine) deleteJob(ctx context.Context, state *model.WorkflowState) erro
 func (s *Engine) deleteProcessHistory(ctx context.Context, processId string) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	log := logx.FromContext(ctx)
-	log.Debug("delete process history", keys.ProcessInstanceID, processId)
 
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)

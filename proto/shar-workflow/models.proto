@@ -291,6 +291,8 @@ message WorkflowState {
   string traceParent = 23; // TraceContext holds an OTEL trace context.
   Compensation compensation = 24; // Compensation holds compensation state parameters.
   string elementName = 25; // ElementName - the human readable name of this element
+  string previousActivity = 26; // PreviousActivity - the ID of the last activity
+  string previousElement = 27; // PreviousElement - the ID of the last element.
 }
 
 message Compensation {
@@ -348,6 +350,8 @@ message ProcessHistoryEntry {
   map<string,SatisfiesGateway> satisfiesGatewayExpectation = 17; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
   map<string,GatewayExpectations> gatewayExpectations = 18; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
   string workflowName = 19;
+  string previousActivity = 20; // PreviousActivity - the ID of the last activity
+  string previousElement = 21; // PreviousElement - the ID of the last element.
 }
 
 message ProcessHistory {

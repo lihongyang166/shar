@@ -141,6 +141,8 @@ func (s *Engine) StartProcessing(ctx context.Context) error {
 
 // traverse traverses all outbound connections provided the conditions passed if available.
 func (c *Engine) traverse(ctx context.Context, pr *model.ProcessInstance, trackingID common.TrackingID, outbound *model.Targets, el map[string]*model.Element, state *model.WorkflowState) error {
+	state.PreviousActivity = common.TrackingID(state.Id).ID()
+	state.PreviousElement = state.ElementId
 	ctx, log := logx.ContextWith(ctx, "engine.traverse")
 	if outbound == nil {
 		return nil

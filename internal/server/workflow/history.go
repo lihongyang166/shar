@@ -40,6 +40,8 @@ func (s *Operations) RecordHistory(ctx context.Context, state *model.WorkflowSta
 		SatisfiesGatewayExpectation: maps.Clone(state.SatisfiesGatewayExpectation),
 		GatewayExpectations:         maps.Clone(state.GatewayExpectations),
 		WorkflowName:                state.WorkflowName,
+		PreviousElement:             state.PreviousElement,
+		PreviousActivity:            state.PreviousActivity,
 	}
 	newId := fmt.Sprintf("%s.%s.%d", state.ProcessInstanceId, trackingId, historyType)
 	if err := common.SaveObj(ctx, nsKVs.WfHistory, newId, e); err != nil {

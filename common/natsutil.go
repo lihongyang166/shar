@@ -5,13 +5,15 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"gitlab.com/shar-workflow/shar/model"
 	"log/slog"
 	"math/big"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"gitlab.com/shar-workflow/shar/model"
 
 	version2 "github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
@@ -225,6 +227,13 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 	return nil
 }
 
+func conditionalNatsShutdown() {
+	// TODO: is there a config struct somewhere that this should be set from for the client?
+	if os.Getenv("SHUTDOWN_ON_NATS_ERR") == "true" {
+		os.Exit(1)
+	}
+}
+
 // Process processes messages from a nats consumer and executes a function against each one.
 func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), signalFatalErrFn func(ctx context.Context, state *model.WorkflowState, log *slog.Logger), opts ...ProcessOption) error {
 	set := &ProcessOpts{}
@@ -265,15 +274,25 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 			for {
 				m, err := messagesContext.Next()
 				if err != nil {
+					// Log Error
+					log.Error("message fetch error", "error", err)
+
 					if errors.Is(err, jetstream.ErrMsgIteratorClosed) {
 						return
 					}
-					// Horrible, but this isn't a typed error.  This test just stops the listener printing pointless errors.
-					if err.Error() == "nats: Server Shutdown" || err.Error() == "nats: connection closed" {
+					// Horrible, but these aren't typed errors.  This test just stops the listener printing pointless errors.
+					switch err.Error() {
+					case "nats: Server Shutdown":
+						conditionalNatsShutdown()
+						continue
+					case "nats: connection closed":
+						conditionalNatsShutdown()
+						continue
+					case "nats: consumer deleted":
+						conditionalNatsShutdown()
 						continue
 					}
-					// Log Error
-					log.Error("message fetch error", "error", err)
+
 					continue
 				}
 				ctx, err := header.FromMsgHeaderToCtx(ctx, m.Headers())

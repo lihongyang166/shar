@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
+	"strconv"
+	"time"
+
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -13,10 +18,6 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
-	"math"
-	"strconv"
-	"time"
 )
 
 func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
@@ -115,12 +116,18 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			offset = time.Duration(retryBehaviour.MaxMilli * int64(time.Millisecond))
 		}
 	}
+	// Insure minimum floor of nak with delay is hard set to 5s;
 	if time.Since(messageTime)-offset < 0 {
-		offset = 0
+		minimumDelay := int64(5000)
+		if retryBehaviour.InitMilli > minimumDelay {
+			minimumDelay = retryBehaviour.InitMilli
+		}
+
+		offset = time.Duration(minimumDelay) * time.Millisecond
 	}
 
 	if err := msg.NakWithDelay(offset); err != nil {
-		return fmt.Errorf("linear backoff: %w", err)
+		return fmt.Errorf("error NAK'ing with delay for message retry: %w", err)
 	}
 	return nil
 }

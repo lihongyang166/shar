@@ -237,7 +237,9 @@ func conditionalNatsShutdown(log *slog.Logger) {
 	if err != nil {
 		log.Error("could not parse integer from NATS_CONN_RETRY_LIMIT, retry limit will be zero", "error", err.Error())
 	}
-	if natsConnectionErrorCount.get() > retryLimit {
+	connErrCount := natsConnectionErrorCount.get()
+	if connErrCount > retryLimit {
+		log.Error("NATS_CONN_RETRY_LIMIT exceeded, shutting down", "nats_conn_error_count", connErrCount)
 		os.Exit(1)
 	}
 }

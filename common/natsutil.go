@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gitlab.com/shar-workflow/shar/model"
@@ -227,12 +228,39 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 	return nil
 }
 
-func conditionalNatsShutdown() {
+func conditionalNatsShutdown(log *slog.Logger) {
 	// TODO: is there a config struct somewhere that this should be set from for the client?
-	if os.Getenv("SHUTDOWN_ON_NATS_ERR") == "true" {
+	if os.Getenv("SHUTDOWN_ON_NATS_ERR") != "true" {
+		return
+	}
+	retryLimit, err := strconv.Atoi(os.Getenv("NATS_CONN_RETRY_LIMIT"))
+	if err != nil {
+		log.Error("could not parse integer from NATS_CONN_RETRY_LIMIT, retry limit will be zero", "error", err.Error())
+	}
+	if natsConnectionErrorCount.get() > retryLimit {
 		os.Exit(1)
 	}
 }
+
+type retryCount struct {
+	m      sync.RWMutex
+	number int
+}
+
+func (r *retryCount) increment() {
+	r.m.Lock()
+	r.number++
+	r.m.Unlock()
+}
+
+func (r *retryCount) get() (count int) {
+	r.m.RLock()
+	count = r.number
+	r.m.RUnlock()
+	return count
+}
+
+var natsConnectionErrorCount = &retryCount{}
 
 // Process processes messages from a nats consumer and executes a function against each one.
 func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), signalFatalErrFn func(ctx context.Context, state *model.WorkflowState, log *slog.Logger), opts ...ProcessOption) error {
@@ -276,6 +304,7 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 				if err != nil {
 					// Log Error
 					log.Error("message fetch error", "error", err)
+					natsConnectionErrorCount.increment()
 
 					if errors.Is(err, jetstream.ErrMsgIteratorClosed) {
 						return
@@ -283,13 +312,13 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 					// Horrible, but these aren't typed errors.  This test just stops the listener printing pointless errors.
 					switch err.Error() {
 					case "nats: Server Shutdown":
-						conditionalNatsShutdown()
+						conditionalNatsShutdown(log)
 						continue
 					case "nats: connection closed":
-						conditionalNatsShutdown()
+						conditionalNatsShutdown(log)
 						continue
 					case "nats: consumer deleted":
-						conditionalNatsShutdown()
+						conditionalNatsShutdown(log)
 						continue
 					}
 

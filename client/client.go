@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
@@ -38,6 +39,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -191,6 +193,8 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 			telemetry.NatsMsgToCtxWithSpanMiddleware(),
 		)
 	}
+
+	c.ReceiveMiddleware = append(c.ReceiveMiddleware, c.retryNotifier)
 
 	n, err := nats.Connect(natsURL, opts...)
 	if err != nil {
@@ -1122,4 +1126,41 @@ func (c *Client) getCompensationVariables(ctx context.Context, processInstanceId
 		return nil, nil, c.clientErr(ctx, err)
 	}
 	return in, out, nil
+}
+
+func (c *Client) retryNotifier(ctx context.Context, msg jetstream.Msg) (context.Context, error) {
+	md, err := msg.Metadata()
+	if err != nil {
+		return nil, fmt.Errorf("retryNotifier get metadata: %w", err)
+	}
+
+	if strings.Contains(msg.Subject(), messages.StateJobExecute) && md.NumDelivered > 1 {
+		state := &model.WorkflowState{}
+		if err := proto.Unmarshal(msg.Data(), state); err != nil {
+			return nil, fmt.Errorf("retry notifier: %w", err)
+		}
+		// Get the workflow this task belongs to
+		wf, err := c.GetWorkflow(ctx, state.WorkflowId)
+		if err != nil {
+			if errors.Is(err, errors2.ErrWorkflowNotFound) {
+				slog.ErrorContext(ctx, "retry notification get workflow", "error", err)
+			}
+			return nil, fmt.Errorf("get workflow: %w", err)
+		}
+		// And the service task element
+		elem := common.ElementTable(wf)[state.ElementId]
+
+		// and extract the retry behaviour
+		retryBehaviour := elem.RetryBehaviour
+
+		newSubj := strings.Replace(msg.Subject(), ".Job.Execute.", ".Job.Retry.", 1)
+		newMsg := nats.NewMsg(newSubj)
+		newMsg.Header.Add("RetryCount", strconv.Itoa(int(md.NumDelivered)))
+		newMsg.Header.Add("RetryMax", strconv.Itoa(int(retryBehaviour.Number)))
+		newMsg.Data = msg.Data()
+		if err := c.con.PublishMsg(newMsg); err != nil {
+			return nil, fmt.Errorf("publish retry notification: %w", err)
+		}
+	}
+	return ctx, nil
 }

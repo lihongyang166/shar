@@ -747,7 +747,7 @@ message TaskMockBehaviours {
 
 enum RetryStrategy {
   Linear = 0; // Retry at regular intervals.
-  Incremental = 1; // Retry at increasingly large intervals.
+  Exponential = 1; // Retry at increasingly large intervals.
 }
 
 message DefaultTaskRetry {

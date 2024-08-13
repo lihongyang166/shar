@@ -1,13 +1,16 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 	"github.com/antchfx/xmlquery"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/element"
+	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/linter"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
+	"golang.org/x/exp/slices"
 	"io"
 	"os"
 	"strconv"
@@ -20,7 +23,7 @@ import (
 const bpmnNS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 
 // Parse parses BPMN, and turns it into a SHAR state machine
-func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
+func Parse(ctx context.Context, defaultEngine expression.Engine, name string, rdr io.Reader) (*model.Workflow, error) {
 
 	msgs := make(map[string]string)
 	errs := make(map[string]string)
@@ -50,26 +53,33 @@ func Parse(name string, rdr io.Reader) (*model.Workflow, error) {
 		}
 		msgXML := doc.SelectElements("//bpmn:message")
 		errXML := doc.SelectElements("//bpmn:error")
-		pr.Name = prXML.SelectAttr("id")
+		pr.Id = prXML.SelectAttr("id")
 		if err := parseProcess(doc, wf, prXML, pr, msgXML, errXML, msgs, errs); err != nil {
 			return nil, fmt.Errorf("parse process: %w", err)
 		}
-		wf.Process[pr.Name] = pr
+		wf.Process[pr.Id] = pr
 	}
 
 	if err := tagWorkflow(wf); err != nil {
 		return nil, fmt.Errorf("an error occured parsing the workflow: %w", err)
 	}
 
-	if err := validModel(wf); err != nil {
-		return nil, fmt.Errorf("model is invalid: %w", err)
-	}
 	if msgs, err := linter.Lint(wf, true); err != nil {
 		for _, i := range msgs {
 			os.Stderr.WriteString(fmt.Sprintf("%v: %s", i.Type, i.Text))
 		}
 		return nil, fmt.Errorf("linting found issues: %w", err)
 	}
+
+	if err := validModel(ctx, wf); err != nil {
+		return nil, fmt.Errorf("model is invalid: %w", err)
+	}
+	for _, process := range wf.Process {
+		elesById := make(map[string]*model.Element)
+		common.IndexProcessElements(process.Elements, elesById)
+		findConvergentGatewayOutputTransforms(elesById, populateConvergentGatewayOutputTransforms)
+	}
+
 	return wf, nil
 }
 
@@ -104,9 +114,10 @@ func parseProcess(doc *xmlquery.Node, wf *model.Workflow, prXML *xmlquery.Node, 
 	}
 	for _, i := range prXML.SelectElements("*") {
 		if err := parseElements(doc, wf, pr, i, msgs, errs); err != nil {
-			return fmt.Errorf("fasiled to parse elements: %w", err)
+			return fmt.Errorf("failed to parse elements: %w", err)
 		}
 	}
+
 	if errXML != nil {
 		parseErrors(doc, wf, errXML, errs)
 	}
@@ -118,6 +129,65 @@ func parseProcess(doc *xmlquery.Node, wf *model.Workflow, prXML *xmlquery.Node, 
 		}
 	}
 	return nil
+}
+
+func populateConvergentGatewayOutputTransforms(convergentGatewayOutboundTransform map[string]string, convergentGatewayId string, elesById map[string]*model.Element) {
+	convergentGateway := elesById[convergentGatewayId]
+	convergentGateway.OutputTransform = make(map[string]string, len(convergentGatewayOutboundTransform))
+	for k, v := range convergentGatewayOutboundTransform {
+		convergentGateway.OutputTransform[k] = v
+	}
+}
+
+func findConvergentGatewayOutputTransforms(elesById map[string]*model.Element, convergentGatewayOutboundTransformHandlerFn func(map[string]string, string, map[string]*model.Element)) {
+	inclusiveDivergentConvergentGateways := make(map[string]string)
+	for _, e := range elesById {
+		if e.Type == element.Gateway && e.Gateway.Direction == model.GatewayDirection_convergent {
+			convergentGatewayId := e.Id
+			divergentGatewayId := e.Gateway.ReciprocalId
+			inclusiveDivergentConvergentGateways[divergentGatewayId] = convergentGatewayId
+		}
+	}
+
+	for divergentGatewayId, convergentGatewayId := range inclusiveDivergentConvergentGateways {
+		divergentGateway := elesById[divergentGatewayId]
+
+		convergentGatewayOutboundTransform := make(map[string]string)
+		findGatewayBranchOutputTransforms(convergentGatewayOutboundTransform, divergentGateway, convergentGatewayId, elesById)
+
+		convergentGatewayOutboundTransformHandlerFn(convergentGatewayOutboundTransform, convergentGatewayId, elesById)
+	}
+
+}
+
+func findGatewayBranchOutputTransforms(outboundTransform map[string]string, el *model.Element, convergentGatewayId string, elesById map[string]*model.Element) {
+	for _, target := range el.Outbound.Target {
+		targetEle := elesById[target.Target]
+
+		if targetEle.OutputTransform != nil {
+			for k, v := range targetEle.OutputTransform {
+				outboundTransform[k] = v
+			}
+		}
+
+		if targetEle.Id == convergentGatewayId {
+			return
+		} else {
+			findGatewayBranchOutputTransforms(outboundTransform, targetEle, convergentGatewayId, elesById)
+		}
+	}
+
+}
+
+func findElementIdsWithType(eleIds []string, typ string, elements []*model.Element) []string {
+	idx := slices.IndexFunc(elements, func(e *model.Element) bool {
+		return e.Type == typ
+	})
+	if idx == -1 {
+		return eleIds
+	}
+	eleIds = append(eleIds, elements[idx].Id)
+	return findElementIdsWithType(eleIds, typ, elements[idx+1:])
 }
 
 func parseMessages(doc *xmlquery.Node, wf *model.Workflow, msgNodes []*xmlquery.Node, msgs map[string]string) error {
@@ -161,13 +231,13 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 			return nil
 		// Intermediate catch events need special processing
 		case "intermediateThrowEvent":
-			parseIntermediateThrowEvent(i, el, wf, msgs)
+			parseIntermediateThrowEvent(i, el)
 		case "startEvent":
-			if err := parseStartEvent(i, el, msgs, pr.Name, wf); err != nil {
+			if err := parseStartEvent(i, el, msgs, pr.Id, wf); err != nil {
 				return fmt.Errorf("parse start event: %w", err)
 			}
 		case "endEvent":
-			if err := parseEndEvent(i, el, msgs, pr.Name, wf); err != nil {
+			if err := parseEndEvent(i, el); err != nil {
 				return fmt.Errorf("parse end event: %w", err)
 			}
 		case "exclusiveGateway":
@@ -199,7 +269,7 @@ func parseElements(doc *xmlquery.Node, wf *model.Workflow, pr *model.Process, i 
 	return nil
 }
 
-func parseEndEvent(i *xmlquery.Node, el *model.Element, msgs map[string]string, name string, wf *model.Workflow) error {
+func parseEndEvent(i *xmlquery.Node, el *model.Element) error {
 	el.Type = element.EndEvent
 	if compRef := i.SelectElement("//bpmn:compensateEventDefinition/@id"); compRef != nil {
 		el.Type = element.CompensateEndEvent
@@ -207,7 +277,7 @@ func parseEndEvent(i *xmlquery.Node, el *model.Element, msgs map[string]string, 
 	return nil
 }
 
-func parseIntermediateThrowEvent(i *xmlquery.Node, el *model.Element, wf *model.Workflow, msgs map[string]string) {
+func parseIntermediateThrowEvent(i *xmlquery.Node, el *model.Element) {
 	if i.Data == "intermediateThrowEvent" {
 		if def := i.SelectElement("bpmn:linkEventDefinition/@name"); def != nil {
 			el.Type = element.LinkIntermediateThrowEvent

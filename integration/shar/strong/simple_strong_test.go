@@ -84,9 +84,10 @@ type outParams struct {
 
 func (d *testSimpleStrongHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, in inParams) (outParams, error) {
 	fmt.Println("Hi")
+
 	assert.Equal(d.t, 32768, in.Carried)
 	assert.Equal(d.t, 42, in.LocalVar)
-	//vars["Success"] = true
+
 	return outParams{
 		Success: true,
 	}, nil

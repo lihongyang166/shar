@@ -3,6 +3,7 @@ package error
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/server/tools/tracer"
@@ -26,28 +27,23 @@ func TestUnhandledError(t *testing.T) {
 	// Dial shar
 	ns := ksuid.New().String()
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
-	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
-		panic(err)
-	}
-
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 	sub := tracer.Trace(tst.NatsURL)
 	defer sub.Close()
 	d := &testErrorUnhandledHandlerDef{finished: make(chan struct{})}
 
 	// Register service tasks
-	_, err := support.RegisterTaskYamlFile(ctx, cl, "error_handled_test_couldThrowError.yaml", d.mayFail)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "error_handled_test_couldThrowError.yaml", d.mayFail)
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "error_handled_test_fixSituation.yaml", d.fixSituation)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/errors.bpmn")
-	if err != nil {
-		panic(err)
-	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestUnhandledError", b); err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestUnhandledError", b)
+	require.NoError(t, err)
 
 	// A hook to watch for completion
 	err = cl.RegisterProcessComplete("Process_07lm3kx", d.processEnd)
@@ -55,25 +51,23 @@ func TestUnhandledError(t *testing.T) {
 
 	// Launch the workflow
 	_, _, err = cl.LaunchProcess(ctx, "Process_07lm3kx", model.Vars{})
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 30*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
+	assert.False(t, d.fixed)
 }
 
 type testErrorUnhandledHandlerDef struct {
 	finished chan struct{}
+	fixed    bool
 }
 
 // A "Hello World" service task
@@ -86,6 +80,7 @@ func (d *testErrorUnhandledHandlerDef) mayFail(_ context.Context, _ task.JobClie
 func (d *testErrorUnhandledHandlerDef) fixSituation(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Fixing")
 	fmt.Println("carried", vars["carried"])
+	d.fixed = true
 	return model.Vars{}, nil
 }
 

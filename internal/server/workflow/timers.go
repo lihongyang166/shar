@@ -125,8 +125,8 @@ func (s *Engine) listenForTimer(sCtx context.Context, js jetstream.JetStream, cl
 							continue
 						}
 						activityID := common.TrackingID(state.Id).ID()
-						_, err = s.operations.GetOldState(ctx, activityID)
-						if errors2.Is(err, errors.ErrStateNotFound) {
+						_, err = s.operations.GetProcessHistoryItem(ctx, state.ProcessInstanceId, activityID, model.ProcessHistoryType_activityExecute)
+						if errors2.Is(err, jetstream.ErrKeyNotFound) {
 							if err := m.Ack(); err != nil {
 								log.Error("ack message after state not found", "error", err)
 								continue

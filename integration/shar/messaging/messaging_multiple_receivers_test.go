@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
-	"log/slog"
 	"os"
 	"sync"
 	"testing"
@@ -77,16 +76,15 @@ type testMessagingMultiReceiverHandlerDef struct {
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) step1(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
-		return nil, fmt.Errorf("log: %w", err)
-	}
+	logger := client.Logger()
+	logger.Info("Step 1")
+
 	return model.Vars{}, nil
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, slog.LevelInfo, "Step 2", nil); err != nil {
-		return nil, fmt.Errorf("log: %w", err)
-	}
+	logger := client.Logger()
+	logger.Info("Step 2")
 	x.tst.Mx.Lock()
 	x.tst.FinalVars = vars
 	x.tst.Mx.Unlock()
@@ -94,18 +92,14 @@ func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, slog.LevelInfo, "Step 3", nil); err != nil {
-		return nil, fmt.Errorf("log: %w", err)
-	}
-
+	logger := client.Logger()
+	logger.Info("step 3")
 	return model.Vars{}, nil
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, client task.MessageClient, vars model.Vars) error {
-	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
-		return fmt.Errorf("log: %w", err)
-	}
-
+	logger := client.Logger()
+	logger.Info("Sending Message...")
 	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
@@ -113,7 +107,7 @@ func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, 
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(x.t, "carried1value", vars["carried"])
-	assert.Equal(x.t, "carried2value", vars["carried2"])
+	assert.Equal(x.t, 57, vars["orderId"])
+	assert.Equal(x.t, 1, len(vars))
 	close(x.finished)
 }

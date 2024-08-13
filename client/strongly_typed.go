@@ -80,14 +80,14 @@ func RegisterTaskWithSpec[T, U any](ctx context.Context, c *Client, spec *model.
 //
 // Example usage:
 // err := client.RegisterProcessComplete(ctx, cl, "SimpleProcess", d.processEnd)
-func RegisterProcessComplete[T any](ctx context.Context, c *Client, processName string, fn func(context.Context, T, *model.Error, model.CancellationState)) error {
+func RegisterProcessComplete[T any](ctx context.Context, c *Client, processId string, fn func(context.Context, T, *model.Error, model.CancellationState)) error {
 	inParam := reflect.TypeOf(fn).In(1)
 	if inParam.Kind() != reflect.Struct {
 		return fmt.Errorf("input parameter must be a struct")
 	}
 	mapping := getMapping(inParam)
 
-	c.proCompleteTasks[processName] = &task.FnDef{Fn: fn, Type: task.ExecutionTypeTyped, InMapping: mapping}
+	c.proCompleteTasks[processId] = &task.FnDef{Fn: fn, Type: task.ExecutionTypeTyped, InMapping: mapping}
 	return nil
 }
 

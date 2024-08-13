@@ -3,6 +3,7 @@ package intTest
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
@@ -27,7 +28,7 @@ func TestSubWorkflow(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
-	d := &testSubWorkflowHandlerDef{finished: make(chan struct{})}
+	d := &testSubWorkflowHandlerDef{finished: make(chan struct{}), t: t}
 
 	// Register service tasks
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "sub_workflow_test_BeforeCallingSubProcess.yaml", d.beforeCallingSubProcess)
@@ -64,6 +65,7 @@ func TestSubWorkflow(t *testing.T) {
 
 type testSubWorkflowHandlerDef struct {
 	finished chan struct{}
+	t        *testing.T
 }
 
 func (d *testSubWorkflowHandlerDef) afterCallingSubProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
@@ -82,5 +84,6 @@ func (d *testSubWorkflowHandlerDef) beforeCallingSubProcess(_ context.Context, _
 }
 
 func (d *testSubWorkflowHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+	assert.Equal(d.t, 42, vars["x"])
 	close(d.finished)
 }

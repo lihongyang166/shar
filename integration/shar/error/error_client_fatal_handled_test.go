@@ -24,37 +24,30 @@ func TestFatalErrorHandled(t *testing.T) {
 	// Dial shar
 	ns := ksuid.New().String()
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
-	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
-		panic(err)
-	}
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 
 	d := fatalErrorHandledHandlerDef{test: t, fatalErr: make(chan struct{})}
 
 	// Register service tasks
-	_, err := support.RegisterTaskYamlFile(ctx, cl, "../simple/simple_test.yaml", d.willPanicAndCauseWorkflowFatalError)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "../simple/simple_test.yaml", d.willPanicAndCauseWorkflowFatalError)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestHandleFatalError", b); err != nil {
 		panic(err)
 	}
 
 	// Launch the workflow
 	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	tst.ListenForFatalErr(t, d.fatalErr)

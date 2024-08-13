@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
-	"log/slog"
 	"os"
 	"sync"
 	"testing"
@@ -228,19 +227,15 @@ type testMessagingHandlerDef struct {
 }
 
 func (x *testMessagingHandlerDef) step1(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, slog.LevelInfo, "Step 1", nil); err != nil {
-		return nil, fmt.Errorf("log: %w", err)
-	}
-	if err := client.Log(ctx, slog.LevelInfo, "A sample client log", map[string]string{"funFactor": "100"}); err != nil {
-		return nil, fmt.Errorf("log: %w", err)
-	}
+	logger := client.Logger()
+	logger.Info("step 1")
+	logger.Info("a sample client log")
 	return model.Vars{}, nil
 }
 
 func (x *testMessagingHandlerDef) step2(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, slog.LevelInfo, "Step 2", nil); err != nil {
-		return nil, fmt.Errorf("log: %w", err)
-	}
+	logger := client.Logger()
+	logger.Info("step2")
 	x.tst.Mx.Lock()
 	x.tst.FinalVars = vars
 	x.tst.Mx.Unlock()
@@ -248,12 +243,9 @@ func (x *testMessagingHandlerDef) step2(ctx context.Context, client task.JobClie
 }
 
 func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client task.MessageClient, vars model.Vars) error {
-	if err := client.Log(ctx, slog.LevelInfo, "Sending Message...", nil); err != nil {
-		return fmt.Errorf("log: %w", err)
-	}
-	if err := client.Log(ctx, slog.LevelInfo, "A sample messaging log", map[string]string{"funFactor": "100"}); err != nil {
-		return fmt.Errorf("log err: %w", err)
-	}
+	logger := client.Logger()
+	logger.Info("Sending Message...")
+	logger.Info("A sample messaging log")
 	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
@@ -261,8 +253,7 @@ func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client task.M
 }
 
 func (x *testMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(x.t, "carried1value", vars["carried"])
-	assert.Equal(x.t, "carried2value", vars["carried2"])
+	assert.Equal(x.t, 57, vars["orderId"])
 	close(x.finished)
 }
 
@@ -272,12 +263,10 @@ type messageStartEventWorkflowEventHandler struct {
 }
 
 func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
-	if err := client.Log(ctx, slog.LevelInfo, "simpleServiceTaskHandler", nil); err != nil {
-		return nil, fmt.Errorf("failed logging: %w", err)
-	}
+	logger := client.Logger()
+	logger.Info("simpleServiceTaskHandler")
 	actualCustomerId := vars["customerID"]
 	assert.Equal(mse.t, 333, actualCustomerId)
-
 	return vars, nil
 }
 

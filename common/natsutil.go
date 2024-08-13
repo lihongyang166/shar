@@ -253,6 +253,7 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 		}
 		messagesContext, err := consumer.Messages(
 			jetstream.WithMessagesErrOnMissingHeartbeat(false),
+			jetstream.PullMaxMessages(1),
 		)
 		receivers = append(receivers, messagesContext)
 		if err != nil {
@@ -332,6 +333,11 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 						wfe := &workflow.Error{}
 						if !errors.As(err, wfe) {
 							executeLog.Error("processing error", "error", err, "name", traceName)
+							if err != nil {
+								//TODO: output this to error chan
+								log.Error("fetching message metadata")
+							}
+
 							if set.BackoffCalc != nil {
 								err := set.BackoffCalc(executeCtx, m)
 								if err != nil {

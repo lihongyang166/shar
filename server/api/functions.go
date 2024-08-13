@@ -237,7 +237,7 @@ func (s *Endpoints) handleWorkflowError(ctx context.Context, req *model.HandleWo
 		return nil, fmt.Errorf("ErrorCode may not be empty: %w", errors2.ErrMissingErrorCode)
 	}
 
-	err := s.operations.HandleWorkflowError(ctx, req.ErrorCode, req.Message, req.Vars, job)
+	err := s.operations.HandleWorkflowError(ctx, req.ErrorCode, req.Vars, job)
 	if errors.Is(err, errors2.ErrUnhandledWorkflowError) {
 		return &model.HandleWorkflowErrorResponse{Handled: false}, nil
 	}

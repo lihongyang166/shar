@@ -41,6 +41,7 @@ type zenOpts struct {
 	natsServerAddress           string
 	sharServerTelemetryEndpoint string
 	showSplash                  bool
+	noRecovery                  bool
 }
 
 // ZenSharOptionApplyFn represents a SHAR Zen Server configuration function
@@ -71,6 +72,13 @@ func WithSharServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 func WithNatsServerImageUrl(imageUrl string) ZenSharOptionApplyFn {
 	return func(cfg *zenOpts) {
 		cfg.natsServerImageUrl = imageUrl
+	}
+}
+
+// WithNoRecovery will make zen-shar vulnerable to panics.  This should only be used for testing purposes.
+func WithNoRecovery() ZenSharOptionApplyFn {
+	return func(cfg *zenOpts) {
+		cfg.noRecovery = true
 	}
 }
 
@@ -131,7 +139,7 @@ func GetServers(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, o
 	if defaults.sharServerImageUrl != "" {
 		ssvr = inContainerSharServer(defaults.sharServerImageUrl, dockerHostName, nPort, defaults.sharServerTelemetryEndpoint)
 	} else {
-		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint, defaults.showSplash)
+		ssvr = inProcessSharServer(sharConcurrency, apiAuth, authN, nHost, nPort, defaults.sharServerTelemetryEndpoint, defaults.showSplash, defaults.noRecovery)
 	}
 
 	slog.Info("Setup completed", "nats port", nPort)
@@ -219,7 +227,7 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 	return ssvr
 }
 
-func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string, showSplash bool) *sharsvr.Server {
+func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string, showSplash bool, noRecovery bool) *sharsvr.Server {
 	natsUrl := fmt.Sprintf("%s:%d", natsHost, natsPort)
 	conn, err := nats.Connect(natsUrl)
 	if err != nil {
@@ -242,7 +250,9 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 	if authN != nil {
 		options = append(options, options2.WithAuthentication(authN))
 	}
-
+	if noRecovery {
+		options = append(options, options2.PanicRecovery(false))
+	}
 	if showSplash {
 		options = append(options, options2.WithShowSplash())
 	}

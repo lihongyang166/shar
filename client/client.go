@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
@@ -13,11 +14,13 @@ import (
 	task2 "gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
+	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	middleware2 "gitlab.com/shar-workflow/shar/common/middleware"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
+	"gitlab.com/shar-workflow/shar/common/structs"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
@@ -36,6 +39,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -49,15 +53,26 @@ const HeartBeatInterval = 1 * time.Second
 
 type jobClient struct {
 	cl                *Client
-	trackingID        string
-	processInstanceId string
+	jobID             string
+	activityID        string
+	processInstanceID string
+	executionID       string
 	originalInputs    map[string]interface{}
 	originalOutputs   map[string]interface{}
 }
 
 // Log logs to the span related to this jobClient instance.
+// Deprecated: Use Logger or LoggerWith methods to obtain a logger instance.
 func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error {
-	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
+	return c.cl.clientLog(ctx, c.jobID, level, message, attrs)
+}
+
+func (c *jobClient) Logger() *slog.Logger {
+	return c.LoggerWith(slog.Default())
+}
+
+func (c *jobClient) LoggerWith(logger *slog.Logger) *slog.Logger {
+	return slogWith(logger, c.executionID, c.processInstanceID, c.activityID, c.jobID)
 }
 
 func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
@@ -66,10 +81,21 @@ func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars
 	return
 }
 
+func slogWith(logger *slog.Logger, executionID, processInstanceID, activityID, jobID string) *slog.Logger {
+	return logger.With(
+		slog.String(keys.ExecutionID, executionID),
+		slog.String(keys.ProcessInstanceID, processInstanceID),
+		slog.String(keys.ActivityID, activityID),
+		slog.String(keys.JobID, jobID),
+	)
+}
+
 type messageClient struct {
-	cl          *Client
-	executionId string
-	trackingID  string
+	cl                *Client
+	jobID             string
+	activityID        string
+	processInstanceID string
+	executionID       string
 }
 
 // SendMessage sends a Workflow Message into the SHAR engine
@@ -77,9 +103,18 @@ func (c *messageClient) SendMessage(ctx context.Context, name string, key any, v
 	return c.cl.SendMessage(ctx, name, key, vars)
 }
 
-// Log logs to the span related to this jobClient instance.
+// Log logs to the span related to this messageClient instance.
+// Deprecated: Use Logger or LoggerWith methods to obtain a logger instance.
 func (c *messageClient) Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error {
-	return c.cl.clientLog(ctx, c.trackingID, level, message, attrs)
+	return c.cl.clientLog(ctx, c.jobID, level, message, attrs)
+}
+
+func (c *messageClient) Logger() *slog.Logger {
+	return c.LoggerWith(slog.Default())
+}
+
+func (c *messageClient) LoggerWith(logger *slog.Logger) *slog.Logger {
+	return slogWith(logger, c.executionID, c.processInstanceID, c.activityID, c.jobID)
 }
 
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and integrating with the API
@@ -122,7 +157,7 @@ func New(option ...ConfigurationOption) *Client {
 	if err != nil {
 		panic(err)
 	}
-	client := &Client{
+	c := &Client{
 		id:                              ksuid.New().String(),
 		host:                            host,
 		storageType:                     jetstream.FileStorage,
@@ -142,9 +177,9 @@ func New(option ...ConfigurationOption) *Client {
 		ReceiveMiddleware:               make([]middleware2.Receive, 0),
 	}
 	for _, i := range option {
-		i.configure(client)
+		i.configure(c)
 	}
-	return client
+	return c
 }
 
 // Dial instructs the client to connect to a NATS server.
@@ -158,6 +193,8 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 			telemetry.NatsMsgToCtxWithSpanMiddleware(),
 		)
 	}
+
+	c.ReceiveMiddleware = append(c.ReceiveMiddleware, c.retryNotifier)
 
 	n, err := nats.Connect(natsURL, opts...)
 	if err != nil {
@@ -306,9 +343,19 @@ func (c *Client) listen(ctx context.Context) error {
 	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, def *task2.FnDef, inVars model.Vars) (model.Vars, error) {
 		switch def.Type {
 		case task2.ExecutionTypeVars:
+			id := common.TrackingID(job.Id)
 			pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+			pidCtx = context.WithValue(pidCtx, client.InternalExecutionId, job.ExecutionId)
+			pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
+			pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
 			pidCtx = client.ReParentSpan(pidCtx, job)
-			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+			jc := &jobClient{
+				cl:                c,
+				activityID:        id.ParentID(),
+				executionID:       job.ExecutionId,
+				processInstanceID: job.ProcessInstanceId,
+				jobID:             id.ID(),
+			}
 			if job.State == model.CancellationState_compensating {
 				var err error
 				jc.originalInputs, jc.originalOutputs, err = c.getCompensationVariables(ctx, job.ProcessInstanceId, job.Compensation.ForTrackingId)
@@ -323,15 +370,33 @@ func (c *Client) listen(ctx context.Context) error {
 			}
 			return v, nil
 		case task2.ExecutionTypeTyped:
+			id := common.TrackingID(job.Id)
+			pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+			pidCtx = context.WithValue(pidCtx, client.InternalExecutionId, job.ExecutionId)
+			pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
+			pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
+			pidCtx = client.ReParentSpan(pidCtx, job)
+			revMapping := make(map[string]string, len(def.OutMapping))
+			for k, v := range def.OutMapping {
+				revMapping[v] = k
+			}
 			fn := reflect.TypeOf(def.Fn)
 			x := fn.In(2)
 			t := coerceVarsToType(x, inVars, def.InMapping)
+			em := t.Elem().Interface()
+			fmt.Println(em)
 			vl := reflect.ValueOf(def.Fn)
-			jc := &jobClient{cl: c, trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+			jc := &jobClient{
+				cl:                c,
+				jobID:             id.ID(),
+				processInstanceID: job.ProcessInstanceId,
+				activityID:        id.ParentID(),
+				executionID:       job.ExecutionId,
+			}
 			params := []reflect.Value{
-				reflect.ValueOf(ctx),
+				reflect.ValueOf(pidCtx),
 				reflect.ValueOf(jc),
-				reflect.ValueOf(t.Elem().Interface()),
+				reflect.ValueOf(em),
 			}
 			out := vl.Call(params)
 			str := out[0].Interface()
@@ -342,9 +407,16 @@ func (c *Client) listen(ctx context.Context) error {
 			outType := reflect.TypeOf(str)
 			nf := outType.NumField()
 			for i := 0; i < nf; i++ {
-				nm := outType.Field(i).Name
-				v := out[i].Field(i).Interface()
-				newVars[def.OutMapping[nm]] = v
+				typ := outType.Field(i)
+				nm := typ.Name
+				var v any
+				if typ.Type.Kind() == reflect.Struct {
+					v = structs.Map(reflect.ValueOf(str).Field(i).Interface())
+
+				} else {
+					v = out[i].Field(i).Interface()
+				}
+				newVars[revMapping[nm]] = v
 			}
 			return newVars, nil
 		default:
@@ -374,7 +446,12 @@ func (c *Client) listen(ctx context.Context) error {
 		switch def.Type {
 		case task2.ExecutionTypeVars:
 			fn := def.Fn.(task2.SenderFn)
-			if err := fn(ctx, &messageClient{cl: c, trackingID: trackingID, executionId: job.ExecutionId}, inVars); err != nil {
+			if err := fn(ctx, &messageClient{
+				cl: c, jobID: trackingID,
+				executionID:       job.ExecutionId,
+				processInstanceID: job.ProcessInstanceId,
+				activityID:        common.TrackingID(job.Id).ParentID(),
+			}, inVars); err != nil {
 				slog.Warn("nats listener", "error", err)
 				return err
 			}
@@ -451,7 +528,7 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 		if err != nil {
 			return true, fmt.Errorf("listenProcessTerminate decoding vars: %w", err)
 		}
-		if def, ok := c.proCompleteTasks[st.ProcessName]; ok {
+		if def, ok := c.proCompleteTasks[st.ProcessId]; ok {
 			switch def.Type {
 			case task2.ExecutionTypeVars:
 				fn := def.Fn.(task2.ProcessTerminateFn)
@@ -547,7 +624,8 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 // LoadBPMNWorkflowFromBytes loads, parses, and stores a BPMN workflow in SHAR. Returns the uuid uniquely identifying the workflow.
 func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b []byte) (string, error) {
 	rdr := bytes.NewReader(b)
-	wf, err := parser.Parse(name, rdr)
+	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, name, rdr)
+
 	if err != nil {
 		return "", c.clientErr(ctx, err)
 	}
@@ -580,7 +658,7 @@ func (c *Client) HasWorkflowDefinitionChanged(ctx context.Context, name string, 
 		return false, err
 	}
 	rdr := bytes.NewReader(b)
-	wf, err := parser.Parse(name, rdr)
+	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, name, rdr)
 	if err != nil {
 		return false, c.clientErr(ctx, err)
 	}
@@ -1048,4 +1126,41 @@ func (c *Client) getCompensationVariables(ctx context.Context, processInstanceId
 		return nil, nil, c.clientErr(ctx, err)
 	}
 	return in, out, nil
+}
+
+func (c *Client) retryNotifier(ctx context.Context, msg jetstream.Msg) (context.Context, error) {
+	md, err := msg.Metadata()
+	if err != nil {
+		return nil, fmt.Errorf("retryNotifier get metadata: %w", err)
+	}
+
+	if strings.Contains(msg.Subject(), messages.StateJobExecute) && md.NumDelivered > 1 {
+		state := &model.WorkflowState{}
+		if err := proto.Unmarshal(msg.Data(), state); err != nil {
+			return nil, fmt.Errorf("retry notifier: %w", err)
+		}
+		// Get the workflow this task belongs to
+		wf, err := c.GetWorkflow(ctx, state.WorkflowId)
+		if err != nil {
+			if errors.Is(err, errors2.ErrWorkflowNotFound) {
+				slog.ErrorContext(ctx, "retry notification get workflow", "error", err)
+			}
+			return nil, fmt.Errorf("get workflow: %w", err)
+		}
+		// And the service task element
+		elem := common.ElementTable(wf)[state.ElementId]
+
+		// and extract the retry behaviour
+		retryBehaviour := elem.RetryBehaviour
+
+		newSubj := strings.Replace(msg.Subject(), ".Job.Execute.", ".Job.Retry.", 1)
+		newMsg := nats.NewMsg(newSubj)
+		newMsg.Header.Add("RetryCount", strconv.Itoa(int(md.NumDelivered)))
+		newMsg.Header.Add("RetryMax", strconv.Itoa(int(retryBehaviour.Number)))
+		newMsg.Data = msg.Data()
+		if err := c.con.PublishMsg(newMsg); err != nil {
+			return nil, fmt.Errorf("publish retry notification: %w", err)
+		}
+	}
+	return ctx, nil
 }

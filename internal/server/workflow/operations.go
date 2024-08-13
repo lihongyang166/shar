@@ -34,7 +34,6 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
-	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -50,6 +49,7 @@ type Operations struct {
 	publishTimeout time.Duration
 	sendMiddleware []middleware.Send
 	tr             trace.Tracer
+	exprEngine     expression.Engine
 }
 
 // NewOperations constructs a new Operations instance
@@ -66,6 +66,7 @@ func NewOperations(natsService *natz.NatsService) (*Operations, error) {
 		publishTimeout: time.Second * 30,
 		sendMiddleware: []middleware.Send{telemetry.CtxSpanToNatsMsgMiddleware()},
 		tr:             otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
+		exprEngine:     &expression.ExprEngine{},
 	}, nil
 }
 
@@ -80,21 +81,21 @@ func (c *Operations) LoadWorkflow(ctx context.Context, model *model.Workflow) (s
 }
 
 // Launch starts a new instance of a workflow and returns an execution ID.
-func (c *Operations) Launch(ctx context.Context, processName string, vars []byte) (string, string, error) {
-	return c.LaunchWithParent(ctx, processName, []string{}, vars, "", "")
+func (c *Operations) Launch(ctx context.Context, processId string, vars []byte) (string, string, error) {
+	return c.LaunchWithParent(ctx, processId, []string{}, vars, "", "")
 }
 
 // LaunchWithParent contains the underlying logic to start a workflow.  It is also called to spawn new instances of child workflows.
-func (c *Operations) LaunchWithParent(ctx context.Context, processName string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
+func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
 	var reterr error
 	ctx, log := logx.ContextWith(ctx, "engine.launch")
 
-	workflowName, err := c.GetWorkflowNameFor(ctx, processName)
+	workflowName, err := c.GetWorkflowNameFor(ctx, processId)
 	if err != nil {
 		reterr = engineErr(ctx, "get the workflow name for this process name", err,
 			slog.String(keys.ParentInstanceElementID, parentElID),
 			slog.String(keys.ParentProcessInstanceID, parentpiID),
-			slog.String(keys.ProcessName, processName),
+			slog.String(keys.ProcessId, processId),
 		)
 		return "", "", reterr
 	}
@@ -123,7 +124,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 		return "", "", reterr
 	}
 
-	if err := c.CheckProcessTaskDeprecation(ctx, wf, processName); err != nil {
+	if err := c.CheckProcessTaskDeprecation(ctx, wf, processId); err != nil {
 		return "", "", fmt.Errorf("check task deprecation: %w", err)
 	}
 
@@ -194,12 +195,12 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 	collabProcesses := make([]*model.Process, 0, len(wf.Collaboration.Participant))
 
 	for _, i := range wf.Collaboration.Participant {
-		if i.ProcessId == processName {
+		if i.ProcessId == processId {
 			partOfCollaboration = true
 		}
 		pr, ok := wf.Process[i.ProcessId]
 		if !ok {
-			return "", "", fmt.Errorf("find collaboration process with name %s: %w", processName, err)
+			return "", "", fmt.Errorf("find collaboration process with name %s: %w", processId, err)
 		}
 		collabProcesses = append(collabProcesses, pr)
 	}
@@ -208,14 +209,14 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 		launchProcesses = collabProcesses
 
 	} else {
-		pr, ok := wf.Process[processName]
+		pr, ok := wf.Process[processId]
 		if !ok {
-			return "", "", fmt.Errorf("find process with name %s: %w", processName, err)
+			return "", "", fmt.Errorf("find process with name %s: %w", processId, err)
 		}
 		launchProcesses = append(launchProcesses, pr)
 	}
 	for _, pr := range launchProcesses {
-		err2 := c.launchProcess(ctx, ID, pr.Name, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
+		err2 := c.launchProcess(ctx, ID, pr.Id, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
 		if err2 != nil {
 			return "", "", err2
 		}
@@ -224,7 +225,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processName string, I
 	return executionId, wfID, nil
 }
 
-func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, prName string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
+func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, prId string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
 	ctx, sp := c.tr.Start(ctx, "launchProcess")
 	defer func() {
 		sp.End()
@@ -242,12 +243,12 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 		hasStartEvents = true
 		if el.OutputTransform != nil {
 			for _, v := range el.OutputTransform {
-				evs, err := expression.GetVariables(v)
+				evs, err := expression.GetVariables(ctx, c.exprEngine, v)
 				if err != nil {
 					return fmt.Errorf("extract variables from workflow during launch: %w", err)
 				}
-				for ev := range evs {
-					if _, ok := testVars[ev]; !ok {
+				for _, ev := range evs {
+					if _, ok := testVars[ev.Name]; !ok {
 						return fmt.Errorf("workflow expects variable '%s': %w", ev, errors.ErrExpectedVar)
 					}
 				}
@@ -263,7 +264,7 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 
 	if hasStartEvents {
 
-		pi, err := c.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Name, workflowName, wfID)
+		pi, err := c.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Id, workflowName, wfID)
 		if err != nil {
 			reterr = fmt.Errorf("launch failed to create new process instance: %w", err)
 			return reterr
@@ -284,7 +285,7 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 				Id:                trackingID,
 				Vars:              vrs,
 				WorkflowName:      workflowName,
-				ProcessName:       prName,
+				ProcessId:         prId,
 				ProcessInstanceId: pi.ProcessInstanceId,
 			}
 
@@ -380,7 +381,7 @@ func (c *Operations) CompleteManualTask(ctx context.Context, job *model.Workflow
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	job.Vars = newvars
-	err = vars.CheckVars(ctx, job, el)
+	err = vars.CheckVars(ctx, c.exprEngine, job, el)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -393,7 +394,7 @@ func (c *Operations) CompleteManualTask(ctx context.Context, job *model.Workflow
 // CompleteServiceTask completes a workflow service task
 func (c *Operations) CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	if job.State != model.CancellationState_compensating {
-		if _, err := c.GetOldState(ctx, common.TrackingID(job.Id).ParentID()); errors2.Is(err, errors.ErrStateNotFound) {
+		if _, err := c.GetProcessHistoryItem(ctx, job.ProcessInstanceId, common.TrackingID(job.Id).ParentID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
 				return fmt.Errorf("complete service task failed to publish workflow state: %w", err)
 			}
@@ -407,7 +408,7 @@ func (c *Operations) CompleteServiceTask(ctx context.Context, job *model.Workflo
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	job.Vars = newvars
-	err = vars.CheckVars(ctx, job, el)
+	err = vars.CheckVars(ctx, c.exprEngine, job, el)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -436,7 +437,7 @@ func (c *Operations) CompleteUserTask(ctx context.Context, job *model.WorkflowSt
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	job.Vars = newvars
-	err = vars.CheckVars(ctx, job, el)
+	err = vars.CheckVars(ctx, c.exprEngine, job, el)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -487,7 +488,7 @@ func (s *Operations) ListWorkflows(ctx context.Context, res chan<- *model.ListWo
 	}
 }
 
-func (s *Operations) validateUniqueProcessNameFor(ctx context.Context, wf *model.Workflow) error {
+func (s *Operations) validateUniqueProcessIdFor(ctx context.Context, wf *model.Workflow) error {
 	existingProcessWorkflowNames := make(map[string]string)
 
 	ns := subj.GetNS(ctx)
@@ -496,14 +497,14 @@ func (s *Operations) validateUniqueProcessNameFor(ctx context.Context, wf *model
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	for processName := range wf.Process {
-		workFlowName, err := nsKVs.WfProcess.Get(ctx, processName)
+	for processId := range wf.Process {
+		workFlowName, err := nsKVs.WfProcess.Get(ctx, processId)
 		if errors2.Is(err, jetstream.ErrKeyNotFound) {
 			continue
 		}
 		wfName := string(workFlowName.Value())
 		if wfName != wf.Name {
-			existingProcessWorkflowNames[processName] = wfName
+			existingProcessWorkflowNames[processId] = wfName
 		}
 	}
 
@@ -523,7 +524,7 @@ func (s *Operations) validateUniqueProcessNameFor(ctx context.Context, wf *model
 
 // StoreWorkflow stores a workflow definition and returns a unique ID
 func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
-	err := s.validateUniqueProcessNameFor(ctx, wf)
+	err := s.validateUniqueProcessIdFor(ctx, wf)
 	if err != nil {
 		return "", fmt.Errorf("process names are not unique: %w", err)
 	}
@@ -558,7 +559,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 	wfID := ksuid.New().String()
 
 	createWorkflowProcessMappingFn := func(ctx context.Context, wf *model.Workflow, i *model.Process) (uint64, error) {
-		ret, err := nsKVs.WfProcess.Put(ctx, i.Name, []byte(wf.Name))
+		ret, err := nsKVs.WfProcess.Put(ctx, i.Id, []byte(wf.Name))
 		if err != nil {
 			return 0, fmt.Errorf("store the workflow process mapping: %w", err)
 		}
@@ -625,7 +626,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 					},
 					Vars:         []byte{},
 					WorkflowName: wf.Name,
-					ProcessName:  pr.Name,
+					ProcessId:    pr.Id,
 				}
 				if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowTimedExecute, ns), timer); err != nil {
 					return fmt.Errorf("publish workflow timed execute: %w", err)
@@ -636,7 +637,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 		})
 
 		if vErr != nil {
-			return "", fmt.Errorf("initialize all workflow timed start events for %s: %w", pr.Name, vErr)
+			return "", fmt.Errorf("initialize all workflow timed start events for %s: %w", pr.Id, vErr)
 		}
 	}
 
@@ -722,12 +723,14 @@ func (s *Operations) ProcessServiceTasks(ctx context.Context, wf *model.Workflow
 				// Collate all the variables from the output transforms
 				outVars := make(map[string]struct{})
 				for varN, exp := range j.OutputTransform {
-					vars, err := expression.GetVariables(exp)
+					vars, err := expression.GetVariables(ctx, s.exprEngine, exp)
 					if err != nil {
 						return fmt.Errorf("an error occurred getting the variables from the output expression for %s in service task %s", varN, j.Id)
 					}
 					// Take the variables and add them to the list
-					maps.Copy(outVars, vars)
+					for _, i := range vars {
+						outVars[i.Name] = struct{}{}
+					}
 				}
 				if def.Parameters != nil && def.Parameters.Output != nil {
 					for _, val := range def.Parameters.Output {
@@ -862,15 +865,15 @@ func (s *Operations) GetWorkflow(ctx context.Context, workflowID string) (*model
 }
 
 // GetWorkflowNameFor - get the worflow name a process is associated with
-func (s *Operations) GetWorkflowNameFor(ctx context.Context, processName string) (string, error) {
+func (s *Operations) GetWorkflowNameFor(ctx context.Context, processId string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	if entry, err := common.Load(ctx, nsKVs.WfProcess, processName); errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return "", fmt.Errorf(fmt.Sprintf("get workflow name for process %s: %%w", processName), errors.ErrProcessNotFound)
+	if entry, err := common.Load(ctx, nsKVs.WfProcess, processId); errors2.Is(err, jetstream.ErrKeyNotFound) {
+		return "", fmt.Errorf(fmt.Sprintf("get workflow name for process %s: %%w", processId), errors.ErrProcessNotFound)
 	} else if err != nil {
 		return "", fmt.Errorf("load workflow name for process: %w", err)
 	} else {
@@ -1431,50 +1434,12 @@ func (s *Operations) OwnerName(ctx context.Context, id string) (string, error) {
 	return string(nm.Value()), nil
 }
 
-// GetOldState gets a task state given its tracking ID.
-func (s *Operations) GetOldState(ctx context.Context, id string) (*model.WorkflowState, error) {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	oldState := &model.WorkflowState{}
-	err = common.LoadObj(ctx, nsKVs.WfVarState, id, oldState)
-	if err == nil {
-		return oldState, nil
-	} else if errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return nil, fmt.Errorf("get old state failed to load object: %w", errors.ErrStateNotFound)
-	}
-	return nil, fmt.Errorf("retrieving task state: %w", err)
-}
-
-// SaveState saves the task state.
-func (s *Operations) SaveState(ctx context.Context, id string, state *model.WorkflowState) error {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	saveState := proto.Clone(state).(*model.WorkflowState)
-	saveState.Id = common.TrackingID(saveState.Id).Pop().Push(id)
-	data, err := proto.Marshal(saveState)
-	if err != nil {
-		return fmt.Errorf("unmarshal saved state: %w", err)
-	}
-	if err := common.Save(ctx, nsKVs.WfVarState, id, data); err != nil {
-		return fmt.Errorf("save state: %w", err)
-	}
-	return nil
-}
-
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
-func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processName string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
+func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
 	id := ksuid.New().String()
 	pi := &model.ProcessInstance{
 		ProcessInstanceId: id,
-		ProcessName:       processName,
+		ProcessId:         processId,
 		ParentProcessId:   &parentProcessID,
 		ParentElementId:   &parentElementID,
 		ExecutionId:       executionId,
@@ -1626,8 +1591,8 @@ func (s *Operations) validateUniqueMessageNames(ctx context.Context, wf *model.W
 }
 
 // CheckProcessTaskDeprecation checks if all the tasks in a process have not been deprecated.
-func (s *Operations) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processName string) error {
-	pr := workflow.Process[processName]
+func (s *Operations) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processId string) error {
+	pr := workflow.Process[processId]
 	for _, el := range pr.Elements {
 		if el.Type == element.ServiceTask {
 			st, err := s.GetTaskSpecByUID(ctx, *el.Version)
@@ -1635,7 +1600,7 @@ func (s *Operations) CheckProcessTaskDeprecation(ctx context.Context, workflow *
 				return fmt.Errorf("get task spec by uid: %w", err)
 			}
 			if st.Behaviour != nil && st.Behaviour.Deprecated {
-				return fmt.Errorf("process %s contains deprecated task %s", processName, el.Execute)
+				return fmt.Errorf("process %s contains deprecated task %s", processId, el.Execute)
 			}
 		}
 	}
@@ -1781,19 +1746,19 @@ func (s *Operations) ListExecutableProcesses(ctx context.Context, wch chan<- *mo
 		}
 		for _, p := range wf.Process {
 			ret := &model.ListExecutableProcessesItem{Parameter: make([]*model.ExecutableStartParameter, 0)}
-			ret.ProcessName = p.Name
+			ret.ProcessId = p.Id
 			ret.WorkflowName = wf.Name
 			startParam := make(map[string]struct{})
 			for _, el := range p.Elements {
 				if el.Type == element.StartEvent {
 					for _, ex := range el.OutputTransform {
-						v, err := expression.GetVariables(ex)
+						v, err := expression.GetVariables(ctx, s.exprEngine, ex)
 						if err != nil {
 							errs <- fmt.Errorf("get expression variables: %w", err)
 							return
 						}
-						for n := range v {
-							startParam[n] = struct{}{}
+						for _, n := range v {
+							startParam[n.Name] = struct{}{}
 						}
 					}
 				}
@@ -1816,7 +1781,7 @@ func (s *Operations) StartJob(ctx context.Context, subject string, job *model.Wo
 	// skip if this job type requires no input transformation
 	if el.Type != element.MessageIntermediateCatchEvent {
 		job.Vars = nil
-		if err := vars.InputVars(ctx, v, &job.Vars, el); err != nil {
+		if err := vars.InputVars(ctx, s.exprEngine, v, &job.Vars, el); err != nil {
 			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to get input variables: %w", err)}
 		}
 	}
@@ -1893,7 +1858,7 @@ func (s *Operations) StartJob(ctx context.Context, subject string, job *model.Wo
 // evaluateOwners builds a list of groups
 func (s *Operations) evaluateOwners(ctx context.Context, owners string, vars model.Vars) ([]string, error) {
 	jobGroups := make([]string, 0)
-	groups, err := expression.Eval[interface{}](ctx, owners, vars)
+	groups, err := expression.Eval[interface{}](ctx, s.exprEngine, owners, vars)
 	if err != nil {
 		return nil, &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -1938,18 +1903,18 @@ func (s *Operations) GetCompensationOutputVariables(ctx context.Context, process
 // determining the appropriate action to take, and publishing the necessary workflow state updates.
 // It returns an error if there was an issue retrieving the workflow definition, if the workflow
 // doesn't support the specified error code.
-func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, message string, inVars []byte, job *model.WorkflowState) error {
+func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, inVars []byte, state *model.WorkflowState) error {
 	// Get the workflow, so we can look up the error definitions
-	wf, err := c.GetWorkflow(ctx, job.WorkflowId)
+	wf, err := c.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("get workflow definition for handle workflow error: %w", err)
 	}
 
-	// Get the element corresponding to the job
+	// Get the element corresponding to the state
 	els := common.ElementTable(wf)
 
 	// Get the current element
-	el := els[job.ElementId]
+	el := els[state.ElementId]
 
 	// Get the errors supported by this workflow
 	var found bool
@@ -1963,11 +1928,11 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	if !found {
 		werr := &errors.ErrWorkflowFatal{Err: fmt.Errorf("workflow-fatal: can't handle error code %s as the workflow doesn't support it: %w", errorCode, errors.ErrWorkflowErrorNotFound)}
 		// TODO: This always assumes service task.  Wrong!
-		if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
-			return fmt.Errorf("cencel job: %w", werr)
+		if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), state); err != nil {
+			return fmt.Errorf("cencel state: %w", werr)
 		}
 
-		cancelState := common.CopyWorkflowState(job)
+		cancelState := common.CopyWorkflowState(state)
 		cancelState.State = model.CancellationState_errored
 		cancelState.Error = &model.Error{
 			Id:   "UNKNOWN",
@@ -1999,25 +1964,25 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 	// Get the target workflow activity
 	target := els[caughtError.Target]
 
-	oldState, err := c.GetOldState(ctx, common.TrackingID(job.Id).Pop().ID())
+	activityStart, err := c.GetProcessHistoryItem(ctx, state.ProcessInstanceId, common.TrackingID(state.Id).Pop().ID(), model.ProcessHistoryType_activityExecute)
 	if err != nil {
-		return fmt.Errorf("get old state for handle workflow error: %w", err)
+		return fmt.Errorf("get activity start state for handle workflow error: %w", err)
 	}
-	if err := vars.OutputVars(ctx, inVars, &oldState.Vars, caughtError.OutputTransform); err != nil {
+	if err := vars.OutputVars(ctx, c.exprEngine, inVars, &activityStart.Vars, caughtError.OutputTransform); err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowTraversalExecute, &model.WorkflowState{
 		ElementType: target.Type,
 		ElementId:   target.Id,
 		ElementName: target.Name,
-		WorkflowId:  job.WorkflowId,
-		//WorkflowInstanceId: job.WorkflowInstanceId,
-		ExecutionId:       job.ExecutionId,
-		Id:                common.TrackingID(job.Id).Pop().Pop(),
-		Vars:              oldState.Vars,
+		WorkflowId:  state.WorkflowId,
+		//WorkflowInstanceId: state.WorkflowInstanceId,
+		ExecutionId:       state.ExecutionId,
+		Id:                common.TrackingID(state.Id).Pop().Pop(),
+		Vars:              activityStart.Vars,
 		WorkflowName:      wf.Name,
-		ProcessInstanceId: job.ProcessInstanceId,
-		ProcessName:       job.ProcessName,
+		ProcessInstanceId: state.ProcessInstanceId,
+		ProcessId:         state.ProcessId,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", "error", err)
@@ -2028,18 +1993,18 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		ElementType: target.Type,
 		ElementId:   target.Id,
 		ElementName: target.Name,
-		WorkflowId:  job.WorkflowId,
-		//WorkflowInstanceId: job.WorkflowInstanceId,
-		ExecutionId:       job.ExecutionId,
-		Id:                job.Id,
-		Vars:              job.Vars,
+		WorkflowId:  state.WorkflowId,
+		//WorkflowInstanceId: state.WorkflowInstanceId,
+		ExecutionId:       state.ExecutionId,
+		Id:                state.Id,
+		Vars:              state.Vars,
 		WorkflowName:      wf.Name,
-		ProcessInstanceId: job.ProcessInstanceId,
-		ProcessName:       job.ProcessName,
+		ProcessInstanceId: state.ProcessInstanceId,
+		ProcessId:         state.ProcessId,
 	}); err != nil {
 		log := logx.FromContext(ctx)
 		log.Error("publish workflow state", "error", err)
-		// We have already traversed so retunring an error here would be incorrect.
+		// We have already traversed so returning an error here would be incorrect.
 		// It would force reprocessing and possibly double traversing
 		// TODO: develop an idempotent behaviour based upon hash nats message ids + deduplication
 		return fmt.Errorf("publish abort task for handle workflow error: %w", err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -16,6 +17,7 @@ import (
 	"log/slog"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -50,12 +52,13 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 
 	// Is this the last time to fail?
 	if uint32(meta.NumDelivered) >= retryBehaviour.Number {
+		//TODO: Retries exceeded
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
 			if err := c.CancelProcessInstance(ctx, state.ProcessInstanceId); err != nil {
 				return fmt.Errorf("cancelling process instance: %w", err)
 			}
-			return nil
+			goto notifyRetryExceeded
 		case model.RetryErrorAction_ThrowWorkflowError:
 			trackingID := common.TrackingID(state.Id).ID()
 			res := &model.HandleWorkflowErrorResponse{}
@@ -68,8 +71,9 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			if !res.Handled {
 				return fmt.Errorf("handle workflow error with code %s", retryBehaviour.DefaultExceeded.ErrorCode)
 			}
-			return nil
+			goto notifyRetryExceeded
 		case model.RetryErrorAction_PauseWorkflow:
+			goto notifyRetryExceeded
 		case model.RetryErrorAction_SetVariableValue:
 			trackingID := common.TrackingID(state.Id).ID()
 			var retVar any
@@ -93,34 +97,62 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 				retVar = retryBehaviour.DefaultExceeded.VariableValue
 			}
 			if err := c.completeServiceTask(ctx, trackingID, model.Vars{retryBehaviour.DefaultExceeded.Variable: retVar}, state.State == model.CancellationState_compensating); err != nil {
-				return fmt.Errorf("completing service task with error variable: %w", err)
+				return fmt.Errorf("complete service task with error variable: %w", err)
 			}
 		}
 		// Kill the message
 		if err := msg.Term(); err != nil {
-			return fmt.Errorf("terminating message delivery: %w", err)
+			return fmt.Errorf("terminate message delivery: %w", err)
 		}
+	notifyRetryExceeded:
+		newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
+		newMsg.Data = msg.Data()
+		if err := c.con.PublishMsg(newMsg); err != nil {
+			return fmt.Errorf("publish retry exceeded notification: %w", err)
+		}
+		return nil
 	}
+
 	var offset time.Duration
 	messageTime := time.Unix(0, state.UnixTimeNano)
-	offset = time.Duration(retryBehaviour.InitMilli)
-	if meta.NumDelivered > 1 {
-		if retryBehaviour.Strategy == model.RetryStrategy_Incremental {
-			offset += time.Millisecond * time.Duration(retryBehaviour.IntervalMilli*(int64(meta.NumDelivered)-1))
-		} else {
-			incrementMultiplier := int64(math.Pow(2, float64(meta.NumDelivered)))
-			offset += time.Millisecond*time.Duration(retryBehaviour.InitMilli) + (time.Millisecond * time.Duration(retryBehaviour.IntervalMilli*incrementMultiplier))
-		}
-		if int64(offset) > retryBehaviour.MaxMilli*int64(time.Millisecond) {
-			offset = time.Duration(retryBehaviour.MaxMilli * int64(time.Millisecond))
-		}
-	}
-	if time.Since(messageTime)-offset < 0 {
-		offset = 0
-	}
+	initial := retryBehaviour.InitMilli
+	strategy := retryBehaviour.Strategy
+	interval := retryBehaviour.IntervalMilli
+	ceiling := retryBehaviour.MaxMilli
+	deliveryCount := int64(meta.NumDelivered)
+
+	offset = getOffset(strategy, initial, interval, deliveryCount, ceiling, messageTime)
 
 	if err := msg.NakWithDelay(offset); err != nil {
 		return fmt.Errorf("linear backoff: %w", err)
 	}
 	return nil
+}
+
+func getOffset(strategy model.RetryStrategy, initial int64, interval int64, deliveryCount int64, ceiling int64, messageTime time.Time) time.Duration {
+	initial = initial * int64(time.Millisecond)
+	interval = interval * int64(time.Millisecond)
+	ceiling = ceiling * int64(time.Millisecond)
+	if interval == 0 {
+		interval = int64(1 * time.Second)
+	}
+	if ceiling < interval {
+		ceiling = interval
+	}
+	var offset int64
+	if deliveryCount > 1 {
+		if strategy == model.RetryStrategy_Linear {
+			offset = initial + interval*(deliveryCount-1)
+		} else {
+			incrementMultiplier := int64(math.Pow(2, float64(deliveryCount-1)))
+			offset = initial + (interval * incrementMultiplier)
+		}
+		if offset > ceiling {
+			offset = ceiling
+		}
+	}
+	if time.Since(messageTime) > time.Duration(offset)*time.Millisecond {
+		offset = 0
+	}
+	return time.Duration(offset)
 }

@@ -26,47 +26,40 @@ func TestHandledError(t *testing.T) {
 	// Dial shar
 	ns := ksuid.New().String()
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
-	if err := cl.Dial(ctx, tst.NatsURL); err != nil {
-		panic(err)
-	}
+	err := cl.Dial(ctx, tst.NatsURL)
+	require.NoError(t, err)
 
 	d := errorHandledHandlerDef{test: t, finished: make(chan struct{})}
 
 	// Register service tasks
-	_, err := support.RegisterTaskYamlFile(ctx, cl, "error_handled_test_couldThrowError.yaml", d.mayFail)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "error_handled_test_couldThrowError.yaml", d.mayFail)
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "error_handled_test_fixSituation.yaml", d.fixSituation)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/errors.bpmn")
-	if err != nil {
-		panic(err)
-	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestHandleError", b); err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestHandleError", b)
+	require.NoError(t, err)
 
 	// A hook to watch for completion
 	err = cl.RegisterProcessComplete("Process_07lm3kx", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
 	_, _, err = cl.LaunchProcess(ctx, "Process_07lm3kx", model.Vars{})
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	// wait for the workflow to complete
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
+	assert.True(t, d.fixed)
 }
 
 type errorHandledHandlerDef struct {

@@ -11,20 +11,20 @@ import (
 func tagWorkflow(wf *model.Workflow) error {
 	for _, process := range wf.Process {
 		els := make(map[string]*model.Element)
-		back := getInbound(process)
+		eleIdsReferences := getElementIdReferences(process)
 		common.IndexProcessElements(process.Elements, els)
-		if err := tagGateways(process, els, back); err != nil {
+		if err := tagGateways(process, els, eleIdsReferences); err != nil {
 			return fmt.Errorf("an error occurred tagging the process gateways: %w", err)
 		}
 	}
 	return nil
 }
 
-func tagGateways(process *model.Process, els map[string]*model.Element, back map[string][]string) error {
+func tagGateways(process *model.Process, els map[string]*model.Element, eleIdReferences map[string][]string) error {
 	for _, el := range process.Elements {
 		if el.Type == element.Gateway {
 			var numIn, numOut int
-			if ins, ok := back[el.Id]; ok {
+			if ins, ok := eleIdReferences[el.Id]; ok {
 				numIn = len(ins)
 			}
 			if el.Outbound != nil {
@@ -42,38 +42,40 @@ func tagGateways(process *model.Process, els map[string]*model.Element, back map
 	}
 	for _, el := range process.Elements {
 		if el.Type == element.Gateway && el.Gateway.Direction == model.GatewayDirection_convergent {
-			if err := tagReciprocal(el, back, els); err != nil {
+			if err := tagReciprocal(el, eleIdReferences, els); err != nil {
 				return fmt.Errorf("find reciprocal gateway: %w", err)
 			}
 		}
 	}
+
 	return nil
 }
 
-func getInbound(process *model.Process) map[string][]string {
-	backCx := make(map[string][]string)
+func getElementIdReferences(process *model.Process) map[string][]string {
+	eleIdReferencedBy := make(map[string][]string)
 	for _, el := range process.Elements {
 		if el.Outbound != nil {
 			for _, c := range el.Outbound.Target {
-				if _, ok := backCx[c.Target]; !ok {
-					backCx[c.Target] = make([]string, 0)
+				elementId := c.Target
+				if _, ok := eleIdReferencedBy[elementId]; !ok {
+					eleIdReferencedBy[elementId] = make([]string, 0)
 				}
-				backCx[c.Target] = append(backCx[c.Target], el.Id)
+				eleIdReferencedBy[elementId] = append(eleIdReferencedBy[elementId], el.Id)
 			}
 		}
 	}
-	return backCx
+	return eleIdReferencedBy
 }
 
-func tagReciprocal(gw *model.Element, backLink map[string][]string, index map[string]*model.Element) error {
+func tagReciprocal(gw *model.Element, eleIdReferences map[string][]string, eleIndex map[string]*model.Element) error {
 	stack := 0
 	result := make(map[string]struct{})
-	recurseRecip(gw, gw, backLink, result, stack, index)
+	recurseRecip(gw, gw, eleIdReferences, result, stack, eleIndex)
 	// This has paths which lead to no gateway
 	if _, ok := result["[<<null>>]"]; ok {
 		// This is a gateway without a reciprocal, so set fixed expectations on the gateway
 		// so treat this as a solitary gateway
-		if expectations, ok := backLink[gw.Id]; ok {
+		if expectations, ok := eleIdReferences[gw.Id]; ok {
 			gw.Gateway.FixedExpectations = expectations
 		}
 		return nil
@@ -81,7 +83,7 @@ func tagReciprocal(gw *model.Element, backLink map[string][]string, index map[st
 	if len(result) > 1 {
 		// This is a gateway with multiple inbound gateways
 		// so treat this as a solitary gateway
-		if expectations, ok := backLink[gw.Id]; ok {
+		if expectations, ok := eleIdReferences[gw.Id]; ok {
 			gw.Gateway.FixedExpectations = expectations
 		}
 		return nil
@@ -89,7 +91,7 @@ func tagReciprocal(gw *model.Element, backLink map[string][]string, index map[st
 	// set the reciprocal
 	var only *model.Element
 	for i := range result {
-		only = index[i]
+		only = eleIndex[i]
 		break
 	}
 	gw.Gateway.ReciprocalId = only.Id
@@ -97,7 +99,7 @@ func tagReciprocal(gw *model.Element, backLink map[string][]string, index map[st
 	return nil
 }
 
-func recurseRecip(gw *model.Element, el *model.Element, link map[string][]string, result map[string]struct{}, stack int, index map[string]*model.Element) {
+func recurseRecip(gw *model.Element, el *model.Element, eleIdReferences map[string][]string, result map[string]struct{}, stack int, eleIndex map[string]*model.Element) {
 	if gw != el && el.Type == element.Gateway && gw.Gateway.Type == el.Gateway.Type {
 		if el.Gateway.Direction == model.GatewayDirection_convergent {
 			stack++
@@ -110,12 +112,12 @@ func recurseRecip(gw *model.Element, el *model.Element, link map[string][]string
 			stack--
 		}
 	}
-	back, ok := link[el.Id]
+	elementReferences, ok := eleIdReferences[el.Id]
 	if !ok {
 		result["[<<null>>]"] = struct{}{}
 		return
 	}
-	for _, next := range back {
-		recurseRecip(gw, index[next], link, result, stack, index)
+	for _, next := range elementReferences {
+		recurseRecip(gw, eleIndex[next], eleIdReferences, result, stack, eleIndex)
 	}
 }

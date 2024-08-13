@@ -40,23 +40,14 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 		job.Id = common.TrackingID(job.Id).Push(gwIID)
 		gw := &model.Gateway{}
 		if err := common.LoadObj(ctx, nsKVs.WfGateway, gwIID, gw); errors2.Is(err, jetstream.ErrKeyNotFound) {
-			// create a new gateway job
-			gw = &model.Gateway{
-				MetExpectations: make(map[string]string),
-				Vars:            [][]byte{job.Vars},
-				Visits:          0,
-			}
+			return false, fmt.Errorf("%s could not load gateway information: %w", errors.Fn(), err)
+		} else if len(gw.Vars) == 1 { // first arrived branch
 			if err := common.SaveObj(ctx, nsKVs.Job, gwIID, &job); err != nil {
 				return false, fmt.Errorf("%s failed to save job to KV: %w", errors.Fn(), err)
-			}
-			if err := common.SaveObj(ctx, nsKVs.WfGateway, gwIID, gw); err != nil {
-				return false, fmt.Errorf("%s failed to save gateway to KV: %w", errors.Fn(), err)
 			}
 			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskExecute, &job); err != nil {
 				return false, fmt.Errorf("%s failed to execute gateway to KV: %w", errors.Fn(), err)
 			}
-		} else if err != nil {
-			return false, fmt.Errorf("%s could not load gateway information: %w", errors.Fn(), err)
 		} else if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskReEnter, &job); err != nil {
 			return false, fmt.Errorf("%s failed to execute gateway to KV: %w", errors.Fn(), err)
 		}
@@ -78,7 +69,7 @@ func (s *Engine) processGatewayExecute(ctx context.Context) error {
 	return nil
 }
 
-func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+func (s *Engine) gatewayExecProcessor(ctx context.Context, _ *slog.Logger, msg jetstream.Msg) (bool, error) {
 	var job model.WorkflowState
 	if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
@@ -96,7 +87,7 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("process gateway execute failed: %w", err)}
 	}
 	els := make(map[string]*model.Element)
-	common.IndexProcessElements(wf.Process[job.ProcessName].Elements, els)
+	common.IndexProcessElements(wf.Process[job.ProcessId].Elements, els)
 	el := els[job.ElementId]
 
 	gatewayIID, route, err := s.GetGatewayInstanceID(&job)
@@ -136,7 +127,7 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg
 		if err := s.completeGateway(ctx, &job); err != nil {
 			return false, err
 		}
-	case model.GatewayType_inclusive:
+	case model.GatewayType_inclusive, model.GatewayType_parallel:
 		nv, err := s.mergeGatewayVars(ctx, gw)
 		if err != nil {
 			return false, fmt.Errorf("merge gateway variables: %w", &errors.ErrWorkflowFatal{Err: err})
@@ -152,7 +143,6 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, log *slog.Logger, msg
 				return false, err
 			}
 		}
-	case model.GatewayType_parallel:
 	}
 	return true, nil
 }
@@ -177,8 +167,8 @@ func (s *Engine) GetGatewayInstance(ctx context.Context, gatewayInstanceID strin
 func (s *Engine) GetGatewayInstanceID(state *model.WorkflowState) (string, string, error) {
 	var gatewayIID string
 	var route string
-	if _, ok := state.SatisfiesGatewayExpectation[state.ElementId]; ok {
-		r := state.SatisfiesGatewayExpectation[state.ElementId].InstanceTracking[len(state.SatisfiesGatewayExpectation[state.ElementId].InstanceTracking)-1]
+	if satisfiesGatewayExpectation, ok := state.SatisfiesGatewayExpectation[state.ElementId]; ok {
+		r := satisfiesGatewayExpectation.InstanceTracking[len(satisfiesGatewayExpectation.InstanceTracking)-1]
 		parts := strings.Split(r, ",")
 		gatewayIID = parts[0]
 		route = parts[1]

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1ghx6ki" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.16.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="1.1.0">
+  <bpmn:process id="demoWorkflow-1-0-1-process-1" name="demoWorkflow-1-0-1-process-1" isExecutable="true">
+    <bpmn:documentation>The process documentation for simple process</bpmn:documentation>
+    <bpmn:startEvent id="StartEvent" name="StartEvent">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="=ClientID_number" target="ClientID" />
+          <zeebe:output source="=TicketTypeID_number" target="TicketTypeID" />
+          <zeebe:output source="=Summary_string" target="Summary" />
+          <zeebe:output source="=FirstName_string" target="FirstName" />
+          <zeebe:output source="=LastName_string" target="LastName" />
+          <zeebe:output source="=Priority_number" target="Priority" />
+          <zeebe:output source="=CFdetails_string" target="CFdetails" />
+          <zeebe:output source="=CFticketDT_string" target="CFticketDT" />
+          <zeebe:output source="=CFincidentDT_string" target="CFincidentDT" />
+          <zeebe:output source="=CFopenReason_string" target="CFopenReason" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_1wsle7s</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_1wsle7s" sourceRef="StartEvent" targetRef="Activity_0riy7um" />
+    <bpmn:exclusiveGateway id="Gateway_1xe4if1" name="Check Priority" default="Flow_1qmnn07">
+      <bpmn:incoming>Flow_0whmpzf</bpmn:incoming>
+      <bpmn:outgoing>Flow_1tczphk</bpmn:outgoing>
+      <bpmn:outgoing>Flow_1qmnn07</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_1tczphk" name="High or Critical" sourceRef="Gateway_1xe4if1" targetRef="Activity_042oemj">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=Priority &gt;= 2</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:exclusiveGateway id="Gateway_07roucx">
+      <bpmn:incoming>Flow_1qmnn07</bpmn:incoming>
+      <bpmn:incoming>Flow_1507jrd</bpmn:incoming>
+      <bpmn:outgoing>Flow_1wxh7rb</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_1qmnn07" sourceRef="Gateway_1xe4if1" targetRef="Gateway_07roucx" />
+    <bpmn:sequenceFlow id="Flow_1507jrd" sourceRef="Activity_042oemj" targetRef="Gateway_07roucx" />
+    <bpmn:endEvent id="Event_0lhdmoe" name="End">
+      <bpmn:incoming>Flow_1wxh7rb</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1wxh7rb" sourceRef="Gateway_07roucx" targetRef="Event_0lhdmoe" />
+    <bpmn:sequenceFlow id="Flow_026wn5g" sourceRef="Activity_0riy7um" targetRef="Activity_0qdow5k" />
+    <bpmn:sequenceFlow id="Flow_0whmpzf" sourceRef="Activity_0qdow5k" targetRef="Gateway_1xe4if1" />
+    <bpmn:serviceTask id="Activity_0riy7um" name="Create Halo Ticket" zeebe:modelerTemplate="createHaloTicket-0-0-1" zeebe:modelerTemplateVersion="0" zeebe:modelerTemplateIcon="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiPjxwYXRoIGZpbGw9IiM4Njg4NTgiIHN0cm9rZT0iIzg2ODg1OCIgZD0iTTMuNjggNS45Nkw0LjUyIDUuOTZRNC4zMCA4LjQ5IDIuNTQgOC40OUwyLjU0IDguNDlRMS41MSA4LjQ5IDAuOTUgNy40MkwwLjk1IDcuNDJRMC40NiA2LjQ4IDAuNDYgNC44MEwwLjQ2IDQuODBRMC40NiAzLjA5IDEuMDAgMi4wOEwxLjAwIDIuMDhRMS41NCAxLjA5IDIuNTQgMS4wOUwyLjU0IDEuMDlRNC4xNSAxLjA5IDQuNDYgMy4yOUw0LjQ2IDMuMjlMMy42NCAzLjI5UTMuNDMgMS44NCAyLjU0IDEuODRMMi41NCAxLjg0UTEuMzIgMS44NCAxLjMyIDQuODBMMS4zMiA0LjgwUTEuMzIgNy43MyAyLjU1IDcuNzNMMi41NSA3LjczUTMuNTkgNy43MyAzLjY4IDUuOTZMMy42OCA1Ljk2Wk02LjQ2IDMuNTRMNy4yMiAzLjU0TDcuMjIgNC41NFE4LjA5IDMuNjMgOS4wNyAzLjM1TDkuMDcgMy4zNUw5LjA3IDQuMjJRNy45NCA0LjQ5IDcuMjIgNS40NUw3LjIyIDUuNDVMNy4yMiA4LjI5TDYuNDYgOC4yOUw2LjQ2IDMuNTRaIi8+PC9zdmc+">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="createHaloTicket-0-0-1" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=ClientID" target="ClientID" />
+          <zeebe:input source="=TicketTypeID" target="TicketTypeID" />
+          <zeebe:input source="=Summary" target="Summary" />
+          <zeebe:input source="=FirstName" target="FirstName" />
+          <zeebe:input source="=LastName" target="LastName" />
+          <zeebe:input source="=Priority" target="Priority" />
+          <zeebe:input source="=CFdetails" target="CFdetails" />
+          <zeebe:input source="=CFticketDT" target="CFticketDT" />
+          <zeebe:input source="=CFincidentDT" target="CFincidentDT" />
+          <zeebe:input source="=CFopenReason" target="CFopenReason" />
+          <zeebe:output source="=ticketID" target="ticketID" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1wsle7s</bpmn:incoming>
+      <bpmn:outgoing>Flow_026wn5g</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Activity_042oemj" name="Send SMS" zeebe:modelerTemplate="sendSMS-0-0-1" zeebe:modelerTemplateVersion="0" zeebe:modelerTemplateIcon="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiPjxwYXRoIGZpbGw9IiM1ODY4NTYiIHN0cm9rZT0iIzU4Njg1NiIgZD0iTTAuNDYgNi4yOEwxLjMwIDYuMjhRMS4zNiA3Ljc2IDIuNTggNy43NkwyLjU4IDcuNzZRMy4wMiA3Ljc2IDMuMzEgNy41NEwzLjMxIDcuNTRRMy43MiA3LjIyIDMuNzIgNi42NUwzLjcyIDYuNjVRMy43MiA2LjA0IDMuMjEgNS41N0wzLjIxIDUuNTdRMi44NiA1LjI1IDIuMDAgNC43NkwyLjAwIDQuNzZRMC42NSAzLjk2IDAuNjUgMi44NkwwLjY1IDIuODZRMC42NSAyLjE2IDEuMDkgMS42OEwxLjA5IDEuNjhRMS42MiAxLjA5IDIuNTEgMS4wOUwyLjUxIDEuMDlRNC4xNyAxLjA5IDQuMzkgMy4wOEw0LjM5IDMuMDhMMy41NyAzLjA4UTMuNTQgMi42MiAzLjM4IDIuMzVMMy4zOCAyLjM1UTMuMDcgMS44MCAyLjUxIDEuODBMMi41MSAxLjgwUTEuOTMgMS44MCAxLjY1IDIuMTlMMS42NSAyLjE5UTEuNDUgMi40NyAxLjQ1IDIuODBMMS40NSAyLjgwUTEuNDUgMy41OSAyLjc0IDQuMzRMMi43NCA0LjM0UTMuNTQgNC44MCAzLjk2IDUuMjNMMy45NiA1LjIzUTQuNTMgNS43OSA0LjUzIDYuNjRMNC41MyA2LjY0UTQuNTMgNy40NSA0LjAyIDcuOTRMNC4wMiA3Ljk0UTMuNDcgOC40OSAyLjYwIDguNDlMMi42MCA4LjQ5UTEuNTEgOC40OSAwLjkxIDcuNjlMMC45MSA3LjY5UTAuNDkgNy4xMyAwLjQ2IDYuMjhMMC40NiA2LjI4Wk04LjYyIDYuODJMOS40MCA2LjgyUTguOTYgOC40OSA3LjUxIDguNDlMNy41MSA4LjQ5UTYuNjEgOC40OSA2LjA4IDcuNzNMNi4wOCA3LjczUTUuNjAgNy4wNSA1LjYwIDUuOTJMNS42MCA1LjkyUTUuNjAgNC44NCA2LjA1IDQuMTVMNi4wNSA0LjE1UTYuNTggMy4zNSA3LjUwIDMuMzVMNy41MCAzLjM1UTkuMzAgMy4zNSA5LjQyIDYuMDdMOS40MiA2LjA3TDYuMzUgNi4wN1E2LjQxIDcuODIgNy41MiA3LjgyTDcuNTIgNy44MlE4LjQwIDcuODIgOC42MiA2LjgyTDguNjIgNi44MlpNNi4zOCA1LjQzTDguNjIgNS40M1E4LjQ2IDQuMDIgNy41MCA0LjAyTDcuNTAgNC4wMlE2LjU4IDQuMDIgNi4zOCA1LjQzTDYuMzggNS40M1oiLz48L3N2Zz4=">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sendSMS-0-0-1" />
+        <zeebe:ioMapping>
+          <zeebe:input source="00447812382532" target="PhoneNumber" />
+          <zeebe:input source="=&#34;Hello, &#34; + FirstName + &#34;, A Halo ticket &#34; + string(ticketID) + &#34; been raised with a high priority &#34;" target="Message" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1tczphk</bpmn:incoming>
+      <bpmn:outgoing>Flow_1507jrd</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Activity_0qdow5k" name="Send Email" zeebe:modelerTemplate="sendEmail-1-0-0" zeebe:modelerTemplateVersion="1" zeebe:modelerTemplateIcon="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiPjxwYXRoIGZpbGw9IiM1ODY4ODYiIHN0cm9rZT0iIzU4Njg4NiIgZD0iTTAuNDYgNi4yOEwxLjMwIDYuMjhRMS4zNiA3Ljc2IDIuNTggNy43NkwyLjU4IDcuNzZRMy4wMiA3Ljc2IDMuMzEgNy41NEwzLjMxIDcuNTRRMy43MiA3LjIyIDMuNzIgNi42NUwzLjcyIDYuNjVRMy43MiA2LjA0IDMuMjEgNS41N0wzLjIxIDUuNTdRMi44NiA1LjI1IDIuMDAgNC43NkwyLjAwIDQuNzZRMC42NSAzLjk2IDAuNjUgMi44NkwwLjY1IDIuODZRMC42NSAyLjE2IDEuMDkgMS42OEwxLjA5IDEuNjhRMS42MiAxLjA5IDIuNTEgMS4wOUwyLjUxIDEuMDlRNC4xNyAxLjA5IDQuMzkgMy4wOEw0LjM5IDMuMDhMMy41NyAzLjA4UTMuNTQgMi42MiAzLjM4IDIuMzVMMy4zOCAyLjM1UTMuMDcgMS44MCAyLjUxIDEuODBMMi41MSAxLjgwUTEuOTMgMS44MCAxLjY1IDIuMTlMMS42NSAyLjE5UTEuNDUgMi40NyAxLjQ1IDIuODBMMS40NSAyLjgwUTEuNDUgMy41OSAyLjc0IDQuMzRMMi43NCA0LjM0UTMuNTQgNC44MCAzLjk2IDUuMjNMMy45NiA1LjIzUTQuNTMgNS43OSA0LjUzIDYuNjRMNC41MyA2LjY0UTQuNTMgNy40NSA0LjAyIDcuOTRMNC4wMiA3Ljk0UTMuNDcgOC40OSAyLjYwIDguNDlMMi42MCA4LjQ5UTEuNTEgOC40OSAwLjkxIDcuNjlMMC45MSA3LjY5UTAuNDkgNy4xMyAwLjQ2IDYuMjhMMC40NiA2LjI4Wk04LjYyIDYuODJMOS40MCA2LjgyUTguOTYgOC40OSA3LjUxIDguNDlMNy41MSA4LjQ5UTYuNjEgOC40OSA2LjA4IDcuNzNMNi4wOCA3LjczUTUuNjAgNy4wNSA1LjYwIDUuOTJMNS42MCA1LjkyUTUuNjAgNC44NCA2LjA1IDQuMTVMNi4wNSA0LjE1UTYuNTggMy4zNSA3LjUwIDMuMzVMNy41MCAzLjM1UTkuMzAgMy4zNSA5LjQyIDYuMDdMOS40MiA2LjA3TDYuMzUgNi4wN1E2LjQxIDcuODIgNy41MiA3LjgyTDcuNTIgNy44MlE4LjQwIDcuODIgOC42MiA2LjgyTDguNjIgNi44MlpNNi4zOCA1LjQzTDguNjIgNS40M1E4LjQ2IDQuMDIgNy41MCA0LjAyTDcuNTAgNC4wMlE2LjU4IDQuMDIgNi4zOCA1LjQzTDYuMzggNS40M1oiLz48L3N2Zz4=">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="sendEmail-1-0-0" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=&#34;fred.smith@altavista.com, joe.bloggs@lycos.com&#34;" target="To" />
+          <zeebe:input source="=&#34;Halo ticket created &#34; + string(ticketID)" target="Subject" />
+          <zeebe:input source="=&#34;Halo ticket created &#34; + string(ticketID)" target="Body" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_026wn5g</bpmn:incoming>
+      <bpmn:outgoing>Flow_0whmpzf</bpmn:outgoing>
+    </bpmn:serviceTask>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="demoWorkflow-1-0-1-process-1">
+      <bpmndi:BPMNShape id="Event_1lg507v_di" bpmnElement="StartEvent" bioc:stroke="#60e1c6" bioc:fill="#e1faf5" color:border-color="#60e1c6">
+        <dc:Bounds x="-228" y="72" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-235" y="115" width="50" height="13" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_1xe4if1_di" bpmnElement="Gateway_1xe4if1" isMarkerVisible="true" bioc:stroke="#b8860c" bioc:fill="#fcfcaf" color:border-color="#b8860c">
+        <dc:Bounds x="285" y="65" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="277" y="122" width="68" height="13" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_07roucx_di" bpmnElement="Gateway_07roucx" isMarkerVisible="true" bioc:stroke="#b8860c" bioc:fill="#fcfcaf" color:border-color="#b8860c">
+        <dc:Bounds x="545" y="65" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0lhdmoe_di" bpmnElement="Event_0lhdmoe" bioc:stroke="#fe7575" bioc:fill="#ffd9d9" color:border-color="#fe7575">
+        <dc:Bounds x="772" y="72" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="781" y="115" width="19" height="13" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0kh4s6z_di" bpmnElement="Activity_0riy7um">
+        <dc:Bounds x="-110" y="50" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_07ihzea_di" bpmnElement="Activity_042oemj">
+        <dc:Bounds x="390" y="-60" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_18uodwf_di" bpmnElement="Activity_0qdow5k">
+        <dc:Bounds x="80" y="50" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1wsle7s_di" bpmnElement="Flow_1wsle7s">
+        <di:waypoint x="-192" y="90" />
+        <di:waypoint x="-110" y="90" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1tczphk_di" bpmnElement="Flow_1tczphk">
+        <di:waypoint x="310" y="65" />
+        <di:waypoint x="310" y="-20" />
+        <di:waypoint x="390" y="-20" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="290" y="20" width="73" height="13" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1qmnn07_di" bpmnElement="Flow_1qmnn07">
+        <di:waypoint x="335" y="90" />
+        <di:waypoint x="545" y="90" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1507jrd_di" bpmnElement="Flow_1507jrd">
+        <di:waypoint x="490" y="-20" />
+        <di:waypoint x="570" y="-20" />
+        <di:waypoint x="570" y="65" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1wxh7rb_di" bpmnElement="Flow_1wxh7rb">
+        <di:waypoint x="595" y="90" />
+        <di:waypoint x="772" y="90" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_026wn5g_di" bpmnElement="Flow_026wn5g">
+        <di:waypoint x="-10" y="90" />
+        <di:waypoint x="80" y="90" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0whmpzf_di" bpmnElement="Flow_0whmpzf">
+        <di:waypoint x="180" y="90" />
+        <di:waypoint x="285" y="90" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

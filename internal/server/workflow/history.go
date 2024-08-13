@@ -8,6 +8,7 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"google.golang.org/protobuf/proto"
+	"maps"
 	"strconv"
 )
 
@@ -22,19 +23,25 @@ func (s *Operations) RecordHistory(ctx context.Context, state *model.WorkflowSta
 	id := common.TrackingID(state.Id)
 	trackingId := id.ID()
 	e := &model.ProcessHistoryEntry{
-		Id:                id,
-		ItemType:          historyType,
-		WorkflowId:        &state.WorkflowId,
-		ExecutionId:       &state.ExecutionId,
-		ElementId:         &state.ElementId,
-		ElementName:       &state.ElementName,
-		ProcessInstanceId: &state.ProcessInstanceId,
-		CancellationState: &state.State,
-		Vars:              state.Vars,
-		Timer:             state.Timer,
-		Error:             state.Error,
-		UnixTimeNano:      state.UnixTimeNano,
-		Execute:           state.Execute,
+		Id:                          id,
+		ItemType:                    historyType,
+		WorkflowId:                  &state.WorkflowId,
+		ExecutionId:                 &state.ExecutionId,
+		ElementId:                   &state.ElementId,
+		ElementName:                 &state.ElementName,
+		ProcessInstanceId:           &state.ProcessInstanceId,
+		CancellationState:           &state.State,
+		Vars:                        state.Vars,
+		Timer:                       state.Timer,
+		Error:                       state.Error,
+		UnixTimeNano:                state.UnixTimeNano,
+		Execute:                     state.Execute,
+		ProcessId:                   state.ProcessId,
+		SatisfiesGatewayExpectation: maps.Clone(state.SatisfiesGatewayExpectation),
+		GatewayExpectations:         maps.Clone(state.GatewayExpectations),
+		WorkflowName:                state.WorkflowName,
+		PreviousElement:             state.PreviousElement,
+		PreviousActivity:            state.PreviousActivity,
 	}
 	newId := fmt.Sprintf("%s.%s.%d", state.ProcessInstanceId, trackingId, historyType)
 	if err := common.SaveObj(ctx, nsKVs.WfHistory, newId, e); err != nil {

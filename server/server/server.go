@@ -144,7 +144,6 @@ func (s *Server) Listen() error {
 			}
 			close(errs)
 		}()
-		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_SERVING)
 		slog.Info("shar grpc health started")
 	} else {
 		// Create private health server
@@ -157,6 +156,11 @@ func (s *Server) Listen() error {
 
 	if err := s.api.Listen(); err != nil {
 		panic(fmt.Errorf("start SHAR api: %w", err))
+	}
+
+	// Announce we can serve
+	if s.serverOptions.HealthServiceEnabled {
+		s.healthService.SetStatus(grpcHealth.HealthCheckResponse_SERVING)
 	}
 
 	// Log or exit

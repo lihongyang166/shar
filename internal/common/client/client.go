@@ -93,6 +93,15 @@ func ReParentSpan(ctx context.Context, state *model.WorkflowState) context.Conte
 // InternalProcessInstanceId is a constant of type ContextKey used for storing the internal process instance ID in a context.
 const InternalProcessInstanceId keys.ContextKey = "__INTERNAL_PIID"
 
+// InternalExecutionId is a constant of type ContextKey used for storing the internal execution ID in a context.
+const InternalExecutionId keys.ContextKey = "__INTERNAL_EXID"
+
+// InternalActivityId is a constant of type ContextKey used for storing the internal activity ID in a context.
+const InternalActivityId keys.ContextKey = "__INTERNAL_ACID"
+
+// InternalTaskId is a constant of type ContextKey used for storing the internal task ID in a context.
+const InternalTaskId keys.ContextKey = "__INTERNAL_TID"
+
 // ClientProcessFn is a function that processes client messages in a Jetstream subscription.
 // It increments a counter, checks version compatibility, re-parents a span, and completes service tasks or message tasks.
 //
@@ -248,7 +257,8 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 			return true, nil
 
 		case element.MessageIntermediateThrowEvent:
-			trackingID := common.TrackingID(ut.Id).ID()
+			id := common.TrackingID(ut.Id)
+			trackingID := id.ID()
 			job, err := jobGetter.GetJob(ctx, trackingID)
 			if err != nil {
 				log.Error("get send message task", "error", err, slog.String("JobId", common.TrackingID(ut.Id).ID()))
@@ -267,6 +277,9 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 			}
 			ctx = context.WithValue(ctx, ctxkey.TrackingID, trackingID)
 			pidCtx := context.WithValue(ctx, InternalProcessInstanceId, job.ProcessInstanceId)
+			pidCtx = context.WithValue(pidCtx, InternalExecutionId, job.ExecutionId)
+			pidCtx = context.WithValue(pidCtx, InternalActivityId, id.ParentID())
+			pidCtx = context.WithValue(pidCtx, InternalTaskId, id.ID())
 			pidCtx = ReParentSpan(pidCtx, job)
 			if err := params.MsgFnExecutor(pidCtx, trackingID, job, msgFn, dv); err != nil {
 				log.Warn("nats listener", "error", err)

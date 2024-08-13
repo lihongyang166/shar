@@ -86,7 +86,7 @@ message ListExecutableProcessesRequest{
 
 }
 message ListExecutableProcessesItem{
-  string processName = 1;
+  string processId = 1;
   string workflowName = 2;
   repeated ExecutableStartParameter parameter = 3;
 }
@@ -149,7 +149,7 @@ message Metadata {
 // Process describes a single workflow state machine.
 message Process {
   repeated Element elements = 1; // Elements describes each state in the state machine.
-  string Name = 2; // Name - the common name of the state machine.
+  string Id = 2; // Id - the id of the process .
   optional Metadata metadata = 6; // Metadata created by SHAR to describe process behavior.
 }
 
@@ -284,13 +284,15 @@ message WorkflowState {
   Error error = 14; // Error - an error being carried by the state if it has faulted.
   WorkflowTimer timer = 16; // Timer - a time needed to transition to the next state.
   string workflowName = 17; // WorkflowName - name of this workflow to avoid lookups.
-  string processName = 18; // ProcessName - name of this process to avoid lookups.
+  string processId = 18; // ProcessId - id of this process to avoid lookups.
   string processInstanceId = 19; // ProcessInstanceId - the unique ID for the process instance.
   map<string,SatisfiesGateway> satisfiesGatewayExpectation = 20; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
   map<string,GatewayExpectations> gatewayExpectations = 21; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
   string traceParent = 23; // TraceContext holds an OTEL trace context.
   Compensation compensation = 24; // Compensation holds compensation state parameters.
   string elementName = 25; // ElementName - the human readable name of this element
+  string previousActivity = 26; // PreviousActivity - the ID of the last activity
+  string previousElement = 27; // PreviousElement - the ID of the last element.
 }
 
 message Compensation {
@@ -344,6 +346,12 @@ message ProcessHistoryEntry {
   optional string execute = 11;
   repeated string id = 12;
   bool compensating = 14;
+  string processId = 16;
+  map<string,SatisfiesGateway> satisfiesGatewayExpectation = 17; // SatisfiesGatewayExpectation - a list of gateways, and pathway covered that satisfy their expectations.
+  map<string,GatewayExpectations> gatewayExpectations = 18; // GatewayExpectations - a list of dynamic gateway expectations set during traversing from a divergent gateway with a reciprocal.
+  string workflowName = 19;
+  string previousActivity = 20; // PreviousActivity - the ID of the last activity
+  string previousElement = 21; // PreviousElement - the ID of the last element.
 }
 
 message ProcessHistory {
@@ -399,7 +407,7 @@ message ProcessInstance {
   optional string parentElementId = 4; // ParentElementId - the ID of the element in the parent process that triggered the launch of this process instance.
   string workflowId = 5; // WorkflowId - the workflow version ID that this instance is executing.
   string workflowName = 6; // WorkflowName - name of this workflow to avoid lookups.
-  string processName = 7; // ProcessName - name of this process to avoid lookups.
+  string processId = 7; // ProcessId - id of this process to avoid lookups.
   map<string,bool> gatewayComplete = 8; // GatewayComplete - completed gateway instances register
 }
 
@@ -739,7 +747,7 @@ message TaskMockBehaviours {
 
 enum RetryStrategy {
   Linear = 0; // Retry at regular intervals.
-  Incremental = 1; // Retry at increasingly large intervals.
+  Exponential = 1; // Retry at increasingly large intervals.
 }
 
 message DefaultTaskRetry {

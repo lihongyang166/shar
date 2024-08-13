@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"os"
@@ -56,12 +57,16 @@ func TestExclusiveGatewayDefault(t *testing.T) {
 	}()
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
+	assert.True(t, d.opt2)
+	assert.False(t, d.opt1)
 }
 
 type testExclusiveGatewayDefaultDef struct {
 	t          *testing.T
 	gameResult string
 	finished   chan struct{}
+	opt2       bool
+	opt1       bool
 }
 
 func (d *testExclusiveGatewayDefaultDef) defaultOption(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
@@ -71,11 +76,13 @@ func (d *testExclusiveGatewayDefaultDef) defaultOption(_ context.Context, _ task
 
 func (d *testExclusiveGatewayDefaultDef) option1(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Option 1")
+	d.opt1 = true
 	return vars, nil
 }
 
 func (d *testExclusiveGatewayDefaultDef) option2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Option 2")
+	d.opt2 = true
 	return vars, nil
 }
 

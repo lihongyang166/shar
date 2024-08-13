@@ -21,8 +21,10 @@ import (
 )
 
 type jobClient struct {
-	trackingID        string
-	processInstanceId string
+	jobID             string
+	processInstanceID string
+	activityID        string
+	executionID       string
 	originalInputs    map[string]interface{}
 	originalOutputs   map[string]interface{}
 }
@@ -37,6 +39,22 @@ func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, a
 	return fmt.Errorf(message)
 }
 
+func (c *jobClient) Logger() *slog.Logger {
+	return c.LoggerWith(slog.Default())
+}
+
+func (c *jobClient) LoggerWith(logger *slog.Logger) *slog.Logger {
+	return slogWith(logger, c.executionID, c.processInstanceID, c.activityID, c.jobID)
+}
+
+func slogWith(logger *slog.Logger, executionID, processInstanceID, activityID, jobID string) *slog.Logger {
+	return logger.With(
+		slog.String(keys.ExecutionID, executionID),
+		slog.String(keys.ProcessInstanceID, processInstanceID),
+		slog.String(keys.ActivityID, activityID),
+		slog.String(keys.JobID, jobID),
+	)
+}
 func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
 	inputVars = c.originalInputs
 	outputVars = c.originalOutputs
@@ -49,10 +67,14 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	counter := atomic.Int64{}
 
 	svcFnExecutor := func(ctx context.Context, trackingID string, job *model.WorkflowState, svcFn *task.FnDef, inVars model.Vars) (model.Vars, error) {
+		id := common.TrackingID(job.Id)
 		pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+		pidCtx = context.WithValue(pidCtx, client.InternalExecutionId, job.ExecutionId)
+		pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
+		pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
 		pidCtx = client.ReParentSpan(pidCtx, job)
 		pidCtx = context.WithValue(pidCtx, keys.ContextKey("taskDef"), job.ExecuteVersion)
-		jc := &jobClient{trackingID: trackingID, processInstanceId: job.ProcessInstanceId}
+		jc := &jobClient{jobID: trackingID, processInstanceID: job.ProcessInstanceId}
 		if job.State == model.CancellationState_compensating {
 			var err error
 			ins, err := s.operations.GetCompensationInputVariables(ctx, job.ProcessInstanceId, trackingID)
@@ -123,7 +145,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 		if err != nil {
 			return nil, fmt.Errorf("get job: %w", err)
 		}
-		if err := s.operations.HandleWorkflowError(ctx, errorCode, "", binVars, state); errors2.Is(err, errors.ErrUnhandledWorkflowError) {
+		if err := s.operations.HandleWorkflowError(ctx, errorCode, binVars, state); errors2.Is(err, errors.ErrUnhandledWorkflowError) {
 			return &model.HandleWorkflowErrorResponse{Handled: false}, nil
 		} else if err != nil {
 			return nil, fmt.Errorf("handle workflow error: %w", err)
@@ -179,12 +201,12 @@ func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient,
 	if ts.Behaviour != nil && ts.Behaviour.MockBehaviour != nil {
 		var err error
 		if b := ts.Behaviour.MockBehaviour.ErrorCodeExpr; b != "" {
-			if wfError, err = expression.Eval[string](ctx, b, vars); err != nil {
+			if wfError, err = expression.Eval[string](ctx, s.exprEngine, b, vars); err != nil {
 				return newVars, fmt.Errorf("evaluate mock workflow error expression: %w", err)
 			}
 		}
 		if b := ts.Behaviour.MockBehaviour.FatalErrorExpr; b != "" {
-			if fatalError, err = expression.Eval[bool](ctx, b, vars); err != nil {
+			if fatalError, err = expression.Eval[bool](ctx, s.exprEngine, b, vars); err != nil {
 				return newVars, fmt.Errorf("evaluate mock fatal error expression: %w", err)
 			}
 		}
@@ -196,7 +218,7 @@ func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient,
 	for _, outParam := range ts.Parameters.Output {
 		example := outParam.Example
 		if example != "" {
-			v, err := expression.EvalAny(ctx, example, vars)
+			v, err := expression.EvalAny(ctx, s.exprEngine, example, vars)
 			if err != nil {
 				return newVars, &errors.ErrWorkflowFatal{Err: fmt.Errorf("eval example expression: %w", err)}
 			}

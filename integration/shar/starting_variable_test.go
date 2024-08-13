@@ -34,9 +34,6 @@ func TestStartingVariable(t *testing.T) {
 	_, err = integration_support.RegisterTaskYamlFile(ctx, cl, "starting_variable_test_DummyTask.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
-	err = cl.RegisterProcessComplete("", d.processEnd)
-	require.NoError(t, err)
-
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/bad/expects-starting-variable.bpmn")
 	require.NoError(t, err)
@@ -58,8 +55,4 @@ func (d *testStartingVariableHandlerDef) integrationSimple(_ context.Context, _ 
 	fmt.Println("Hi")
 	fmt.Println("carried", vars["carried"])
 	return vars, nil
-}
-
-func (d *testStartingVariableHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	close(d.finished)
 }

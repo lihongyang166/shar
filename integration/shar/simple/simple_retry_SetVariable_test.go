@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
+	"gitlab.com/shar-workflow/shar/server/tools/tracer"
 	"os"
 	"testing"
 	"time"
@@ -26,7 +27,8 @@ func TestSimpleRetry_SetVariable(t *testing.T) {
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
-
+	tr := tracer.Trace(tst.NatsURL)
+	defer tr.Close()
 	// Register a service task
 	d := &testSimpleRetrySetVariableHandlerDef{t: t, finished: make(chan struct{})}
 

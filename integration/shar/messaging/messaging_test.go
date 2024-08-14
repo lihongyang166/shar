@@ -88,7 +88,7 @@ func TestMessageNameGlobalUniqueness(t *testing.T) {
 	b, err = os.ReadFile("../../../testdata/message-workflow-duplicate-message.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessagingDupMessage", b)
-	require.ErrorContains(t, err, "These messages already exist for other workflows:")
+	require.ErrorContains(t, err, "these messages already exist for other workflows:")
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }

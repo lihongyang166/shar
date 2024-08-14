@@ -36,7 +36,7 @@ func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, a
 		flat = append(flat, k, v)
 	}
 	slog.Log(ctx, level, message, flat...)
-	return fmt.Errorf(message)
+	return fmt.Errorf("%w", errors2.New(message))
 }
 
 func (c *jobClient) Logger() *slog.Logger {

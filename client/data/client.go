@@ -95,12 +95,12 @@ func (c *Client) GetServerVersion(ctx context.Context) (*version.Version, error)
 	c.ExpectedCompatibleServerVersion = cv
 
 	if !res.Connect {
-		return sv, fmt.Errorf("incompatible client version: client must be " + cv.String())
+		return sv, fmt.Errorf("incompatible client version: client must be %s", cv.String())
 	}
 
 	ok, cv2 := upgrader.IsCompatible(sv)
 	if !ok {
-		return sv, fmt.Errorf("incompatible server version: " + sv.String() + " server must be " + cv2.String())
+		return sv, fmt.Errorf("incompatible server version: "+sv.String()+" server must be %s", cv2.String())
 	}
 	return sv, nil
 }

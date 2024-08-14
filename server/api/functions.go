@@ -336,7 +336,7 @@ func (s *Endpoints) versionInfo(ctx context.Context, req *model.GetVersionInfoRe
 
 	// For clients that can't supply the compatible version
 	if req.CompatibleVersion == "" {
-		return nil, fmt.Errorf("client version too old, please upgrade to " + version2.Version)
+		return nil, fmt.Errorf("client version too old, please upgrade to %s", version2.Version)
 	}
 
 	v, err := version.NewVersion(req.CompatibleVersion)

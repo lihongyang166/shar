@@ -195,7 +195,7 @@ func (s *Integration) Setup() {
 	s.testSharServer = ss
 	s.testNatsServer = nmSpc
 
-	fmt.Printf("Starting test support for " + s.testableUnitName + "\n")
+	fmt.Printf("Starting test support for %s\n", s.testableUnitName)
 	fmt.Printf("\033[1;36m%s\033[0m", "> Setup completed\n")
 }
 

@@ -13,7 +13,7 @@
 # There is an open issue for the display problem on Gitlab where the image pushed from the above commands will show as 0B in size;
 # https://gitlab.com/gitlab-org/gitlab/-/issues/431048
 
-FROM --platform=$BUILDPLATFORM golang:1.22.0-alpine as build-stage
+FROM --platform=$BUILDPLATFORM golang:1.23.0-alpine as build-stage
 ARG BINARY_VERSION="0.1.0"
 ARG COMMIT_HASH="12345abcd"
 ARG CI_JOB_STARTED_AT
@@ -32,11 +32,11 @@ RUN apk add protoc
 # Dependency caching:
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download -x
-RUN --mount=type=cache,target=/go/pkg/mod go get -d google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && \
-    	go get -d google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2 && \
+RUN --mount=type=cache,target=/go/pkg/mod go get -d google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    	go get -d google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest && \
     	go get -d github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
-    	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28 && \
-    	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+    	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 COPY . .
 RUN --mount=type=cache,target=../model cd proto; protoc --go_opt=M=gitlab.com --go_out=../model shar-workflow/models.proto

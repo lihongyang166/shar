@@ -20,3 +20,15 @@ func IndexProcessElements(elements []*model.Element, el map[string]*model.Elemen
 		}
 	}
 }
+
+// SeekElement locates an element from a workflow by ID
+func SeekElement(process *model.Workflow, id string) *model.Element {
+	for _, pr := range process.Process {
+		for _, i := range pr.Elements {
+			if i.Id == id {
+				return i
+			}
+		}
+	}
+	return nil
+}

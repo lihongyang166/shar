@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/dgraph-io/ristretto"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -119,32 +120,33 @@ func (c *messageClient) LoggerWith(logger *slog.Logger) *slog.Logger {
 
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and integrating with the API
 type Client struct {
-	id                              string
-	host                            string
-	js                              jetstream.JetStream
-	SvcTasks                        map[string]*task2.FnDef
-	con                             *nats.Conn
-	MsgSender                       map[string]*task2.FnDef
-	storageType                     jetstream.StorageType
-	ns                              string
-	listenTasks                     map[string]struct{}
-	msgListenTasks                  map[string]struct{}
-	proCompleteTasks                map[string]*task2.FnDef
-	txJS                            jetstream.JetStream
-	txCon                           *nats.Conn
-	concurrency                     int
-	ExpectedCompatibleServerVersion *version.Version
-	ExpectedServerVersion           *version.Version
-	version                         *version.Version
-	noRecovery                      bool
-	closer                          chan struct{}
-	shutdownOnce                    sync.Once
-	sig                             chan os.Signal
-	processing                      atomic.Int64
-	noOSSig                         bool
-	telemetryConfig                 telemetry.Config
-	SendMiddleware                  []middleware2.Send
-	ReceiveMiddleware               []middleware2.Receive
+	id                              string                  `json:"id,omitempty"`
+	host                            string                  `json:"host,omitempty"`
+	js                              jetstream.JetStream     `json:"js,omitempty"`
+	SvcTasks                        map[string]*task2.FnDef `json:"svc_tasks,omitempty"`
+	con                             *nats.Conn              `json:"con,omitempty"`
+	MsgSender                       map[string]*task2.FnDef `json:"msg_sender,omitempty"`
+	storageType                     jetstream.StorageType   `json:"storage_type,omitempty"`
+	ns                              string                  `json:"ns,omitempty"`
+	listenTasks                     map[string]struct{}     `json:"listen_tasks,omitempty"`
+	msgListenTasks                  map[string]struct{}     `json:"msg_listen_tasks,omitempty"`
+	proCompleteTasks                map[string]*task2.FnDef `json:"pro_complete_tasks,omitempty"`
+	txJS                            jetstream.JetStream     `json:"tx_js,omitempty"`
+	txCon                           *nats.Conn              `json:"tx_con,omitempty"`
+	concurrency                     int                     `json:"concurrency,omitempty"`
+	ExpectedCompatibleServerVersion *version.Version        `json:"expected_compatible_server_version,omitempty"`
+	ExpectedServerVersion           *version.Version        `json:"expected_server_version,omitempty"`
+	version                         *version.Version        `json:"version,omitempty"`
+	noRecovery                      bool                    `json:"no_recovery,omitempty"`
+	closer                          chan struct{}           `json:"closer,omitempty"`
+	shutdownOnce                    sync.Once               `json:"shutdown_once"`
+	sig                             chan os.Signal          `json:"sig,omitempty"`
+	processing                      atomic.Int64            `json:"processing"`
+	noOSSig                         bool                    `json:"no_os_sig,omitempty"`
+	telemetryConfig                 telemetry.Config        `json:"telemetry_config"`
+	SendMiddleware                  []middleware2.Send      `json:"send_middleware,omitempty"`
+	ReceiveMiddleware               []middleware2.Receive   `json:"receive_middleware,omitempty"`
+	cache                           *ristretto.Cache        `json:"cache,omitempty"`
 }
 
 // New creates a new SHAR client instance
@@ -154,6 +156,15 @@ func New(option ...ConfigurationOption) *Client {
 		panic(err)
 	}
 	host, err := os.Hostname()
+	if err != nil {
+		panic(err)
+	}
+	cache, err := ristretto.NewCache(
+		&ristretto.Config{
+			NumCounters: 1e7,
+			MaxCost:     1 << 30,
+			BufferItems: 64,
+		})
 	if err != nil {
 		panic(err)
 	}
@@ -175,6 +186,7 @@ func New(option ...ConfigurationOption) *Client {
 		telemetryConfig:                 telemetry.Config{Enabled: false},
 		SendMiddleware:                  make([]middleware2.Send, 0),
 		ReceiveMiddleware:               make([]middleware2.Receive, 0),
+		cache:                           cache,
 	}
 	for _, i := range option {
 		i.configure(c)
@@ -695,6 +707,9 @@ func (c *Client) GetWorkflowVersions(ctx context.Context, name string) ([]*model
 
 // GetWorkflow - retrieves a workflow model given its ID
 func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, error) {
+	if wf, ok := c.cache.Get(id); ok {
+		return wf.(*model.Workflow), nil
+	}
 	req := &model.GetWorkflowRequest{
 		Id: id,
 	}
@@ -703,6 +718,7 @@ func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, e
 	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
+	c.cache.Set(id, res.Definition, 0)
 	return res.Definition, nil
 }
 
@@ -1147,8 +1163,7 @@ func (c *Client) retryNotifier(ctx context.Context, msg jetstream.Msg) (context.
 			}
 			return nil, fmt.Errorf("get workflow: %w", err)
 		}
-		// And the service task element
-		elem := common.ElementTable(wf)[state.ElementId]
+		elem := common.SeekElement(wf, state.ElementId)
 
 		// and extract the retry behaviour
 		retryBehaviour := elem.RetryBehaviour

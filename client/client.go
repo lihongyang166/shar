@@ -120,33 +120,33 @@ func (c *messageClient) LoggerWith(logger *slog.Logger) *slog.Logger {
 
 // Client implements a SHAR client capable of listening for service task activations, listening for Workflow Messages, and integrating with the API
 type Client struct {
-	id                              string                  `json:"id,omitempty"`
-	host                            string                  `json:"host,omitempty"`
-	js                              jetstream.JetStream     `json:"js,omitempty"`
+	id                              string
+	host                            string
+	js                              jetstream.JetStream
 	SvcTasks                        map[string]*task2.FnDef `json:"svc_tasks,omitempty"`
-	con                             *nats.Conn              `json:"con,omitempty"`
+	con                             *nats.Conn
 	MsgSender                       map[string]*task2.FnDef `json:"msg_sender,omitempty"`
-	storageType                     jetstream.StorageType   `json:"storage_type,omitempty"`
-	ns                              string                  `json:"ns,omitempty"`
-	listenTasks                     map[string]struct{}     `json:"listen_tasks,omitempty"`
-	msgListenTasks                  map[string]struct{}     `json:"msg_listen_tasks,omitempty"`
-	proCompleteTasks                map[string]*task2.FnDef `json:"pro_complete_tasks,omitempty"`
-	txJS                            jetstream.JetStream     `json:"tx_js,omitempty"`
-	txCon                           *nats.Conn              `json:"tx_con,omitempty"`
-	concurrency                     int                     `json:"concurrency,omitempty"`
-	ExpectedCompatibleServerVersion *version.Version        `json:"expected_compatible_server_version,omitempty"`
-	ExpectedServerVersion           *version.Version        `json:"expected_server_version,omitempty"`
-	version                         *version.Version        `json:"version,omitempty"`
-	noRecovery                      bool                    `json:"no_recovery,omitempty"`
-	closer                          chan struct{}           `json:"closer,omitempty"`
-	shutdownOnce                    sync.Once               `json:"shutdown_once"`
-	sig                             chan os.Signal          `json:"sig,omitempty"`
-	processing                      atomic.Int64            `json:"processing"`
-	noOSSig                         bool                    `json:"no_os_sig,omitempty"`
-	telemetryConfig                 telemetry.Config        `json:"telemetry_config"`
-	SendMiddleware                  []middleware2.Send      `json:"send_middleware,omitempty"`
-	ReceiveMiddleware               []middleware2.Receive   `json:"receive_middleware,omitempty"`
-	cache                           *ristretto.Cache        `json:"cache,omitempty"`
+	storageType                     jetstream.StorageType
+	ns                              string
+	listenTasks                     map[string]struct{}
+	msgListenTasks                  map[string]struct{}
+	proCompleteTasks                map[string]*task2.FnDef
+	txJS                            jetstream.JetStream
+	txCon                           *nats.Conn
+	concurrency                     int
+	ExpectedCompatibleServerVersion *version.Version `json:"expected_compatible_server_version,omitempty"`
+	ExpectedServerVersion           *version.Version `json:"expected_server_version,omitempty"`
+	version                         *version.Version
+	noRecovery                      bool
+	closer                          chan struct{}
+	shutdownOnce                    sync.Once
+	sig                             chan os.Signal
+	processing                      atomic.Int64
+	noOSSig                         bool
+	telemetryConfig                 telemetry.Config
+	SendMiddleware                  []middleware2.Send    `json:"send_middleware,omitempty"`
+	ReceiveMiddleware               []middleware2.Receive `json:"receive_middleware,omitempty"`
+	cache                           *ristretto.Cache
 }
 
 // New creates a new SHAR client instance

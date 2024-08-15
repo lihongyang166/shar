@@ -176,7 +176,7 @@ streams:
           max_ack_pending: 65535
       - nats-config:
           durable_name: UndeliveredMsgConsumer
-          description: Undeliverable workflow message queue.  Messages should be looked up in the WORKFLOW-MIRROR stream to avoid disappointment.
+          description: Undeliverable workflow message queue.
           ack_policy: 0
           ack_wait: 1s
           filter_subject: $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.WORKFLOW.>
@@ -187,24 +187,6 @@ streams:
           ack_wait: 30s
           filter_subject: WORKFLOW.System.Process.FatalError
           max_ack_pending: 65535
-  - nats-config:
-      name: WORKFLOW-MIRROR
-      retention: 0
-      max_consumers: 0
-      max_msgs: 0
-      max_bytes: 0
-      discard: 0
-      max_age: 36h0m0s
-      max_msgs_per_subject: 0
-      storage: 1
-      num_replicas: 0
-      sources:
-        - name: WORKFLOW
-          filter_subject: WORKFLOW.*.State.>
-      compression: 0
-      allow_direct: false
-      mirror_direct: false
-    nats-consumers: []
 buckets:
   - nats-config:
       bucket: WORKFLOW_MESSAGES

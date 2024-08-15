@@ -1584,7 +1584,7 @@ func (s *Operations) validateUniqueMessageNames(ctx context.Context, wf *model.W
 	existingMessages := strings.Join(maps2.Keys(existingMessageTypes), ",")
 
 	if len(existingMessageTypes) > 0 {
-		return fmt.Errorf(fmt.Sprintf("These messages already exist for other workflows: \"%s\"", existingMessages))
+		return fmt.Errorf("these messages already exist for other workflows: %s", existingMessages)
 	}
 
 	return nil

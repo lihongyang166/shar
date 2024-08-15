@@ -28,7 +28,6 @@ func main() {
 	}
 	kvStreams := []string{
 		"WORKFLOW",
-		"WORKFLOW-MIRROR",
 		"WORKFLOW_TELEMETRY",
 		"KV_default_" + messages.KvJob,
 		"KV_default_" + messages.KvVersion,

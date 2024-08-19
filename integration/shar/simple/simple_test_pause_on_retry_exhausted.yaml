@@ -11,11 +11,11 @@ metadata:
 behaviour:
   estimatedMaxDuration: 2343255
   defaultRetry:
-    number: 30
-    strategy: 30000
-    initMilli: 30000
-    intervalMilli: 10000
-    maxMilli: 120000
+    number: 3
+    strategy: 1
+    initMilli: 3000
+    intervalMilli: 1000
+    maxMilli: 12000
     defaultExceeded:
       action: 0
 parameters:

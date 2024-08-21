@@ -38,7 +38,7 @@ import (
 
 // Endpoints provides API endpoints for SHAR
 type Endpoints struct {
-	operations           *workflow.Operations
+	operations           workflow.Ops
 	subs                 *sync.Map
 	panicRecovery        bool
 	apiAuthZFn           authz.APIFunc
@@ -50,7 +50,7 @@ type Endpoints struct {
 }
 
 // New creates a new instance of the SHAR API server
-func New(operations *workflow.Operations, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
+func New(operations workflow.Ops, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
 	ss := &Endpoints{
 		apiAuthZFn:    options.ApiAuthorizer,
 		apiAuthNFn:    options.ApiAuthenticator,

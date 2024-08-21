@@ -356,7 +356,31 @@ func (s *Endpoints) getFatalErrors(ctx context.Context, req *model.GetFatalError
 	//	return
 	//}
 
+	//var authCtx context.Context
+	var err error
+	if _, err = authGetFatalErrors(ctx, req); err != nil {
+		errs <- err
+		return
+	}
+
+	//var authCtx context.Context
+	//var err error
+	//if authCtx, err = s.authForNonWorkflow(ctx); err != nil {
+	//	errs <- err
+	//	return
+	//}
+
 	s.operations.GetFatalErrors(ctx, fatalErrorKeyPrefixBuilder(req), wch, errs)
+}
+
+const invalidGetFatalErrorRequest = "at least one of workflow name, execution id or process instance id must be specified"
+
+func authGetFatalErrors(ctx context.Context, req *model.GetFatalErrorRequest) (context.Context, error) {
+	if req.WfName == "" && req.ExecutionId == "" && req.ProcessInstanceId == "" {
+		return ctx, errors.New(invalidGetFatalErrorRequest)
+	}
+
+	return nil, nil
 }
 
 func (s *Endpoints) retryActivity(ctx context.Context, req *model.RetryActivityRequest) (*model.RetryActivityResponse, error) {

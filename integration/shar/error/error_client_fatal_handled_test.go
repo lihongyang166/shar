@@ -204,7 +204,7 @@ func runExecutions(t *testing.T, ctx context.Context, cl *client.Client, ns stri
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 	wfName := "TestHandleFatalError"
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, wfName, b); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: wfName, WorkflowBPMN: b}); err != nil {
 		panic(err)
 	}
 
@@ -212,7 +212,7 @@ func runExecutions(t *testing.T, ctx context.Context, cl *client.Client, ns stri
 
 	for i, executionParam := range executionParams {
 		// Launch the workflow
-		executionId, _, err := cl.LaunchProcess(ctx, processId, executionParam.startVars)
+		executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: processId, Vars: executionParam.startVars})
 		require.NoError(t, err)
 
 		executionIds[i] = executionId
@@ -257,12 +257,12 @@ func TestFatalErrorPersistedWhenRetriesAreExhaustedAndErrorActionIsPause(t *test
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 	wfName := "TestHandleFatalError"
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, wfName, b); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: wfName, WorkflowBPMN: b}); err != nil {
 		panic(err)
 	}
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.Vars{}})
 	require.NoError(t, err)
 
 	// Listen for service tasks

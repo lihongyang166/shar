@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"gitlab.com/shar-workflow/shar/model"
 	options2 "gitlab.com/shar-workflow/shar/server/server/option"
@@ -42,38 +44,215 @@ func TestFatalErrorKeyPrefixBuilderWithPartialSegments(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%s.%s.%s", wfName, "*", processInstanceId), keyPrefix)
 }
 
-func TestGetFatalErrorInvalidRequestWhenNoSegmentsAreSpecified(t *testing.T) {
-	ctx := context.Background()
-
-	req := &model.GetFatalErrorRequest{
-		WfName:            "",
-		ExecutionId:       "",
-		ProcessInstanceId: "",
+func TestValidation(t *testing.T) {
+	cases := map[string]struct {
+		getFatalErrorRequest *model.GetFatalErrorRequest
+		expectedError        string
+	}{
+		"AllParamsEmptyString": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "",
+				ExecutionId:       "",
+				ProcessInstanceId: "",
+			},
+			expectedError: invalidGetFatalErrorRequestEmptyParams,
+		},
+		"AllParamsWildcardString": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "*",
+				ExecutionId:       "*",
+				ProcessInstanceId: "*",
+			},
+			expectedError: invalidGetFatalErrorRequestWildcardedParams,
+		},
 	}
 
-	mockOperations := &workflow.MockOps{}
-	endpoints, _ := New(mockOperations, nil, &options2.ServerOptions{})
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
 
-	respChan := make(chan *model.FatalError)
-	errChan := make(chan error)
+			mockOperations := &workflow.MockOps{}
+			mockAuth := &MockAuth{}
 
-	mockOperations.On("GetFatalErrors", ctx, fatalErrorKeyPrefixBuilder(req), (chan<- *model.FatalError)(respChan), (chan<- error)(errChan))
-	//.
-	//	Run(func(args mock.Arguments) {
-	//		args.Get()
-	//	})
+			endpoints, _ := New(mockOperations, nil, mockAuth, &options2.ServerOptions{})
 
-	go func() {
-		endpoints.getFatalErrors(ctx, req, respChan, errChan)
-	}()
+			req := tc.getFatalErrorRequest
 
-	expectedErr := <-errChan
-	assert.ErrorContains(t, expectedErr, invalidGetFatalErrorRequest)
+			respChan := make(chan *model.FatalError)
+			errChan := make(chan error)
+
+			//when
+			go func() {
+				endpoints.getFatalErrors(ctx, req, respChan, errChan)
+			}()
+			mockOperations.AssertNotCalled(t, "GetFatalErrors")
+
+			expectedErr := <-errChan
+			//then
+			assert.ErrorContains(t, expectedErr, tc.expectedError)
+		})
+	}
+
 }
 
-// TODO can Ops be decomposed into smaller structs? OR is the canonical way to do this in
-// go to decompose into separate files but still hang the functions off the same struct???
+type USERNAME string
 
-func TestReturnsMatchingFatalErrors(t *testing.T) {
+func TestFatalErrorAuth(t *testing.T) {
+	cases := map[string]struct {
+		getFatalErrorRequest *model.GetFatalErrorRequest
 
+		authMethodCallMockFn func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest) context.Context
+	}{
+		"WorkflowNameAuth": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "workFlowName",
+				ExecutionId:       "",
+				ProcessInstanceId: "",
+			},
+			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest) context.Context {
+				authCtx := context.WithValue(ctx, USERNAME("userName"), "foo-user")
+				mockAuth.On("authForNamedWorkflow", ctx, req.WfName).Return(authCtx, nil)
+				return authCtx
+			},
+		},
+		"ExecutionIdAuth": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "",
+				ExecutionId:       "ExecutionId",
+				ProcessInstanceId: "",
+			},
+			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest) context.Context {
+				authCtx := context.WithValue(ctx, USERNAME("userName"), "foo-user")
+				mockAuth.On("authFromExecutionID", ctx, req.ExecutionId).Return(authCtx, nil, nil)
+				return authCtx
+			},
+		},
+		"ProcessInstanceIdAuth": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "",
+				ExecutionId:       "",
+				ProcessInstanceId: "processInstanceId",
+			},
+			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest) context.Context {
+				authCtx := context.WithValue(ctx, USERNAME("userName"), "foo-user")
+				mockAuth.On("authFromProcessInstanceID", ctx, req.ProcessInstanceId).Return(authCtx, nil, nil)
+				return authCtx
+			},
+		},
+		"OnlyAuthAgainstOneParameter": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "wfName",
+				ExecutionId:       "executionId",
+				ProcessInstanceId: "processInstanceId",
+			},
+			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest) context.Context {
+				authCtx := context.WithValue(ctx, USERNAME("userName"), "foo-user")
+				mockAuth.On("authForNamedWorkflow", ctx, req.WfName).Return(authCtx, nil)
+				return authCtx
+			},
+		},
+	}
+
+	for name, testParams := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockOperations := &workflow.MockOps{}
+			mockAuth := &MockAuth{}
+
+			endpoints, _ := New(mockOperations, nil, mockAuth, &options2.ServerOptions{})
+
+			ctx := context.Background()
+			respCh := make(chan *model.FatalError)
+			errsCh := make(chan error)
+
+			req := testParams.getFatalErrorRequest
+
+			authCtx := testParams.authMethodCallMockFn(mockAuth, ctx, req)
+
+			expectedFatalErr := &model.FatalError{}
+			mockOperations.On("GetFatalErrors", authCtx, fatalErrorKeyPrefixBuilder(req), (chan<- *model.FatalError)(respCh), (chan<- error)(errsCh)).
+				Run(func(args mock.Arguments) {
+					rCh := args.Get(2).(chan<- *model.FatalError)
+					rCh <- expectedFatalErr
+				})
+
+			go func() {
+				endpoints.getFatalErrors(ctx, req, respCh, errsCh)
+			}()
+
+			actualFatalErrResponse := <-respCh
+
+			mockAuth.AssertExpectations(t)
+			mockOperations.AssertExpectations(t)
+
+			assert.Equal(t, expectedFatalErr, actualFatalErrResponse)
+		})
+	}
+}
+
+func TestReturnsAuthErrorWhenAuthFails(t *testing.T) {
+	cases := map[string]struct {
+		getFatalErrorRequest *model.GetFatalErrorRequest
+
+		authMethodCallMockFn func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest, expectedErr error)
+	}{
+		"WorkflowNameAuth": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "workFlowName",
+				ExecutionId:       "",
+				ProcessInstanceId: "",
+			},
+			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest, expectedErr error) {
+				mockAuth.On("authForNamedWorkflow", ctx, req.WfName).Return(nil, expectedErr)
+			},
+		},
+		"ExecutionIdAuth": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "",
+				ExecutionId:       "ExecutionId",
+				ProcessInstanceId: "",
+			},
+			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest, expectedErr error) {
+				mockAuth.On("authFromExecutionID", ctx, req.ExecutionId).Return(nil, nil, expectedErr)
+			},
+		},
+		"ProcessInstanceIdAuth": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "",
+				ExecutionId:       "",
+				ProcessInstanceId: "processInstanceId",
+			},
+			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest, expectedErr error) {
+				mockAuth.On("authFromProcessInstanceID", ctx, req.ProcessInstanceId).Return(nil, nil, expectedErr)
+			},
+		},
+	}
+
+	for name, testParams := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockOperations := &workflow.MockOps{}
+			mockAuth := &MockAuth{}
+
+			endpoints, _ := New(mockOperations, nil, mockAuth, &options2.ServerOptions{})
+
+			ctx := context.Background()
+			respCh := make(chan *model.FatalError)
+			errsCh := make(chan error)
+
+			req := testParams.getFatalErrorRequest
+
+			expectedErr := errors.New("auth error")
+			testParams.authMethodCallMockFn(mockAuth, ctx, req, expectedErr)
+
+			go func() {
+				endpoints.getFatalErrors(ctx, req, respCh, errsCh)
+			}()
+
+			actualErrResponse := <-errsCh
+
+			mockAuth.AssertExpectations(t)
+			mockOperations.AssertNotCalled(t, "GetFatalErrors")
+
+			assert.True(t, errors.Is(actualErrResponse, expectedErr))
+		})
+	}
 }

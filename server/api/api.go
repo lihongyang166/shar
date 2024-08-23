@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	version2 "github.com/hashicorp/go-version"
-	"gitlab.com/shar-workflow/shar/common/authn"
-	"gitlab.com/shar-workflow/shar/common/authz"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -38,11 +36,12 @@ import (
 
 // Endpoints provides API endpoints for SHAR
 type Endpoints struct {
-	operations           workflow.Ops
-	subs                 *sync.Map
-	panicRecovery        bool
-	apiAuthZFn           authz.APIFunc
-	apiAuthNFn           authn.Check
+	operations    workflow.Ops
+	subs          *sync.Map
+	panicRecovery bool
+	//apiAuthZFn           authz.APIFunc
+	//apiAuthNFn           authn.Check
+	auth                 Auth
 	receiveApiMiddleware []middleware.Receive
 	sendMiddleware       []middleware.Send
 	tr                   trace.Tracer
@@ -50,10 +49,10 @@ type Endpoints struct {
 }
 
 // New creates a new instance of the SHAR API server
-func New(operations workflow.Ops, nc *natz.NatsConnConfiguration, options *option.ServerOptions) (*Endpoints, error) {
+func New(operations workflow.Ops, nc *natz.NatsConnConfiguration, auth Auth, options *option.ServerOptions) (*Endpoints, error) {
+
 	ss := &Endpoints{
-		apiAuthZFn:    options.ApiAuthorizer,
-		apiAuthNFn:    options.ApiAuthenticator,
+		auth:          auth,
 		nc:            nc,
 		operations:    operations,
 		panicRecovery: options.PanicRecovery,

@@ -15,3 +15,6 @@ packages:
   gitlab.com/shar-workflow/shar/internal/server/workflow:
     Ops:
       recursive: True
+  gitlab.com/shar-workflow/shar/server/api:
+    Auth:
+      recursive: True

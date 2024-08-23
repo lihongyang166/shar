@@ -65,8 +65,8 @@ type Ops interface {
 	GetProcessHistory(ctx context.Context, processInstanceId string, wch chan<- *model.ProcessHistoryEntry, errs chan<- error)
 	GetProcessHistoryItem(ctx context.Context, processInstanceID string, trackingID string, historyType model.ProcessHistoryType) (*model.ProcessHistoryEntry, error)
 	LoadWorkflow(ctx context.Context, model *model.Workflow) (string, error)
-	Launch(ctx context.Context, processId string, vars []byte) (string, string, error)
-	LaunchWithParent(ctx context.Context, processId string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error)
+	Launch(ctx context.Context, processId string, vars []byte, headers []byte) (string, string, error)
+	LaunchWithParent(ctx context.Context, processId string, ID common.TrackingID, vrs []byte, headers []byte, parentpiID string, parentElID string) (string, string, error)
 	CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error
 	CompleteManualTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
 	CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
@@ -88,7 +88,6 @@ type Ops interface {
 	DeleteJob(ctx context.Context, trackingID string) error
 	ListExecutions(ctx context.Context, workflowName string, wch chan<- *model.ListExecutionItem, errs chan<- error)
 	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
-	GetProcessInstanceStatus(ctx context.Context, id string, wch chan<- *model.WorkflowState, errs chan<- error)
 	PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, opts ...PublishOpt) error
 	SignalFatalErrorTeardown(ctx context.Context, state *model.WorkflowState, log *slog.Logger)
 	SignalFatalErrorPause(ctx context.Context, state *model.WorkflowState, log *slog.Logger)
@@ -99,7 +98,7 @@ type Ops interface {
 	GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error)
 	OwnerID(ctx context.Context, name string) (string, error)
 	OwnerName(ctx context.Context, id string) (string, error)
-	CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string) (*model.ProcessInstance, error)
+	CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string, headers []byte) (*model.ProcessInstance, error)
 	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
 	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string) error
 	DeprecateTaskSpec(ctx context.Context, uid []string) error
@@ -119,6 +118,7 @@ type Ops interface {
 	PersistFatalError(ctx context.Context, fatalError *model.FatalError) (bool, error)
 	TearDownWorkflow(ctx context.Context, state *model.WorkflowState) (bool, error)
 	DeleteFatalError(ctx context.Context, state *model.WorkflowState) error
+	GetActiveEntries(ctx context.Context, processInstanceID string, result chan<- *model.ProcessHistoryEntry, errs chan<- error)
 }
 
 // Operations provides methods for executing and managing workflow processes.

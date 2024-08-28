@@ -16,6 +16,9 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 )
 
+const wfHeaderName = "auto-launch"
+const wfHeaderVal = "test-value"
+
 func TestTimedStart(t *testing.T) {
 	t.Parallel()
 
@@ -38,7 +41,8 @@ func TestTimedStart(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/timed-start-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TimedStartTest", LaunchHeaders: map[string]string{"auto-launch": "test-value"}, WorkflowBPMN: b})
+
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TimedStartTest", LaunchHeaders: map[string]string{wfHeaderName: wfHeaderVal}, WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// A hook to watch for completion
@@ -78,7 +82,7 @@ func (d *timedStartHandlerDef) integrationSimple(ctx context.Context, client tas
 	d.count++
 	hdr, err := client.Headers(ctx)
 	assert.NoError(d.t, err)
-	assert.Equal(d.t, "test-value", hdr["auto-launch"])
+	assert.Equal(d.t, wfHeaderVal, hdr[wfHeaderName])
 	return vars, nil
 }
 

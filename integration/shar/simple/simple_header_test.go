@@ -41,10 +41,7 @@ func TestSimpleHeaders(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	wfHeaderName := "wfheader"
-	wfHeaderVal := "wfHeaderVal"
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b,
-		LaunchHeaders: map[string]string{wfHeaderName: wfHeaderVal}})
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow
@@ -61,12 +58,9 @@ func TestSimpleHeaders(t *testing.T) {
 	headers, err := cl.GetProcessInstanceHeaders(ctx, listExecutionProcessesResponse.ProcessInstanceId[0])
 	require.NoError(t, err)
 
-	actualWfHeaderVal, hasWfHeader := headers[wfHeaderName]
 	actualProcessHeaderVal, hasProcessHeader := headers[processHeaderName]
 
-	assert.True(t, hasWfHeader)
 	assert.True(t, hasProcessHeader)
-	assert.Equal(t, wfHeaderVal, actualWfHeaderVal)
 	assert.Equal(t, processHeaderVal, actualProcessHeaderVal)
 
 	// Listen for service tasks

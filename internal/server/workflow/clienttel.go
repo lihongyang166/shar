@@ -66,7 +66,7 @@ func (s *Engine) processTelemetryTimer(ctx context.Context) error {
 					goto continueLoop
 				}
 
-				body = &model.TelemetryClients{Count: int32(len(clientKeys))}
+				body = &model.TelemetryClients{Count: int32(len(clientKeys))} // nolint
 				b, err = proto.Marshal(body)
 				if err != nil {
 					slog.Error("marshal client telemetry", "error", err)

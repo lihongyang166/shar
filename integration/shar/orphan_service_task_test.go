@@ -25,7 +25,7 @@ func TestRegisterOrphanServiceTask(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.ErrorContains(t, err, "task SimpleProcess is not registered")
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)

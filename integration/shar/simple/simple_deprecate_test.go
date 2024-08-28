@@ -48,11 +48,11 @@ func TestLaunchProcessWithDeprecated(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.ErrorContains(t, err, "contains deprecated")
 
 	tst.AssertCleanKV(namespace.Default, t, 60*time.Second)
@@ -82,11 +82,11 @@ func TestDeprecateExecuting(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
@@ -130,7 +130,7 @@ func TestGetUsage(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	v, err := cl.GetTaskSpecVersions(ctx, "SimpleProcess")
@@ -140,7 +140,7 @@ func TestGetUsage(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Println(use1)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.NoError(t, err)
 
 	// Listen for service tasks

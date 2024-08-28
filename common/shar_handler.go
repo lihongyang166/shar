@@ -70,7 +70,7 @@ func (sh *SharHandler) Handle(ctx context.Context, r slog.Record) error {
 		Hostname:   hostName,
 		ClientId:   "",
 		TrackingId: nil,
-		Level:      int32(r.Level),
+		Level:      int64(r.Level),
 		Time:       r.Time.UnixMilli(),
 		Source:     model.LogSource_logSourceEngine,
 		Message:    r.Message,

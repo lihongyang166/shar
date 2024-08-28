@@ -43,7 +43,7 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-multiple-receivers-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterMessageSender(ctx, "TestMessaging", "continueMessage", handlers.sendMessage)
@@ -52,7 +52,7 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the processes
-	_, _, err = cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": 57}})
 	if err != nil {
 		t.Fatal(err)
 		return

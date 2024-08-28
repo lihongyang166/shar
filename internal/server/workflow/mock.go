@@ -29,6 +29,10 @@ type jobClient struct {
 	originalOutputs   map[string]interface{}
 }
 
+func (c *jobClient) Headers(ctx context.Context) (map[string]string, error) {
+	panic("implement me")
+}
+
 // Log logs to the span related to this jobClient instance.
 func (c *jobClient) Log(ctx context.Context, level slog.Level, message string, attrs map[string]string) error {
 	flat := []any{}

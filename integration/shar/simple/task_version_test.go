@@ -39,11 +39,11 @@ func TestTaskVersion(t *testing.T) {
 	b, err := os.ReadFile("GetCapitalData_test.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "GetCapitalData", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "GetCapitalData", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "GetCapitalData_test", model.Vars{"city": "Dublin"})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GetCapitalData_test", Vars: model.Vars{"city": "Dublin"}})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
@@ -58,11 +58,11 @@ func TestTaskVersion(t *testing.T) {
 	require.NoError(t, err)
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "GetCapitalDataV2.yaml", d.integrationSimple)
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "GetCapitalData", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "GetCapitalData", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "GetCapitalData_test", model.Vars{"city": "Dublin"})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GetCapitalData_test", Vars: model.Vars{"city": "Dublin"}})
 	require.NoError(t, err)
 
 	// Listen for service tasks

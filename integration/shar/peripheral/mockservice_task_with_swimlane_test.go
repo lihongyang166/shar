@@ -45,7 +45,7 @@ func TestMockServiceTaskWithSwimlane(t *testing.T) {
 	b, err := os.ReadFile("swimlane_test.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "swimlane_test", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "swimlane_test", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -55,7 +55,7 @@ func TestMockServiceTaskWithSwimlane(t *testing.T) {
 	}()
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, "testSwimlaneProcess-0-0-5-process-1", model.Vars{"orderId": "dummyOrder"})
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testSwimlaneProcess-0-0-5-process-1", Vars: model.Vars{"orderId": "dummyOrder"}})
 	require.NoError(t, err)
 
 	go func() {

@@ -37,7 +37,7 @@ func TestMessaging(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterMessageSender(ctx, "TestMessaging", "continueMessage", handlers.sendMessage)
@@ -46,7 +46,7 @@ func TestMessaging(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the processes
-	_, _, err = cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": 57}})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -81,13 +81,13 @@ func TestMessageNameGlobalUniqueness(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessaging", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// try to load another bpmn with a message of the same name, should fail
 	b, err = os.ReadFile("../../../testdata/message-workflow-duplicate-message.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessagingDupMessage", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessagingDupMessage", WorkflowBPMN: b})
 	require.ErrorContains(t, err, "these messages already exist for other workflows:")
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)
@@ -116,12 +116,12 @@ func TestMessageNameGlobalUniquenessAcrossVersions(t *testing.T) {
 	// load bpmn
 	b, err := os.ReadFile("../../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	b, err = os.ReadFile("../../../testdata/message-start-test-v2.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent", WorkflowBPMN: b})
 	require.NoError(t, err)
 }
 
@@ -148,7 +148,7 @@ func TestMessageStartEvent(t *testing.T) {
 	// load bpmn
 	b, err := os.ReadFile("../../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMessageStartEvent", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// send message
@@ -192,11 +192,11 @@ func TestAwaitMessageFatalErr(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-workflow-no-correlation-key.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestAwaitMessageFatalErr", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestAwaitMessageFatalErr", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the processes
-	_, _, err = cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": 57})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": 57}})
 	if err != nil {
 		t.Fatal(err)
 		return

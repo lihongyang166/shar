@@ -16,6 +16,9 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 )
 
+const wfHeaderName = "auto-launch"
+const wfHeaderVal = "test-value"
+
 func TestTimedStart(t *testing.T) {
 	t.Parallel()
 
@@ -38,7 +41,8 @@ func TestTimedStart(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/timed-start-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TimedStartTest", b)
+
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TimedStartTest", LaunchHeaders: map[string]string{wfHeaderName: wfHeaderVal}, WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// A hook to watch for completion
@@ -69,13 +73,16 @@ type timedStartHandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *timedStartHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *timedStartHandlerDef) integrationSimple(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	// TODO: Include for diagnosing timed start bug
 	// assert.Equal(d.t, 32768, vars["carried"])
 	d.mx.Lock()
 	defer d.mx.Unlock()
 	d.tst.FinalVars = vars
 	d.count++
+	hdr, err := client.Headers(ctx)
+	assert.NoError(d.t, err)
+	assert.Equal(d.t, wfHeaderVal, hdr[wfHeaderName])
 	return vars, nil
 }
 

@@ -36,11 +36,9 @@ import (
 
 // Endpoints provides API endpoints for SHAR
 type Endpoints struct {
-	operations    workflow.Ops
-	subs          *sync.Map
-	panicRecovery bool
-	//apiAuthZFn           authz.APIFunc
-	//apiAuthNFn           authn.Check
+	operations           workflow.Ops
+	subs                 *sync.Map
+	panicRecovery        bool
 	auth                 Auth
 	receiveApiMiddleware []middleware.Receive
 	sendMiddleware       []middleware.Send

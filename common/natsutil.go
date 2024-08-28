@@ -345,9 +345,6 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 									slog.Error("backoff error", "error", err)
 								}
 								continue
-								//TODO does this mean we don't ack and we actually
-								//retry the same msg (depending on the backoff policy?)
-								//but if we don't define a backoff, will this infinitely retry???
 							}
 						}
 					}

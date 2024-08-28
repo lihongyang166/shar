@@ -49,21 +49,24 @@ func TestVarsWithAtCharacters(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/demoWorkflow-1-0-1-diagram.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ProcessWithSvcTaskAtSymbol", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ProcessWithSvcTaskAtSymbol", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, processId, model.Vars{
-		"ClientID_number":     123,
-		"TicketTypeID_number": 456,
-		"Summary_string":      "summaryString",
-		"FirstName_string":    "firstName",
-		"LastName_string":     "lastName",
-		"Priority_number":     4,
-		"CFdetails_string":    "CDdetails",
-		"CFticketDT_string":   "ticketDt",
-		"CFincidentDT_string": "fincidentDt",
-		"CFopenReason_string": "openReason",
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{
+		ProcessID: processId,
+		Vars: model.Vars{
+			"ClientID_number":     123,
+			"TicketTypeID_number": 456,
+			"Summary_string":      "summaryString",
+			"FirstName_string":    "firstName",
+			"LastName_string":     "lastName",
+			"Priority_number":     4,
+			"CFdetails_string":    "CDdetails",
+			"CFticketDT_string":   "ticketDt",
+			"CFincidentDT_string": "fincidentDt",
+			"CFopenReason_string": "openReason",
+		},
 	})
 	require.NoError(t, err)
 

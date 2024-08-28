@@ -189,6 +189,7 @@ const (
 	APIGetWorkflowVersions            = "WORKFLOW.Api.GetWorkflowVersions"            // APIGetWorkflowVersions is the get workflow versions API message subject.
 	APIGetWorkflow                    = "WORKFLOW.Api.GetWorkflow"                    // APIGetWorkflow is the get workflow API message subject.
 	APIGetProcessHistory              = "WORKFLOW.Api.GetProcessHistory"              // APIGetProcessHistory is the get process history API message subject.
+	APIGetProcessInstanceHeaders      = "WORKFLOW.Api.GetProcessInstanceHeaders"      // APIGetProcessInstanceHeaders is the get process instance headers API message subject.
 	APIGetVersionInfo                 = "WORKFLOW.API.GetVersionInfo"                 // APIGetVersionInfo is the get server version information API message subject.
 	APIGetTaskSpecUsage               = "WORKFLOW.Api.GetTaskSpecUsage"               // APIGetTaskSpecUsage is the get task spec usage API message subject.
 	APIListTaskSpecUIDs               = "WORKFLOW.Api.ListTaskSpecUIDs"               // APIListTaskSpecUIDs is the list task spec UIDs API message subject.

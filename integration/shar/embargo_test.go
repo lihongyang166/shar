@@ -29,7 +29,7 @@ func TestEmbargo(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/test-timer-parse-duration.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestEmbargo", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestEmbargo", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	sw := time.Now().UnixNano()
@@ -40,7 +40,7 @@ func TestEmbargo(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "Process_0cxoltv", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0cxoltv"})
 	require.NoError(t, err)
 
 	// Listen for service tasks

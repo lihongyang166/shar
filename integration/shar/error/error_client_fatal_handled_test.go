@@ -36,12 +36,12 @@ func TestFatalErrorHandled(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "TestHandleFatalError", b); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestHandleFatalError", WorkflowBPMN: b}); err != nil {
 		panic(err)
 	}
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.NoError(t, err)
 
 	// Listen for service tasks

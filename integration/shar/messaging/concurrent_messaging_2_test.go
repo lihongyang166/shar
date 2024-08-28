@@ -42,7 +42,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/message-workflow-2.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestConcurrentMessaging", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestConcurrentMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterMessageSender(ctx, "TestConcurrentMessaging", "continueMessage", handlers.sendMessage)
@@ -61,7 +61,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
 			// Launch the workflow
-			if _, _, err := cl.LaunchProcess(ctx, "Process_0hgpt6k", model.Vars{"orderId": inst}); err != nil {
+			if _, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": inst}}); err != nil {
 				require.NoError(t, err)
 			} else {
 				handlers.mx.Lock()

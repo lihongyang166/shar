@@ -749,7 +749,11 @@ func (c *Engine) launchProcessor(ctx context.Context, state *model.WorkflowState
 	}
 	els := common.ElementTable(wf)
 	ctx = context.WithValue(ctx, ctxkey.Traceparent, state.TraceParent)
-	if _, _, err := c.operations.LaunchWithParent(ctx, els[state.ElementId].Execute, state.Id, state.Vars, state.ProcessInstanceId, state.ElementId); err != nil {
+	pi, err := c.operations.GetProcessInstance(ctx, state.ProcessInstanceId)
+	if err != nil {
+		return fmt.Errorf("get process instance: %w", err)
+	}
+	if _, _, err := c.operations.LaunchWithParent(ctx, els[state.ElementId].Execute, state.Id, state.Vars, pi.Headers, state.ProcessInstanceId, state.ElementId); err != nil {
 		return engineErr(ctx, "launch child workflow", &errors.ErrWorkflowFatal{Err: err})
 	}
 	return nil
@@ -810,7 +814,7 @@ func (c *Engine) timedExecuteProcessor(ctx context.Context, state *model.Workflo
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)
 			}
 
-			pi, err := c.operations.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessId, wf.Name, state.WorkflowId)
+			pi, err := c.operations.CreateProcessInstance(ctx, exec.ExecutionId, "", "", state.ProcessId, wf.Name, state.WorkflowId, wf.AutoLaunchHeaders)
 			if err != nil {
 				log.Error("creating timed process instance", "error", err)
 				return false, 0, fmt.Errorf("creating timed workflow instance: %w", err)

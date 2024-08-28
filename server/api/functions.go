@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-version"
@@ -183,7 +185,7 @@ func (s *Endpoints) launchProcess(ctx context.Context, req *model.LaunchWorkflow
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	executionID, wfID, err := s.operations.Launch(ctx, req.ProcessId, req.Vars)
+	executionID, wfID, err := s.operations.Launch(ctx, req.ProcessId, req.Vars, req.Headers)
 	if err != nil {
 		return nil, fmt.Errorf("launch execution kv: %w", err)
 	}
@@ -469,4 +471,20 @@ func (s *Endpoints) resolveWorkflow(ctx context.Context, req *model.ResolveWorkf
 	}
 
 	return &model.ResolveWorkflowResponse{Workflow: wf}, nil
+}
+
+func (s *Endpoints) getProcessHeaders(ctx context.Context, req *model.GetProcessHeadersRequest) (*model.GetProcessHeadersResponse, error) {
+	ctx, pi, err2 := s.authFromProcessInstanceID(ctx, req.ProcessInstanceID)
+	if err2 != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
+	}
+	hdr := make(map[string]string)
+	if len(pi.Headers) == 0 {
+		return &model.GetProcessHeadersResponse{Headers: hdr}, nil
+	}
+	d := gob.NewDecoder(bytes.NewBuffer(pi.Headers))
+	if err := d.Decode(&hdr); err != nil {
+		return nil, fmt.Errorf("decode headers: %w", err)
+	}
+	return &model.GetProcessHeadersResponse{Headers: hdr}, nil
 }

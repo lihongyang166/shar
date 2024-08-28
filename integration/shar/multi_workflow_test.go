@@ -48,10 +48,10 @@ func TestMultiWorkflow(t *testing.T) {
 	b2, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMultiWorkflow1", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMultiWorkflow1", WorkflowBPMN: b})
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestMultiWorkflow2", b2)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMultiWorkflow2", WorkflowBPMN: b2})
 	require.NoError(t, err)
 
 	err = cl.RegisterMessageSender(ctx, "TestMultiWorkflow1", "continueMessage", handlers.sendMessage)
@@ -72,7 +72,7 @@ func TestMultiWorkflow(t *testing.T) {
 		// wg.Add(1)
 		go func(inst int) {
 			// Launch the processes
-			if wfiID, _, err := cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": inst}); err != nil {
+			if wfiID, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_03llwnm", Vars: model.Vars{"orderId": inst}}); err != nil {
 				require.NoError(t, err)
 			} else {
 				mx.Lock()
@@ -80,7 +80,7 @@ func TestMultiWorkflow(t *testing.T) {
 				mx.Unlock()
 			}
 
-			if wfiID2, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{}); err != nil {
+			if wfiID2, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"}); err != nil {
 				require.NoError(t, err)
 			} else {
 				mx.Lock()

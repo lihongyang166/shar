@@ -42,13 +42,13 @@ func TestExclusiveRun(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/gateway-exclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ExclusiveGatewayTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ExclusiveGatewayTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "Process_0ljss15", model.Vars{"carried": 32768})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: model.Vars{"carried": 32768}})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -89,13 +89,13 @@ func TestInclusiveRun(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/gateway-inclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "InclusiveGatewayTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "InclusiveGatewayTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "Process_0ljss15", model.Vars{"testValue": 32768})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: model.Vars{"testValue": 32768}})
 	require.NoError(t, err)
 
 	// Listen for service tasks

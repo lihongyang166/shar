@@ -45,7 +45,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "UserTaskWorkflowDemo", b); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "UserTaskWorkflowDemo", WorkflowBPMN: b}); err != nil {
 		panic(err)
 	}
 
@@ -55,7 +55,7 @@ func main() {
 	}
 
 	// Launch the workflow
-	if _, _, err := cl.LaunchProcess(ctx, "TestUserTasks", model.Vars{"OrderId": 68}); err != nil {
+	if _, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "TestUserTasks", Vars: model.Vars{"OrderId": 68}}); err != nil {
 		panic(err)
 	}
 

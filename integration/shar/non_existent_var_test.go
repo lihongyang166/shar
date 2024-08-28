@@ -25,6 +25,6 @@ func TestNonExistentVar(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/bad/non-existent-process-variable.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	assert.ErrorIs(t, err, errors2.ErrUndefinedVariable)
 }

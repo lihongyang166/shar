@@ -46,13 +46,13 @@ func TestSubWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	w2, err := os.ReadFile("../../testdata/sub-workflow-child.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "MasterWorkflowDemo", w1)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "MasterWorkflowDemo", WorkflowBPMN: w1})
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SubWorkflowDemo", w2)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SubWorkflowDemo", WorkflowBPMN: w2})
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "WorkflowDemo", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "WorkflowDemo"})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

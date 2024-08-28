@@ -113,11 +113,12 @@ message Workflow {
   repeated Error errors = 4; // Errors define the errors used by the workflow.
   bytes gzipSource = 5; // Source for round tripping.
   Collaboration collaboration = 6; // Collaboration between processes.
-  map<string, MessageReceivers> messageReceivers = 7; //MessageReceivers are the activity ids that receive a given messgae
+  map<string, MessageReceivers> messageReceivers = 7; //MessageReceivers are the activity ids that receive a given message.
+  bytes autoLaunchHeaders = 8; // AutoLaunchHeaders contains any headers added to processes that are launched non-interactively.
 }
 
 message MessageReceivers {
-  repeated MessageReceiver messageReceiver = 1; //MessageReceiver s are the elements receiving/referencing a message. They could be start events or intermedidate catch events
+  repeated MessageReceiver messageReceiver = 1; //MessageReceiver s are the elements receiving/referencing a message. They could be start events or intermediate catch events.
   string associatedWorkflowName = 2;
 }
 
@@ -160,7 +161,7 @@ message WorkflowVersions {
 
 // WorkflowVersion contains the metadata for a single workflow version
 message WorkflowVersion {
-  string id = 1; // Id - the launchable ID for the workflow.
+  string id = 1; // Id - the launch ID for the workflow.
   bytes sha256 = 2; // Sha256 - the hash of the workflow configuration.
   int32 number = 3; // Number - the version number of the workflow
 }
@@ -409,6 +410,7 @@ message ProcessInstance {
   string workflowName = 6; // WorkflowName - name of this workflow to avoid lookups.
   string processId = 7; // ProcessId - id of this process to avoid lookups.
   map<string,bool> gatewayComplete = 8; // GatewayComplete - completed gateway instances register
+  bytes headers = 9;
 }
 
 // MessageInstance represents a workflow message.
@@ -456,6 +458,7 @@ message ApiAuthenticationResponse {
 message LaunchWorkflowRequest {
   string processId = 1;
   bytes vars = 2;
+  bytes headers = 3;
 }
 
 message LaunchWorkflowResponse {
@@ -467,7 +470,7 @@ enum CancellationState {
   executing = 0;  // CancellationState_executing - the state machine is executing.
   completed = 1;  // CancellationState_completed - the state machine has completed successfully.
   terminated = 2; // CancellationState_terminated - the state machine instance was terminated.
-  errored = 3;    // CancellationState_errored - an error occured during state machine execution.
+  errored = 3;    // CancellationState_errored - an error occurred during state machine execution.
   obsolete = 4;   // CancellationState_obsolete - this state is obsolete due to an alternate flow.
   compensating = 5; // CancellationState_compensating - this state is currently compensating.
 }
@@ -891,7 +894,7 @@ message LogRequest {
   string hostname = 1;
   string clientId = 2;
   bytes trackingId = 3;
-  int32 level = 4;
+  int64 level = 4;
   int64 time = 5;
   LogSource source = 6;
   string message = 7;
@@ -920,6 +923,13 @@ message GetCompensationOutputVariablesResponse{
   bytes vars = 1;
 }
 
+message GetProcessHeadersRequest {
+  string processInstanceID = 1;
+}
+
+message GetProcessHeadersResponse {
+  map<string,string> headers = 1;
+}
 enum HandlingStrategy {
   Pause = 0;
   TearDown = 1;

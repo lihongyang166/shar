@@ -10,6 +10,7 @@ import (
 type JobClient interface {
 	LogClient
 	OriginalVars() (input map[string]interface{}, output map[string]interface{})
+	Headers(ctx context.Context) (map[string]string, error)
 }
 
 // LogClient represents a client which is capable of logging to the SHAR infrastructure.
@@ -28,6 +29,7 @@ type MessageClient interface {
 	LogClient
 	// SendMessage sends a Workflow Message
 	SendMessage(ctx context.Context, name string, key any, vars model.Vars) error
+	Headers(ctx context.Context) (map[string]string, error)
 }
 
 // ServiceFn provides the signature for service task functions.

@@ -37,7 +37,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowDemo", b); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowDemo", WorkflowBPMN: b}); err != nil {
 		panic(err)
 	}
 
@@ -48,7 +48,7 @@ func main() {
 	// A hook to watch for completion
 
 	// Launch the workflow
-	if _, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{}); err != nil {
+	if _, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"}); err != nil {
 		panic(err)
 	}
 

@@ -44,11 +44,11 @@ func TestSimpleStrongStruct(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/simple-struct-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{"inputStruct": person{Name: "Vaughan", Surname: "Davies"}})
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.Vars{"inputStruct": person{Name: "Vaughan", Surname: "Davies"}}})
 	require.NoError(t, err)
 
 	go func() {

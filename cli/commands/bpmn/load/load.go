@@ -7,6 +7,7 @@ import (
 	"gitlab.com/shar-workflow/shar/cli/flag"
 	"gitlab.com/shar-workflow/shar/cli/output"
 	"gitlab.com/shar-workflow/shar/cli/util"
+	"gitlab.com/shar-workflow/shar/client"
 	"os"
 )
 
@@ -34,7 +35,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	wn, err := shar.LoadBPMNWorkflowFromBytes(ctx, args[0], b)
+	wn, err := shar.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: args[0]}, b)
 	if err != nil {
 		return fmt.Errorf("workflow could not be loaded: %w", err)
 	}

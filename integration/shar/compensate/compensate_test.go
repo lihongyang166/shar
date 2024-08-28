@@ -51,11 +51,11 @@ func TestCompensate(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/compensate.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "Compensator", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "Compensator"}, b)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, "Compensator", model.Vars{"compensate": 1})
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Compensator", Vars: model.Vars{"compensate": 1}})
 	require.NoError(t, err)
 
 	go func() {

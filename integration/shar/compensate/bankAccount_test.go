@@ -51,11 +51,11 @@ func TestBankAccountNoCompensation(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/bankTransfer.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "BankTransfer", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "BankTransfer"}, b)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, "BankTransfer", model.Vars{"approved": "No", "transferAmount": 6.50, "payeeAccountBalance": 125.00, "recipientAccountBalance": 100.00})
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "BankTransfer", Vars: model.Vars{"approved": "No", "transferAmount": 6.50, "payeeAccountBalance": 125.00, "recipientAccountBalance": 100.00}})
 	require.NoError(t, err)
 
 	go func() {
@@ -109,15 +109,15 @@ func TestBankAccountCompensation(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/bankTransfer.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "BankTransfer", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "BankTransfer"}, b)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, "BankTransfer", model.Vars{"approved": "Yes", "transferAmount": 6.50, "payeeAccountBalance": 125.00, "recipientAccountBalance": 100.00})
+	executionID, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "BankTransfer", Vars: model.Vars{"approved": "Yes", "transferAmount": 6.50, "payeeAccountBalance": 125.00, "recipientAccountBalance": 100.00}})
 	require.NoError(t, err)
 
 	go func() {
-		tst.TrackingUpdatesFor(ns, executionId, d.trackingReceived, 20*time.Second, t)
+		tst.TrackingUpdatesFor(ns, executionID, d.trackingReceived, 20*time.Second, t)
 	}()
 
 	// Listen for service tasks

@@ -51,7 +51,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	retryBehaviour := elem.RetryBehaviour
 
 	// Is this the last time to fail?
-	if uint32(meta.NumDelivered) >= retryBehaviour.Number {
+	if uint32(meta.NumDelivered) >= retryBehaviour.Number { // nolint
 		//TODO: Retries exceeded
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
@@ -119,7 +119,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	strategy := retryBehaviour.Strategy
 	interval := retryBehaviour.IntervalMilli
 	ceiling := retryBehaviour.MaxMilli
-	deliveryCount := int64(meta.NumDelivered)
+	deliveryCount := int64(meta.NumDelivered) // nolint
 
 	offset = getOffset(strategy, initial, interval, deliveryCount, ceiling, messageTime)
 

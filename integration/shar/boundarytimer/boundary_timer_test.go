@@ -95,13 +95,13 @@ func executeBoundaryTimerTest(t *testing.T, d *testBoundaryTimerDef, ns string) 
 	b, err := os.ReadFile("../../../testdata/possible-timeout-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "PossibleTimeout", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "PossibleTimeout"}, b)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_16piog5", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	wfiID, _, err := cl.LaunchProcess(ctx, "Process_16piog5", model.Vars{})
+	wfiID, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_16piog5"})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

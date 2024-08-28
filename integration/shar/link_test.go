@@ -44,14 +44,14 @@ func TestLink(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/link.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "LinkTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "LinkTest"}, b)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0e9etnb", d.processEnd)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "Process_0e9etnb", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0e9etnb"})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

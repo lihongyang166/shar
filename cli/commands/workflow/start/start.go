@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/cli/util"
+	"gitlab.com/shar-workflow/shar/client"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/subj"
@@ -48,7 +49,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	executionID, wfID, err := shar.LaunchProcess(ctx, args[0], *vars)
+	executionID, wfID, err := shar.LaunchProcess(ctx, client.LaunchParams{ProcessID: args[0], Vars: *vars})
 	if err != nil {
 		return fmt.Errorf("workflow launch failed: %w", err)
 	}

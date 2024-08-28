@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, "MessageDemo", b); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "MessageDemo"}, b); err != nil {
 		panic(err)
 	}
 
@@ -61,7 +61,7 @@ func main() {
 	}
 
 	// Launch the workflow
-	if _, _, err = cl.LaunchProcess(ctx, "Process_03llwnm", model.Vars{"orderId": 57, "carried": "payload"}); err != nil {
+	if _, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_03llwnm", Vars: model.Vars{"orderId": 57, "carried": "payload"}}); err != nil {
 		panic(err)
 	}
 

@@ -260,6 +260,9 @@ func (s *Endpoints) Listen() error {
 		return fmt.Errorf("APIListExecutableProcess: %w", err)
 	}
 
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetProcessInstanceHeaders, s.receiveApiMiddleware, &model.GetProcessHeadersRequest{}, s.getProcessHeaders); err != nil {
+		return fmt.Errorf("APIGetProcessInstanceHeaders: %w", err)
+	}
 	slog.Info("shar api listener started")
 	return nil
 }

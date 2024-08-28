@@ -37,11 +37,11 @@ func TestSimpleMockTask(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/simple-workflow-mock-task.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{"carried": 32768, "errorCode": ""})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.Vars{"carried": 32768, "errorCode": ""}})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

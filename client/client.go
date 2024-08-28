@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/dgraph-io/ristretto"
@@ -82,6 +83,14 @@ func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars
 	return
 }
 
+func (c *jobClient) Headers(ctx context.Context) (map[string]string, error) {
+	h, err := c.cl.GetProcessInstanceHeaders(ctx, c.processInstanceID)
+	if err != nil {
+		return nil, fmt.Errorf("get process instance headers: %w", err)
+	}
+	return h, nil
+}
+
 func slogWith(logger *slog.Logger, executionID, processInstanceID, activityID, jobID string) *slog.Logger {
 	return logger.With(
 		slog.String(keys.ExecutionID, executionID),
@@ -102,6 +111,14 @@ type messageClient struct {
 // SendMessage sends a Workflow Message into the SHAR engine
 func (c *messageClient) SendMessage(ctx context.Context, name string, key any, vars model.Vars) error {
 	return c.cl.SendMessage(ctx, name, key, vars)
+}
+
+func (c *messageClient) Headers(ctx context.Context) (map[string]string, error) {
+	h, err := c.cl.GetProcessInstanceHeaders(ctx, c.processInstanceID)
+	if err != nil {
+		return nil, fmt.Errorf("get process instance headers: %w", err)
+	}
+	return h, nil
 }
 
 // Log logs to the span related to this messageClient instance.
@@ -634,9 +651,9 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 }
 
 // LoadBPMNWorkflowFromBytes loads, parses, and stores a BPMN workflow in SHAR. Returns the uuid uniquely identifying the workflow.
-func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b []byte) (string, error) {
+func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, loadParams LoadWorkflowParams, b []byte) (string, error) {
 	rdr := bytes.NewReader(b)
-	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, name, rdr)
+	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, loadParams.Name, rdr)
 
 	if err != nil {
 		return "", c.clientErr(ctx, err)
@@ -652,6 +669,11 @@ func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, name string, b [
 	}
 	wf.GzipSource = compressed.Bytes()
 
+	hdr, err := headerToBytes(loadParams.LaunchHeaders)
+	if err != nil {
+		return "", fmt.Errorf("encode headers as bytes: %w", err)
+	}
+	wf.AutoLaunchHeaders = hdr
 	res := &model.StoreWorkflowResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIStoreWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, &model.StoreWorkflowRequest{Workflow: wf}, res); err != nil {
@@ -754,26 +776,6 @@ func (c *Client) cancelProcessInstanceWithError(ctx context.Context, processInst
 	return nil
 }
 
-// LaunchProcess launches a new process within a workflow/BPMN definition. It returns the execution Id of the launched process and the workflow id of the
-// BPMN definition containing the process
-func (c *Client) LaunchProcess(ctx context.Context, processId string, mvars model.Vars) (executionId string, workflowId string, er error) {
-	ev, err := vars.Encode(ctx, mvars)
-	if err != nil {
-		er = fmt.Errorf("encode variables for launch workflow: %w", err)
-		return
-	}
-	req := &model.LaunchWorkflowRequest{ProcessId: processId, Vars: ev}
-	res := &model.LaunchWorkflowResponse{}
-	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
-		er = c.clientErr(ctx, err)
-		return
-	}
-	executionId = res.ExecutionId
-	workflowId = res.WorkflowId
-	return
-}
-
 // ListExecution gets a list of running executions by workflow name.
 func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListExecutionItem, error) {
 	req := &model.ListExecutionRequest{WorkflowName: name}
@@ -789,6 +791,47 @@ func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListE
 		return nil, c.clientErr(ctx, err)
 	}
 	return result, nil
+}
+
+// LaunchProcess launches a new process within a workflow/BPMN definition. It returns the execution Id of the launched process and the workflow id of the
+// BPMN definition containing the process
+func (c *Client) LaunchProcess(ctx context.Context, launchParams LaunchParams) (executionId string, workflowId string, er error) {
+	if launchParams.ProcessID == "" {
+		return "", "", fmt.Errorf("process id is required")
+	}
+	ev, err := vars.Encode(ctx, launchParams.Vars)
+	if err != nil {
+		er = fmt.Errorf("encode variables for launch workflow: %w", err)
+		return
+	}
+
+	b, err := headerToBytes(launchParams.LaunchHeaders)
+	if err != nil {
+		return "", "", fmt.Errorf("encode headers as bytes: %w", err)
+	}
+
+	req := &model.LaunchWorkflowRequest{ProcessId: launchParams.ProcessID, Vars: ev, Headers: b}
+	res := &model.LaunchWorkflowResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APILaunchProcess, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		er = c.clientErr(ctx, err)
+		return
+	}
+	executionId = res.ExecutionId
+	workflowId = res.WorkflowId
+	return
+}
+
+func headerToBytes(header LaunchHeaders) ([]byte, error) {
+	if len(header) == 0 {
+		return []byte{}, nil
+	}
+	var b bytes.Buffer
+	enc := gob.NewEncoder(&b)
+	if err := enc.Encode(header); err != nil {
+		return []byte{}, fmt.Errorf("encode headers: %w", err)
+	}
+	return b.Bytes(), nil
 }
 
 // ListExecutableProcesses gets a list of executable processes.
@@ -918,7 +961,7 @@ func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Le
 		Hostname:   c.host,
 		ClientId:   c.id,
 		TrackingId: k[:],
-		Level:      int32(level),
+		Level:      int64(level),
 		Time:       time.Now().UnixMicro(),
 		Source:     model.LogSource_logSourceClient,
 		Message:    message,
@@ -1170,7 +1213,7 @@ func (c *Client) retryNotifier(ctx context.Context, msg jetstream.Msg) (context.
 
 		newSubj := strings.Replace(msg.Subject(), ".Job.Execute.", ".Job.Retry.", 1)
 		newMsg := nats.NewMsg(newSubj)
-		newMsg.Header.Add("RetryCount", strconv.Itoa(int(md.NumDelivered)))
+		newMsg.Header.Add("RetryCount", strconv.Itoa(int(md.NumDelivered))) // nolint
 		newMsg.Header.Add("RetryMax", strconv.Itoa(int(retryBehaviour.Number)))
 		newMsg.Data = msg.Data()
 		if err := c.con.PublishMsg(newMsg); err != nil {
@@ -1178,4 +1221,19 @@ func (c *Client) retryNotifier(ctx context.Context, msg jetstream.Msg) (context.
 		}
 	}
 	return ctx, nil
+}
+
+// GetProcessInstanceHeaders retrieves the headers attached to a specific process instance. It takes a context and
+// the ID of the process instance as input. It returns a map of string headers (LaunchHeaders) and an error.
+// The LaunchHeaders type represents a map of string headers that can be attached to a process when it is launched,
+func (c *Client) GetProcessInstanceHeaders(ctx context.Context, processInstanceID string) (LaunchHeaders, error) {
+	req := &model.GetProcessHeadersRequest{
+		ProcessInstanceID: processInstanceID,
+	}
+	res := &model.GetProcessHeadersResponse{}
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIGetProcessInstanceHeaders, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return res.Headers, nil
 }

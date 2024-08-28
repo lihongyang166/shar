@@ -38,7 +38,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -48,7 +48,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	}()
 
 	// Launch the workflow
-	wi, _, err := cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	wi, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 	pis, err := cl.ListExecutionProcesses(ctx, wi)

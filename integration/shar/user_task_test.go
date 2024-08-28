@@ -44,13 +44,13 @@ func TestUserTasks(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/usertask.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestUserTasks", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestUserTasks"}, b)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("TestUserTasks", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "TestUserTasks", model.Vars{"OrderId": 68})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "TestUserTasks", Vars: model.Vars{"OrderId": 68}})
 	if err != nil {
 		panic(err)
 	}

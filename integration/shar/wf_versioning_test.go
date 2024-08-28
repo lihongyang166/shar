@@ -37,13 +37,13 @@ func TestWfVersioning(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
 	require.NoError(t, err)
 
 	res, err := cl.ListWorkflows(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), res[0].Version)
-	oldWfId, err := cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	oldWfId, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
 	require.NoError(t, err)
 	res2, err := cl.ListWorkflows(ctx)
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestWfVersioning(t *testing.T) {
 	// Load changed BPMN workflow
 	b, err = os.ReadFile("../../testdata/simple-workflow-changed.bpmn")
 	require.NoError(t, err)
-	newWfId, err := cl.LoadBPMNWorkflowFromBytes(ctx, "SimpleWorkflowTest", b)
+	newWfId, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
 	require.NoError(t, err)
 	res3, err := cl.ListWorkflows(ctx)
 	require.NoError(t, err)

@@ -81,12 +81,12 @@ func (c *Operations) LoadWorkflow(ctx context.Context, model *model.Workflow) (s
 }
 
 // Launch starts a new instance of a workflow and returns an execution ID.
-func (c *Operations) Launch(ctx context.Context, processId string, vars []byte) (string, string, error) {
-	return c.LaunchWithParent(ctx, processId, []string{}, vars, "", "")
+func (c *Operations) Launch(ctx context.Context, processId string, vars []byte, headers []byte) (string, string, error) {
+	return c.LaunchWithParent(ctx, processId, []string{}, vars, headers, "", "")
 }
 
 // LaunchWithParent contains the underlying logic to start a workflow.  It is also called to spawn new instances of child workflows.
-func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID common.TrackingID, vrs []byte, parentpiID string, parentElID string) (string, string, error) {
+func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID common.TrackingID, vrs []byte, headers []byte, parentpiID string, parentElID string) (string, string, error) {
 	var reterr error
 	ctx, log := logx.ContextWith(ctx, "engine.launch")
 
@@ -158,7 +158,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID 
 			reterr = fmt.Errorf("launch failed to get process instance for parent: %w", err)
 			return "", "", reterr
 		}
-
+		headers = pi.Headers
 		e, err := c.GetExecution(ctx, pi.ExecutionId)
 		if err != nil {
 			reterr = fmt.Errorf("launch failed to get execution for parent: %w", err)
@@ -216,7 +216,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID 
 		launchProcesses = append(launchProcesses, pr)
 	}
 	for _, pr := range launchProcesses {
-		err2 := c.launchProcess(ctx, ID, pr.Id, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, log)
+		err2 := c.launchProcess(ctx, ID, pr.Id, pr, workflowName, wfID, executionId, vrs, parentpiID, parentElID, headers, log)
 		if err2 != nil {
 			return "", "", err2
 		}
@@ -225,7 +225,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID 
 	return executionId, wfID, nil
 }
 
-func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, prId string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, log *slog.Logger) error {
+func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, prId string, pr *model.Process, workflowName string, wfID string, executionId string, vrs []byte, parentpiID string, parentElID string, headers []byte, log *slog.Logger) error {
 	ctx, sp := c.tr.Start(ctx, "launchProcess")
 	defer func() {
 		sp.End()
@@ -264,7 +264,7 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 
 	if hasStartEvents {
 
-		pi, err := c.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Id, workflowName, wfID)
+		pi, err := c.CreateProcessInstance(ctx, executionId, parentpiID, parentElID, pr.Id, workflowName, wfID, headers)
 		if err != nil {
 			reterr = fmt.Errorf("launch failed to create new process instance: %w", err)
 			return reterr
@@ -594,7 +594,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 		if err != nil {
 			return nil, fmt.Errorf("save workflow: %s", wf.Name)
 		}
-		v.Version = append(v.Version, &model.WorkflowVersion{Id: wfID, Sha256: hash, Number: int32(n) + 1})
+		v.Version = append(v.Version, &model.WorkflowVersion{Id: wfID, Sha256: hash, Number: int32(n) + 1}) // nolint
 		log.Info("workflow version created", keys.WorkflowID, hash)
 		return v, nil
 	}); err != nil {
@@ -1435,7 +1435,7 @@ func (s *Operations) OwnerName(ctx context.Context, id string) (string, error) {
 }
 
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
-func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string) (*model.ProcessInstance, error) {
+func (s *Operations) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string, headers []byte) (*model.ProcessInstance, error) {
 	id := ksuid.New().String()
 	pi := &model.ProcessInstance{
 		ProcessInstanceId: id,
@@ -1443,6 +1443,7 @@ func (s *Operations) CreateProcessInstance(ctx context.Context, executionId stri
 		ParentProcessId:   &parentProcessID,
 		ParentElementId:   &parentElementID,
 		ExecutionId:       executionId,
+		Headers:           headers,
 	}
 
 	ns := subj.GetNS(ctx)
@@ -1458,6 +1459,7 @@ func (s *Operations) CreateProcessInstance(ctx context.Context, executionId stri
 	}
 	pi.WorkflowName = workflowName
 	pi.WorkflowId = workflowId
+	pi.Headers = headers
 	err = common.SaveObj(ctx, nsKVs.WfProcessInstance, pi.ProcessInstanceId, pi)
 	if err != nil {
 		return nil, fmt.Errorf("create process instance failed to save process instance: %w", err)

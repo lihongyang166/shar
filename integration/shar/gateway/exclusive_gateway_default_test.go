@@ -41,14 +41,14 @@ func TestExclusiveGatewayDefault(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/exclusive-gateway-default.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ExclusiveGatewayDefaultTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ExclusiveGatewayDefaultTest"}, b)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("GatewayTest", d.processEnd)
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "GatewayTest", model.Vars{"val1": 2})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GatewayTest", Vars: model.Vars{"val1": 2}})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

@@ -42,13 +42,13 @@ func TestParallelGateway(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/gateway-parallel-out-and-in-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ParallelGatewayTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelGatewayTest"}, b)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "Process_0ljss15", model.Vars{"testValue": 32768})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: model.Vars{"testValue": 32768}})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -92,7 +92,7 @@ func TestParallelJoiningGateway(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/test-parallel-joining-gateway-diagram.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ParallelJoiningGatewayTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelJoiningGatewayTest"}, b)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("testParallelJoiningGateway-0-0-2-process-1", func(ctx context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
@@ -101,7 +101,7 @@ func TestParallelJoiningGateway(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "testParallelJoiningGateway-0-0-2-process-1", model.Vars{"testValue": testValueStartVal})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testParallelJoiningGateway-0-0-2-process-1", Vars: model.Vars{"testValue": testValueStartVal}})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -143,7 +143,7 @@ func TestParallelJoiningGatewayWithDelay(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/test-parallel-joining-gateway-2-0-0-diagram.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "ParallelJoiningGatewayMockTest", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelJoiningGatewayMockTest"}, b)
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("testParallelJoiningGateway-2-0-0-process-1", func(ctx context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
@@ -160,7 +160,7 @@ func TestParallelJoiningGatewayWithDelay(t *testing.T) {
 
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "testParallelJoiningGateway-2-0-0-process-1", model.Vars{"name": "name_string", "delay": 100})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testParallelJoiningGateway-2-0-0-process-1", Vars: model.Vars{"name": "name_string", "delay": 100}})
 	require.NoError(t, err)
 
 	// Listen for service tasks

@@ -235,6 +235,7 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 			err = params.SvcTaskCompleter(ctx, trackingID, newVars, job.State == model.CancellationState_compensating)
 			ae := &api.Error{}
 			if errors2.As(err, &ae) {
+				// nolint
 				if codes.Code(ae.Code) == codes.Internal {
 					log.Error("complete service task", "error", err)
 					e := &model.Error{

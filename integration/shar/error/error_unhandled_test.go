@@ -42,7 +42,7 @@ func TestUnhandledError(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/errors.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, "TestUnhandledError", b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestUnhandledError"}, b)
 	require.NoError(t, err)
 
 	// A hook to watch for completion
@@ -50,7 +50,7 @@ func TestUnhandledError(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "Process_07lm3kx", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_07lm3kx"})
 	require.NoError(t, err)
 
 	// Listen for service tasks

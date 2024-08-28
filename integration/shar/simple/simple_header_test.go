@@ -41,16 +41,33 @@ func TestSimpleHeaders(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
+	wfHeaderName := "wfheader"
+	wfHeaderVal := "wfHeaderVal"
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b,
+		LaunchHeaders: map[string]string{wfHeaderName: wfHeaderVal}})
 	require.NoError(t, err)
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", LaunchHeaders: map[string]string{"testheader": "testval"}})
+	processHeaderName := "testheader"
+	processHeaderVal := "testval"
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess",
+		LaunchHeaders: map[string]string{processHeaderName: processHeaderVal}})
 	require.NoError(t, err)
 
-	go func() {
-		tst.TrackingUpdatesFor(ns, executionId, d.trackingReceived, 20*time.Second, t)
-	}()
+	listExecutionProcessesResponse, err := cl.ListExecutionProcesses(ctx, executionId)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(listExecutionProcessesResponse.ProcessInstanceId))
+	headers, err := cl.GetProcessInstanceHeaders(ctx, listExecutionProcessesResponse.ProcessInstanceId[0])
+	require.NoError(t, err)
+
+	actualWfHeaderVal, hasWfHeader := headers[wfHeaderName]
+	actualProcessHeaderVal, hasProcessHeader := headers[processHeaderName]
+
+	assert.True(t, hasWfHeader)
+	assert.True(t, hasProcessHeader)
+	assert.Equal(t, wfHeaderVal, actualWfHeaderVal)
+	assert.Equal(t, processHeaderVal, actualProcessHeaderVal)
 
 	// Listen for service tasks
 	go func() {
@@ -58,7 +75,6 @@ func TestSimpleHeaders(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	support.WaitForChan(t, d.trackingReceived, 20*time.Second)
 	support.WaitForChan(t, d.finished, 20*time.Second)
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)

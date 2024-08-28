@@ -57,7 +57,7 @@ func TestSimpleAuthZ(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("SimpleProcess", d.processEnd)
@@ -117,7 +117,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	assert.ErrorContains(t, err, "authorize")
 
 	tst.AssertCleanKV(ns, t, tst.Cooldown)

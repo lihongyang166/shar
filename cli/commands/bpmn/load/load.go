@@ -35,7 +35,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	wn, err := shar.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: args[0]}, b)
+	wn, err := shar.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: args[0], WorkflowBPMN: b})
 	if err != nil {
 		return fmt.Errorf("workflow could not be loaded: %w", err)
 	}

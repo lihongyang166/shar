@@ -49,7 +49,7 @@ func TestVarsWithAtCharacters(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/demoWorkflow-1-0-1-diagram.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ProcessWithSvcTaskAtSymbol"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ProcessWithSvcTaskAtSymbol", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow

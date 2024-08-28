@@ -43,7 +43,7 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-multiple-receivers-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterMessageSender(ctx, "TestMessaging", "continueMessage", handlers.sendMessage)

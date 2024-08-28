@@ -42,7 +42,7 @@ func TestUnhandledError(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/errors.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestUnhandledError"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestUnhandledError", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// A hook to watch for completion

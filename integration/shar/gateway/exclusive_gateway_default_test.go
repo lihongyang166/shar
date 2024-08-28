@@ -41,7 +41,7 @@ func TestExclusiveGatewayDefault(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/exclusive-gateway-default.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ExclusiveGatewayDefaultTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ExclusiveGatewayDefaultTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("GatewayTest", d.processEnd)

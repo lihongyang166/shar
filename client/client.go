@@ -651,14 +651,14 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 }
 
 // LoadBPMNWorkflowFromBytes loads, parses, and stores a BPMN workflow in SHAR. Returns the uuid uniquely identifying the workflow.
-func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, loadParams LoadWorkflowParams, b []byte) (string, error) {
-	rdr := bytes.NewReader(b)
+func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, loadParams LoadWorkflowParams) (string, error) {
+	rdr := bytes.NewReader(loadParams.WorkflowBPMN)
 	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, loadParams.Name, rdr)
 
 	if err != nil {
 		return "", c.clientErr(ctx, err)
 	}
-	rdr = bytes.NewReader(b)
+	rdr = bytes.NewReader(loadParams.WorkflowBPMN)
 	compressed := &bytes.Buffer{}
 	archiver := gzip.NewWriter(compressed)
 	if _, err := io.Copy(archiver, rdr); err != nil {

@@ -42,7 +42,7 @@ func TestConcurrentMessaging2(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/message-workflow-2.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestConcurrentMessaging"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestConcurrentMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterMessageSender(ctx, "TestConcurrentMessaging", "continueMessage", handlers.sendMessage)

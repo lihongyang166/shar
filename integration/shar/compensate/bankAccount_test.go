@@ -51,7 +51,7 @@ func TestBankAccountNoCompensation(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/bankTransfer.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "BankTransfer"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "BankTransfer", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow
@@ -109,7 +109,7 @@ func TestBankAccountCompensation(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/bankTransfer.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "BankTransfer"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "BankTransfer", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow

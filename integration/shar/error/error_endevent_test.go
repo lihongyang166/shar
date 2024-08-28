@@ -38,7 +38,7 @@ func TestEndEventError(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/errors.bpmn")
 	require.NoError(t, err)
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestEndEventError"}, b); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestEndEventError", WorkflowBPMN: b}); err != nil {
 		panic(err)
 	}
 

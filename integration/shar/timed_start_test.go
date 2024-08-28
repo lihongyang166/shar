@@ -38,7 +38,7 @@ func TestTimedStart(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/timed-start-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TimedStartTest", LaunchHeaders: map[string]string{"auto-launch": "test-value"}}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TimedStartTest", LaunchHeaders: map[string]string{"auto-launch": "test-value"}, WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// A hook to watch for completion

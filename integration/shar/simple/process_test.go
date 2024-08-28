@@ -31,14 +31,14 @@ func TestProcessPersistenceNonUniqueName(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// load another process with different workflow name but same process name
 	pb, err := os.ReadFile("../../../testdata/simple-workflow-same-processid.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowSameProcessIdTest"}, pb)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowSameProcessIdTest", WorkflowBPMN: pb})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "[process: SimpleProcess, workflow: SimpleWorkflowTest]")
 }

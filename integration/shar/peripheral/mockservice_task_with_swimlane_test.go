@@ -45,7 +45,7 @@ func TestMockServiceTaskWithSwimlane(t *testing.T) {
 	b, err := os.ReadFile("swimlane_test.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "swimlane_test"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "swimlane_test", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Listen for service tasks

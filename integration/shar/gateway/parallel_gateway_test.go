@@ -42,7 +42,7 @@ func TestParallelGateway(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/gateway-parallel-out-and-in-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelGatewayTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelGatewayTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
@@ -92,7 +92,7 @@ func TestParallelJoiningGateway(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/test-parallel-joining-gateway-diagram.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelJoiningGatewayTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelJoiningGatewayTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("testParallelJoiningGateway-0-0-2-process-1", func(ctx context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
@@ -143,7 +143,7 @@ func TestParallelJoiningGatewayWithDelay(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/test-parallel-joining-gateway-2-0-0-diagram.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelJoiningGatewayMockTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ParallelJoiningGatewayMockTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("testParallelJoiningGateway-2-0-0-process-1", func(ctx context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {

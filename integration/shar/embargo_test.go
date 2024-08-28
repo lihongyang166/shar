@@ -29,7 +29,7 @@ func TestEmbargo(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/test-timer-parse-duration.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestEmbargo"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestEmbargo", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	sw := time.Now().UnixNano()

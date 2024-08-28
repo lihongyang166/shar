@@ -46,7 +46,7 @@ func TestConcurrentMessaging(t *testing.T) {
 	b, err := os.ReadFile("../../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
 
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestConcurrentMessaging"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestConcurrentMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Listen for service tasks

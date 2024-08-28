@@ -42,7 +42,7 @@ func TestExclusiveRun(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/gateway-exclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ExclusiveGatewayTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "ExclusiveGatewayTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
@@ -89,7 +89,7 @@ func TestInclusiveRun(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/gateway-inclusive-out-and-in-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "InclusiveGatewayTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "InclusiveGatewayTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)

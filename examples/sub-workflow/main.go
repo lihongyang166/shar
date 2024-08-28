@@ -52,10 +52,10 @@ func main() {
 	// Load the workflows
 	w1, _ := os.ReadFile("testdata/sub-workflow-parent.bpmn")
 	w2, _ := os.ReadFile("testdata/sub-workflow-child.bpmn")
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "MasterWorkflowDemo"}, w1); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "MasterWorkflowDemo", WorkflowBPMN: w1}); err != nil {
 		panic(err)
 	}
-	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SubWorkflowDemo"}, w2); err != nil {
+	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SubWorkflowDemo", WorkflowBPMN: w2}); err != nil {
 		panic(err)
 	}
 

@@ -44,7 +44,7 @@ func TestUserTasks(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/usertask.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestUserTasks"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestUserTasks", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("TestUserTasks", d.processEnd)

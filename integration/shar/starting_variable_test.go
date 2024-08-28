@@ -37,7 +37,7 @@ func TestStartingVariable(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../testdata/bad/expects-starting-variable.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the workflow

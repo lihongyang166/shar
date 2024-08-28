@@ -18,5 +18,6 @@ type LaunchParams struct {
 // of the workflow to load.
 type LoadWorkflowParams struct {
 	LaunchHeaders
-	Name string
+	Name         string // Name of the workflow to load.
+	WorkflowBPMN []byte // WorkflowBPMN - byte array containing a valid BPMN XML workflow.
 }

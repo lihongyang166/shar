@@ -37,7 +37,7 @@ func TestMessaging(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	err = cl.RegisterMessageSender(ctx, "TestMessaging", "continueMessage", handlers.sendMessage)
@@ -81,13 +81,13 @@ func TestMessageNameGlobalUniqueness(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessaging", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// try to load another bpmn with a message of the same name, should fail
 	b, err = os.ReadFile("../../../testdata/message-workflow-duplicate-message.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessagingDupMessage"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessagingDupMessage", WorkflowBPMN: b})
 	require.ErrorContains(t, err, "these messages already exist for other workflows:")
 
 	tst.AssertCleanKV(ns, t, 60*time.Second)
@@ -116,12 +116,12 @@ func TestMessageNameGlobalUniquenessAcrossVersions(t *testing.T) {
 	// load bpmn
 	b, err := os.ReadFile("../../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	b, err = os.ReadFile("../../../testdata/message-start-test-v2.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent", WorkflowBPMN: b})
 	require.NoError(t, err)
 }
 
@@ -148,7 +148,7 @@ func TestMessageStartEvent(t *testing.T) {
 	// load bpmn
 	b, err := os.ReadFile("../../../testdata/message-start-test.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMessageStartEvent", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// send message
@@ -192,7 +192,7 @@ func TestAwaitMessageFatalErr(t *testing.T) {
 	// Load BPMN workflow
 	b, err := os.ReadFile("../../../testdata/message-workflow-no-correlation-key.bpmn")
 	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestAwaitMessageFatalErr"}, b)
+	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestAwaitMessageFatalErr", WorkflowBPMN: b})
 	require.NoError(t, err)
 
 	// Launch the processes

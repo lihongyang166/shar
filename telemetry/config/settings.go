@@ -11,6 +11,7 @@ type Settings struct {
 	LogLevel             string `env:"SHAR_LOG_LEVEL" envDefault:"warn"`
 	OTLPEndpoint         string `env:"OTLP_URL" envDefault:"localhost:4318"`
 	OTLPEndpointIsSecure bool   `env:"OTLP_IS_SECURE" envDefault:"false"`
+	JetStreamDomain      string `env:"SHAR_JETSTREAM_DOMAIN" envDefault:""`
 }
 
 // GetEnvironment pulls the active settings into a settings struct.

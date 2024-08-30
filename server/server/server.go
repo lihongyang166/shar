@@ -258,9 +258,10 @@ func connectNats(options *option.ServerOptions) (*natz.NatsConnConfiguration, er
 		store = jetstream.MemoryStorage
 	}
 	return &natz.NatsConnConfiguration{
-		Conn:        conn,
-		TxConn:      txConn,
-		StorageType: store,
+		Conn:            conn,
+		TxConn:          txConn,
+		StorageType:     store,
+		JetStreamDomain: options.JetStreamDomain,
 	}, nil
 }
 

@@ -75,8 +75,14 @@ var RootCmd = &cobra.Command{
 			panic(err)
 		}
 
+		options := []option.Option{option.Concurrency(cfg.Concurrency), option.NatsConn(conn), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port)}
+
+		if cfg.JetStreamDomain != "" {
+			options = append(options, option.WithJetStreamDomain(cfg.JetStreamDomain))
+		}
+
 		var svr *server.Server
-		if svr, err = server.New(option.Concurrency(cfg.Concurrency), option.NatsConn(conn), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port)); err != nil {
+		if svr, err = server.New(options...); err != nil {
 			panic(fmt.Errorf("creating server: %w", err))
 		}
 

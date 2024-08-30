@@ -24,6 +24,7 @@ type ServerOptions struct {
 	GrpcPort                int
 	TelemetryConfig         telemetry.Config
 	ShowSplash              bool
+	JetStreamDomain         string
 }
 
 // Option represents a SHAR server option
@@ -185,4 +186,16 @@ type showSplashOption struct {
 
 func (o showSplashOption) Configure(serverOptions *ServerOptions) {
 	serverOptions.ShowSplash = o.showSplash
+}
+
+// WithJetStreamDomain specifies a handler function for API authorization.
+func WithJetStreamDomain(jsDomain string) jetStreamDomainOption { //nolint
+	return jetStreamDomainOption{value: jsDomain}
+}
+
+type jetStreamDomainOption struct{ value string }
+
+func (o jetStreamDomainOption) Configure(serverOptions *ServerOptions) {
+	slog.Warn("AuthN set")
+	serverOptions.JetStreamDomain = o.value
 }

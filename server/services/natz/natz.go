@@ -25,9 +25,10 @@ var NatsConfig string
 // - TxConn: The transactional NATS connection.
 // - StorageType: The storage type for JetStream.
 type NatsConnConfiguration struct {
-	Conn        *nats.Conn
-	TxConn      *nats.Conn
-	StorageType jetstream.StorageType
+	Conn            *nats.Conn
+	TxConn          *nats.Conn
+	StorageType     jetstream.StorageType
+	JetStreamDomain string
 }
 
 // NatsService contains items enabling nats related communications e.g. publish, nats object manipulation
@@ -42,7 +43,7 @@ type NatsService struct {
 	Rwmx        sync.RWMutex
 }
 
-// NamespaceKvs defines all of the key value stores shar needs to operate
+// NamespaceKvs defines all the key value stores shar needs to operate
 type NamespaceKvs struct {
 	WfExecution       jetstream.KeyValue
 	WfProcessInstance jetstream.KeyValue
@@ -68,25 +69,46 @@ type NamespaceKvs struct {
 
 // NewNatsService constructs a new NatsService
 func NewNatsService(nc *NatsConnConfiguration) (*NatsService, error) {
-	namespace := namespace.Default
+	ns := namespace.Default
 
-	js, err := jetstream.New(nc.Conn)
-	if err != nil {
-		return nil, fmt.Errorf("open jetstream: %w", err)
+	var js jetstream.JetStream
+	if nc.JetStreamDomain != "" {
+		js2, err := jetstream.NewWithDomain(nc.Conn, nc.JetStreamDomain)
+		if err != nil {
+			return nil, fmt.Errorf("connect to jetstream: %w", err)
+		}
+		js = js2
+	} else {
+		js2, err := jetstream.New(nc.Conn)
+		if err != nil {
+			return nil, fmt.Errorf("connect to jetstream: %w", err)
+		}
+		js = js2
 	}
-	txJS, err := jetstream.New(nc.TxConn)
-	if err != nil {
-		return nil, fmt.Errorf("open jetstream: %w", err)
+
+	var txJS jetstream.JetStream
+	if nc.JetStreamDomain != "" {
+		txJS2, err := jetstream.NewWithDomain(nc.TxConn, nc.JetStreamDomain)
+		if err != nil {
+			return nil, fmt.Errorf("connect to tx jetstream: %w", err)
+		}
+		txJS = txJS2
+	} else {
+		txJS2, err := jetstream.New(nc.TxConn)
+		if err != nil {
+			return nil, fmt.Errorf("connect to tx jetstream: %w", err)
+		}
+		txJS = txJS2
 	}
 
 	ctx := context.Background()
-	if err := setup.Nats(ctx, nc.Conn, js, nc.StorageType, NatsConfig, true, namespace); err != nil {
+	if err := setup.Nats(ctx, nc.Conn, js, nc.StorageType, NatsConfig, true, ns); err != nil {
 		return nil, fmt.Errorf("set up nats queue insfrastructure: %w", err)
 	}
 
-	nKvs, err2 := initNamespacedKvs(ctx, namespace, js, nc.StorageType, NatsConfig)
+	nKvs, err2 := initNamespacedKvs(ctx, ns, js, nc.StorageType, NatsConfig)
 	if err2 != nil {
-		return nil, fmt.Errorf("failed to init kvs for ns %s, %w", namespace, err2)
+		return nil, fmt.Errorf("failed to init kvs for ns %s, %w", ns, err2)
 	}
 
 	return &NatsService{
@@ -95,7 +117,7 @@ func NewNatsService(nc *NatsConnConfiguration) (*NatsService, error) {
 		Conn:        nc.Conn,
 		txConn:      nc.TxConn,
 		StorageType: nc.StorageType,
-		sharKvs:     map[string]*NamespaceKvs{namespace: nKvs},
+		sharKvs:     map[string]*NamespaceKvs{ns: nKvs},
 	}, nil
 
 }

@@ -212,7 +212,7 @@ func New(option ...ConfigurationOption) *Client {
 }
 
 // Dial instructs the client to connect to a NATS server.
-func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) error {
+func (c *Client) Dial(ctx context.Context, natsURL string, opts ...ConnectOption) error {
 
 	if c.telemetryConfig.Enabled {
 		c.SendMiddleware = append(c.SendMiddleware,
@@ -225,24 +225,51 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...nats.Option) 
 
 	c.ReceiveMiddleware = append(c.ReceiveMiddleware, c.retryNotifier)
 
-	n, err := nats.Connect(natsURL, opts...)
+	dialOptions := &ConnectOptions{}
+	for _, opt := range opts {
+		opt(dialOptions)
+	}
+
+	n, err := nats.Connect(natsURL, dialOptions.natsOptions...)
 	if err != nil {
 		return c.clientErr(context.Background(), err)
 	}
 	if err := common.CheckVersion(ctx, n); err != nil {
 		return fmt.Errorf("check NATS version: %w", err)
 	}
-	txnc, err := nats.Connect(natsURL, opts...)
+	txnc, err := nats.Connect(natsURL, dialOptions.natsOptions...)
 	if err != nil {
 		return c.clientErr(context.Background(), err)
 	}
-	js, err := jetstream.New(n)
-	if err != nil {
-		return c.clientErr(context.Background(), err)
+
+	var js jetstream.JetStream
+	if dialOptions.jetStreamDomain != "" {
+		js2, err := jetstream.NewWithDomain(n, dialOptions.jetStreamDomain)
+		if err != nil {
+			return c.clientErr(context.Background(), err)
+		}
+		js = js2
+	} else {
+		js2, err := jetstream.New(n)
+		if err != nil {
+			return c.clientErr(context.Background(), err)
+		}
+		js = js2
 	}
-	txJS, err := jetstream.New(txnc)
-	if err != nil {
-		return c.clientErr(context.Background(), err)
+
+	var txJS jetstream.JetStream
+	if dialOptions.jetStreamDomain != "" {
+		txJS2, err := jetstream.NewWithDomain(n, dialOptions.jetStreamDomain)
+		if err != nil {
+			return c.clientErr(context.Background(), err)
+		}
+		txJS = txJS2
+	} else {
+		txJS2, err := jetstream.New(n)
+		if err != nil {
+			return c.clientErr(context.Background(), err)
+		}
+		txJS = txJS2
 	}
 	c.js = js
 	c.txJS = txJS

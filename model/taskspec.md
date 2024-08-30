@@ -29,12 +29,6 @@
 | mock | bool | Mock this task as it has no concrete implementation. | boolean |
 | deprecated | bool | Deprecated task.  Workflows can not be executed that include this task. | boolean |
 | mockBehaviour | TaskMockBehaviours | MockBehaviour lists behaviours exhibited by the task when mocked. |  -  |
-### TaskMockBehaviours
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
-| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
 ### DefaultTaskRetry
 
 | name | type | description | validation |
@@ -68,6 +62,12 @@
 |------|------|-------------|
 | Linear | 0 | Retry at regular intervals. |
 | Exponential | 1 | Retry at increasingly large intervals. |
+### TaskMockBehaviours
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
+| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
 ### TaskParameters
 
 | name | type | description | validation |

@@ -52,9 +52,19 @@ var RootCmd = &cobra.Command{
 		ctx := context.Background()
 
 		// Get JetStream
-		js, err := jetstream.New(nc)
-		if err != nil {
-			panic(err)
+		var js jetstream.JetStream
+		if cfg.JetStreamDomain == "" {
+			js2, err := jetstream.New(nc)
+			if err != nil {
+				panic(err)
+			}
+			js = js2
+		} else {
+			js2, err := jetstream.NewWithDomain(nc, cfg.JetStreamDomain)
+			if err != nil {
+				panic(err)
+			}
+			js = js2
 		}
 
 		if len(os.Args) > 1 && os.Args[1] == "--remove" {

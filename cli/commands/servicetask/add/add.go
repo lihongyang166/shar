@@ -3,6 +3,7 @@ package add
 import (
 	"context"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/cli/output"
 
 	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/cli/flag"
@@ -29,13 +30,11 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	if _, err := taskutil.LoadTaskFromYamlFile(ctx, shar, args[0]); err != nil {
+	uid, err := taskutil.LoadTaskFromYamlFile(ctx, shar, args[0])
+	if err != nil {
 		return fmt.Errorf("load service task: %w", err)
 	}
-	if _, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, shar, args[0], nil); err != nil {
-		return fmt.Errorf("register service task function: %w", err)
-	}
-	// output.Current.OutputSuccess()
+	output.Current.OutputAddTaskResult(uid)
 	return nil
 }
 

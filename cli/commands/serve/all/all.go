@@ -1,4 +1,4 @@
-package commands
+package all
 
 import (
 	"gitlab.com/shar-workflow/shar/common"
@@ -15,10 +15,10 @@ import (
 
 var sig = make(chan os.Signal, 1)
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "zen-shar",
-	Short: "ZEN SHAR development server",
+// Cmd represents the base command when called without any subcommands
+var Cmd = &cobra.Command{
+	Use:   "all",
+	Short: "Start a SHAR and a NATS server",
 	Long:  ``,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -49,16 +49,16 @@ func run(cmd *cobra.Command, args []string) error {
 // Execute adds all child commands to the root command and sets flag appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := rootCmd.Execute()
+	err := Cmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&flag.Value.Server, flag.Server, flag.ServerShort, "127.0.0.1:4222", "sets the address of a NATS server")
-	rootCmd.PersistentFlags().StringVarP(&flag.Value.LogLevel, flag.LogLevel, flag.LogLevelShort, "info", "sets the logging level")
-	rootCmd.PersistentFlags().IntVarP(&flag.Value.Concurrency, flag.Concurrency, flag.ConcurrencyShort, 10, "sets the concurrent level of the shar listeners")
+	Cmd.PersistentFlags().StringVarP(&flag.Value.Server, flag.Server, flag.ServerShort, "", "sets the address of a NATS server")
+	Cmd.PersistentFlags().StringVarP(&flag.Value.LogLevel, flag.LogLevel, flag.LogLevelShort, "info", "sets the logging level")
+	Cmd.PersistentFlags().IntVarP(&flag.Value.Concurrency, flag.Concurrency, flag.ConcurrencyShort, 10, "sets the concurrent level of the shar listeners")
 }
 
 func setupLogging() {

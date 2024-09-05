@@ -31,7 +31,7 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 		}
 		if _, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
-			log.Log(ctx, slog.LevelInfo, "processCompletedJobs aborted due to a missing process")
+			log.Log(ctx, slog.LevelDebug, "processCompletedJobs aborted due to a missing process")
 			return true, nil
 		} else if err != nil {
 			return false, err
@@ -76,7 +76,7 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, _ *slog.Logger, msg j
 	}
 	if _, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
-		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
+		log.Log(ctx, slog.LevelDebug, "processLaunch aborted due to a missing process")
 		return true, err
 	} else if err != nil {
 		return false, err

@@ -4,13 +4,21 @@ import (
 	"fmt"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
+	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/model"
 	"time"
 )
 
 // Text provides a client output implementation for console
+// Text provides a client output implementation for console
 type Text struct {
+	Cmd *cobra.Command
+}
+
+// SetCmd sets the active command on the output processor
+func (c *Text) SetCmd(command *cobra.Command) {
+	c.Cmd = command
 }
 
 // OutputStartWorkflowResult returns a CLI response
@@ -76,6 +84,18 @@ func (c *Text) OutputExecutionStatus(executionID string, states map[string][]*mo
 // OutputLoadResult returns a CLI response
 func (c *Text) OutputLoadResult(workflowID string) {
 	fmt.Println("Workflow id: " + workflowID)
+}
+
+// OutputAddTaskResult returns a CLI response
+func (c *Text) OutputAddTaskResult(taskID string) {
+	fmt.Println("Service task id: " + taskID)
+}
+
+// OutputServiceTasks returns a CLI response
+func (c *Text) OutputServiceTasks(res []*model.TaskSpec) {
+	for _, v := range res {
+		fmt.Println(v.Metadata.Type)
+	}
 }
 
 func readStringPtr(ptr *string) string {

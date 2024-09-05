@@ -5,6 +5,7 @@ import (
 	"gitlab.com/shar-workflow/shar/cli/commands/bpmn"
 	"gitlab.com/shar-workflow/shar/cli/commands/execution"
 	"gitlab.com/shar-workflow/shar/cli/commands/message"
+	processinstance "gitlab.com/shar-workflow/shar/cli/commands/process-instance"
 	"gitlab.com/shar-workflow/shar/cli/commands/servicetask"
 	"gitlab.com/shar-workflow/shar/cli/commands/usertask"
 	"gitlab.com/shar-workflow/shar/cli/commands/workflow"
@@ -47,6 +48,7 @@ func init() {
 	RootCmd.AddCommand(message.Cmd)
 	RootCmd.AddCommand(usertask.Cmd)
 	RootCmd.AddCommand(servicetask.Cmd)
+	RootCmd.AddCommand(processinstance.Cmd)
 	RootCmd.PersistentFlags().StringVarP(&flag.Value.Server, flag.Server, flag.ServerShort, nats.DefaultURL, "sets the address of a NATS server")
 	RootCmd.PersistentFlags().StringVarP(&flag.Value.LogLevel, flag.LogLevel, flag.LogLevelShort, "error", "sets the logging level for the CLI")
 	RootCmd.PersistentFlags().StringVarP(&flag.Value.Namespace, flag.Namespace, flag.NamespaceShort, "default", "sets the SHAR namespace for CLI operations")
@@ -69,6 +71,7 @@ func init() {
 	} else {
 		output.Current = &output.Json{}
 	}
+	output.Current.SetCmd(RootCmd)
 	hndler := common.NewTextHandler(lev, addSource)
 	logx.SetDefault("shar-cli", hndler)
 }

@@ -186,7 +186,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 	_, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
 	if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
-		log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
+		log.Log(ctx, slog.LevelDebug, "processLaunch aborted due to a missing process")
 		return true, err
 	} else if err != nil {
 		return false, err

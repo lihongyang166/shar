@@ -1111,7 +1111,6 @@ func (s *Operations) ListExecutions(ctx context.Context, workflowName string, wc
 	wfv := &model.WorkflowVersions{}
 	if err := common.LoadObj(ctx, nsKVs.WfVersion, workflowName, wfv); err != nil {
 		errs <- err
-		close(errs)
 		return
 	}
 

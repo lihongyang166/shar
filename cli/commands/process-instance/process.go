@@ -1,4 +1,4 @@
-package message
+package processinstance
 
 import (
 	"github.com/spf13/cobra"

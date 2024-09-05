@@ -868,7 +868,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 
 		if _, _, err := s.operations.HasValidProcess(ctx, traversal.ProcessInstanceId, traversal.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
-			log.Log(ctx, slog.LevelInfo, "processTraversals aborted due to a missing process")
+			log.Log(ctx, slog.LevelDebug, "processTraversals aborted due to a missing process")
 			return true, nil
 		} else if err != nil {
 			return false, err
@@ -948,7 +948,7 @@ func (s *Engine) processCompletedJobs(ctx context.Context) error {
 		}
 		if _, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
-			log.Log(ctx, slog.LevelInfo, "processCompletedJobs aborted due to a missing process")
+			log.Log(ctx, slog.LevelDebug, "processCompletedJobs aborted due to a missing process")
 			return true, nil
 		} else if err != nil {
 			return false, err
@@ -981,7 +981,7 @@ func (s *Engine) processWorkflowEvents(ctx context.Context) error {
 		if strings.HasSuffix(msg.Subject(), messages.StateExecutionComplete) {
 			if _, err := s.operations.HasValidExecution(ctx, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 				log := logx.FromContext(ctx)
-				log.Log(ctx, slog.LevelInfo, "processWorkflowEvents aborted due to a missing process")
+				log.Log(ctx, slog.LevelDebug, "processWorkflowEvents aborted due to a missing process")
 				return true, nil
 			} else if err != nil {
 				return false, err
@@ -1029,7 +1029,7 @@ func (s *Engine) processLaunch(ctx context.Context) error {
 		}
 		if _, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
-			log.Log(ctx, slog.LevelInfo, "processLaunch aborted due to a missing process")
+			log.Log(ctx, slog.LevelDebug, "processLaunch aborted due to a missing process")
 			return true, err
 		} else if err != nil {
 			return false, err
@@ -1053,7 +1053,7 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 		}
 		if _, _, err := s.operations.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId); errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
-			log.Log(ctx, slog.LevelInfo, "processJobAbort aborted due to a missing process")
+			log.Log(ctx, slog.LevelDebug, "processJobAbort aborted due to a missing process")
 			return true, err
 		} else if err != nil {
 			return false, err
@@ -1088,7 +1088,7 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 		pi, execution, err := s.operations.HasValidProcess(ctx, state.ProcessInstanceId, state.ExecutionId)
 		if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 			log := logx.FromContext(ctx)
-			log.Log(ctx, slog.LevelInfo, "processProcessComplete aborted due to a missing process")
+			log.Log(ctx, slog.LevelDebug, "processProcessComplete aborted due to a missing process")
 			return true, err
 		} else if err != nil {
 			return false, err

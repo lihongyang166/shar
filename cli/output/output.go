@@ -1,6 +1,7 @@
 package output
 
 import (
+	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/model"
 	"io"
 	"os"
@@ -15,6 +16,9 @@ type Method interface {
 	OutputUserTaskIDs(ut []*model.GetUserTaskResponse)
 	OutputWorkflow(res []*model.ListWorkflowResponse)
 	OutputStartWorkflowResult(wfiID string, wfID string)
+	SetCmd(command *cobra.Command)
+	OutputAddTaskResult(taskID string)
+	OutputServiceTasks(res []*model.TaskSpec)
 }
 
 // Current is the currently selected output method.

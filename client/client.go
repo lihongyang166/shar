@@ -207,6 +207,7 @@ func New(option ...ConfigurationOption) *Client {
 		SendMiddleware:                  make([]middleware2.Send, 0),
 		ReceiveMiddleware:               make([]middleware2.Receive, 0),
 		cache:                           cache,
+		confOpts:                        option,
 	}
 	for _, i := range option {
 		i.configure(c)
@@ -216,6 +217,7 @@ func New(option ...ConfigurationOption) *Client {
 
 // Dial instructs the client to connect to a NATS server.
 func (c *Client) Dial(ctx context.Context, natsURL string, opts ...ConnectOption) error {
+	c.connOpts = opts // store conn opts in case redial required.
 	if c.telemetryConfig.Enabled {
 		c.SendMiddleware = append(c.SendMiddleware,
 			telemetry.CtxSpanToNatsMsgMiddleware(),

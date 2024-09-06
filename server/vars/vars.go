@@ -2,7 +2,6 @@ package vars
 
 import (
 	"context"
-	"encoding/gob"
 	"fmt"
 	"log/slog"
 
@@ -13,8 +12,37 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors"
 )
 
-func init() {
-	gob.Register(map[string]interface{}{})
+func msgPackPackedIntToInt(unpacked model.Vars) model.Vars {
+	for k, v := range unpacked {
+		switch unpacked[k].(type) {
+		case int:
+			unpacked[k] = int(v.(int))
+		case int8:
+			unpacked[k] = int(v.(int8))
+		case int16:
+			unpacked[k] = int(v.(int16))
+		case int32:
+			unpacked[k] = int(v.(int32))
+		case uint:
+			unpacked[k] = int(v.(uint))
+		case uint8:
+			unpacked[k] = int(v.(uint8))
+		case uint16:
+			unpacked[k] = int(v.(uint16))
+		case uint32:
+			unpacked[k] = int(v.(uint32))
+		case uint64:
+			unpacked[k] = int(v.(uint64))
+		case int64:
+			unpacked[k] = int(v.(int64))
+		// case float32:
+		// 	unpacked[k] = int(v.(float32))
+		// case float64:
+		// 	unpacked[k] = int(v.(float64))
+		default:
+		}
+	}
+	return unpacked
 }
 
 // Encode encodes the map of workflow variables into a go binary to be sent across the wire.
@@ -34,7 +62,8 @@ func Decode(ctx context.Context, vars []byte) (model.Vars, error) {
 	if err := msgpack.Unmarshal(vars, &ret); err != nil {
 		return nil, logx.Err(ctx, "decode vars", &errors.ErrWorkflowFatal{Err: err}, slog.Any("vars", vars))
 	}
-	return ret, nil
+
+	return msgPackPackedIntToInt(ret), nil
 }
 
 // InputVars returns a set of variables matching an input requirement after transformation through expressions contained in an element.

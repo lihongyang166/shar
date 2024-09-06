@@ -2,10 +2,11 @@ package vars
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/model"
-	"testing"
 )
 
 func TestEncodeDecodeVars(t *testing.T) {

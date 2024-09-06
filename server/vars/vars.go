@@ -23,18 +23,18 @@ func msgPackPackedIntToInt(unpacked model.Vars) model.Vars {
 			unpacked[k] = int(v.(int16))
 		case int32:
 			unpacked[k] = int(v.(int32))
-		case uint:
-			unpacked[k] = int(v.(uint))
-		case uint8:
-			unpacked[k] = int(v.(uint8))
-		case uint16:
-			unpacked[k] = int(v.(uint16))
-		case uint32:
-			unpacked[k] = int(v.(uint32))
-		case uint64:
-			unpacked[k] = int(v.(uint64))
-		case int64:
-			unpacked[k] = int(v.(int64))
+		// case uint:
+		// 	unpacked[k] = int(v.(uint))
+		// case uint8:
+		// 	unpacked[k] = int(v.(uint8))
+		// case uint16:
+		// 	unpacked[k] = int(v.(uint16))
+		// case uint32:
+		// 	unpacked[k] = int(v.(uint32))
+		// case uint64:
+		// 	unpacked[k] = int(v.(uint64))
+		// case int64:
+		// 	unpacked[k] = int(v.(int64))
 		// case float32:
 		// 	unpacked[k] = int(v.(float32))
 		// case float64:

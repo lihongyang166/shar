@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"maps"
 	"strconv"
+	"strings"
 )
 
 // RecordHistory records into the history KV.
@@ -177,4 +178,68 @@ func (s *Operations) GetProcessHistoryItem(ctx context.Context, processInstanceI
 		return nil, fmt.Errorf("unmarshal history entry: %w", err)
 	}
 	return ret, nil
+}
+
+var (
+	activityExecute  = processHistoryTypeString(model.ProcessHistoryType_activityExecute)
+	activityComplete = processHistoryTypeString(model.ProcessHistoryType_activityComplete)
+	activityAbort    = processHistoryTypeString(model.ProcessHistoryType_activityAbort)
+	jobExecute       = processHistoryTypeString(model.ProcessHistoryType_jobExecute)
+	jobComplete      = processHistoryTypeString(model.ProcessHistoryType_jobComplete)
+	jobAbort         = processHistoryTypeString(model.ProcessHistoryType_jobAbort)
+)
+
+func processHistoryTypeString(typeName model.ProcessHistoryType) string {
+	return fmt.Sprintf("%d", typeName)
+}
+
+// GetActiveEntries returns a list of workflow statuses for the specified process instance ID.
+func (s *Operations) GetActiveEntries(ctx context.Context, processInstanceID string, result chan<- *model.ProcessHistoryEntry, errs chan<- error) {
+
+	ns := subj.GetNS(ctx)
+	kvs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		errs <- fmt.Errorf("get kvs for namespace: %w", err)
+		return
+	}
+	keys, err := common.KeyPrefixSearchMap(ctx, s.natsService.Js, kvs.WfHistory, processInstanceID, common.KeyPrefixResultOpts{})
+	if err != nil {
+		errs <- fmt.Errorf("key prefix search in history for processinstance ID: %w", err)
+		return
+	}
+	for k := range keys {
+		dot := strings.LastIndexByte(k, '.')
+		state := k[dot+1:]
+		entryId := k[:dot]
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		switch state {
+		case activityExecute:
+			if _, ok := keys[entryId+"."+activityComplete]; ok {
+				continue
+			}
+			if _, ok := keys[entryId+"."+activityAbort]; ok {
+				continue
+			}
+		case jobExecute:
+			if _, ok := keys[entryId+"."+jobComplete]; ok {
+				continue
+			}
+			if _, ok := keys[entryId+"."+jobAbort]; ok {
+				continue
+			}
+		default:
+			continue
+		}
+		item := &model.ProcessHistoryEntry{}
+		if err := common.LoadObj(ctx, kvs.WfHistory, k, item); err != nil {
+			errs <- fmt.Errorf("get process history item: %w", err)
+			return
+		} else {
+			result <- item
+		}
+	}
 }

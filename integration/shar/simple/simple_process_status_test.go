@@ -27,7 +27,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
-	d := &testSimpleProcessStatsHandlerDef{t: t, finished: make(chan struct{})}
+	d := &testSimpleProcessStatsHandlerDef{t: t, finished: make(chan struct{}), waiter: make(chan struct{})}
 
 	// Register a service task
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple_process_status_test.yaml", d.integrationSimple)
@@ -50,7 +50,11 @@ func TestSimpleProcessStatus(t *testing.T) {
 	// Launch the workflow
 	wi, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.NoError(t, err)
-	time.Sleep(1 * time.Second)
+	select {
+	case <-d.waiter:
+	case <-time.After(time.Second * 10):
+		assert.FailNow(t, "timed out waiting for process")
+	}
 	pis, err := cl.ListExecutionProcesses(ctx, wi)
 	require.NoError(t, err)
 	for _, pi := range pis.ProcessInstanceId {
@@ -65,14 +69,15 @@ func TestSimpleProcessStatus(t *testing.T) {
 type testSimpleProcessStatsHandlerDef struct {
 	t        *testing.T
 	finished chan struct{}
+	waiter   chan struct{}
 }
 
 func (d *testSimpleProcessStatsHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
+	close(d.waiter)
 	fmt.Println("Hi")
 	assert.Equal(d.t, 32768, vars["carried"].(int))
 	assert.Equal(d.t, 42, vars["localVar"].(int))
 	vars["Success"] = true
-	time.Sleep(3 * time.Second)
 	return vars, nil
 }
 

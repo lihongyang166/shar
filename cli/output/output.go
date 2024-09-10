@@ -9,7 +9,7 @@ import (
 
 // Method represents the output method
 type Method interface {
-	OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState)
+	OutputExecutionStatus(executionID string, states map[string][]*model.ProcessHistoryEntry)
 	OutputLoadResult(executionID string)
 	OutputListExecution(res []*model.ListExecutionItem)
 	OutputCancelledProcessInstance(id string)
@@ -24,5 +24,5 @@ type Method interface {
 // Current is the currently selected output method.
 var Current Method
 
-// Stream contains the output stream.  By default this os.Stdout, however, for testing it can be set to a byte buffer for instance.
+// Stream contains the output stream.  By default, this os.Stdout, however, for testing it can be set to a byte buffer for instance.
 var Stream io.Writer = os.Stdout

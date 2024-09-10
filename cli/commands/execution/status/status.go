@@ -35,7 +35,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("getting execution status: %w", err)
 	}
-	states := make(map[string][]*model.WorkflowState)
+	states := make(map[string][]*model.ProcessHistoryEntry)
 	for _, i := range status.ProcessInstanceId {
 		res, err := shar.GetProcessInstanceStatus(ctx, i)
 		if errors2.Is(err, errors.ErrProcessInstanceNotFound) {

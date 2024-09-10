@@ -907,13 +907,13 @@ func (c *Client) ListExecutionProcesses(ctx context.Context, id string) (*model.
 }
 
 // GetProcessInstanceStatus lists the current workflow states for a process instance.
-func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) ([]*model.WorkflowState, error) {
+func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) ([]*model.ProcessHistoryEntry, error) {
 	req := &model.GetProcessInstanceStatusRequest{Id: id}
-	res := &model.WorkflowState{}
+	res := &model.ProcessHistoryEntry{}
 	ctx = subj.SetNS(ctx, c.ns)
 
-	result := make([]*model.WorkflowState, 0)
-	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.WorkflowState) error {
+	result := make([]*model.ProcessHistoryEntry, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetProcessInstanceStatus, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(val *model.ProcessHistoryEntry) error {
 		result = append(result, val)
 		return nil
 	})

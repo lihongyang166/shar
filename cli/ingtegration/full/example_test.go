@@ -1,9 +1,10 @@
 package full
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/cli/output"
-	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"testing"
 )
 
@@ -27,6 +28,14 @@ func TestExample(t *testing.T) {
 	r8 := cmd[output.ListExecutionOutput](t, "shar execution list SimpleWorkflowTest")
 	assert.Len(t, r8.Execution, 1)
 	r9 := cmd[output.ExecutionOutput](t, "shar execution status "+r7.ExecutionID)
-	pIDs := maps.Keys(r9.Processes)
+	pIDs := r9.Process
+	pid0 := pIDs[0]
 	assert.Len(t, pIDs, 1)
+	assert.Len(t, pid0.State, 2)
+	ix := slices.IndexFunc(pid0.State, func(listOutput output.ProcessStatusListOutput) bool {
+		fmt.Println(listOutput.ItemType)
+		return listOutput.ItemType == "jobExecute"
+	})
+	assert.NotEqual(t, -1, ix)
+	assert.Equal(t, "executing", pid0.State[ix].CancellationState)
 }

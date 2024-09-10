@@ -3,7 +3,6 @@ package output
 import (
 	"encoding/json"
 	"github.com/spf13/cobra"
-	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/model"
 )
 
@@ -47,24 +46,42 @@ func (c *Json) OutputUserTaskIDs(ut []*model.GetUserTaskResponse) {
 }
 
 // OutputExecutionStatus outputs an execution status to console
-func (c *Json) OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState) {
+func (c *Json) OutputExecutionStatus(executionID string, processes map[string][]*model.ProcessHistoryEntry) {
+	rs := make([]ProcessInstanceOutput, 0, len(processes))
 
-	rs := make(map[string][]StateOutput, len(states))
-	for pi, sts := range states {
-		rsa := make([]StateOutput, 0, len(sts))
-		for _, st := range sts {
-			rsa = append(rsa, StateOutput{
-				TrackingId: common.TrackingID(st.Id).ID(),
-				ID:         st.ElementId,
-				Type:       st.ElementType,
-				State:      st.State.String(),
-				Executing:  readStringPtr(st.Execute),
-				Since:      st.UnixTimeNano,
-			})
+	for pi, sts := range processes {
+		pio := ProcessInstanceOutput{
+			ProcessId:         "",
+			ProcessInstanceId: pi,
+			WorkflowName:      "",
+			WorkflowId:        "",
+			ExecutionId:       "",
+			State:             make([]ProcessStatusListOutput, len(sts)),
 		}
-		rs[pi] = rsa
+		for i, st := range sts {
+			if i == 0 {
+				pio.ProcessId = st.ProcessId
+				pio.WorkflowName = st.WorkflowName
+				pio.ProcessInstanceId = *st.ProcessInstanceId
+				pio.WorkflowId = *st.WorkflowId
+				pio.ExecutionId = *st.ExecutionId
+			}
+			pio.State[i] = ProcessStatusListOutput{
+				ItemType:          model.ProcessHistoryType.String(st.ItemType),
+				ElementId:         *st.ElementId,
+				ElementName:       *st.ElementName,
+				CancellationState: model.CancellationState.String(*st.CancellationState),
+				UnixTimeNano:      st.UnixTimeNano,
+				Execute:           *st.Execute,
+				Id:                st.Id,
+				Compensating:      st.Compensating,
+				PreviousActivity:  st.PreviousActivity,
+				PreviousElement:   st.PreviousElement,
+			}
+		}
+		rs = append(rs, pio)
 	}
-	c.outJson(ExecutionOutput{ExecutionId: executionID, Processes: rs})
+	c.outJson(ExecutionOutput{ExecutionId: executionID, Process: rs})
 }
 
 // OutputLoadResult returns a CLI response
@@ -89,7 +106,7 @@ func (c *Json) outJson(js interface{}) {
 	if _, err := Stream.Write(op); err != nil {
 		panic(err)
 	}
-	c.Cmd.Println(string(op))
+	c.Cmd.Println(string(op) + "\n")
 }
 
 // OutputAddTaskResult returns a CLI response

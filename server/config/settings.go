@@ -7,14 +7,15 @@ import (
 
 // Settings is the settings provider for a SHAR server.
 type Settings struct {
-	Port            int    `env:"SHAR_PORT" envDefault:"50000"`
-	NatsURL         string `env:"NATS_URL" envDefault:"nats://127.0.0.1:4222"`
-	LogHandler      string `env:"SHAR_LOG_HANDLER" envDefault:"text"`
-	LogLevel        string `env:"SHAR_LOG_LEVEL" envDefault:"info"`
-	PanicRecovery   bool   `env:"SHAR_PANIC_RECOVERY" envDefault:"true"`
-	Concurrency     int    `env:"SHAR_CONCURRENCY" envDefault:"10"`
-	TracerName      string `env:"SHAR_TRACER_NAME" envDefault:"shar"`
-	JetStreamDomain string `env:"SHAR_JETSTREAM_DOMAIN" envDefault:""`
+	Port              int    `env:"SHAR_PORT" envDefault:"50000"`
+	NatsURL           string `env:"NATS_URL" envDefault:"nats://127.0.0.1:4222"`
+	NatsMaxReconnects int    `env:"NATS_MAX_RECONNECTS" envDefault:"-1"`
+	LogHandler        string `env:"SHAR_LOG_HANDLER" envDefault:"text"`
+	LogLevel          string `env:"SHAR_LOG_LEVEL" envDefault:"info"`
+	PanicRecovery     bool   `env:"SHAR_PANIC_RECOVERY" envDefault:"true"`
+	Concurrency       int    `env:"SHAR_CONCURRENCY" envDefault:"10"`
+	TracerName        string `env:"SHAR_TRACER_NAME" envDefault:"shar"`
+	JetStreamDomain   string `env:"SHAR_JETSTREAM_DOMAIN" envDefault:""`
 }
 
 // GetEnvironment pulls the active settings into a settings struct.

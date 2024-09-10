@@ -891,7 +891,8 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 }
 
 func (s *Engine) processTracking(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, s.operations.SignalFatalError)
+	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.
+		track, s.operations.SignalFatalError)
 	if err != nil {
 		return fmt.Errorf("tracking processor: %w", err)
 	}

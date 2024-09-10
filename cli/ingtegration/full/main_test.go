@@ -34,5 +34,6 @@ func cmd[rt any](t *testing.T, line string) rt { // nolint
 	fmt.Println("$", line)
 	res, err := integration.ExecTst[rt](t, tst, line)
 	require.NoError(t, err)
+	fmt.Println("")
 	return res
 }

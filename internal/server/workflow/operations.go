@@ -1161,25 +1161,6 @@ func (s *Operations) ListExecutionProcesses(ctx context.Context, id string) ([]s
 	return v.ProcessInstanceId, nil
 }
 
-// GetProcessInstanceStatus returns a list of workflow statuses for the specified process instance ID.
-func (s *Operations) GetProcessInstanceStatus(ctx context.Context, id string, wch chan<- *model.WorkflowState, errs chan<- error) {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		errs <- fmt.Errorf("get KVs for ns %s: %w", ns, err)
-		return
-	}
-
-	v := &model.WorkflowState{}
-	err = common.LoadObj(ctx, nsKVs.WfProcessInstance, id, v)
-	if err != nil {
-		errs <- fmt.Errorf("function GetProcessInstanceStatus failed to load from KV: %w", err)
-		return
-	}
-	//TODO: This should be multiple states!
-	wch <- v
-}
-
 // PublishWorkflowState publishes a SHAR state object to a given subject
 func (s *Operations) PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, opts ...PublishOpt) error {
 	//TODO should this be in natsService???

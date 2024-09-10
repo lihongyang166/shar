@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/model"
 	"log/slog"
+	"maps"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -629,6 +630,54 @@ func KeyPrefixSearch(ctx context.Context, js jetstream.JetStream, kv jetstream.K
 	if opts.ExcludeDeleted {
 		var fnErr error
 		ret = slices.DeleteFunc(ret, func(k string) bool {
+			_, err := kv.Get(ctx, k)
+			if err != nil {
+				if errors.Is(err, jetstream.ErrKeyNotFound) {
+					return true
+				} else {
+					fnErr = err
+					return true
+				}
+			}
+			return false
+		})
+		if fnErr != nil {
+			return nil, fmt.Errorf("get key value: %w", fnErr)
+		}
+	}
+	return ret, nil
+}
+
+// KeyPrefixSearchMap searches for keys in a key-value store that have a specified prefix.
+// It retrieves the keys by querying the JetStream stream associated with the key-value store.
+// It returns a map of strings containing the keys, and an error if any.
+func KeyPrefixSearchMap(ctx context.Context, js jetstream.JetStream, kv jetstream.KeyValue, prefix string, opts KeyPrefixResultOpts) (map[string]struct{}, error) {
+	kvName := kv.Bucket()
+	streamName := "KV_" + kvName
+	subjectTrim := fmt.Sprintf("$KV.%s.", kvName)
+	subjectPrefix := fmt.Sprintf("%s%s.", subjectTrim, prefix)
+	kvs, err := js.Stream(ctx, streamName)
+	if err != nil {
+		return nil, fmt.Errorf("get stream: %w", err)
+	}
+	nfo, err := kvs.Info(ctx, jetstream.WithSubjectFilter(subjectPrefix+">"))
+	if err != nil {
+		return nil, fmt.Errorf("get stream info: %w", err)
+	}
+	ret := make(map[string]struct{}, len(nfo.State.Subjects))
+	trim := len(subjectTrim)
+	for s := range nfo.State.Subjects {
+		if len(s) >= trim {
+			ret[s[trim:]] = struct{}{}
+		}
+	}
+
+	if opts.Sort {
+		return nil, fmt.Errorf("sort specified on map result")
+	}
+	if opts.ExcludeDeleted {
+		var fnErr error
+		maps.DeleteFunc(ret, func(k string, v struct{}) bool {
 			_, err := kv.Get(ctx, k)
 			if err != nil {
 				if errors.Is(err, jetstream.ErrKeyNotFound) {

@@ -21,14 +21,15 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 )
 
-func (s *Endpoints) getProcessInstanceStatus(ctx context.Context, req *model.GetProcessInstanceStatusRequest, wch chan<- *model.WorkflowState, errs chan<- error) {
+func (s *Endpoints) getProcessInstanceStatus(ctx context.Context, req *model.GetProcessInstanceStatusRequest, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
 	// TODO: Auth for process
 	ctx, _, err2 := s.authFromProcessInstanceID(ctx, req.Id)
 	if err2 != nil {
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 		return
 	}
-	s.operations.GetProcessInstanceStatus(ctx, req.Id, wch, errs)
+	s.operations.GetActiveEntries(ctx, req.Id, wch, errs)
+
 }
 
 func (s *Endpoints) listExecutionProcesses(ctx context.Context, req *model.ListExecutionProcessesRequest) (*model.ListExecutionProcessesResponse, error) {
@@ -350,9 +351,6 @@ func (s *Endpoints) versionInfo(ctx context.Context, req *model.GetVersionInfoRe
 		ServerVersion:        version2.Version,
 		MinCompatibleVersion: ver.String(),
 		Connect:              ok,
-	}
-	if err != nil {
-		return nil, fmt.Errorf("get version: %w", err)
 	}
 	return ret, nil
 }

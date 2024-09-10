@@ -54,7 +54,7 @@ func (c *Text) OutputCancelledProcessInstance(id string) {
 }
 
 // OutputExecutionStatus outputs an execution status
-func (c *Text) OutputExecutionStatus(executionID string, states map[string][]*model.WorkflowState) {
+func (c *Text) OutputExecutionStatus(executionID string, states map[string][]*model.ProcessHistoryEntry) {
 	fmt.Println("Execution: " + executionID)
 
 	ll := make(pterm.LeveledList, 0, len(states)*7+1)
@@ -64,9 +64,7 @@ func (c *Text) OutputExecutionStatus(executionID string, states map[string][]*mo
 		for _, st := range sts {
 			ll = append(ll, pterm.LeveledListItem{Level: 0, Text: "Tracking ID: " + common.TrackingID(st.Id).ID()})
 			ll = append(ll, pterm.LeveledListItem{Level: 1, Text: "Element"})
-			ll = append(ll, pterm.LeveledListItem{Level: 2, Text: "ID: " + st.ElementId})
-			ll = append(ll, pterm.LeveledListItem{Level: 2, Text: "Type: " + st.ElementType})
-			ll = append(ll, pterm.LeveledListItem{Level: 1, Text: "State: " + st.State.String()})
+			ll = append(ll, pterm.LeveledListItem{Level: 2, Text: "ID: " + *st.ElementId})
 			ll = append(ll, pterm.LeveledListItem{Level: 1, Text: "Executing: " + readStringPtr(st.Execute)})
 			ll = append(ll, pterm.LeveledListItem{Level: 1, Text: "Since: " + time.Unix(0, st.UnixTimeNano).Format("“2006-01-02T15:04:05.999999999Z07:00”")})
 		}

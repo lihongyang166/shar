@@ -19,12 +19,11 @@ type ServerOptions struct {
 	HealthServiceEnabled    bool
 	SharVersion             *version2.Version
 	NatsUrl                 string
-	//conn                    *nats.Conn
-	GrpcPort        int
-	TelemetryConfig telemetry.Config
-	ShowSplash      bool
-	JetStreamDomain string
-	NatsConnOptions []nats.Option
+	GrpcPort                int
+	TelemetryConfig         telemetry.Config
+	ShowSplash              bool
+	JetStreamDomain         string
+	NatsConnOptions         []nats.Option
 }
 
 // Option represents a SHAR server option

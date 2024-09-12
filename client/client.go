@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/dgraph-io/ristretto"
@@ -12,6 +11,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
+	"github.com/vmihailenco/msgpack/v5"
 	"gitlab.com/shar-workflow/shar/client/parser"
 	task2 "gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/common"
@@ -853,12 +853,11 @@ func headerToBytes(header LaunchHeaders) ([]byte, error) {
 	if len(header) == 0 {
 		return []byte{}, nil
 	}
-	var b bytes.Buffer
-	enc := gob.NewEncoder(&b)
-	if err := enc.Encode(header); err != nil {
+	b, err := msgpack.Marshal(header)
+	if err != nil {
 		return []byte{}, fmt.Errorf("encode headers: %w", err)
 	}
-	return b.Bytes(), nil
+	return b, nil
 }
 
 // ListExecutableProcesses gets a list of executable processes.

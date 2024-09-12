@@ -1,13 +1,12 @@
 package api
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/vmihailenco/msgpack/v5"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -480,8 +479,7 @@ func (s *Endpoints) getProcessHeaders(ctx context.Context, req *model.GetProcess
 	if len(pi.Headers) == 0 {
 		return &model.GetProcessHeadersResponse{Headers: hdr}, nil
 	}
-	d := gob.NewDecoder(bytes.NewBuffer(pi.Headers))
-	if err := d.Decode(&hdr); err != nil {
+	if err := msgpack.Unmarshal(pi.Headers, &hdr); err != nil {
 		return nil, fmt.Errorf("decode headers: %w", err)
 	}
 	return &model.GetProcessHeadersResponse{Headers: hdr}, nil

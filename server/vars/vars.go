@@ -1,38 +1,23 @@
 package vars
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"fmt"
+	"github.com/vmihailenco/msgpack/v5"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
-	"gitlab.com/shar-workflow/shar/common/structs"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"log/slog"
-	"reflect"
 )
-
-func init() {
-	gob.Register(map[string]interface{}{})
-}
 
 // Encode encodes the map of workflow variables into a go binary to be sent across the wire.
 func Encode(ctx context.Context, vars model.Vars) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	for k, v := range vars {
-		typeOfV := reflect.TypeOf(v)
-		if typeOfV != nil && typeOfV.Kind() == reflect.Struct {
-			vars[k] = structs.Map(v)
-		}
-	}
-
-	if err := enc.Encode(vars); err != nil {
+	b, err := msgpack.Marshal(vars)
+	if err != nil {
 		return nil, logx.Err(ctx, "encode vars", &errors.ErrWorkflowFatal{Err: err}, slog.Any("vars", vars))
 	}
-	return buf.Bytes(), nil
+	return b, nil
 }
 
 // Decode decodes a go binary object containing workflow variables.
@@ -41,9 +26,8 @@ func Decode(ctx context.Context, vars []byte) (model.Vars, error) {
 	if len(vars) == 0 {
 		return ret, nil
 	}
-	r := bytes.NewReader(vars)
-	d := gob.NewDecoder(r)
-	if err := d.Decode(&ret); err != nil {
+
+	if err := msgpack.Unmarshal(vars, &ret); err != nil {
 		return nil, logx.Err(ctx, "decode vars", &errors.ErrWorkflowFatal{Err: err}, slog.Any("vars", vars))
 	}
 	return ret, nil

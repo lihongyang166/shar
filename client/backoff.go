@@ -116,11 +116,11 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 
 	var offset time.Duration
 	messageTime := time.Unix(0, state.UnixTimeNano)
-	initial := uint64(retryBehaviour.InitMilli)
+	initial := retryBehaviour.InitMilli
 	strategy := retryBehaviour.Strategy
-	interval := uint64(retryBehaviour.IntervalMilli)
-	ceiling := uint64(retryBehaviour.MaxMilli)
-	deliveryCount := meta.NumDelivered
+	interval := retryBehaviour.IntervalMilli
+	ceiling := retryBehaviour.MaxMilli
+	deliveryCount := int64(meta.NumDelivered) //nolint:gosec
 
 	offset = getOffset(strategy, initial, interval, deliveryCount, ceiling, messageTime)
 
@@ -130,22 +130,22 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	return nil
 }
 
-func getOffset(strategy model.RetryStrategy, initial uint64, interval uint64, deliveryCount uint64, ceiling uint64, messageTime time.Time) time.Duration {
-	initial = initial * uint64(time.Millisecond)
-	interval = interval * uint64(time.Millisecond)
-	ceiling = ceiling * uint64(time.Millisecond)
+func getOffset(strategy model.RetryStrategy, initial int64, interval int64, deliveryCount int64, ceiling int64, messageTime time.Time) time.Duration {
+	initial = initial * int64(time.Millisecond)
+	interval = interval * int64(time.Millisecond)
+	ceiling = ceiling * int64(time.Millisecond)
 	if interval == 0 {
-		interval = uint64(1 * time.Second)
+		interval = int64(1 * time.Second)
 	}
 	if ceiling < interval {
 		ceiling = interval
 	}
-	var offset uint64
+	var offset int64
 	if deliveryCount > 1 {
 		if strategy == model.RetryStrategy_Linear {
 			offset = initial + interval*(deliveryCount-1)
 		} else {
-			incrementMultiplier := uint64(math.Pow(2, float64(deliveryCount-1)))
+			incrementMultiplier := int64(math.Pow(2, float64(deliveryCount-1)))
 			offset = initial + (interval * incrementMultiplier)
 		}
 		if offset > ceiling {

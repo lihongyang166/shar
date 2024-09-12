@@ -554,7 +554,7 @@ func PublishOnce(ctx context.Context, js jetstream.JetStream, lockingKV jetstrea
 	if err != nil {
 		return fmt.Errorf("obtaining publish once consumer information: %w", err)
 	}
-	if cInfo.NumPending+uint64(cInfo.NumAckPending)+uint64(cInfo.NumWaiting) == 0 {
+	if cInfo.NumPending+uint64(cInfo.NumAckPending)+uint64(cInfo.NumWaiting) == 0 { //nolint:gosec
 		if lock, err := Lock(ctx, lockingKV, consumerName); err != nil {
 			return fmt.Errorf("obtaining lock for publish once consumer: %w", err)
 		} else if lock {

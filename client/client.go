@@ -1257,7 +1257,7 @@ func (c *Client) retryNotifier(ctx context.Context, msg jetstream.Msg) (context.
 
 		newSubj := strings.Replace(msg.Subject(), ".Job.Execute.", ".Job.Retry.", 1)
 		newMsg := nats.NewMsg(newSubj)
-		newMsg.Header.Add("RetryCount", strconv.Itoa(int(md.NumDelivered))) // nolint
+		newMsg.Header.Add("RetryCount", strconv.FormatUint(md.NumDelivered, 10))
 		newMsg.Header.Add("RetryMax", strconv.Itoa(int(retryBehaviour.Number)))
 		newMsg.Data = msg.Data()
 		if err := c.con.PublishMsg(newMsg); err != nil {

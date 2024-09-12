@@ -675,7 +675,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 		if err != nil {
 			return nil, fmt.Errorf("save workflow: %s", wf.Name)
 		}
-		v.Version = append(v.Version, &model.WorkflowVersion{Id: wfID, Sha256: hash, Number: int32(n) + 1}) // nolint
+		v.Version = append(v.Version, &model.WorkflowVersion{Id: wfID, Sha256: hash, Number: int32(n) + 1}) //nolint:gosec
 		log.Info("workflow version created", keys.WorkflowID, hash)
 		return v, nil
 	}); err != nil {

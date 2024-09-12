@@ -226,6 +226,7 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...ConnectOption
 	c.ReceiveMiddleware = append(c.ReceiveMiddleware, c.retryNotifier)
 
 	dialOptions := &ConnectOptions{}
+	opts = append(opts, WithNatsOption(nats.MaxReconnects(-1)))
 	for _, opt := range opts {
 		opt(dialOptions)
 	}

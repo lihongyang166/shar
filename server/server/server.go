@@ -43,7 +43,7 @@ type Server struct {
 
 // New creates a new SHAR server.
 // Leave the exporter nil if telemetry is not required
-func New(options ...option.Option) (*Server, error) {
+func New(natsConnConfig *natz.NatsConnConfiguration, options ...option.Option) (*Server, error) {
 	currentVer, err := version.NewVersion(version2.Version)
 	if err != nil {
 		panic(err)
@@ -64,12 +64,7 @@ func New(options ...option.Option) (*Server, error) {
 		i.Configure(defaultServerOptions)
 	}
 
-	nc, err := connectNats(defaultServerOptions)
-	if err != nil {
-		return nil, fmt.Errorf("connect nats: %w", err)
-	}
-
-	natsService, err := natz.NewNatsService(nc)
+	natsService, err := natz.NewNatsService(natsConnConfig)
 	if err != nil {
 		return nil, fmt.Errorf("create natsService: %w", err)
 	}
@@ -85,7 +80,7 @@ func New(options ...option.Option) (*Server, error) {
 		return nil, fmt.Errorf("create workflow engine: %w", err)
 	}
 
-	a, err := api.New(workflowOperations, nc, defaultServerOptions)
+	a, err := api.New(workflowOperations, natsConnConfig, defaultServerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("create api: %w", err)
 	}
@@ -217,7 +212,7 @@ func (s *Server) GetEndPoint() string {
 	return "TODO" // can we discover the grpc endpoint listen address??
 }
 
-// connectNats establishes a connection to the NATS server using the given URL.
+// ConnectNats establishes a connection to the NATS server using the given URL.
 // It also creates a separate transactional NATS connection.
 // It checks the NATS server version and obtains the JetStream account information.
 // It returns the NATS connection configuration that includes the NATS connection,
@@ -230,16 +225,16 @@ func (s *Server) GetEndPoint() string {
 // Returns:
 // - NatsConnConfiguration: The NATS connection configuration.
 // - error: An error if the connection or account retrieval fails.
-func connectNats(options *option.ServerOptions) (*natz.NatsConnConfiguration, error) {
+func ConnectNats(jetstreamDomain string, natsUrl string, natsConnOptions []nats.Option, ephemeralStorage bool) (*natz.NatsConnConfiguration, error) {
 	// TODO why do we need a separate txConn?
-	conn, err := nats.Connect(options.NatsUrl)
+	conn, err := nats.Connect(natsUrl, natsConnOptions...)
 	if err != nil {
-		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", options.NatsUrl))
+		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsUrl))
 		return nil, fmt.Errorf("connect to NATS: %w", err)
 	}
-	txConn, err := nats.Connect(options.NatsUrl)
+	txConn, err := nats.Connect(natsUrl, natsConnOptions...)
 	if err != nil {
-		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", options.NatsUrl))
+		slog.Error("connect to NATS", slog.String("error", err.Error()), slog.String("url", natsUrl))
 		return nil, fmt.Errorf("connect to NATS: %w", err)
 	}
 	ctx := context.Background()
@@ -254,14 +249,14 @@ func connectNats(options *option.ServerOptions) (*natz.NatsConnConfiguration, er
 		}
 	}
 	store := jetstream.FileStorage
-	if options.EphemeralStorage {
+	if ephemeralStorage {
 		store = jetstream.MemoryStorage
 	}
 	return &natz.NatsConnConfiguration{
 		Conn:            conn,
 		TxConn:          txConn,
 		StorageType:     store,
-		JetStreamDomain: options.JetStreamDomain,
+		JetStreamDomain: jetstreamDomain,
 	}, nil
 }
 
@@ -317,7 +312,6 @@ func (s *Server) details() {
 		{"Nats URL               ", s.serverOptions.NatsUrl},
 		{"Nats Client Version    ", version2.NatsVersion},
 		{"Concurrency            ", s.serverOptions.Concurrency},
-		{"Ephemeral Storage      ", s.serverOptions.EphemeralStorage},
 		{"Panic Recovery         ", s.serverOptions.PanicRecovery},
 		{"AllowOrphanServiceTasks", s.serverOptions.AllowOrphanServiceTasks},
 		{"Grpc Port              ", s.serverOptions.GrpcPort},

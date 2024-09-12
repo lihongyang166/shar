@@ -48,10 +48,9 @@ var RootCmd = &cobra.Command{
 			lev = slog.LevelError
 		}
 
-		conn, err := nats.Connect(cfg.NatsURL)
+		nc, err := server.ConnectNats(cfg.JetStreamDomain, cfg.NatsURL, []nats.Option{nats.MaxReconnects(cfg.NatsMaxReconnects)}, false)
 		if err != nil {
-			slog.Error("connect to NATS", "error", err, slog.String("url", cfg.NatsURL))
-			panic(err)
+			panic(fmt.Errorf("connect nats: %w", err))
 		}
 
 		handlerFactoryFns := map[string]func() slog.Handler{
@@ -59,7 +58,7 @@ var RootCmd = &cobra.Command{
 				return common.NewTextHandler(lev, addSource)
 			},
 			"shar-handler": func() slog.Handler {
-				return common.NewSharHandler(common.HandlerOptions{Level: lev}, &common.NatsLogPublisher{Conn: conn})
+				return common.NewSharHandler(common.HandlerOptions{Level: lev}, &common.NatsLogPublisher{Conn: nc.Conn})
 			},
 		}
 
@@ -71,18 +70,14 @@ var RootCmd = &cobra.Command{
 
 		logx.SetDefault("shar", common.NewMultiHandler(handlers))
 
-		if err != nil {
-			panic(err)
-		}
-
-		options := []option.Option{option.Concurrency(cfg.Concurrency), option.NatsConn(conn), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port)}
+		options := []option.Option{option.Concurrency(cfg.Concurrency), option.NatsUrl(cfg.NatsURL), option.GrpcPort(cfg.Port)}
 
 		if cfg.JetStreamDomain != "" {
 			options = append(options, option.WithJetStreamDomain(cfg.JetStreamDomain))
 		}
 
 		var svr *server.Server
-		if svr, err = server.New(options...); err != nil {
+		if svr, err = server.New(nc, options...); err != nil {
 			panic(fmt.Errorf("creating server: %w", err))
 		}
 

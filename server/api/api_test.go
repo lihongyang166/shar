@@ -14,18 +14,20 @@ import (
 
 func TestFatalErrorKeyPrefixBuilderWithAllSegments(t *testing.T) {
 	wfName := "wfName"
+	workflowId := "workflowId"
 	executionId := "executionId"
 	processInstanceId := "processInstanceId"
 
 	req := &model.GetFatalErrorRequest{
 		WfName:            wfName,
+		WfId:              workflowId,
 		ExecutionId:       executionId,
 		ProcessInstanceId: processInstanceId,
 	}
 
 	keyPrefix := fatalErrorKeyPrefixBuilder(req)
 
-	assert.Equal(t, fmt.Sprintf("%s.%s.%s", wfName, executionId, processInstanceId), keyPrefix)
+	assert.Equal(t, fmt.Sprintf("%s.%s.%s.%s", wfName, workflowId, executionId, processInstanceId), keyPrefix)
 }
 
 func TestFatalErrorKeyPrefixBuilderWithPartialSegments(t *testing.T) {
@@ -41,7 +43,7 @@ func TestFatalErrorKeyPrefixBuilderWithPartialSegments(t *testing.T) {
 
 	keyPrefix := fatalErrorKeyPrefixBuilder(req)
 
-	assert.Equal(t, fmt.Sprintf("%s.%s.%s", wfName, "*", processInstanceId), keyPrefix)
+	assert.Equal(t, fmt.Sprintf("%s.%s.%s.%s", wfName, "*", "*", processInstanceId), keyPrefix)
 }
 
 func TestValidation(t *testing.T) {
@@ -52,6 +54,7 @@ func TestValidation(t *testing.T) {
 		"AllParamsEmptyString": {
 			getFatalErrorRequest: &model.GetFatalErrorRequest{
 				WfName:            "",
+				WfId:              "",
 				ExecutionId:       "",
 				ProcessInstanceId: "",
 			},
@@ -60,6 +63,7 @@ func TestValidation(t *testing.T) {
 		"AllParamsWildcardString": {
 			getFatalErrorRequest: &model.GetFatalErrorRequest{
 				WfName:            "*",
+				WfId:              "*",
 				ExecutionId:       "*",
 				ProcessInstanceId: "*",
 			},
@@ -85,11 +89,12 @@ func TestValidation(t *testing.T) {
 			go func() {
 				endpoints.getFatalErrors(ctx, req, respChan, errChan)
 			}()
-			mockOperations.AssertNotCalled(t, "GetFatalErrors")
 
 			expectedErr := <-errChan
 			//then
 			assert.ErrorContains(t, expectedErr, tc.expectedError)
+
+			mockOperations.AssertNotCalled(t, "GetFatalErrors")
 		})
 	}
 
@@ -112,6 +117,19 @@ func TestFatalErrorAuth(t *testing.T) {
 			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest) context.Context {
 				authCtx := context.WithValue(ctx, USERNAME("userName"), "foo-user")
 				mockAuth.On("authForNamedWorkflow", ctx, req.WfName).Return(authCtx, nil)
+				return authCtx
+			},
+		},
+		"WorkflowIdAuth": {
+			getFatalErrorRequest: &model.GetFatalErrorRequest{
+				WfName:            "",
+				WfId:              "workflowId",
+				ExecutionId:       "",
+				ProcessInstanceId: "",
+			},
+			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest) context.Context {
+				authCtx := context.WithValue(ctx, USERNAME("userName"), "foo-user")
+				mockAuth.On("authForWorkflowId", ctx, req.WfId).Return(authCtx, nil)
 				return authCtx
 			},
 		},

@@ -499,8 +499,10 @@ func (s *Integration) AssertExpectedKVKey(namespace string, kvName string, key s
 		case <-timeOutChannel:
 			assert.Fail(t, "failed to get "+kvName+" update channel")
 			return
-		case <-watch.Updates():
-			return
+		case kvEnt := <-watch.Updates():
+			if kvEnt != nil {
+				return
+			}
 		}
 	}
 }

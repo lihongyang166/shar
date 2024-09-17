@@ -2128,7 +2128,7 @@ func (s *Operations) PersistFatalError(ctx context.Context, fatalError *model.Fa
 		return false, fmt.Errorf("persistFatalError get KVs for ns %s: %w", ns, err)
 	}
 	workFlowName := fatalError.WorkflowState.WorkflowName
-	k := fatalErrorKey(workFlowName, fatalError.WorkflowState.ExecutionId, fatalError.WorkflowState.ProcessInstanceId, fatalError.WorkflowState.ElementId)
+	k := fatalErrorKey(workFlowName, fatalError.WorkflowState.WorkflowId, fatalError.WorkflowState.ExecutionId, fatalError.WorkflowState.ProcessInstanceId, fatalError.WorkflowState.ElementId)
 	if err := common.SaveObj(ctx, nsKVs.WfFatalError, k, fatalError); err != nil {
 		return false, fmt.Errorf("save fatal error: %w", err)
 	}
@@ -2136,8 +2136,8 @@ func (s *Operations) PersistFatalError(ctx context.Context, fatalError *model.Fa
 	return true, nil
 }
 
-func fatalErrorKey(workFlowName string, executionId, processInstanceId, elementId string) string {
-	return fmt.Sprintf("%s.%s.%s.%s", workFlowName, executionId, processInstanceId, elementId)
+func fatalErrorKey(workFlowName, workflowId, executionId, processInstanceId, elementId string) string {
+	return fmt.Sprintf("%s.%s.%s.%s.%s", workFlowName, workflowId, executionId, processInstanceId, elementId)
 }
 
 // TearDownWorkflow removes any state associated with a fatal errored workflow
@@ -2179,7 +2179,7 @@ func (s *Operations) DeleteFatalError(ctx context.Context, state *model.Workflow
 		return fmt.Errorf("get kvs for delete fatal error: %w", err)
 	}
 
-	err = common.Delete(ctx, kvsFor.WfFatalError, fatalErrorKey(state.WorkflowName, state.ExecutionId, state.ProcessInstanceId, state.ElementId))
+	err = common.Delete(ctx, kvsFor.WfFatalError, fatalErrorKey(state.WorkflowName, state.WorkflowId, state.ExecutionId, state.ProcessInstanceId, state.ElementId))
 	if err != nil {
 		return fmt.Errorf("delete fatal error: %w", err)
 	}

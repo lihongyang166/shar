@@ -25,6 +25,7 @@ type Auth interface {
 	authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error)
 	authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error)
 	authForNamedWorkflow(ctx context.Context, name string) (context.Context, error)
+	authForWorkflowId(ctx context.Context, workflowId string) (context.Context, error)
 	authenticate(ctx context.Context) (context.Context, header.Values, error)
 	authorize(ctx context.Context, workflowName string) (context.Context, error)
 	authFromJobID(ctx context.Context, trackingID string) (context.Context, *model.WorkflowState, error)
@@ -120,6 +121,18 @@ func (a *SharAuth) authForNonWorkflow(ctx context.Context) (context.Context, err
 
 func (a *SharAuth) authForNamedWorkflow(ctx context.Context, name string) (context.Context, error) {
 	ctx, auth := a.authorize(ctx, name)
+	if auth != nil {
+		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
+	}
+	return ctx, nil
+}
+
+func (a *SharAuth) authForWorkflowId(ctx context.Context, workflowId string) (context.Context, error) {
+	workflow, err := a.operations.GetWorkflow(ctx, workflowId)
+	if err != nil {
+		return ctx, fmt.Errorf("get workflow for authorization: %w", err)
+	}
+	ctx, auth := a.authorize(ctx, workflow.Name)
 	if auth != nil {
 		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
 	}

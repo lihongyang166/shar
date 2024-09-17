@@ -88,27 +88,35 @@ func TestFatalErrorPersistedWithPauseHandlingStrategy(t *testing.T) {
 		{startVars: model.Vars{}, expectingFailure: true},
 	}
 
-	wfName, executionIds, _ := runExecutions(t, ctx, cl, ns, execParams, willPanicAndCauseWorkflowFatalError)
+	wfName, workflowId, executionIds, _ := runExecutions(t, ctx, cl, ns, execParams, willPanicAndCauseWorkflowFatalError)
 
 	assert.Eventually(t, func() bool {
-		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, "", "")
+		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, workflowId, "", "")
 		require.NoError(t, err)
 		return len(fatalErrors) == len(executionIds)
 	}, 3*time.Second, 100*time.Millisecond)
 
 	for _, executionId := range executionIds {
 		assert.Eventually(t, func() bool {
-			fatalErrors, err := cl.GetFatalErrors(ctx, wfName, executionId, "")
+			fatalErrors, err := cl.GetFatalErrors(ctx, wfName, workflowId, executionId, "")
 			require.NoError(t, err)
 			return len(fatalErrors) == 1 && fatalErrors[0].WorkflowState.ExecutionId == executionId
 		}, 3*time.Second, 100*time.Millisecond)
 	}
 
 	assert.Eventually(t, func() bool {
-		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, "*", "*")
+		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, workflowId, "*", "*")
 		require.NoError(t, err)
 		return len(fatalErrors) == len(executionIds)
 	}, 3*time.Second, 100*time.Millisecond)
+}
+
+func getWorkflowIdFrom(t *testing.T, ctx context.Context, cl *client.Client, name string) string {
+	versions, err := cl.GetWorkflowVersions(ctx, name)
+	require.NoError(t, err)
+	require.Len(t, versions, 1) //should only be 1 version
+	latestVersion := versions[len(versions)-1]
+	return latestVersion.Id
 }
 
 func TestRetryFatalErroredProcess(t *testing.T) {
@@ -130,11 +138,11 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 		{startVars: model.Vars{"blowUp": true, "pId": pId2}, expectingFailure: true},
 	}
 
-	wfName, executionIds, completionChan := runExecutions(t, ctx, cl, ns, execParams, willConditionallyPanicDependingOnVar)
+	wfName, workflowId, executionIds, completionChan := runExecutions(t, ctx, cl, ns, execParams, willConditionallyPanicDependingOnVar)
 
 	assert.Eventually(t, func() bool {
 		successExecutionId := executionIds[0]
-		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, successExecutionId, "")
+		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, workflowId, successExecutionId, "")
 		require.NoError(t, err)
 		return len(fatalErrors) == 0
 	}, 3*time.Second, 100*time.Millisecond)
@@ -142,7 +150,7 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 	var fatalErrors []*model.FatalError
 	failedExecutionId := executionIds[1]
 	require.Eventually(t, func() bool {
-		fatalErrors, err = cl.GetFatalErrors(ctx, wfName, failedExecutionId, "")
+		fatalErrors, err = cl.GetFatalErrors(ctx, wfName, workflowId, failedExecutionId, "")
 		require.NoError(t, err)
 		return len(fatalErrors) == 1 && fatalErrors[0].WorkflowState.ExecutionId == failedExecutionId
 	}, 3*time.Second, 100*time.Millisecond)
@@ -175,7 +183,7 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 
 	//assert non existence of FatalError
 	assert.Eventually(t, func() bool {
-		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, failedExecutionId, "")
+		fatalErrors, err := cl.GetFatalErrors(ctx, wfName, workflowId, failedExecutionId, "")
 		require.NoError(t, err)
 		return len(fatalErrors) == 0
 	}, 3*time.Second, 100*time.Millisecond)
@@ -185,7 +193,7 @@ type processCompletion struct {
 	vars model.Vars
 }
 
-func runExecutions(t *testing.T, ctx context.Context, cl *client.Client, ns string, executionParams []executionParams, svcFn task.ServiceFn) (string, map[int]string, chan processCompletion) {
+func runExecutions(t *testing.T, ctx context.Context, cl *client.Client, ns string, executionParams []executionParams, svcFn task.ServiceFn) (string, string, map[int]string, chan processCompletion) {
 	d := fatalErrorHandledHandlerDef{test: t, fatalErr: make(chan struct{})}
 
 	// Register service tasks
@@ -207,6 +215,7 @@ func runExecutions(t *testing.T, ctx context.Context, cl *client.Client, ns stri
 	if _, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: wfName, WorkflowBPMN: b}); err != nil {
 		panic(err)
 	}
+	workflowId := getWorkflowIdFrom(t, ctx, cl, wfName)
 
 	executionIds := make(map[int]string, len(executionParams))
 
@@ -228,11 +237,11 @@ func runExecutions(t *testing.T, ctx context.Context, cl *client.Client, ns stri
 			// wait for the fatal err to appear
 			support.WaitForChan(t, d.fatalErr, 20*time.Second)
 
-			expectedFatalErrorKey := fmt.Sprintf("%s.%s.>", wfName, executionId)
+			expectedFatalErrorKey := fmt.Sprintf("%s.%s.%s.>", wfName, workflowId, executionId)
 			tst.AssertExpectedKVKey(ns, messages.KvFatalError, expectedFatalErrorKey, 20*time.Second, t)
 		}
 	}
-	return wfName, executionIds, processCompletionChannel
+	return wfName, workflowId, executionIds, processCompletionChannel
 }
 
 func TestFatalErrorPersistedWhenRetriesAreExhaustedAndErrorActionIsPause(t *testing.T) {
@@ -265,6 +274,8 @@ func TestFatalErrorPersistedWhenRetriesAreExhaustedAndErrorActionIsPause(t *test
 	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.Vars{}})
 	require.NoError(t, err)
 
+	workflowId := getWorkflowIdFrom(t, ctx, cl, wfName)
+
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
@@ -276,7 +287,7 @@ func TestFatalErrorPersistedWhenRetriesAreExhaustedAndErrorActionIsPause(t *test
 	// wait for the fatal err to appear
 	support.WaitForChan(t, d.fatalErr, 20*time.Second)
 
-	expectedFatalErrorKey := fmt.Sprintf("%s.%s.>", wfName, executionId)
+	expectedFatalErrorKey := fmt.Sprintf("%s.%s.%s.>", wfName, workflowId, executionId)
 	tst.AssertExpectedKVKey(ns, messages.KvFatalError, expectedFatalErrorKey, 20*time.Second, t)
 }
 

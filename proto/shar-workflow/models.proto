@@ -640,8 +640,9 @@ message GetProcessHistoryResponse {
 
 message GetFatalErrorRequest {
   string wfName = 1;
-  string executionId = 2;
-  string processInstanceId = 3;
+  string wfId = 2;
+  string executionId = 3;
+  string processInstanceId = 4;
 }
 
 message GetServiceTaskRoutingIDRequest {

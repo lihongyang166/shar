@@ -333,7 +333,7 @@ func (s *Endpoints) getProcessHistory(ctx context.Context, req *model.GetProcess
 }
 
 func fatalErrorKeyPrefixBuilder(req *model.GetFatalErrorRequest) string {
-	keyPrefixSegments := []string{req.WfName, req.ExecutionId, req.ProcessInstanceId}
+	keyPrefixSegments := []string{req.WfName, req.WfId, req.ExecutionId, req.ProcessInstanceId}
 	mappedKeyPrefixSegments := make([]string, 0, len(keyPrefixSegments))
 
 	for _, segment := range keyPrefixSegments {
@@ -361,6 +361,12 @@ func (s *Endpoints) getFatalErrors(ctx context.Context, req *model.GetFatalError
 			errs <- fmt.Errorf("auth failed: %w", err)
 			return
 		}
+	} else if req.WfId != "" && req.WfId != "*" {
+		authCtx, err = s.auth.authForWorkflowId(ctx, req.WfId)
+		if err != nil {
+			errs <- fmt.Errorf("auth failed: %w", err)
+			return
+		}
 	} else if req.ExecutionId != "" && req.ExecutionId != "*" {
 		authCtx, _, err = s.auth.authFromExecutionID(ctx, req.ExecutionId)
 		if err != nil {
@@ -382,11 +388,11 @@ const invalidGetFatalErrorRequestEmptyParams = "at least one of workflow name, e
 const invalidGetFatalErrorRequestWildcardedParams = "all parameters cannot be wildcards"
 
 func validateGetFatalErrorRequest(req *model.GetFatalErrorRequest) error {
-	if req.WfName == "" && req.ExecutionId == "" && req.ProcessInstanceId == "" {
+	if req.WfName == "" && req.WfId == "" && req.ExecutionId == "" && req.ProcessInstanceId == "" {
 		return fmt.Errorf("invalid get fatal err request: %w", errors.New(invalidGetFatalErrorRequestEmptyParams))
 	}
 
-	if req.WfName == "*" && req.ExecutionId == "*" && req.ProcessInstanceId == "*" {
+	if req.WfName == "*" && req.WfId == "*" && req.ExecutionId == "*" && req.ProcessInstanceId == "*" {
 		return fmt.Errorf("invalid get fatal err request: %w", errors.New(invalidGetFatalErrorRequestWildcardedParams))
 	}
 

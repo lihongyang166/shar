@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
+	"log/slog"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -48,20 +50,26 @@ func TestSimpleProcessStatus(t *testing.T) {
 	}()
 
 	// Launch the workflow
-	wi, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.NoError(t, err)
 	select {
 	case <-d.waiter:
 	case <-time.After(time.Second * 10):
 		assert.FailNow(t, "timed out waiting for process")
 	}
-	pis, err := cl.ListExecutionProcesses(ctx, wi)
+
+	piResponse, err := cl.ListExecutionProcesses(ctx, executionId)
 	require.NoError(t, err)
-	for _, pi := range pis.ProcessInstanceId {
-		ps, err := cl.GetProcessInstanceStatus(ctx, pi)
-		require.NoError(t, err)
-		assert.Equal(t, "SimpleProcess", *ps[0].Execute)
-	}
+
+	require.True(t, len(piResponse.ProcessInstanceId) == 1, "only expecting a single process instance")
+	processHistory, err := cl.GetProcessInstanceStatus(ctx, piResponse.ProcessInstanceId[0])
+	require.NoError(t, err)
+
+	slog.Info("###", "processHistory", processHistory)
+	assert.True(t, slices.IndexFunc(processHistory, func(entry *model.ProcessHistoryEntry) bool {
+		return *entry.Execute == "SimpleProcess"
+	}) >= 0, "expected process instance status to be svc task SimpleProcess")
+
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 120*time.Second)
 }

@@ -11,7 +11,6 @@ import (
 
 // ServerOptions contains settings that control various aspects of shar operation and behaviour
 type ServerOptions struct {
-	EphemeralStorage        bool
 	PanicRecovery           bool
 	AllowOrphanServiceTasks bool
 	Concurrency             int
@@ -20,29 +19,16 @@ type ServerOptions struct {
 	HealthServiceEnabled    bool
 	SharVersion             *version2.Version
 	NatsUrl                 string
-	conn                    *nats.Conn
 	GrpcPort                int
 	TelemetryConfig         telemetry.Config
 	ShowSplash              bool
 	JetStreamDomain         string
+	NatsConnOptions         []nats.Option
 }
 
 // Option represents a SHAR server option
 type Option interface {
 	Configure(serverOptions *ServerOptions)
-}
-
-// EphemeralStorage instructs SHAR to use memory rather than disk for storage.
-// This is not recommended for production use.
-func EphemeralStorage() ephemeralStorageOption { //nolint
-	return ephemeralStorageOption{}
-}
-
-type ephemeralStorageOption struct {
-}
-
-func (o ephemeralStorageOption) Configure(serverOptions *ServerOptions) {
-	serverOptions.EphemeralStorage = true
 }
 
 // PanicRecovery enables or disables SHAR's ability to recover from server panics.
@@ -139,17 +125,6 @@ func (o natsUrlOption) Configure(serverOptions *ServerOptions) {
 	serverOptions.NatsUrl = o.value
 }
 
-// NatsConn specifies the nats Conn to use
-func NatsConn(conn *nats.Conn) natsConnOption { //nolint
-	return natsConnOption{value: conn}
-}
-
-type natsConnOption struct{ value *nats.Conn }
-
-func (o natsConnOption) Configure(serverOptions *ServerOptions) {
-	serverOptions.conn = o.value
-}
-
 // GrpcPort specifies the port healthcheck is listening on
 func GrpcPort(port int) grpcPortOption { //nolint
 	return grpcPortOption{value: port}
@@ -196,6 +171,5 @@ func WithJetStreamDomain(jsDomain string) jetStreamDomainOption { //nolint
 type jetStreamDomainOption struct{ value string }
 
 func (o jetStreamDomainOption) Configure(serverOptions *ServerOptions) {
-	slog.Warn("AuthN set")
 	serverOptions.JetStreamDomain = o.value
 }

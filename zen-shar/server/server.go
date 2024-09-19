@@ -229,18 +229,11 @@ func inContainerSharServer(sharServerImageUrl string, natsHost string, natsPort 
 
 func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn.Check, natsHost string, natsPort int, telemetryEndpoint string, showSplash bool, noRecovery bool) *sharsvr.Server {
 	natsUrl := fmt.Sprintf("%s:%d", natsHost, natsPort)
-	conn, err := nats.Connect(natsUrl)
-	if err != nil {
-		slog.Error("connect to NATS", "error", err, slog.String("url", natsUrl))
-		panic(err)
-	}
 
 	options := []options2.Option{
-		options2.EphemeralStorage(),
 		options2.PanicRecovery(false),
 		options2.Concurrency(sharConcurrency),
 		options2.NatsUrl(natsUrl),
-		options2.NatsConn(conn),
 		options2.GrpcPort(0),
 		options2.WithTelemetryEndpoint(telemetryEndpoint),
 	}
@@ -257,8 +250,13 @@ func inProcessSharServer(sharConcurrency int, apiAuth authz.APIFunc, authN authn
 		options = append(options, options2.WithShowSplash())
 	}
 
+	nc, err := sharsvr.ConnectNats("", natsUrl, []nats.Option{}, true)
+	if err != nil {
+		panic(fmt.Errorf("connect nats: %w", err))
+	}
+
 	var ssvr *sharsvr.Server
-	if ssvr, err = sharsvr.New(options...); err != nil {
+	if ssvr, err = sharsvr.New(nc, options...); err != nil {
 		panic(fmt.Errorf("create server: %w", err))
 	}
 	go func() {

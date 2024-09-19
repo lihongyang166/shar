@@ -2113,7 +2113,21 @@ func (s *Operations) GetFatalErrors(ctx context.Context, keyPrefix string, fatal
 
 // RetryActivity publishes the state from a prior FatalError to attempt a retry
 func (s *Operations) RetryActivity(ctx context.Context, state *model.WorkflowState) error {
-	if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobRetry, subj.GetNS(ctx)), state); err != nil {
+	ns := subj.GetNS(ctx)
+	kvs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return fmt.Errorf("get kvs for fatal errors: %w", err)
+	}
+
+	k := fatalErrorKey(state.WorkflowName, state.WorkflowId, state.ExecutionId, state.ProcessInstanceId, state.ElementId)
+	fatalErr := &model.FatalError{}
+	err = common.LoadObj(ctx, kvs.WfFatalError, k, fatalErr)
+	if err != nil {
+		return fmt.Errorf("unable to find fatal errored workflow to retry: %w", err)
+	}
+	fatalErr.WorkflowState.Vars = state.Vars
+
+	if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobRetry, subj.GetNS(ctx)), fatalErr.WorkflowState); err != nil {
 		return fmt.Errorf("failed publishing to job retry: %w", err)
 	}
 

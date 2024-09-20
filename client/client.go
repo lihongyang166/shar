@@ -7,6 +7,19 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"os/signal"
+	"reflect"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"testing"
+	"time"
+
 	"github.com/dgraph-io/ristretto"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
@@ -36,18 +49,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
 	"google.golang.org/protobuf/proto"
-	"io"
-	"log/slog"
-	"os"
-	"os/signal"
-	"reflect"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"syscall"
-	"testing"
-	"time"
 )
 
 // HeartBeatInterval defines the time between client heartbeats.
@@ -163,7 +164,7 @@ type Client struct {
 	telemetryConfig                 telemetry.Config
 	SendMiddleware                  []middleware2.Send    `json:"send_middleware,omitempty"`
 	ReceiveMiddleware               []middleware2.Receive `json:"receive_middleware,omitempty"`
-	cache                           *ristretto.Cache
+	cache                           *ristretto.Cache[string, any]
 }
 
 // New creates a new SHAR client instance
@@ -177,7 +178,7 @@ func New(option ...ConfigurationOption) *Client {
 		panic(err)
 	}
 	cache, err := ristretto.NewCache(
-		&ristretto.Config{
+		&ristretto.Config[string, any]{
 			NumCounters: 1e7,
 			MaxCost:     1 << 30,
 			BufferItems: 64,
@@ -213,7 +214,6 @@ func New(option ...ConfigurationOption) *Client {
 
 // Dial instructs the client to connect to a NATS server.
 func (c *Client) Dial(ctx context.Context, natsURL string, opts ...ConnectOption) error {
-
 	if c.telemetryConfig.Enabled {
 		c.SendMiddleware = append(c.SendMiddleware,
 			telemetry.CtxSpanToNatsMsgMiddleware(),
@@ -469,7 +469,6 @@ func (c *Client) listen(ctx context.Context) error {
 				var v any
 				if typ.Type.Kind() == reflect.Struct {
 					v = structs.Map(reflect.ValueOf(str).Field(i).Interface())
-
 				} else {
 					v = out[i].Field(i).Interface()
 				}
@@ -682,7 +681,6 @@ func (c *Client) completeSendMessage(ctx context.Context, trackingID string, new
 func (c *Client) LoadBPMNWorkflowFromBytes(ctx context.Context, loadParams LoadWorkflowParams) (string, error) {
 	rdr := bytes.NewReader(loadParams.WorkflowBPMN)
 	wf, err := parser.Parse(ctx, &expression.ExprEngine{}, loadParams.Name, rdr)
-
 	if err != nil {
 		return "", c.clientErr(ctx, err)
 	}
@@ -814,7 +812,6 @@ func (c *Client) ListExecution(ctx context.Context, name string) ([]*model.ListE
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -872,7 +869,6 @@ func (c *Client) ListExecutableProcesses(ctx context.Context) ([]*model.ListExec
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -889,7 +885,6 @@ func (c *Client) ListWorkflows(ctx context.Context) ([]*model.ListWorkflowRespon
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -918,7 +913,6 @@ func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) ([]*mo
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}
@@ -976,7 +970,6 @@ func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string
 		result = append(result, val)
 		return nil
 	})
-
 	if err != nil {
 		return nil, c.clientErr(ctx, err)
 	}

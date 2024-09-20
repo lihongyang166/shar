@@ -85,7 +85,7 @@ func (shs *SharHandlerSuite) TestSharHandlerHandleWithAttrsAndGroups() {
 	shs.mlp.On("Publish", mock.Anything, mock.MatchedBy(func(lr *model.LogRequest) bool {
 		return lr.Message == logMessage &&
 			lr.Time == fiveSecondsAgo.UnixMilli() &&
-			lr.Level == int64(logLevel) &&
+			lr.Level == int64(logLevel) && //nolint:gosec
 			lr.Source == model.LogSource_logSourceEngine &&
 			lr.Hostname != "" &&
 			lr.Attributes[k0] == v0 &&

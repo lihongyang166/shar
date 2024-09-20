@@ -37,6 +37,7 @@ service Shar {
   rpc Log(LogRequest) returns (LogResponse);
   rpc GetJob (GetJobRequest) returns (GetJobResponse);
   rpc ResolveWorkflow (ResolveWorkflowRequest) returns (ResolveWorkflowResponse);
+  rpc RetryActivity (RetryActivityRequest) returns (RetryActivityResponse);
 }
 
 message StoreWorkflowRequest {
@@ -606,6 +607,7 @@ message HandleWorkflowErrorResponse {
 message HandleWorkflowFatalErrorRequest {
   WorkflowState workflowState = 1;
   string message = 2;
+  HandlingStrategy handlingStrategy = 3;
 }
 
 message HandleWorkflowFatalErrorResponse {
@@ -634,6 +636,13 @@ message GetProcessHistoryRequest {
 
 message GetProcessHistoryResponse {
   repeated ProcessHistoryEntry entry = 1;
+}
+
+message GetFatalErrorRequest {
+  string wfName = 1;
+  string wfId = 2;
+  string executionId = 3;
+  string processInstanceId = 4;
 }
 
 message GetServiceTaskRoutingIDRequest {
@@ -930,6 +939,15 @@ message GetProcessHeadersRequest {
 message GetProcessHeadersResponse {
   map<string,string> headers = 1;
 }
+
+message RetryActivityRequest {
+  WorkflowState workflowState = 1;
+}
+
+message RetryActivityResponse {
+
+}
+
 enum HandlingStrategy {
   Pause = 0;
   TearDown = 1;

@@ -563,7 +563,7 @@ func (c *Client) listen(ctx context.Context) error {
 
 func (c *Client) signalFatalErr(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
 	res := &model.HandleWorkflowFatalErrorResponse{}
-	req := &model.HandleWorkflowFatalErrorRequest{WorkflowState: state}
+	req := &model.HandleWorkflowFatalErrorRequest{WorkflowState: state, HandlingStrategy: model.HandlingStrategy_Pause}
 	ctx = subj.SetNS(ctx, c.ns)
 
 	if err2 := api2.Call(ctx, c.txCon, messages.APIHandleWorkflowFatalError, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err2 != nil {
@@ -983,6 +983,22 @@ func (c *Client) GetProcessHistory(ctx context.Context, processInstanceId string
 	return result, nil
 }
 
+// GetFatalErrors calls the api endpoint to retrieve FatalErrors given a key prefix of <workflowName>.<executionId>.<processInstanceId>
+func (c *Client) GetFatalErrors(ctx context.Context, wfName string, workflowId string, executionId string, processInstanceId string) ([]*model.FatalError, error) {
+	req := &model.GetFatalErrorRequest{WfName: wfName, WfId: workflowId, ExecutionId: executionId, ProcessInstanceId: processInstanceId}
+	res := &model.FatalError{}
+	ctx = subj.SetNS(ctx, c.ns)
+	result := make([]*model.FatalError, 0)
+	err := api2.CallReturnStream(ctx, c.txCon, messages.APIGetFatalErrors, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res, func(fatalErr *model.FatalError) error {
+		result = append(result, fatalErr)
+		return nil
+	})
+	if err != nil {
+		return nil, c.clientErr(ctx, err)
+	}
+	return result, nil
+}
+
 func (c *Client) clientLog(ctx context.Context, trackingID string, level slog.Level, message string, attrs map[string]string) error {
 	k := common.KSuidTo128bit(trackingID)
 	req := &model.LogRequest{
@@ -1241,7 +1257,7 @@ func (c *Client) retryNotifier(ctx context.Context, msg jetstream.Msg) (context.
 
 		newSubj := strings.Replace(msg.Subject(), ".Job.Execute.", ".Job.Retry.", 1)
 		newMsg := nats.NewMsg(newSubj)
-		newMsg.Header.Add("RetryCount", strconv.Itoa(int(md.NumDelivered))) // nolint
+		newMsg.Header.Add("RetryCount", strconv.FormatUint(md.NumDelivered, 10))
 		newMsg.Header.Add("RetryMax", strconv.Itoa(int(retryBehaviour.Number)))
 		newMsg.Data = msg.Data()
 		if err := c.con.PublishMsg(newMsg); err != nil {
@@ -1264,4 +1280,16 @@ func (c *Client) GetProcessInstanceHeaders(ctx context.Context, processInstanceI
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Headers, nil
+}
+
+// Retry will attempt execution of the activity speficied within WorkflowState
+func (c *Client) Retry(ctx context.Context, state *model.WorkflowState) error {
+	req := &model.RetryActivityRequest{WorkflowState: state}
+	res := &model.RetryActivityResponse{}
+
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIRetry, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		return c.clientErr(ctx, err)
+	}
+	return nil
 }

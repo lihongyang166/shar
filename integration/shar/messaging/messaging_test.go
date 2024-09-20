@@ -208,7 +208,7 @@ func TestAwaitMessageFatalErr(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	subscription := tst.ListenForFatalErr(t, handlers.fatalErr)
+	subscription := tst.ListenForFatalErr(t, handlers.fatalErr, ns)
 	defer func() {
 		_ = subscription.Drain()
 	}()

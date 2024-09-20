@@ -60,8 +60,8 @@ type testTelSimpleHandlerDef struct {
 
 func (d *testTelSimpleHandlerDef) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	vars["Success"] = true
+	assert.Equal(d.t, int64(32768), vars["carried"].(int))
+	vars.SetBool("Success", true)
 	return vars, nil
 }
 

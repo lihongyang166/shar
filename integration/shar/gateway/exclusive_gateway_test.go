@@ -67,21 +67,31 @@ type testExclusiveGatewayDecisionDef struct {
 
 func (d *testExclusiveGatewayDecisionDef) playGame(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	vars["GameResult"] = d.gameResult
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
+	vars.SetString("GameResult", d.gameResult)
 	return vars, nil
 }
 
 func (d *testExclusiveGatewayDecisionDef) win(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(d.t, "Win", vars["GameResult"].(string))
-	assert.Equal(d.t, 32768, vars["carried"].(int))
+	GameResult, err := vars.GetString("GameResult")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, "Win", GameResult)
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
 	return vars, nil
 }
 
 func (d *testExclusiveGatewayDecisionDef) lose(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(d.t, "Lose", vars["GameResult"].(string))
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	vars["Success"] = true
+	GameResult, err := vars.GetString("GameResult")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, "Lose", GameResult)
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
+	vars.SetBool("Success", true)
 	return vars, nil
 }
 

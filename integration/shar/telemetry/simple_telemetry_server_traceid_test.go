@@ -67,9 +67,9 @@ type testSimpleTelemetrySvrTraceHandlerDef struct {
 func (d *testSimpleTelemetrySvrTraceHandlerDef) integrationSimple(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	// sc := trace.SpanContextFromContext(ctx)
 	// assert.True(d.t, sc.IsValid(), "Invalid span context")
-	// assert.Equal(d.t, 32768, vars["carried"].(int))
-	// assert.Equal(d.t, 42, vars["localVar"].(int))
-	vars["Success"] = true
+	// assert.Equal(d.t, int64(32768), vars["carried"].(int))
+	// assert.Equal(d.t, int64(42), vars["localVar"].(int))
+	vars.SetBool("Success", true)
 	return vars, nil
 }
 

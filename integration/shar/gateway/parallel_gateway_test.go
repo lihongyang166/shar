@@ -48,7 +48,9 @@ func TestParallelGateway(t *testing.T) {
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: model.Vars{"testValue": 32768}})
+	newVars := model.NewVars()
+	newVars.SetInt64("testValue", 32768)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: newVars})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -96,7 +98,9 @@ func TestParallelJoiningGateway(t *testing.T) {
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("testParallelJoiningGateway-0-0-2-process-1", func(ctx context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
-		assert.True(g.t, 3 == vars["value3"])
+		value3, err := vars.GetInt64("value3")
+		require.NoError(g.t, err)
+		assert.Equal(g.t, int64(3), value3)
 		processEndAssertions(g, vars)
 	})
 	require.NoError(t, err)
@@ -147,11 +151,19 @@ func TestParallelJoiningGatewayWithDelay(t *testing.T) {
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("testParallelJoiningGateway-2-0-0-process-1", func(ctx context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
-		//assert.Equal(g.t, "branch_three_output", vars["sample"])
-		assert.Equal(g.t, "three_output", vars["branch_three"])
-		assert.Equal(g.t, "two_output", vars["branch_two"])
-		assert.Equal(g.t, "one_output", vars["branch_one"])
-		assert.Equal(g.t, 500, vars["delay"])
+		assert.Equal(g.t, "branch_three_output", vars["sample"])
+		branchOne, err := vars.GetString("branch_one")
+		require.NoError(g.t, err)
+		branchTwo, err := vars.GetString("branch_two")
+		require.NoError(g.t, err)
+		branchThree, err := vars.GetString("branch_three")
+		require.NoError(g.t, err)
+		delay, err := vars.GetInt64("delay")
+		require.NoError(g.t, err)
+		assert.Equal(g.t, "three_output", branchThree)
+		assert.Equal(g.t, "two_output", branchTwo)
+		assert.Equal(g.t, "one_output", branchOne)
+		assert.Equal(g.t, int64(500), delay)
 		assert.Equal(g.t, true, g.stg1)
 		assert.Equal(g.t, true, g.stg2)
 		assert.Equal(g.t, true, g.stg3)
@@ -160,7 +172,10 @@ func TestParallelJoiningGatewayWithDelay(t *testing.T) {
 
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testParallelJoiningGateway-2-0-0-process-1", Vars: model.Vars{"name": "name_string", "delay": 100}})
+	newVars := model.NewVars()
+	newVars.SetString("name", "name_string")
+	newVars.SetInt64("delay", 100)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testParallelJoiningGateway-2-0-0-process-1", Vars: newVars})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -187,37 +202,53 @@ type parallelGatewayTest struct {
 func (g *parallelGatewayTest) parStage3(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 3")
 	g.stg3 = true
-	return model.Vars{"value3": 3}, nil
+	newVars := model.NewVars()
+	newVars.SetInt64("value3", 3)
+	return newVars, nil
 }
 
 func (g *parallelGatewayTest) parStage2(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 2")
 	g.stg2 = true
-	return model.Vars{"value2": 2}, nil
+	newVars := model.NewVars()
+	newVars.SetInt64("value2", 2)
+	return newVars, nil
 }
 
 func (g *parallelGatewayTest) parStage1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 1")
 	g.stg1 = true
-	return model.Vars{"value1": 1}, nil
+	newVars := model.NewVars()
+	newVars.SetInt64("value1", 1)
+	return newVars, nil
 }
 
 func (g *parallelGatewayTest) parDelayStage3(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 3")
 	g.stg3 = true
-	return model.Vars{"sample": "branch_three_output", "branch_three": "three_output"}, nil
+	newVars := model.NewVars()
+	newVars.SetString("sample", "branch_three_output")
+	newVars.SetString("branch_three", "three_output")
+	return newVars, nil
 }
 
 func (g *parallelGatewayTest) parDelayStage2(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 2")
 	g.stg2 = true
-	return model.Vars{"sample": "branch_two_output", "branch_two": "two_output"}, nil
+	newVars := model.NewVars()
+	newVars.SetString("sample", "branch_two_output")
+	newVars.SetString("branch_two", "two_output")
+	return newVars, nil
 }
 
 func (g *parallelGatewayTest) parDelayStage1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 1")
 	g.stg1 = true
-	return model.Vars{"sample": "branch_one_output", "branch_one": "one_output", "delay": 500}, nil
+	newVars := model.NewVars()
+	newVars.SetString("sample", "branch_one_output")
+	newVars.SetString("branch_one", "one_output")
+	newVars.SetInt64("delay", 500)
+	return newVars, nil
 }
 
 func (g *parallelGatewayTest) processEnd(ctx context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
@@ -225,8 +256,12 @@ func (g *parallelGatewayTest) processEnd(ctx context.Context, vars model.Vars, _
 }
 
 func processEndAssertions(g *parallelGatewayTest, vars model.Vars) {
-	assert.True(g.t, 1 == vars["value1"])
-	assert.True(g.t, 2 == vars["value2"])
+	value1, err := vars.GetInt64("value1")
+	require.NoError(g.t, err)
+	value2, err := vars.GetInt64("value2")
+	require.NoError(g.t, err)
+	assert.Equal(g.t, int64(1), value1)
+	assert.Equal(g.t, int64(2), value2)
 	assert.Equal(g.t, true, g.stg3)
 	close(g.finished)
 }

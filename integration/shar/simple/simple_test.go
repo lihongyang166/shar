@@ -72,14 +72,22 @@ type testSimpleHandlerDef struct {
 
 func (d *testSimpleHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	assert.Equal(d.t, 42, vars["localVar"].(int))
-	vars["Success"] = true
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
+	localVar, err := vars.GetInt64("localVar")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(42), localVar)
+	vars.SetBool("Success", true)
 	return vars, nil
 }
 
 func (d *testSimpleHandlerDef) processEnd(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	assert.Equal(d.t, 42, vars["processVar"].(int))
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
+	processVar, err := vars.GetInt64("processVar")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(42), processVar)
 	close(d.finished)
 }

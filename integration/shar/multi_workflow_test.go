@@ -71,8 +71,10 @@ func TestMultiWorkflow(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		// wg.Add(1)
 		go func(inst int) {
+			launchVars := model.NewVars()
+			launchVars.SetInt64("orderId", int64(inst))
 			// Launch the processes
-			if wfiID, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_03llwnm", Vars: model.Vars{"orderId": inst}}); err != nil {
+			if wfiID, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_03llwnm", Vars: launchVars}); err != nil {
 				require.NoError(t, err)
 			} else {
 				mx.Lock()
@@ -105,13 +107,23 @@ func (x *testMultiworkflowMessagingHandlerDef) step1(_ context.Context, _ task.J
 }
 
 func (x *testMultiworkflowMessagingHandlerDef) step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(x.t, "carried1value", vars["carried"].(string))
-	assert.Equal(x.t, "carried2value", vars["carried2"].(string))
+	carried, err := vars.GetString("carried")
+	require.NoError(x.t, err)
+	assert.Equal(x.t, "carried1value", carried)
+	carried2, err := vars.GetString("carried2")
+	require.NoError(x.t, err)
+	assert.Equal(x.t, "carried2value", carried2)
 	return model.Vars{}, nil
 }
 
 func (x *testMultiworkflowMessagingHandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
-	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"].(int), model.Vars{"carried": vars["carried"]}); err != nil {
+	orderId, err := vars.GetInt64("orderId")
+	require.NoError(x.t, err)
+	carried, err := vars.GetString("carried")
+	require.NoError(x.t, err)
+	newVars := model.NewVars()
+	newVars.SetString("carried", carried)
+	if err := cmd.SendMessage(ctx, "continueMessage", orderId, newVars); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil
@@ -119,7 +131,9 @@ func (x *testMultiworkflowMessagingHandlerDef) sendMessage(ctx context.Context, 
 
 // A "Hello World" service task
 func (x *testMultiworkflowMessagingHandlerDef) simpleProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(x.t, 32768, vars["carried"].(int))
+	carried, err := vars.GetInt64("carried")
+	require.NoError(x.t, err)
+	assert.Equal(x.t, int64(32768), carried)
 	return model.Vars{}, nil
 }
 

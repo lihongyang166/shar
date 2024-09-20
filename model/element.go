@@ -1,12 +1,16 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 )
 
 // Vars is a map of variables. The variables must be primitive go types.
 type Vars map[string]any
+
+// ErrVarNotFound is returned when a variable is not found in the provided Vars map.
+var ErrVarNotFound = errors.New("variable not found")
 
 // Get takes the desired return type as parameter and safely searches the map and returns the value
 // if it is found and is of the desired type.
@@ -20,7 +24,7 @@ func Get[V any](vars Vars, key string) (V, error) { //nolint:ireturn
 
 	v, ok := vars[key].(V)
 	if !ok {
-		return v, fmt.Errorf("workflow var %s found unsupported type for the underlying value", key)
+		return v, fmt.Errorf("workflow var %s not present: %w", key, ErrVarNotFound)
 	}
 
 	return v, nil
@@ -29,91 +33,74 @@ func Get[V any](vars Vars, key string) (V, error) { //nolint:ireturn
 // GetString validates that a key has an underlying value in the map[string]interface{} vars
 // and safely returns the result.
 func (vars Vars) GetString(key string) (string, error) {
-	return Get[string](vars, key)
-}
-
-// GetInt validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetInt(key string) (int, error) {
-	return Get[int](vars, key)
-}
-
-// GetInt8 validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetInt8(key string) (int8, error) {
-	return Get[int8](vars, key)
-}
-
-// GetInt16 validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetInt16(key string) (int16, error) {
-	return Get[int16](vars, key)
-}
-
-// GetInt32 validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetInt32(key string) (int32, error) {
-	return Get[int32](vars, key)
+	v, err := Get[string](vars, key)
+	if err != nil {
+		return "", fmt.Errorf("getString: %w", err)
+	}
+	return v, nil
 }
 
 // GetInt64 validates that a key has an underlying value in the map[int]interface{} vars
 // and safely returns the result.
 func (vars Vars) GetInt64(key string) (int64, error) {
-	return Get[int64](vars, key)
-}
-
-// GetUint8 validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetUint8(key string) (uint8, error) {
-	return Get[uint8](vars, key)
-}
-
-// GetUint16 validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetUint16(key string) (uint16, error) {
-	return Get[uint16](vars, key)
-}
-
-// GetUint32 validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetUint32(key string) (uint32, error) {
-	return Get[uint32](vars, key)
-}
-
-// GetUint64 validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetUint64(key string) (uint64, error) {
-	return Get[uint64](vars, key)
-}
-
-// GetByte validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetByte(key string) ([]byte, error) {
-	return Get[[]byte](vars, key)
-}
-
-// GetBytes validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetBytes(key string) ([]byte, error) {
-	return Get[[]byte](vars, key)
+	xt, ok := vars[key]
+	if !ok {
+		return 0, fmt.Errorf("workflow var %s not present: %w", key, ErrVarNotFound)
+	}
+	switch ut := xt.(type) {
+	case int8:
+		return int64(ut), nil
+	case int16:
+		return int64(ut), nil
+	case int32:
+		return int64(ut), nil
+	case int64:
+		return ut, nil
+	case uint8:
+		return int64(ut), nil
+	case uint16:
+		return int64(ut), nil
+	case uint32:
+		return int64(ut), nil
+	default:
+		return 0, fmt.Errorf("workflow var %s is %s not int64: %w", key, reflect.TypeOf(xt).Name(), ErrVarNotFound)
+	}
 }
 
 // GetBool validates that a key has an underlying value in the map[int]interface{} vars
 // and safely returns the result.
 func (vars Vars) GetBool(key string) (bool, error) {
-	return Get[bool](vars, key)
-}
-
-// GetFloat32 validates that a key has an underlying value in the map[int]interface{} vars
-// and safely returns the result.
-func (vars Vars) GetFloat32(key string) (float32, error) {
-	return Get[float32](vars, key)
+	v, err := Get[bool](vars, key)
+	if err != nil {
+		return false, fmt.Errorf("getBool: %w", err)
+	}
+	return v, nil
 }
 
 // GetFloat64 validates that a key has an underlying value in the map[int]interface{} vars
 // and safely returns the result.
 func (vars Vars) GetFloat64(key string) (float64, error) {
 	return Get[float64](vars, key)
+}
+
+// SetString sets a string value for the specified key in the Vars map.
+func (vars Vars) SetString(key string, value string) {
+	vars[key] = value
+}
+
+// SetInt64 sets an int64 value for the specified key in the Vars map.
+func (vars Vars) SetInt64(key string, value int64) {
+	vars[key] = value
+}
+
+// SetFloat64 sets a float64 value for the specified key in the Vars map.
+func (vars Vars) SetFloat64(key string, value float64) {
+	vars[key] = value
+}
+
+// SetBool sets a boolean value for the specified key in the Vars map.
+func (vars Vars) SetBool(key string, value bool) {
+	vars[key] = value
 }
 
 // Unmarshal unmarshals a SHAR compatible map-portable (map[string]interface{}) var into a struct
@@ -165,4 +152,9 @@ func fromMap(m map[string]interface{}, s interface{}) error {
 		}
 	}
 	return nil
+}
+
+// NewVars creates and returns a new instance of Vars,
+func NewVars() Vars {
+	return Vars{}
 }

@@ -51,7 +51,7 @@ var errDirtyKV = errors.New("KV contains values when expected empty")
 type Integration struct {
 	testNatsServer                zensvr.Server
 	testSharServer                zensvr.Server
-	FinalVars                     map[string]interface{}
+	FinalVars                     model.Vars
 	Mx                            sync.Mutex
 	Cooldown                      time.Duration
 	WithTelemetry                 server2.Exporter

@@ -8,12 +8,17 @@ import (
 )
 
 func TestVarsGet(t *testing.T) {
-	type testType struct {
-		int
-		string
-	}
-
-	vars := model.Vars{"1": "value", "2": 77777.77777, "4": testType{1, "2"}}
+	/*
+		type testType struct {
+			int
+			string
+		}
+	*/
+	vars := model.NewVars()
+	vars.SetString("1", "value")
+	vars.SetFloat64("2", 77777.77777)
+	//TODO: Re-implement structs
+	//vars.SetStruct("4": testType{1, "2"}}
 
 	s, err := vars.GetString("1")
 
@@ -25,13 +30,7 @@ func TestVarsGet(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 77777.77777, f)
 
-	_, err = vars.GetInt("2")
-	assert.Error(t, err)
-
-	_, err = vars.GetBytes("3")
-	assert.Error(t, err)
-
-	y, err := model.Get[testType](vars, "4")
-	assert.NoError(t, err)
-	assert.Equal(t, testType{1, "2"}, y)
+	//y, err := model.Get[testType](vars, "4")
+	//assert.NoError(t, err)
+	//assert.Equal(t, testType{1, "2"}, y)
 }

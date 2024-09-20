@@ -77,7 +77,7 @@ func (c *jobClient) LoggerWith(logger *slog.Logger) *slog.Logger {
 	return slogWith(logger, c.executionID, c.processInstanceID, c.activityID, c.jobID)
 }
 
-func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
+func (c *jobClient) OriginalVars() (inputVars model.Vars, outputVars model.Vars) {
 	inputVars = c.originalInputs
 	outputVars = c.originalOutputs
 	return

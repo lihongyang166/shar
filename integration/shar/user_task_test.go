@@ -32,7 +32,7 @@ func TestUserTasks(t *testing.T) {
 	//sub := tracer.Trace(NatsURL)
 	//defer sub.Drain()
 
-	d := &testUserTaskHandlerDef{finished: make(chan struct{})}
+	d := &testUserTaskHandlerDef{finished: make(chan struct{}), t: t}
 	d.finalVars = make(model.Vars)
 
 	// Register service tasks
@@ -66,13 +66,16 @@ func TestUserTasks(t *testing.T) {
 			tsk, err := cl.ListUserTaskIDs(ctx, "andrei")
 			require.NoError(t, err)
 			if err == nil && tsk.Id != nil {
-				td, _, gerr := cl.GetUserTask(ctx, "andrei", tsk.Id[0])
-				assert.NoError(t, gerr)
+				td, _, gErr := cl.GetUserTask(ctx, "andrei", tsk.Id[0])
+				assert.NoError(t, gErr)
 				fmt.Printf("%+v\n", td)
 				fmt.Println("Name:", td.Name)
 				fmt.Println("Description:", td.Description)
-				cerr := cl.CompleteUserTask(ctx, "andrei", tsk.Id[0], model.Vars{"Forename": "Brangelina", "Surname": "Miggins"})
-				assert.NoError(t, cerr)
+				newVars := model.NewVars()
+				newVars.SetString("Forename", "Brangelina")
+				newVars.SetString("Surname", "Miggins")
+				cErr := cl.CompleteUserTask(ctx, "andrei", tsk.Id[0], newVars)
+				assert.NoError(t, cErr)
 				return
 			}
 			time.Sleep(1 * time.Second)
@@ -86,10 +89,18 @@ func TestUserTasks(t *testing.T) {
 	assert.Equal(t, 0, len(et.Id))
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	assert.Equal(t, "Brangelina", d.finalVars["Forename"].(string))
-	assert.Equal(t, "Miggins", d.finalVars["Surname"].(string))
-	assert.Equal(t, 69, d.finalVars["OrderId"].(int))
-	assert.Equal(t, 32767, d.finalVars["carried"].(int))
+	forename, err := d.finalVars.GetString("Forename")
+	require.NoError(t, err)
+	surname, err := d.finalVars.GetString("Surname")
+	require.NoError(t, err)
+	orderId, err := d.finalVars.GetInt64("OrderId")
+	require.NoError(t, err)
+	carried, err := d.finalVars.GetInt64("carried")
+	require.NoError(t, err)
+	assert.Equal(t, "Brangelina", forename)
+	assert.Equal(t, "Miggins", surname)
+	assert.Equal(t, int64(69), orderId)
+	assert.Equal(t, int64(32767), carried)
 	tst.AssertCleanKV(ns, t, tst.Cooldown)
 }
 
@@ -97,22 +108,34 @@ type testUserTaskHandlerDef struct {
 	finalVars model.Vars
 	lock      sync.Mutex
 	finished  chan struct{}
+	t         *testing.T
 }
 
 // A "Hello World" service task
 func (d *testUserTaskHandlerDef) prepare(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Preparing")
-	oid := vars["OrderId"].(int)
-	return model.Vars{"OrderId": oid + 1}, nil
+	orderId, err := vars.GetInt64("OrderId")
+	require.NoError(d.t, err)
+	newVars := model.NewVars()
+	newVars.SetInt64("OrderId", orderId+1)
+	return newVars, nil
 }
 
 // A "Hello World" service task
 func (d *testUserTaskHandlerDef) complete(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Completed")
-	fmt.Println("OrderId", vars["OrderId"])
-	fmt.Println("Forename", vars["Forename"])
-	fmt.Println("Surname", vars["Surname"])
-	fmt.Println("carried", vars["carried"])
+	orderId, err := vars.GetInt64("OrderId")
+	require.NoError(d.t, err)
+	forename, err := vars.GetString("Forename")
+	require.NoError(d.t, err)
+	surname, err := vars.GetString("Surname")
+	require.NoError(d.t, err)
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	fmt.Println("OrderId", orderId)
+	fmt.Println("Forename", forename)
+	fmt.Println("Surname", surname)
+	fmt.Println("carried", carried)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	d.finalVars = vars

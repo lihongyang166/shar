@@ -76,8 +76,12 @@ func (d *errorHandledHandlerDef) mayFail(_ context.Context, _ task.JobClient, _ 
 
 // A "Hello World" service task
 func (d *errorHandledHandlerDef) fixSituation(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(d.test, 69, vars["testVal"])
-	assert.Equal(d.test, 32768, vars["carried"])
+	testVal1, err := vars.GetInt64("testVal")
+	require.NoError(d.test, err)
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.test, err)
+	assert.Equal(d.test, int64(69), testVal1)
+	assert.Equal(d.test, int64(32768), carried)
 	d.fixed = true
 	return model.Vars{}, nil
 }

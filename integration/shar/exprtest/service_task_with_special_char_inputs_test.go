@@ -86,16 +86,22 @@ type testSpecialCharHandlerDef struct {
 }
 
 func (d *testSpecialCharHandlerDef) sendEmail100(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(d.t, "fred.smith@altavista.com, joe.bloggs@lycos.com", vars["To"].(string))
-	assert.Equal(d.t, fmt.Sprintf(`Halo ticket created %d`, TICKET_ID), vars["Subject"].(string))
-	assert.Equal(d.t, fmt.Sprintf(`Halo ticket created %d`, TICKET_ID), vars["Body"].(string))
-	vars["Success"] = true
+	To, err := vars.GetString("To")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, "fred.smith@altavista.com, joe.bloggs@lycos.com", To)
+	Subject, err := vars.GetString("Subject")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, fmt.Sprintf(`Halo ticket created %d`, TICKET_ID), Subject)
+	Body, err := vars.GetString("Body")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, fmt.Sprintf(`Halo ticket created %d`, TICKET_ID), Body)
+	vars.SetBool("Success", true)
 
 	return vars, nil
 }
 
 func (d *testSpecialCharHandlerDef) createHaloTicket(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	vars["ticketID"] = TICKET_ID
+	vars.SetInt64("ticketID", TICKET_ID)
 	return vars, nil
 }
 

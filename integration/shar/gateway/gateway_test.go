@@ -129,37 +129,56 @@ func (g *gatewayTest) stage3(ctx context.Context, jobClient task.JobClient, vars
 func (g *gatewayTest) excStage2(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 2")
 	g.stg2 = true
-	return model.Vars{"value2": 2, "value1": nil}, nil
+	newVars := model.NewVars()
+	newVars.SetInt64("value2", 2)
+	newVars.SetInt64("value1", 0)
+	return newVars, nil
 }
 
 func (g *gatewayTest) excStage1(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 1")
 	g.stg1 = true
-	return model.Vars{"value1": 1, "value2": nil}, nil
+	newVars := model.NewVars()
+	newVars.SetInt64("value1", 1)
+	newVars.SetInt64("value2", 0)
+	return newVars, nil
 }
 
 func (g *gatewayTest) incStage2(ctx context.Context, jobClient task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 2")
 	g.stg2 = true
-	return model.Vars{"value2": 22, "value1": 11}, nil
+	newVars := model.NewVars()
+	newVars.SetInt64("value1", 11)
+	newVars.SetInt64("value2", 22)
+	return newVars, nil
 }
 
 func (g *gatewayTest) incStage1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Stage 1")
 	g.stg1 = true
-	return model.Vars{"value1": 1, "value2": 2}, nil
+	newVars := model.NewVars()
+	newVars.SetInt64("value1", 1)
+	newVars.SetInt64("value2", 2)
+	return newVars, nil
 }
 
 func (g *gatewayTest) processEnd(ctx context.Context, vars model.Vars, _ *model.Error, state model.CancellationState) {
 	switch g.typ {
 	case model.GatewayType_inclusive:
-		assert.True(g.t, 1 == vars["value1"] || 11 == vars["value1"])
-		assert.True(g.t, 2 == vars["value2"] || 22 == vars["value2"])
+		value1, err := vars.GetInt64("value1")
+		require.NoError(g.t, err)
+		value2, err := vars.GetInt64("value2")
+		require.NoError(g.t, err)
+		assert.True(g.t, 1 == value1 || 11 == value1)
+		assert.True(g.t, 2 == value2 || 22 == value2)
 		assert.Equal(g.t, true, g.stg3)
 	case model.GatewayType_exclusive:
-		assert.True(g.t, vars["value1"] != vars["value2"], "values are equal")
-		assert.True(g.t, vars["value1"] == 1 || vars["value2"] == 2, "both values are present")
-		assert.True(g.t, vars["value1"] == nil || vars["value2"] == nil, "both values are nil")
+		value1, err := vars.GetInt64("value1")
+		require.NoError(g.t, err)
+		value2, err := vars.GetInt64("value2")
+		require.NoError(g.t, err)
+		assert.True(g.t, value1 != value2, "values are equal")
+		assert.True(g.t, value1 == 1 || value2 == 2, "both values are present")
 		assert.Equal(g.t, true, g.stg3)
 	}
 	close(g.finished)

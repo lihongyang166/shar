@@ -74,7 +74,7 @@ type testLinkHandlerDef struct {
 
 func (d *testLinkHandlerDef) spillage(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Spilled")
-	vars["substance"] = "beer"
+	vars.SetString("substance", "beer")
 	return vars, nil
 }
 

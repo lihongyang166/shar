@@ -55,7 +55,9 @@ func TestMockServiceTaskWithSwimlane(t *testing.T) {
 	}()
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testSwimlaneProcess-0-0-5-process-1", Vars: model.Vars{"orderId": "dummyOrder"}})
+	newVars := model.NewVars()
+	newVars.SetString("orderId", "dummyOrder")
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testSwimlaneProcess-0-0-5-process-1", Vars: newVars})
 	require.NoError(t, err)
 
 	go func() {

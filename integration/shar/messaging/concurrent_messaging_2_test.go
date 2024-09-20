@@ -61,7 +61,9 @@ func TestConcurrentMessaging2(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
 			// Launch the workflow
-			if _, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": inst}}); err != nil {
+			newVars := model.NewVars()
+			newVars.SetInt64("orderId", int64(inst))
+			if _, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: newVars}); err != nil {
 				require.NoError(t, err)
 			} else {
 				handlers.mx.Lock()
@@ -92,13 +94,24 @@ func (x *testConcurrentMessaging2HandlerDef) step1(_ context.Context, _ task.Job
 }
 
 func (x *testConcurrentMessaging2HandlerDef) step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	assert.Equal(x.test, "carried1value", vars["carried"])
-	assert.Equal(x.test, "carried2value", vars["carried2"])
+	carried, err := vars.GetString("carried")
+	require.NoError(x.test, err)
+	carried2, err := vars.GetString("carried2")
+	require.NoError(x.test, err)
+	assert.Equal(x.test, "carried1value", carried)
+	assert.Equal(x.test, "carried2value", carried2)
 	return model.Vars{}, nil
 }
 
 func (x *testConcurrentMessaging2HandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
-	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"carried": vars["carried"]}); err != nil {
+
+	carried, err := vars.GetString("carried")
+	require.NoError(x.test, err)
+	orderId, err := vars.GetInt64("orderId")
+	require.NoError(x.test, err)
+	newVars := model.NewVars()
+	newVars.SetString("carried", carried)
+	if err := cmd.SendMessage(ctx, "continueMessage", orderId, newVars); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil
@@ -106,10 +119,12 @@ func (x *testConcurrentMessaging2HandlerDef) sendMessage(ctx context.Context, cm
 
 func (x *testConcurrentMessaging2HandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	x.mx.Lock()
-	if _, ok := x.instComplete[strconv.Itoa(vars["orderId"].(int))]; !ok {
+	orderId, err := vars.GetInt64("orderId")
+	require.NoError(x.test, err)
+	if _, ok := x.instComplete[strconv.Itoa(int(orderId))]; !ok {
 		x.test.Fatal("too many calls")
 	}
-	delete(x.instComplete, strconv.Itoa(vars["orderId"].(int)))
+	delete(x.instComplete, strconv.Itoa(int(orderId)))
 	x.received++
 	x.mx.Unlock()
 	x.finished <- struct{}{}

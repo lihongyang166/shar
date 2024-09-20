@@ -60,7 +60,9 @@ func TestTimedStart(t *testing.T) {
 	}
 	d.mx.Lock()
 	defer d.mx.Unlock()
-	assert.Equal(t, 32768, d.tst.FinalVars["carried"])
+	carried, err := tst.FinalVars.GetInt64("carried")
+	require.NoError(t, err)
+	assert.Equal(t, int64(32768), carried)
 	assert.Equal(t, 3, d.count)
 	tst.AssertCleanKV(ns, t, tst.Cooldown)
 }
@@ -75,7 +77,7 @@ type timedStartHandlerDef struct {
 
 func (d *timedStartHandlerDef) integrationSimple(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	// TODO: Include for diagnosing timed start bug
-	// assert.Equal(d.t, 32768, vars["carried"])
+	// assert.Equal(d.t, int64(32768), vars["carried"])
 	d.mx.Lock()
 	defer d.mx.Unlock()
 	d.tst.FinalVars = vars

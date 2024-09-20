@@ -58,7 +58,7 @@ func TestUpgradeNATSObjects(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 30*time.Second, ci.Config.AckWait)
 	assert.Equal(t, "TestStream.*.State.Job.Activate.Gateway", ci.Config.FilterSubject)
-	assert.Equal(t, 1, ci.Config.MaxAckPending)
+	assert.Equal(t, int64(1), ci.Config.MaxAckPending)
 
 	sharVersion.Version = "v1.0.2"
 
@@ -87,8 +87,8 @@ func TestUpgradeNATSObjects(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 30*time.Second, ci.Config.AckWait)
 	assert.Equal(t, "TestStream.*.State.Job.Abort.Gateway", ci.Config.FilterSubject)
-	assert.Equal(t, 65535, ci.Config.MaxAckPending)
-	assert.Equal(t, 2, ci.Config.MaxRequestBatch)
+	assert.Equal(t, int64(65535), ci.Config.MaxAckPending)
+	assert.Equal(t, int64(2), ci.Config.MaxRequestBatch)
 
 	sharVersion.Version = "v1.0.1"
 	err = setup.EnsureStream(ctx, nc, js, jetstream.StreamConfig{
@@ -116,7 +116,7 @@ func TestUpgradeNATSObjects(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 30*time.Second, ci.Config.AckWait)
 	assert.Equal(t, "TestStream.*.State.Job.Abort.Gateway", ci.Config.FilterSubject)
-	assert.Equal(t, 65535, ci.Config.MaxAckPending)
-	assert.Equal(t, 2, ci.Config.MaxRequestBatch)
+	assert.Equal(t, int64(65535), ci.Config.MaxAckPending)
+	assert.Equal(t, int64(2), ci.Config.MaxRequestBatch)
 }
 */

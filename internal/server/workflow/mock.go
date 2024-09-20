@@ -59,7 +59,7 @@ func slogWith(logger *slog.Logger, executionID, processInstanceID, activityID, j
 		slog.String(keys.JobID, jobID),
 	)
 }
-func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
+func (c *jobClient) OriginalVars() (inputVars model.Vars, outputVars model.Vars) {
 	inputVars = c.originalInputs
 	outputVars = c.originalOutputs
 	return
@@ -195,7 +195,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 }
 
 func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
-	newVars := model.Vars{}
+	newVars := model.NewVars()
 	ts, err := s.operations.GetTaskSpecByUID(ctx, ctx.Value(keys.ContextKey("taskDef")).(string))
 	if err != nil {
 		return newVars, fmt.Errorf("get task spec: %w", err)

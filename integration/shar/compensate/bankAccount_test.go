@@ -54,8 +54,14 @@ func TestBankAccountNoCompensation(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "BankTransfer", WorkflowBPMN: b})
 	require.NoError(t, err)
 
+	launchVars := model.NewVars()
+	launchVars.SetString("approved", "No")
+	launchVars.SetFloat64("transferAmount", 6.50)
+	launchVars.SetFloat64("payeeAccountBalance", 125.00)
+	launchVars.SetFloat64("recipientAccountBalance", 100.00)
+
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "BankTransfer", Vars: model.Vars{"approved": "No", "transferAmount": 6.50, "payeeAccountBalance": 125.00, "recipientAccountBalance": 100.00}})
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "BankTransfer", Vars: launchVars})
 	require.NoError(t, err)
 
 	go func() {
@@ -112,8 +118,14 @@ func TestBankAccountCompensation(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "BankTransfer", WorkflowBPMN: b})
 	require.NoError(t, err)
 
+	launchVars := model.NewVars()
+	launchVars.SetString("approved", "Yes")
+	launchVars.SetFloat64("transferAmount", 6.50)
+	launchVars.SetFloat64("payeeAccountBalance", 125.00)
+	launchVars.SetFloat64("recipientAccountBalance", 100.00)
+
 	// Launch the workflow
-	executionID, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "BankTransfer", Vars: model.Vars{"approved": "Yes", "transferAmount": 6.50, "payeeAccountBalance": 125.00, "recipientAccountBalance": 100.00}})
+	executionID, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "BankTransfer", Vars: launchVars})
 	require.NoError(t, err)
 
 	go func() {
@@ -144,35 +156,46 @@ type testBankAccount struct {
 
 func (d *testBankAccount) applyToRecipient(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("applyToRecipient")
-	recipientAccountBalance := vars["recipientAccountBalance"].(float64)
-	transferAmount := vars["transferAmount"].(float64)
-	vars["recipientAccountBalance"] = recipientAccountBalance + transferAmount
+	recipientAccountBalance, err := vars.GetFloat64("recipientAccountBalance")
+	require.NoError(d.t, err)
+	transferAmount, err := vars.GetFloat64("transferAmount")
+	require.NoError(d.t, err)
+	vars.SetFloat64("recipientAccountBalance", recipientAccountBalance+transferAmount)
 	return vars, nil
 }
 
 func (d *testBankAccount) deductFromPayee(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	payeeAccountBalance := vars["payeeAccountBalance"].(float64)
-	transferAmount := vars["transferAmount"].(float64)
-	vars["payeeAccountBalance"] = payeeAccountBalance - transferAmount
+	payeeAccountBalance, err := vars.GetFloat64("payeeAccountBalance")
+	require.NoError(d.t, err)
+	transferAmount, err := vars.GetFloat64("transferAmount")
+	require.NoError(d.t, err)
+	vars.SetFloat64("payeeAccountBalance", payeeAccountBalance-transferAmount)
 	return vars, nil
 }
 func (d *testBankAccount) compensateRecipient(_ context.Context, c task.JobClient, vars model.Vars) (model.Vars, error) {
 	inputs, _ := c.OriginalVars()
-	balance := vars["recipientAccountBalance"].(float64)
-	amount := inputs["transferAmount"].(float64)
-	vars["recipientAccountBalance"] = balance - amount
+	balance, err := vars.GetFloat64("recipientAccountBalance")
+	require.NoError(d.t, err)
+	amount, err := inputs.GetFloat64("transferAmount")
+	require.NoError(d.t, err)
+	vars.SetFloat64("recipientAccountBalance", balance-amount)
 	return vars, nil
 }
 func (d *testBankAccount) compensatePayee(_ context.Context, c task.JobClient, vars model.Vars) (model.Vars, error) {
 	inputs, _ := c.OriginalVars()
-	balance := vars["payeeAccountBalance"].(float64)
-	amount := inputs["transferAmount"].(float64)
-	vars["payeeAccountBalance"] = balance + amount
+	balance, err := vars.GetFloat64("payeeAccountBalance")
+	require.NoError(d.t, err)
+	amount, err := inputs.GetFloat64("transferAmount")
+	require.NoError(d.t, err)
+	vars.SetFloat64("payeeAccountBalance", balance+amount)
 	return vars, nil
 }
 func (d *testBankAccount) processEnd(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
-	d.finalPayeeBalance = vars["finalAccountBalance"].(float64)
-	d.finalRecipientBalance = vars["finalRecipientAccountBalance"].(float64)
+	var err error
+	d.finalPayeeBalance, err = vars.GetFloat64("finalAccountBalance")
+	require.NoError(d.t, err)
+	d.finalRecipientBalance, err = vars.GetFloat64("finalRecipientAccountBalance")
+	require.NoError(d.t, err)
 	assert.Equal(d.t, 2, len(vars))
 	close(d.finished)
 }

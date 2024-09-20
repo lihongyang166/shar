@@ -80,7 +80,9 @@ func New(natsConnConfig *natz.NatsConnConfiguration, options ...option.Option) (
 		return nil, fmt.Errorf("create workflow engine: %w", err)
 	}
 
-	a, err := api.New(workflowOperations, natsConnConfig, defaultServerOptions)
+	auth := api.NewSharAuth(defaultServerOptions.ApiAuthorizer, defaultServerOptions.ApiAuthenticator, workflowOperations)
+	a, err := api.New(workflowOperations, natsConnConfig, auth, defaultServerOptions)
+
 	if err != nil {
 		return nil, fmt.Errorf("create api: %w", err)
 	}

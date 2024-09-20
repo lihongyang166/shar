@@ -40,6 +40,87 @@ import (
 	"time"
 )
 
+// Ops is the interface for the Operations struct
+//
+//go:generate mockery
+type Ops interface {
+	GetTaskSpecUID(ctx context.Context, name string) (string, error)
+	GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error)
+	PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (string, error)
+	GetTaskSpecByUID(ctx context.Context, uid string) (*model.TaskSpec, error)
+	GetTaskSpecUsageByName(ctx context.Context, name string) (*model.TaskSpecUsageReport, error)
+	GetExecutableWorkflowIds(ctx context.Context) ([]string, error)
+	GetTaskSpecUsage(ctx context.Context, uid []string) (*model.TaskSpecUsageReport, error)
+	RecordHistory(ctx context.Context, state *model.WorkflowState, historyType model.ProcessHistoryType) error
+	RecordHistoryProcessStart(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryActivityExecute(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryActivityComplete(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryJobExecute(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryJobComplete(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryJobAbort(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryProcessComplete(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryProcessSpawn(ctx context.Context, state *model.WorkflowState, newProcessInstanceID string) error
+	RecordHistoryProcessAbort(ctx context.Context, state *model.WorkflowState) error
+	RecordHistoryCompensationCheckpoint(ctx context.Context, state *model.WorkflowState) error
+	GetProcessHistory(ctx context.Context, processInstanceId string, wch chan<- *model.ProcessHistoryEntry, errs chan<- error)
+	GetProcessHistoryItem(ctx context.Context, processInstanceID string, trackingID string, historyType model.ProcessHistoryType) (*model.ProcessHistoryEntry, error)
+	LoadWorkflow(ctx context.Context, model *model.Workflow) (string, error)
+	Launch(ctx context.Context, processId string, vars []byte, headers []byte) (string, string, error)
+	LaunchWithParent(ctx context.Context, processId string, ID common.TrackingID, vrs []byte, headers []byte, parentpiID string, parentElID string) (string, string, error)
+	CancelProcessInstance(ctx context.Context, state *model.WorkflowState) error
+	CompleteManualTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
+	CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
+	CompleteSendMessageTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
+	CompleteUserTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
+	ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error)
+	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
+	ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error
+	EnsureServiceTaskConsumer(ctx context.Context, uid string) error
+	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
+	GetWorkflowNameFor(ctx context.Context, processId string) (string, error)
+	GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)
+	CreateExecution(ctx context.Context, execution *model.Execution) (*model.Execution, error)
+	GetExecution(ctx context.Context, executionID string) (*model.Execution, error)
+	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
+	GetLatestVersion(ctx context.Context, workflowName string) (string, error)
+	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
+	GetJob(ctx context.Context, trackingID string) (*model.WorkflowState, error)
+	DeleteJob(ctx context.Context, trackingID string) error
+	ListExecutions(ctx context.Context, workflowName string, wch chan<- *model.ListExecutionItem, errs chan<- error)
+	ListExecutionProcesses(ctx context.Context, id string) ([]string, error)
+	PublishWorkflowState(ctx context.Context, stateName string, state *model.WorkflowState, opts ...PublishOpt) error
+	SignalFatalErrorTeardown(ctx context.Context, state *model.WorkflowState, log *slog.Logger)
+	SignalFatalErrorPause(ctx context.Context, state *model.WorkflowState, log *slog.Logger)
+	PublishMsg(ctx context.Context, subject string, sharMsg proto.Message) error
+	GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error)
+	HasValidProcess(ctx context.Context, processInstanceId, executionId string) (*model.ProcessInstance, *model.Execution, error)
+	HasValidExecution(ctx context.Context, executionId string) (*model.Execution, error)
+	GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error)
+	OwnerID(ctx context.Context, name string) (string, error)
+	OwnerName(ctx context.Context, id string) (string, error)
+	CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string, headers []byte) (*model.ProcessInstance, error)
+	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
+	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string) error
+	DeprecateTaskSpec(ctx context.Context, uid []string) error
+	CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processId string) error
+	ListTaskSpecUIDs(ctx context.Context, deprecated bool) ([]string, error)
+	GetProcessIdFor(ctx context.Context, startEventMessageName string) (string, error)
+	Heartbeat(ctx context.Context, req *model.HeartbeatRequest) error
+	Log(ctx context.Context, req *model.LogRequest) error
+	DeleteNamespace(ctx context.Context, ns string) error
+	ListExecutableProcesses(ctx context.Context, wch chan<- *model.ListExecutableProcessesItem, errs chan<- error)
+	StartJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...PublishOpt) error
+	GetCompensationInputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error)
+	GetCompensationOutputVariables(ctx context.Context, processInstanceId string, trackingId string) ([]byte, error)
+	HandleWorkflowError(ctx context.Context, errorCode string, inVars []byte, state *model.WorkflowState) error
+	GetFatalErrors(ctx context.Context, keyPrefix string, fatalErrs chan<- *model.FatalError, errs chan<- error)
+	RetryActivity(ctx context.Context, state *model.WorkflowState) error
+	PersistFatalError(ctx context.Context, fatalError *model.FatalError) (bool, error)
+	TearDownWorkflow(ctx context.Context, state *model.WorkflowState) (bool, error)
+	DeleteFatalError(ctx context.Context, state *model.WorkflowState) error
+	GetActiveEntries(ctx context.Context, processInstanceID string, result chan<- *model.ProcessHistoryEntry, errs chan<- error)
+}
+
 // Operations provides methods for executing and managing workflow processes.
 // It provides methods for various tasks such as canceling process instances, completing tasks,
 // retrieving workflow-related information, and managing workflow execution.
@@ -594,7 +675,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 		if err != nil {
 			return nil, fmt.Errorf("save workflow: %s", wf.Name)
 		}
-		v.Version = append(v.Version, &model.WorkflowVersion{Id: wfID, Sha256: hash, Number: int32(n) + 1}) // nolint
+		v.Version = append(v.Version, &model.WorkflowVersion{Id: wfID, Sha256: hash, Number: int32(n) + 1}) //nolint:gosec
 		log.Info("workflow version created", keys.WorkflowID, hash)
 		return v, nil
 	}); err != nil {
@@ -1219,14 +1300,22 @@ func (s *Operations) PublishWorkflowState(ctx context.Context, stateName string,
 	return nil
 }
 
-// SignalFatalError publishes a FatalError message on death of a process in a workflow
-func (s *Operations) SignalFatalError(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+// SignalFatalErrorTeardown publishes a FatalError message on FatalErr of a process in a workflow with a Teardown strategy
+func (s *Operations) SignalFatalErrorTeardown(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+	s.signaFatalError(ctx, state, log, model.HandlingStrategy_TearDown)
+}
+
+// SignalFatalErrorPause publishes a FatalError message on FatalErr of a process in a workflow with a Pause strategy
+func (s *Operations) SignalFatalErrorPause(ctx context.Context, state *model.WorkflowState, log *slog.Logger) {
+	s.signaFatalError(ctx, state, log, model.HandlingStrategy_Pause)
+}
+
+func (s *Operations) signaFatalError(ctx context.Context, state *model.WorkflowState, log *slog.Logger, handlingStrategy model.HandlingStrategy) {
 	fataError := &model.FatalError{
-		HandlingStrategy: 1,
+		HandlingStrategy: handlingStrategy,
 		WorkflowState:    state,
 	}
-
-	err := s.PublishMsg(ctx, messages.WorkflowSystemProcessFatalError, fataError)
+	err := s.PublishMsg(ctx, subj.NS(messages.WorkflowSystemProcessFatalError, subj.GetNS(ctx)), fataError)
 	if err != nil {
 		log.Error("failed publishing fatal err", "err", err)
 	}
@@ -1991,5 +2080,123 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		// TODO: develop an idempotent behaviour based upon hash nats message ids + deduplication
 		return fmt.Errorf("publish abort task for handle workflow error: %w", err)
 	}
+	return nil
+}
+
+// GetFatalErrors queries the fatal error KV with a key prefix of the format <workflowName>.<executionId>.<processInstanceId>.
+// and sends the results down the provided fatalErrs channel.
+func (s *Operations) GetFatalErrors(ctx context.Context, keyPrefix string, fatalErrs chan<- *model.FatalError, errs chan<- error) {
+	ns := subj.GetNS(ctx)
+	kvs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		errs <- fmt.Errorf("get kvs for fatal errors: %w", err)
+		return
+	}
+
+	kvFatalError := kvs.WfFatalError
+	matchingKeys, err := common.KeyPrefixSearch(ctx, s.natsService.Js, kvFatalError, keyPrefix, common.KeyPrefixResultOpts{Sort: true, ExcludeDeleted: true})
+	if err != nil {
+		errs <- fmt.Errorf("get fatal errors: %w", err)
+		return
+	}
+
+	for _, matchingKey := range matchingKeys {
+		fatalErr := &model.FatalError{}
+		err := common.LoadObj(ctx, kvFatalError, matchingKey, fatalErr)
+		if err != nil {
+			errs <- fmt.Errorf("load fatal errors: %w", err)
+			return
+		}
+		fatalErrs <- fatalErr
+	}
+}
+
+// RetryActivity publishes the state from a prior FatalError to attempt a retry
+func (s *Operations) RetryActivity(ctx context.Context, state *model.WorkflowState) error {
+	ns := subj.GetNS(ctx)
+	kvs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return fmt.Errorf("get kvs for fatal errors: %w", err)
+	}
+
+	k := fatalErrorKey(state.WorkflowName, state.WorkflowId, state.ExecutionId, state.ProcessInstanceId, state.ElementId)
+	fatalErr := &model.FatalError{}
+	err = common.LoadObj(ctx, kvs.WfFatalError, k, fatalErr)
+	if err != nil {
+		return fmt.Errorf("unable to find fatal errored workflow to retry: %w", err)
+	}
+	fatalErr.WorkflowState.Vars = state.Vars
+
+	if err := s.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobRetry, subj.GetNS(ctx)), fatalErr.WorkflowState); err != nil {
+		return fmt.Errorf("failed publishing to job retry: %w", err)
+	}
+
+	return nil
+}
+
+// PersistFatalError saves a fatal error to the kv
+func (s *Operations) PersistFatalError(ctx context.Context, fatalError *model.FatalError) (bool, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return false, fmt.Errorf("persistFatalError get KVs for ns %s: %w", ns, err)
+	}
+	workFlowName := fatalError.WorkflowState.WorkflowName
+	k := fatalErrorKey(workFlowName, fatalError.WorkflowState.WorkflowId, fatalError.WorkflowState.ExecutionId, fatalError.WorkflowState.ProcessInstanceId, fatalError.WorkflowState.ElementId)
+	if err := common.SaveObj(ctx, nsKVs.WfFatalError, k, fatalError); err != nil {
+		return false, fmt.Errorf("save fatal error: %w", err)
+	}
+
+	return true, nil
+}
+
+func fatalErrorKey(workFlowName, workflowId, executionId, processInstanceId, elementId string) string {
+	return fmt.Sprintf("%s.%s.%s.%s.%s", workFlowName, workflowId, executionId, processInstanceId, elementId)
+}
+
+// TearDownWorkflow removes any state associated with a fatal errored workflow
+func (s *Operations) TearDownWorkflow(ctx context.Context, state *model.WorkflowState) (bool, error) {
+	switch state.ElementType {
+	case element.ServiceTask, element.MessageIntermediateCatchEvent:
+		// These are both job based, so we need to abort the job
+		if err := s.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskAbort, state); err != nil {
+			log := logx.FromContext(ctx)
+			log.Error("publish workflow state for service task abort", "error", err)
+			return false, fmt.Errorf("publish abort task for handle fatal workflow error: %w", err)
+		}
+	default:
+		//add more cases as more element types need to be supported for cleaning down fatal errs
+		//just remove the process/executions below
+	}
+
+	//get the execution
+	execution, err2 := s.GetExecution(ctx, state.ExecutionId)
+	if err2 != nil {
+		return false, fmt.Errorf("error retrieving execution when processing fatal err: %w", err2)
+	}
+	//loop over the process instance ids to tear them down
+	for _, processInstanceId := range execution.ProcessInstanceId {
+		state.State = model.CancellationState_terminated
+		if err := s.DestroyProcessInstance(ctx, state, processInstanceId, execution.ExecutionId); err != nil {
+			log := logx.FromContext(ctx)
+			log.Error("failed destroying process instance", "err", err)
+		}
+	}
+	return true, nil
+}
+
+// DeleteFatalError removes the fatal error for a given workflow state
+func (s *Operations) DeleteFatalError(ctx context.Context, state *model.WorkflowState) error {
+	ns := subj.GetNS(ctx)
+	kvsFor, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return fmt.Errorf("get kvs for delete fatal error: %w", err)
+	}
+
+	err = common.Delete(ctx, kvsFor.WfFatalError, fatalErrorKey(state.WorkflowName, state.WorkflowId, state.ExecutionId, state.ProcessInstanceId, state.ElementId))
+	if err != nil {
+		return fmt.Errorf("delete fatal error: %w", err)
+	}
+
 	return nil
 }

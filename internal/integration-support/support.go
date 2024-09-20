@@ -11,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
+	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"os"
@@ -455,16 +456,16 @@ func (s *Integration) TrackingUpdatesFor(namespace string, executionId string, r
 	for {
 		select {
 		case <-timeOutChannel:
-			assert.Fail(t, "failed to get tracking update channel")
+			assert.Fail(t, "failed to get "+messages.KvTracking+" update channel")
 		default:
-			trackingKv, err := jetStream.KeyValue(ctx, ns.PrefixWith(namespace, messages.KvTracking))
+			kv, err := jetStream.KeyValue(ctx, ns.PrefixWith(namespace, messages.KvTracking))
 
 			if errors.Is(err, jetstream.ErrBucketNotFound) {
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
 
-			watch, err := trackingKv.Watch(ctx, executionId, jetstream.UpdatesOnly())
+			watch, err := kv.Watch(ctx, executionId, jetstream.UpdatesOnly())
 			require.NoError(t, err)
 			<-watch.Updates()
 			received <- struct{}{}
@@ -473,10 +474,46 @@ func (s *Integration) TrackingUpdatesFor(namespace string, executionId string, r
 	}
 }
 
-// WaitForChan waits for a chan struct{} with a duration timeout.
-func WaitForChan(t *testing.T, c chan struct{}, d time.Duration) {
+// AssertExpectedKVKey waits for timeout for the existence of the expected key in the given kv and namespace.
+func (s *Integration) AssertExpectedKVKey(namespace string, kvName string, key string, timeout time.Duration, t *testing.T) {
+	jetStream, err := s.GetJetstream()
+	require.NoError(t, err)
+	ctx := context.Background()
+	timeOutChannel := time.After(timeout)
+	startTime := time.Now()
+
+	for {
+		kv, err := jetStream.KeyValue(ctx, ns.PrefixWith(namespace, kvName))
+
+		if errors.Is(err, jetstream.ErrBucketNotFound) {
+			time.Sleep(500 * time.Millisecond)
+			now := time.Now()
+			require.WithinDuration(t, startTime, now, timeout)
+			continue
+		}
+
+		watch, err := kv.Watch(ctx, key)
+		require.NoError(t, err)
+
+		select {
+		case <-timeOutChannel:
+			assert.Fail(t, "failed to get "+kvName+" update channel")
+			return
+		case kvEnt := <-watch.Updates():
+			if kvEnt != nil {
+				return
+			}
+		}
+	}
+}
+
+// WaitForChan waits for a chan T with a duration timeout and runs the provided assertion functions.
+func WaitForChan[T any](t *testing.T, c chan T, d time.Duration, assertions ...func(ele T)) {
 	select {
-	case <-c:
+	case ele := <-c:
+		for _, a := range assertions {
+			a(ele)
+		}
 		return
 	case <-time.After(d):
 		assert.Fail(t, "timed out waiting for completion")
@@ -545,11 +582,11 @@ func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename strin
 
 // ListenForFatalErr will subscribe to the ProcessFatalError subject and will send a message to the fatalErrChan
 // on receipt of any messages on the subject
-func (s *Integration) ListenForFatalErr(t *testing.T, fatalErrChan chan struct{}) *nats.Subscription {
+func (s *Integration) ListenForFatalErr(t *testing.T, fatalErrChan chan struct{}, ns string) *nats.Subscription {
 	natsConnection, err := nats.Connect(s.NatsURL)
 	require.NoError(t, err)
 
-	subscription, err := natsConnection.Subscribe(messages.WorkflowSystemProcessFatalError, func(msg *nats.Msg) {
+	subscription, err := natsConnection.Subscribe(subj.NS(messages.WorkflowSystemProcessFatalError, ns), func(msg *nats.Msg) {
 		fatalError := &model.FatalError{}
 		err2 := proto.Unmarshal(msg.Data, fatalError)
 		require.NoError(t, err2)

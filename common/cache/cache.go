@@ -20,7 +20,7 @@ type ristrettoCacheBackend[K ristretto.Key, V any] struct {
 }
 
 // Get a value from the cache
-func (rcb *ristrettoCacheBackend[K, V]) Get(key K) (V, bool) {
+func (rcb *ristrettoCacheBackend[K, V]) Get(key K) (V, bool) { //nolint:ireturn
 	return rcb.c.Get(key)
 }
 

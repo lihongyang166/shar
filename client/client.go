@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
 	"github.com/hashicorp/go-version"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -28,6 +27,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/parser"
 	task2 "gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/cache"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
@@ -164,7 +164,7 @@ type Client struct {
 	telemetryConfig                 telemetry.Config
 	SendMiddleware                  []middleware2.Send    `json:"send_middleware,omitempty"`
 	ReceiveMiddleware               []middleware2.Receive `json:"receive_middleware,omitempty"`
-	cache                           *ristretto.Cache[string, any]
+	cache                           *cache.SharCache[string, any]
 }
 
 // New creates a new SHAR client instance
@@ -177,15 +177,12 @@ func New(option ...ConfigurationOption) *Client {
 	if err != nil {
 		panic(err)
 	}
-	cache, err := ristretto.NewCache(
-		&ristretto.Config[string, any]{
-			NumCounters: 1e7,
-			MaxCost:     1 << 30,
-			BufferItems: 64,
-		})
+	ristrettoCache, err := cache.NewRistrettoCacheBackend[string, any]()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("create ristretto cache: %w", err))
 	}
+	cache := cache.NewSharCache[string, any](ristrettoCache)
+
 	c := &Client{
 		id:                              ksuid.New().String(),
 		host:                            host,
@@ -755,19 +752,23 @@ func (c *Client) GetWorkflowVersions(ctx context.Context, name string) ([]*model
 
 // GetWorkflow - retrieves a workflow model given its ID
 func (c *Client) GetWorkflow(ctx context.Context, id string) (*model.Workflow, error) {
-	if wf, ok := c.cache.Get(id); ok {
-		return wf.(*model.Workflow), nil
+	getWorkflowFn := func() (*model.Workflow, error) {
+		req := &model.GetWorkflowRequest{
+			Id: id,
+		}
+		res := &model.GetWorkflowResponse{}
+		ctx = subj.SetNS(ctx, c.ns)
+		if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+			return nil, c.clientErr(ctx, err)
+		}
+		return res.Definition, nil
 	}
-	req := &model.GetWorkflowRequest{
-		Id: id,
+	wf, err := cache.Cacheable(id, getWorkflowFn, c.cache)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve workflow: %w", err)
 	}
-	res := &model.GetWorkflowResponse{}
-	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
-		return nil, c.clientErr(ctx, err)
-	}
-	c.cache.Set(id, res.Definition, 0)
-	return res.Definition, nil
+
+	return wf, nil
 }
 
 // GetTaskSpecUsage returns a report outlining task spec usage in executable and executing workflows.

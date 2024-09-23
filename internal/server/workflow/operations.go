@@ -126,7 +126,7 @@ type Ops interface {
 // retrieving workflow-related information, and managing workflow execution.
 type Operations struct {
 	natsService    *natz.NatsService
-	sCache         *cache.SharCache
+	sCache         *cache.SharCache[string, any]
 	publishTimeout time.Duration
 	sendMiddleware []middleware.Send
 	tr             trace.Tracer
@@ -135,11 +135,11 @@ type Operations struct {
 
 // NewOperations constructs a new Operations instance
 func NewOperations(natsService *natz.NatsService) (*Operations, error) {
-	ristrettoCache, err := cache.NewRistrettoCacheBackend()
+	ristrettoCache, err := cache.NewRistrettoCacheBackend[string, any]()
 	if err != nil {
 		return nil, fmt.Errorf("create ristretto cache: %w", err)
 	}
-	sharCache := cache.NewSharCache(ristrettoCache)
+	sharCache := cache.NewSharCache[string, any](ristrettoCache)
 
 	return &Operations{
 		natsService:    natsService,
@@ -938,7 +938,8 @@ func (s *Operations) GetWorkflow(ctx context.Context, workflowID string) (*model
 		return wf, nil
 	}
 
-	workflow, err := cache.Cacheable(workflowID, getWorkflowFn, s.sCache)
+	workflow, err := cache.Cacheable[string, *model.Workflow](workflowID, getWorkflowFn, s.sCache)
+	//workflow, err := getWorkflowFn()
 	if err != nil {
 		return nil, fmt.Errorf("error caching GetWorkflow: %w", err)
 	}

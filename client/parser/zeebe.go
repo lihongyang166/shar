@@ -22,7 +22,7 @@ func parseZeebeExtensions(doc *xmlquery.Node, modelElement interface{}, i *xmlqu
 					return fmt.Errorf("'retries' parse uint32 conversion error: %w", err)
 				}
 				el.RetryBehaviour = &model.DefaultTaskRetry{
-					Number:          uint32(retries), // nolint
+					Number:          uint32(retries), //nolint:gosec
 					Strategy:        0,
 					InitMilli:       0,
 					IntervalMilli:   0,

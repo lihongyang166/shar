@@ -228,9 +228,9 @@ func EnsureBucket(ctx context.Context, js jetstream.JetStream, storageType jetst
 
 // Process processes messages from a nats consumer and executes a function against each one.
 func Process(ctx context.Context, js jetstream.JetStream, streamName string, traceName string, closer chan struct{}, subject string, durable string, concurrency int, middleware []middleware.Receive, fn func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error), signalFatalErrFn func(ctx context.Context, state *model.WorkflowState, log *slog.Logger), opts ...ProcessOption) error {
-	set := &ProcessOpts{}
+	processOpt := &ProcessOpts{}
 	for _, i := range opts {
-		i.Set(set)
+		i.Set(processOpt)
 	}
 	log := logx.FromContext(ctx)
 
@@ -339,8 +339,8 @@ func Process(ctx context.Context, js jetstream.JetStream, streamName string, tra
 								log.Error("fetching message metadata")
 							}
 
-							if set.BackoffCalc != nil {
-								err := set.BackoffCalc(executeCtx, m)
+							if processOpt.BackoffCalc != nil {
+								err := processOpt.BackoffCalc(executeCtx, m)
 								if err != nil {
 									slog.Error("backoff error", "error", err)
 								}
@@ -554,8 +554,7 @@ func PublishOnce(ctx context.Context, js jetstream.JetStream, lockingKV jetstrea
 	if err != nil {
 		return fmt.Errorf("obtaining publish once consumer information: %w", err)
 	}
-	// nolint
-	if int(cInfo.NumPending)+cInfo.NumAckPending+cInfo.NumWaiting == 0 {
+	if cInfo.NumPending+uint64(cInfo.NumAckPending)+uint64(cInfo.NumWaiting) == 0 { //nolint:gosec
 		if lock, err := Lock(ctx, lockingKV, consumerName); err != nil {
 			return fmt.Errorf("obtaining lock for publish once consumer: %w", err)
 		} else if lock {
@@ -617,10 +616,10 @@ func KeyPrefixSearch(ctx context.Context, js jetstream.JetStream, kv jetstream.K
 		return nil, fmt.Errorf("get stream info: %w", err)
 	}
 	ret := make([]string, 0, len(nfo.State.Subjects))
-	trim := len(subjectTrim)
+	kvNameSubjectPrefixLength := len(subjectTrim)
 	for s := range nfo.State.Subjects {
-		if len(s) >= trim {
-			ret = append(ret, s[trim:])
+		if len(s) >= kvNameSubjectPrefixLength {
+			ret = append(ret, s[kvNameSubjectPrefixLength:])
 		}
 	}
 

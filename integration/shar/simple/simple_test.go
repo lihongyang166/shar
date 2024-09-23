@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
+	"gitlab.com/shar-workflow/shar/server/messages"
 	"os"
 	"testing"
 	"time"
@@ -48,19 +49,15 @@ func TestSimple(t *testing.T) {
 	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.NoError(t, err)
 
-	go func() {
-		tst.TrackingUpdatesFor(ns, executionId, d.trackingReceived, 20*time.Second, t)
-	}()
-
 	// Listen for service tasks
 	go func() {
 		err := cl.Listen(ctx)
 		require.NoError(t, err)
 	}()
 
-	support.WaitForChan(t, d.trackingReceived, 20*time.Second)
-	support.WaitForChan(t, d.finished, 20*time.Second)
+	tst.AssertExpectedKVKey(ns, messages.KvTracking, executionId, 20*time.Second, t)
 
+	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 

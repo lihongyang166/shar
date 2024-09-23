@@ -71,8 +71,7 @@ func Call[T proto.Message, U proto.Message](ctx context.Context, con *nats.Conn,
 			i = 0
 		}
 		ae := &api.Error{Code: i, Message: em[1]}
-		// nolint
-		if codes.Code(i) == codes.Internal {
+		if codes.Code(i) == codes.Internal { //nolint:gosec
 			return &errors2.ErrWorkflowFatal{Err: ae}
 		}
 		return ae
@@ -124,7 +123,7 @@ func CallReturnStream[T proto.Message, U proto.Message](ctx context.Context, con
 			}
 			// nolint
 			ae := &api.Error{Code: i, Message: em[1]}
-			if codes.Code(i) == codes.Internal { // nolint
+			if codes.Code(i) == codes.Internal { //nolint:gosec
 				return &errors2.ErrWorkflowFatal{Err: ae}
 			}
 			return ae

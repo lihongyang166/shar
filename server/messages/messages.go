@@ -70,6 +70,7 @@ const (
 	WorkflowJobGatewayTaskActivate    = "WORKFLOW.%s.State.Job.Activate.Gateway"          // WorkflowJobGatewayTaskActivate is the state message subject for activating a gateway task for creation or re-entry.
 	WorkflowJobGatewayTaskReEnter     = "WORKFLOW.%s.State.Job.ReEnter.Gateway"           // WorkflowJobGatewayTaskReEnter is the state message subject for re entering an existing gateway task.
 	WorkflowJobGatewayTaskAbort       = "WORKFLOW.%s" + StateJobAbortGateway              // WorkflowJobGatewayTaskAbort is the state message subject for aborting a gateway task.
+	WorkflowJobRetry                  = "WORKFLOW.%s.State.Job.Retry"                     //WorkflowJobRetry is the state message to attempt retry of a prior failed job
 	WorkflowLog                       = "WORKFLOW.%s" + StateLog                          // WorkflowLog is the state message subject for logging messages to a workflow activity.
 	WorkflowLogAll                    = "WORKFLOW.%s" + StateLog + ".*"                   // WorkflowLogAll is the wildcard state message subject for all logging messages.
 	WorkflowMessage                   = "WORKFLOW.%s.Message"                             // WorkflowMessage is the state message subject for all workflow messages.
@@ -82,12 +83,12 @@ const (
 	WorkflowTraversalComplete         = "WORKFLOW.%s" + StateTraversalComplete            // WorkflowTraversalComplete is the state message subject for completing a traversal.
 	WorkflowTraversalExecute          = "WORKFLOW.%s" + StateTraversalExecute             // WorkflowTraversalExecute is the state message subject for executing a new traversal.
 
-	WorkflowSystemTaskCreate        = "WORKFLOW.System.Task.Create"        // WorkflowSystemTaskCreate is the task created broadcast message.
-	WorkflowSystemTaskUpdate        = "WORKFLOW.System.Task.Update"        // WorkflowSystemTaskUpdate is the task updated broadcast message.
-	WorkflowSystemProcessPause      = "WORKFLOW.System.Process.Pause"      // WorkflowSystemProcessPause is the process paused broadcast message.
-	WorkflowSystemProcessError      = "WORKFLOW.System.Process.Error"      // WorkflowSystemProcessError is the process error broadcast message.
-	WorkflowSystemHistoryArchive    = "WORKFLOW.System.History.Archive"    // WorkflowSystemHistoryArchive is the archive message for history items.
-	WorkflowSystemProcessFatalError = "WORKFLOW.System.Process.FatalError" // WorkflowSystemProcessFatalError is the process fatal error broadcast message.
+	WorkflowSystemTaskCreate        = "WORKFLOW.System.Task.Create"           // WorkflowSystemTaskCreate is the task created broadcast message.
+	WorkflowSystemTaskUpdate        = "WORKFLOW.System.Task.Update"           // WorkflowSystemTaskUpdate is the task updated broadcast message.
+	WorkflowSystemProcessPause      = "WORKFLOW.System.Process.Pause"         // WorkflowSystemProcessPause is the process paused broadcast message.
+	WorkflowSystemProcessError      = "WORKFLOW.System.Process.Error"         // WorkflowSystemProcessError is the process error broadcast message.
+	WorkflowSystemHistoryArchive    = "WORKFLOW.System.History.Archive"       // WorkflowSystemHistoryArchive is the archive message for history items.
+	WorkflowSystemProcessFatalError = "WORKFLOW.%s.System.Process.FatalError" // WorkflowSystemProcessFatalError is the process fatal error broadcast message.
 )
 
 const (
@@ -193,12 +194,14 @@ const (
 	APIGetVersionInfo                 = "WORKFLOW.API.GetVersionInfo"                 // APIGetVersionInfo is the get server version information API message subject.
 	APIGetTaskSpecUsage               = "WORKFLOW.Api.GetTaskSpecUsage"               // APIGetTaskSpecUsage is the get task spec usage API message subject.
 	APIListTaskSpecUIDs               = "WORKFLOW.Api.ListTaskSpecUIDs"               // APIListTaskSpecUIDs is the list task spec UIDs API message subject.
+	APIGetFatalErrors                 = "WORKFLOW.Api.GetFatalErrors"                 //APIGetFatalErrors gets fatal errors given a key prefix to search against
 	APIHeartbeat                      = "WORKFLOW.Api.Heartbeat"                      // APIHeartbeat // is the heartbeat API message subject.
 	APILog                            = "WORKFLOW.Api.Log"                            // APILog // is the client logging message subject.
 	APIGetJob                         = "WORKFLOW.Api.GetJob"                         // APIGetJob is the get job API subject.
 	APIResolveWorkflow                = "WORKFLOW.Api.ResolveWorkflow"                // APIResolveWorkflow is the resolve workflow API subject.
 	APIGetCompensationInputVariables  = "WORKFLOW.Api.GetCompensationInputVariables"  // APIGetCompensationInputVariables is the get compensation input variables message subject.
 	APIGetCompensationOutputVariables = "WORKFLOW.Api.GetCompensationOutputVariables" // APIGetCompensationOutputVariables is the get compensation output variables message subject.
+	APIRetry                          = "WORKFLOW.Api.Retry"                          // APIRetry attempts to execute a previously failed activity again
 )
 
 var (
@@ -223,4 +226,5 @@ var (
 	KvProcess          = "WORKFLOW_PROCESS_MAPPING" // KvProcess is the name of the key value store mapping process names to workflow names.
 	KvMessages         = "WORKFLOW_MESSAGES"        // KvMessages is the name of the key value store containing messages.
 	KvClients          = "WORKFLOW_CLIENTS"         // KvClients is the name of the key value store containing connected clients.
+	KvFatalError       = "WORKFLOW_FATAL_ERROR"     // KvFatalError is the name of the key value store containing fatal errs.
 )

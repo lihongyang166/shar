@@ -21,6 +21,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -233,8 +234,8 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 	var reterr error
 	var hasStartEvents bool
 
-	testVars, err := vars.Decode(ctx, vrs)
-	if err != nil {
+	testVars := model2.NewServerVars()
+	if err := testVars.Decode(ctx, vrs); err != nil {
 		return fmt.Errorf("decode variables during launch: %w", err)
 	}
 
@@ -248,7 +249,7 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 					return fmt.Errorf("extract variables from workflow during launch: %w", err)
 				}
 				for _, ev := range evs {
-					if _, ok := testVars[ev.Name]; !ok {
+					if _, ok := testVars.Vals[ev.Name]; !ok {
 						return fmt.Errorf("workflow expects variable '%s': %w", ev, errors.ErrExpectedVar)
 					}
 				}
@@ -1769,8 +1770,8 @@ func (s *Operations) StartJob(ctx context.Context, subject string, job *model.Wo
 	}
 	// if this is a user task, find out who can perform it
 	if el.Type == element.UserTask {
-		vx, err := vars.Decode(ctx, v)
-		if err != nil {
+		vx := model2.NewServerVars()
+		if err := vx.Decode(ctx, v); err != nil {
 			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
 		}
 
@@ -1838,9 +1839,9 @@ func (s *Operations) StartJob(ctx context.Context, subject string, job *model.Wo
 }
 
 // evaluateOwners builds a list of groups
-func (s *Operations) evaluateOwners(ctx context.Context, owners string, vars model.Vars) ([]string, error) {
+func (s *Operations) evaluateOwners(ctx context.Context, owners string, vars *model2.ServerVars) ([]string, error) {
 	jobGroups := make([]string, 0)
-	groups, err := expression.Eval[interface{}](ctx, s.exprEngine, owners, vars)
+	groups, err := expression.Eval[interface{}](ctx, s.exprEngine, owners, vars.Vals)
 	if err != nil {
 		return nil, &errors.ErrWorkflowFatal{Err: err}
 	}

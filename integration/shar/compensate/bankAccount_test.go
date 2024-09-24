@@ -196,6 +196,6 @@ func (d *testBankAccount) processEnd(_ context.Context, vars model.Vars, _ *mode
 	require.NoError(d.t, err)
 	d.finalRecipientBalance, err = vars.GetFloat64("finalRecipientAccountBalance")
 	require.NoError(d.t, err)
-	assert.Equal(d.t, 2, len(vars))
+	assert.Equal(d.t, 2, vars.Len())
 	close(d.finished)
 }

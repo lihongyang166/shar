@@ -90,7 +90,7 @@ type testConcurrentMessaging2HandlerDef struct {
 }
 
 func (x *testConcurrentMessaging2HandlerDef) step1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testConcurrentMessaging2HandlerDef) step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
@@ -100,7 +100,7 @@ func (x *testConcurrentMessaging2HandlerDef) step2(_ context.Context, _ task.Job
 	require.NoError(x.test, err)
 	assert.Equal(x.test, "carried1value", carried)
 	assert.Equal(x.test, "carried2value", carried2)
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testConcurrentMessaging2HandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {

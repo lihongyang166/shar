@@ -76,27 +76,32 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			goto notifyRetryExceeded
 		case model.RetryErrorAction_SetVariableValue:
 			trackingID := common.TrackingID(state.Id).ID()
-			var retVar any
+			retVars := model.NewVars()
 			switch retryBehaviour.DefaultExceeded.VariableType {
 			case "int":
-				retVar, err = strconv.ParseInt(retryBehaviour.DefaultExceeded.VariableValue, 10, 64)
-				if err != nil {
-					retVar = err.Error()
+				retVar, pErr := strconv.ParseInt(retryBehaviour.DefaultExceeded.VariableValue, 10, 64)
+				if pErr != nil {
+					return fmt.Errorf("parse retry variable as integer: %w", pErr)
 				}
+				retVars.SetInt64(retryBehaviour.DefaultExceeded.Variable, int64(retVar))
 			case "float":
-				retVar, err = strconv.ParseFloat(retryBehaviour.DefaultExceeded.VariableValue, 64)
-				if err != nil {
-					retVar = err.Error()
+				retVar, pErr := strconv.ParseFloat(retryBehaviour.DefaultExceeded.VariableValue, 64)
+				if pErr != nil {
+					return fmt.Errorf("parse retry variable as float: %w", pErr)
 				}
+				retVars.SetFloat64(retryBehaviour.DefaultExceeded.Variable, retVar)
+
 			case "bool":
-				retVar, err = strconv.ParseBool(retryBehaviour.DefaultExceeded.VariableValue)
-				if err != nil {
-					retVar = err.Error()
+				retVar, pErr := strconv.ParseBool(retryBehaviour.DefaultExceeded.VariableValue)
+				if pErr != nil {
+					return fmt.Errorf("parse retry variable as boolean: %w", pErr)
 				}
+				retVars.SetBool(retryBehaviour.DefaultExceeded.Variable, retVar)
 			default: // string
-				retVar = retryBehaviour.DefaultExceeded.VariableValue
+				retVars.SetString(retryBehaviour.DefaultExceeded.Variable, retryBehaviour.DefaultExceeded.VariableValue)
 			}
-			if err := c.completeServiceTask(ctx, trackingID, model.Vars{retryBehaviour.DefaultExceeded.Variable: retVar}, state.State == model.CancellationState_compensating); err != nil {
+
+			if err := c.completeServiceTask(ctx, trackingID, retVars, state.State == model.CancellationState_compensating); err != nil {
 				return fmt.Errorf("complete service task with error variable: %w", err)
 			}
 		}

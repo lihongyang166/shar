@@ -6,7 +6,6 @@ import (
 	"github.com/goccy/go-yaml"
 	"gitlab.com/shar-workflow/shar/client/task"
 	"gitlab.com/shar-workflow/shar/model"
-	"log/slog"
 	"os"
 	"reflect"
 )
@@ -154,6 +153,7 @@ func getMapping(s reflect.Type) map[string]string {
 	return mapping
 }
 
+/*
 func coerceVarsToType(typ reflect.Type, inVars model.Vars, mapping map[string]string) reflect.Value {
 	val := reflect.New(typ)
 	for k, kv := range inVars {
@@ -166,7 +166,7 @@ func coerceVarsToType(typ reflect.Type, inVars model.Vars, mapping map[string]st
 			}
 		default:
 			slog.Warn("struct serialization is not supported in this version", "type", val.Type().Name())
-			/* TODO: Add support for strongly typed structs
+			// TODO: Add support for strongly typed structs
 			f := val.Elem().FieldByName(mapping[k])
 			if f.Kind() == reflect.Struct {
 				v := reflect.ValueOf(kv).Interface()
@@ -175,9 +175,9 @@ func coerceVarsToType(typ reflect.Type, inVars model.Vars, mapping map[string]st
 					populateStruct(val.Elem().Interface(), v)
 				}
 			}
-			*/
 		}
 
 	}
 	return val
 }
+*/

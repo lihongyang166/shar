@@ -22,7 +22,6 @@ import (
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/setup"
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
-	"gitlab.com/shar-workflow/shar/common/structs"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/task"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
@@ -34,13 +33,11 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"google.golang.org/protobuf/proto"
 	"io"
 	"log/slog"
 	"os"
 	"os/signal"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -59,8 +56,8 @@ type jobClient struct {
 	activityID        string
 	processInstanceID string
 	executionID       string
-	originalInputs    map[string]interface{}
-	originalOutputs   map[string]interface{}
+	originalInputs    *model.ClientVars
+	originalOutputs   *model.ClientVars
 }
 
 // Log logs to the span related to this jobClient instance.
@@ -77,7 +74,7 @@ func (c *jobClient) LoggerWith(logger *slog.Logger) *slog.Logger {
 	return slogWith(logger, c.executionID, c.processInstanceID, c.activityID, c.jobID)
 }
 
-func (c *jobClient) OriginalVars() (inputVars model.Vars, outputVars model.Vars) {
+func (c *jobClient) OriginalVars() (inputVars model.Vars, outputVars model.Vars) { // nolint
 	inputVars = c.originalInputs
 	outputVars = c.originalOutputs
 	return
@@ -417,7 +414,7 @@ func (c *Client) listen(ctx context.Context) error {
 				var err error
 				jc.originalInputs, jc.originalOutputs, err = c.getCompensationVariables(ctx, job.ProcessInstanceId, job.Compensation.ForTrackingId)
 				if err != nil {
-					return make(model.Vars), fmt.Errorf("get compensation variables: %w", err)
+					return model.NewVars(), fmt.Errorf("get compensation variables: %w", err)
 				}
 			}
 			svcFn := def.Fn.(task2.ServiceFn)
@@ -426,58 +423,62 @@ func (c *Client) listen(ctx context.Context) error {
 				return v, fmt.Errorf("execute service task: %w", err)
 			}
 			return v, nil
-		case task2.ExecutionTypeTyped:
-			id := common.TrackingID(job.Id)
-			pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
-			pidCtx = context.WithValue(pidCtx, client.InternalExecutionId, job.ExecutionId)
-			pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
-			pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
-			pidCtx = client.ReParentSpan(pidCtx, job)
-			revMapping := make(map[string]string, len(def.OutMapping))
-			for k, v := range def.OutMapping {
-				revMapping[v] = k
-			}
-			fn := reflect.TypeOf(def.Fn)
-			x := fn.In(2)
-			t := coerceVarsToType(x, inVars, def.InMapping)
-			em := t.Elem().Interface()
-			fmt.Println(em)
-			vl := reflect.ValueOf(def.Fn)
-			jc := &jobClient{
-				cl:                c,
-				jobID:             id.ID(),
-				processInstanceID: job.ProcessInstanceId,
-				activityID:        id.ParentID(),
-				executionID:       job.ExecutionId,
-			}
-			params := []reflect.Value{
-				reflect.ValueOf(pidCtx),
-				reflect.ValueOf(jc),
-				reflect.ValueOf(em),
-			}
-			out := vl.Call(params)
-			str := out[0].Interface()
-			if err := out[1].Interface(); err != nil {
-				return model.Vars{}, fmt.Errorf("execute task: %w", err.(error))
-			}
-			newVars := model.Vars{}
-			outType := reflect.TypeOf(str)
-			nf := outType.NumField()
-			for i := 0; i < nf; i++ {
-				typ := outType.Field(i)
-				nm := typ.Name
-				var v any
-				if typ.Type.Kind() == reflect.Struct {
-					v = structs.Map(reflect.ValueOf(str).Field(i).Interface())
-
-				} else {
-					v = out[i].Field(i).Interface()
+			/* Typed Execution
+			case task2.ExecutionTypeTyped:
+				id := common.TrackingID(job.Id)
+				pidCtx := context.WithValue(ctx, client.InternalProcessInstanceId, job.ProcessInstanceId)
+				pidCtx = context.WithValue(pidCtx, client.InternalExecutionId, job.ExecutionId)
+				pidCtx = context.WithValue(pidCtx, client.InternalActivityId, id.ParentID())
+				pidCtx = context.WithValue(pidCtx, client.InternalTaskId, id.ID())
+				pidCtx = client.ReParentSpan(pidCtx, job)
+				revMapping := make(map[string]string, len(def.OutMapping))
+				for k, v := range def.OutMapping {
+					revMapping[v] = k
 				}
-				newVars[revMapping[nm]] = v
-			}
-			return newVars, nil
+				fn := reflect.TypeOf(def.Fn)
+				x := fn.In(2)
+				t := coerceVarsToType(x, inVars, def.InMapping)
+				em := t.Elem().Interface()
+				fmt.Println(em)
+				vl := reflect.ValueOf(def.Fn)
+				jc := &jobClient{
+					cl:                c,
+					jobID:             id.ID(),
+					processInstanceID: job.ProcessInstanceId,
+					activityID:        id.ParentID(),
+					executionID:       job.ExecutionId,
+				}
+				params := []reflect.Value{
+					reflect.ValueOf(pidCtx),
+					reflect.ValueOf(jc),
+					reflect.ValueOf(em),
+				}
+				out := vl.Call(params)
+				str := out[0].Interface()
+				if err := out[1].Interface(); err != nil {
+					return model.NewVars(), fmt.Errorf("execute task: %w", err.(error))
+				}
+				newVars := model.NewVars()
+				outType := reflect.TypeOf(str)
+				nf := outType.NumField()
+				for i := 0; i < nf; i++ {
+					typ := outType.Field(i)
+					nm := typ.Name
+					var v any
+					if typ.Type.Kind() == reflect.Struct {
+						v = structs.Map(reflect.ValueOf(str).Field(i).Interface())
+
+					} else {
+						v = out[i].Field(i).Interface()
+					}
+					//newVars[revMapping[nm]] = v
+					fmt.Println(revMapping[nm], v)
+				}
+				return newVars, nil
+
+			*/
 		default:
-			return model.Vars{}, fmt.Errorf("bad execution type: %d", def.Type)
+			return model.NewVars(), fmt.Errorf("bad execution type: %d", def.Type)
 		}
 	}
 
@@ -581,8 +582,8 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 			return true, fmt.Errorf("listenProcessTerminate unmarshalling proto: %w", err)
 		}
 		callCtx := context.WithValue(ctx, keys.ContextKey(keys.ProcessInstanceID), st.ProcessInstanceId)
-		v, err := vars.Decode(callCtx, st.Vars)
-		if err != nil {
+		v := model.NewVars()
+		if err := v.Decode(callCtx, st.Vars); err != nil {
 			return true, fmt.Errorf("listenProcessTerminate decoding vars: %w", err)
 		}
 		if def, ok := c.proCompleteTasks[st.ProcessId]; ok {
@@ -590,17 +591,19 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 			case task2.ExecutionTypeVars:
 				fn := def.Fn.(task2.ProcessTerminateFn)
 				fn(callCtx, v, st.Error, st.State)
-			case task2.ExecutionTypeTyped:
-				typ := reflect.TypeOf(def.Fn).In(1)
-				val := coerceVarsToType(typ, v, def.InMapping)
-				params := []reflect.Value{
-					reflect.ValueOf(ctx),
-					reflect.ValueOf(val.Elem().Interface()),
-					reflect.ValueOf(st.Error),
-					reflect.ValueOf(st.State),
-				}
-				fn := reflect.ValueOf(def.Fn)
-				fn.Call(params)
+				/* Typed Execution
+				case task2.ExecutionTypeTyped:
+					typ := reflect.TypeOf(def.Fn).In(1)
+					val := coerceVarsToType(typ, v, def.InMapping)
+					params := []reflect.Value{
+						reflect.ValueOf(ctx),
+						reflect.ValueOf(val.Elem().Interface()),
+						reflect.ValueOf(st.Error),
+						reflect.ValueOf(st.State),
+					}
+					fn := reflect.ValueOf(def.Fn)
+					fn.Call(params)
+				*/
 			default:
 				return true, fmt.Errorf("unknown processterminate function type: %d", def.Type)
 			}
@@ -637,7 +640,7 @@ func (c *Client) GetTaskSpecVersions(ctx context.Context, name string) ([]string
 
 // CompleteUserTask completes a task and sends the variables back to the workflow
 func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID string, newVars model.Vars) error {
-	ev, err := vars.Encode(ctx, newVars)
+	ev, err := newVars.Encode(ctx)
 	if err != nil {
 		return fmt.Errorf("decode variables for complete user task: %w", err)
 	}
@@ -651,7 +654,7 @@ func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID 
 }
 
 func (c *Client) completeServiceTask(ctx context.Context, trackingID string, newVars model.Vars, compensating bool) error {
-	ev, err := vars.Encode(ctx, newVars)
+	ev, err := newVars.Encode(ctx)
 	if err != nil {
 		return fmt.Errorf("decode variables for complete service task: %w", err)
 	}
@@ -665,7 +668,7 @@ func (c *Client) completeServiceTask(ctx context.Context, trackingID string, new
 }
 
 func (c *Client) completeSendMessage(ctx context.Context, trackingID string, newVars model.Vars) error {
-	ev, err := vars.Encode(ctx, newVars)
+	ev, err := newVars.Encode(ctx)
 	if err != nil {
 		return fmt.Errorf("decode variables for complete send message: %w", err)
 	}
@@ -827,7 +830,12 @@ func (c *Client) LaunchProcess(ctx context.Context, launchParams LaunchParams) (
 	if launchParams.ProcessID == "" {
 		return "", "", fmt.Errorf("process id is required")
 	}
-	ev, err := vars.Encode(ctx, launchParams.Vars)
+
+	if launchParams.Vars == nil {
+		launchParams.Vars = model.NewVars()
+	}
+
+	ev, err := launchParams.Vars.Encode(ctx)
 	if err != nil {
 		er = fmt.Errorf("encode variables for launch workflow: %w", err)
 		return
@@ -925,15 +933,15 @@ func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) ([]*mo
 }
 
 // GetUserTask fetches details for a user task based upon an ID obtained from, ListUserTasks
-func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID string) (*model.GetUserTaskResponse, model.Vars, error) {
+func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID string) (*model.GetUserTaskResponse, model.Vars, error) { // nolint:ireturn
 	req := &model.GetUserTaskRequest{Owner: owner, TrackingId: trackingID}
 	res := &model.GetUserTaskResponse{}
 	ctx = subj.SetNS(ctx, c.ns)
 	if err := api2.Call(ctx, c.txCon, messages.APIGetUserTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
 		return nil, nil, c.clientErr(ctx, err)
 	}
-	v, err := vars.Decode(ctx, res.Vars)
-	if err != nil {
+	v := model.NewVars()
+	if err := v.Decode(ctx, res.Vars); err != nil {
 		return nil, nil, c.clientErr(ctx, err)
 	}
 	return res, v, nil
@@ -942,7 +950,7 @@ func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID strin
 // SendMessage sends a Workflow Message to a specific workflow instance
 func (c *Client) SendMessage(ctx context.Context, name string, key any, mvars model.Vars) error {
 	skey := fmt.Sprintf("%+v", key)
-	b, err := vars.Encode(ctx, mvars)
+	b, err := mvars.Encode(ctx)
 	if err != nil {
 		return fmt.Errorf("encode variables for send message: %w", err)
 	}
@@ -1183,7 +1191,7 @@ func (c *Client) listenTerm(ctx context.Context) {
 	}
 }
 
-func (c *Client) getCompensationVariables(ctx context.Context, processInstanceId string, trackingId string) (map[string]interface{}, map[string]interface{}, error) {
+func (c *Client) getCompensationVariables(ctx context.Context, processInstanceId string, trackingId string) (*model.ClientVars, *model.ClientVars, error) {
 	req1 := &model.GetCompensationInputVariablesRequest{
 		ProcessInstanceId: processInstanceId,
 		TrackingId:        trackingId,
@@ -1203,12 +1211,12 @@ func (c *Client) getCompensationVariables(ctx context.Context, processInstanceId
 	if err := api2.Call(ctx, c.txCon, messages.APIGetCompensationOutputVariables, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req2, res2); err != nil {
 		return nil, nil, c.clientErr(ctx, err)
 	}
-	in, err := vars.Decode(ctx, res1.Vars)
-	if err != nil {
+	in := model.NewVars()
+	if err := in.Decode(ctx, res1.Vars); err != nil {
 		return nil, nil, c.clientErr(ctx, err)
 	}
-	out, err := vars.Decode(ctx, res2.Vars)
-	if err != nil {
+	out := model.NewVars()
+	if err := out.Decode(ctx, res2.Vars); err != nil {
 		return nil, nil, c.clientErr(ctx, err)
 	}
 	return in, out, nil

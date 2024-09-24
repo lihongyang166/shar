@@ -67,6 +67,8 @@ func (d *fatalErrorHandledHandlerDef) willPanicAndCauseWorkflowFatalError(_ cont
 	if true {
 		panic(fmt.Errorf("BOOM, cause an ErrWorkflowFatal to be thrown"))
 	}
-
-	return model.Vars{"success": true, "myVar": 69}, nil
+	retVars := model.NewVars()
+	retVars.SetBool("success", true)
+	retVars.SetInt64("myVar", 69) // nolint:ireturn
+	return retVars, nil
 }

@@ -103,7 +103,7 @@ type testMultiworkflowMessagingHandlerDef struct {
 }
 
 func (x *testMultiworkflowMessagingHandlerDef) step1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testMultiworkflowMessagingHandlerDef) step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
@@ -113,7 +113,7 @@ func (x *testMultiworkflowMessagingHandlerDef) step2(_ context.Context, _ task.J
 	carried2, err := vars.GetString("carried2")
 	require.NoError(x.t, err)
 	assert.Equal(x.t, "carried2value", carried2)
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testMultiworkflowMessagingHandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
@@ -134,7 +134,7 @@ func (x *testMultiworkflowMessagingHandlerDef) simpleProcess(_ context.Context, 
 	carried, err := vars.GetInt64("carried")
 	require.NoError(x.t, err)
 	assert.Equal(x.t, int64(32768), carried)
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testMultiworkflowMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

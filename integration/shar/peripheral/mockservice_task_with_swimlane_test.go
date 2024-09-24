@@ -81,7 +81,14 @@ func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *mo
 }
 
 func (x *testSimpleHandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
-	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"carried": vars["carried"], "orderId": vars["orderId"]}); err != nil {
+	msgVars := model.NewVars()
+	carried, err := vars.GetString("carried")
+	require.NoError(x.t, err)
+	orderId, err := vars.GetString("orderId")
+	require.NoError(x.t, err)
+	msgVars.SetString("carried", carried)
+	msgVars.SetString("orderId", orderId)
+	if err := cmd.SendMessage(ctx, "continueMessage", orderId, msgVars); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil

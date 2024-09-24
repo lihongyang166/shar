@@ -53,20 +53,20 @@ func TestVarsWithAtCharacters(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
+	launchVars := model.NewVars()
+	launchVars.SetInt64("ClientID_number", 123)
+	launchVars.SetInt64("TicketTypeID_number", 456)
+	launchVars.SetString("Summary_string", "summaryString")
+	launchVars.SetString("FirstName_string", "firstName")
+	launchVars.SetString("LastName_string", "lastName")
+	launchVars.SetInt64("Priority_number", 4)
+	launchVars.SetString("CFdetails_string", "CDdetails")
+	launchVars.SetString("CFticketDT_string", "ticketDt")
+	launchVars.SetString("CFincidentDT_string", "fincidentDt")
+	launchVars.SetString("CFopenReason_string", "openReason")
 	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{
 		ProcessID: processId,
-		Vars: model.Vars{
-			"ClientID_number":     123,
-			"TicketTypeID_number": 456,
-			"Summary_string":      "summaryString",
-			"FirstName_string":    "firstName",
-			"LastName_string":     "lastName",
-			"Priority_number":     4,
-			"CFdetails_string":    "CDdetails",
-			"CFticketDT_string":   "ticketDt",
-			"CFincidentDT_string": "fincidentDt",
-			"CFopenReason_string": "openReason",
-		},
+		Vars:      launchVars,
 	})
 	require.NoError(t, err)
 
@@ -85,7 +85,7 @@ type testSpecialCharHandlerDef struct {
 	finished chan struct{}
 }
 
-func (d *testSpecialCharHandlerDef) sendEmail100(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSpecialCharHandlerDef) sendEmail100(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) { // nolint:ireturn
 	To, err := vars.GetString("To")
 	require.NoError(d.t, err)
 	assert.Equal(d.t, "fred.smith@altavista.com, joe.bloggs@lycos.com", To)
@@ -100,11 +100,11 @@ func (d *testSpecialCharHandlerDef) sendEmail100(_ context.Context, _ task.JobCl
 	return vars, nil
 }
 
-func (d *testSpecialCharHandlerDef) createHaloTicket(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSpecialCharHandlerDef) createHaloTicket(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) { // nolint:ireturn
 	vars.SetInt64("ticketID", TICKET_ID)
 	return vars, nil
 }
 
-func (d *testSpecialCharHandlerDef) sendSMS(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
+func (d *testSpecialCharHandlerDef) sendSMS(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) { // nolint:ireturn
 	return vars, nil
 }

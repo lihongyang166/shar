@@ -48,7 +48,9 @@ func TestExclusiveRun(t *testing.T) {
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: model.Vars{"carried": 32768}})
+	launchVars := model.NewVars()
+	launchVars.SetInt64("carried", 32768)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: launchVars})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -95,7 +97,9 @@ func TestInclusiveRun(t *testing.T) {
 	err = cl.RegisterProcessComplete("Process_0ljss15", g.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: model.Vars{"testValue": 32768}})
+	launchVars := model.NewVars()
+	launchVars.SetInt64("testValue", 32768)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0ljss15", Vars: launchVars})
 	require.NoError(t, err)
 
 	// Listen for service tasks

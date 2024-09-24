@@ -15,7 +15,7 @@ type person struct {
 }
 
 func TestMarshalUnmarshal(t *testing.T) {
-	v := make(Vars)
+	v := NewVars()
 
 	p := person{
 		Friends: []string{"John", "Fred"},
@@ -29,7 +29,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 		},
 	}
 
-	err := Marshal(&v, "person", &p)
+	err := Marshal(v, "person", &p)
 	assert.NoError(t, err)
 	n, err := Unmarshal[person](v, "person")
 	assert.NoError(t, err)

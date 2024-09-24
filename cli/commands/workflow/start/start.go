@@ -35,7 +35,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := cmd.ValidateArgs(args); err != nil {
 		return fmt.Errorf("invalid arguments: %w", err)
 	}
-	vars := &model.Vars{}
+	vars := model.NewVars()
 	var err error
 	if len(flag.Value.Vars) > 0 {
 		vars, err = valueparsing.Parse(flag.Value.Vars)
@@ -49,7 +49,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err := shar.Dial(ctx, flag.Value.Server); err != nil {
 		return fmt.Errorf("dialling server: %w", err)
 	}
-	executionID, wfID, err := shar.LaunchProcess(ctx, client.LaunchParams{ProcessID: args[0], Vars: *vars})
+	executionID, wfID, err := shar.LaunchProcess(ctx, client.LaunchParams{ProcessID: args[0], Vars: vars})
 	if err != nil {
 		return fmt.Errorf("workflow launch failed: %w", err)
 	}

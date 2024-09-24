@@ -40,7 +40,7 @@ func TestSimpleTelemetry(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.NewVars())
 	require.NoError(t, err)
 
 	// Listen for service tasks

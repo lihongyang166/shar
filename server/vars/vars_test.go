@@ -9,15 +9,16 @@ import (
 )
 
 func TestEncodeDecodeVars(t *testing.T) {
-	v := make(model.Vars)
+	v := model.NewVars()
 	ctx := context.Background()
 	v.SetInt64("first", 56)
 	v.SetString("second", "elvis")
 	v.SetFloat64("third", 5.98)
 
-	e, err := Encode(ctx, v)
+	e, err := v.Encode(ctx)
 	require.NoError(t, err)
-	d, err := Decode(ctx, e)
+	d := model.NewVars()
+	err = d.Decode(ctx, e)
 	require.NoError(t, err)
 	vFirst, err := d.GetInt64("first")
 	require.NoError(t, err)

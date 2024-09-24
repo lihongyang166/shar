@@ -46,7 +46,9 @@ func TestMessaging(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the processes
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": 57}})
+	launchVars := model.NewVars()
+	launchVars.SetInt64("orderId", 57)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: launchVars})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -152,7 +154,9 @@ func TestMessageStartEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	// send message
-	err = cl.SendMessage(ctx, "startDemoMsg", "", model.Vars{"customerID": 333})
+	msgVars := model.NewVars()
+	msgVars.SetInt64("customerID", 333)
+	err = cl.SendMessage(ctx, "startDemoMsg", "", msgVars)
 	require.NoError(t, err)
 
 	// listen for events from shar svr

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"os"
@@ -130,7 +131,7 @@ func (s *Integration) Setup() {
 	if IsNatsPersist() && !IsNatsContainerised() {
 		s.setupContainerServersFailedFn("NATS_PERSIST only usable with containerised nats")
 	}
-	s.FinalVars = make(map[string]interface{})
+	s.FinalVars = model2.NewServerVars()
 
 	zensvrOptions := []zensvr.ZenSharOptionApplyFn{
 		zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)),

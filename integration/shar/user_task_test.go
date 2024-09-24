@@ -33,7 +33,7 @@ func TestUserTasks(t *testing.T) {
 	//defer sub.Drain()
 
 	d := &testUserTaskHandlerDef{finished: make(chan struct{}), t: t}
-	d.finalVars = make(model.Vars)
+	d.finalVars = model.NewVars()
 
 	// Register service tasks
 	_, err := support.RegisterTaskYamlFile(ctx, cl, "user_task_test_Prepare.yaml", d.prepare)
@@ -50,7 +50,9 @@ func TestUserTasks(t *testing.T) {
 	err = cl.RegisterProcessComplete("TestUserTasks", d.processEnd)
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "TestUserTasks", Vars: model.Vars{"OrderId": 68}})
+	launchVars := model.NewVars()
+	launchVars.SetInt64("OrderId", 68)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "TestUserTasks", Vars: launchVars})
 	if err != nil {
 		panic(err)
 	}
@@ -139,7 +141,7 @@ func (d *testUserTaskHandlerDef) complete(_ context.Context, _ task.JobClient, v
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	d.finalVars = vars
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (d *testUserTaskHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

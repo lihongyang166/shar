@@ -105,7 +105,9 @@ func TestParallelJoiningGateway(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testParallelJoiningGateway-0-0-2-process-1", Vars: model.Vars{"testValue": testValueStartVal}})
+	launchVars := model.NewVars()
+	launchVars.SetInt64("testValue", testValueStartVal)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testParallelJoiningGateway-0-0-2-process-1", Vars: launchVars})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -151,7 +153,9 @@ func TestParallelJoiningGatewayWithDelay(t *testing.T) {
 	require.NoError(t, err)
 
 	err = cl.RegisterProcessComplete("testParallelJoiningGateway-2-0-0-process-1", func(ctx context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
-		assert.Equal(g.t, "branch_three_output", vars["sample"])
+		sample, err := vars.GetString("sample")
+		require.NoError(g.t, err)
+		assert.Equal(g.t, "branch_three_output", sample)
 		branchOne, err := vars.GetString("branch_one")
 		require.NoError(g.t, err)
 		branchTwo, err := vars.GetString("branch_two")

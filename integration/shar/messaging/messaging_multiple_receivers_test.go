@@ -117,6 +117,6 @@ func (x *testMessagingMultiReceiverHandlerDef) processEnd(ctx context.Context, v
 	orderId, err := vars.GetInt64("orderId")
 	require.NoError(x.t, err)
 	assert.Equal(x.t, int64(57), orderId)
-	assert.Equal(x.t, 1, len(vars))
+	assert.Equal(x.t, 1, vars.Len())
 	close(x.finished)
 }

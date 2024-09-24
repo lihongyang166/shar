@@ -8,10 +8,10 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"strings"
@@ -181,27 +181,28 @@ func (s *Engine) mergeGatewayVars(ctx context.Context, gw *model.Gateway) ([]byt
 	if len(gw.Vars) == 1 {
 		return gw.Vars[0], nil
 	}
-	base, err := vars.Decode(ctx, gw.Vars[0])
-	if err != nil {
+	base := model2.NewServerVars()
+	if err := base.Decode(ctx, gw.Vars[0]); err != nil {
 		return nil, fmt.Errorf("merge gateway vars failed to decode base variables: %w", err)
 	}
-	ret, err := vars.Decode(ctx, gw.Vars[0])
+	ret := model2.NewServerVars()
+	err := ret.Decode(ctx, gw.Vars[0])
 	if err != nil {
 		return nil, fmt.Errorf("merge gateway vars failed to decode initial variables: %w", err)
 	}
 	for i := 1; i < len(gw.Vars); i++ {
-		v2, err := vars.Decode(ctx, gw.Vars[i])
-		if err != nil {
+		v2 := model2.NewServerVars()
+		if err := v2.Decode(ctx, gw.Vars[i]); err != nil {
 			return nil, fmt.Errorf("merge gateway vars failed to decode variable set %d: %w", i, err)
 		}
-		for k, v := range v2 {
-			bv, ok := base[k]
+		for k, v := range v2.Vals {
+			bv, ok := base.Vals[k]
 			if !ok || bv != v {
-				ret[k] = v
+				ret.Vals[k] = v
 			}
 		}
 	}
-	retb, err := vars.Encode(ctx, ret)
+	retb, err := ret.Encode(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("merge gateway vars failed to encode variable set: %w", err)
 	}

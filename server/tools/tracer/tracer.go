@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"google.golang.org/protobuf/proto"
 	"regexp"
 )
@@ -37,13 +37,13 @@ func Trace(natsURL string) *OpenTrace {
 			if err != nil {
 				panic(err)
 			}
-			dc, err := vars.Decode(ctx, d.Vars)
+			dc := model2.NewServerVars()
 			var vrs string
-			if err != nil {
+			if err := dc.Decode(ctx, d.Vars); err != nil {
 				vrs = "[error]"
 			} else {
 				vrs = "["
-				for k, v := range dc {
+				for k, v := range dc.Vals {
 					vrs = vrs + "\"" + k + "\": " + fmt.Sprintf("%+v", v) + ", "
 				}
 				vrs = vrs + "]"

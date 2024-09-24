@@ -61,7 +61,9 @@ func TestConcurrentMessaging(t *testing.T) {
 	for inst := 0; inst < n; inst++ {
 		go func(inst int) {
 			// Launch the processes
-			if _, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": inst}}); err != nil {
+			launchVars := model.NewVars()
+			launchVars.SetInt64("orderId", int64(inst))
+			if _, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: launchVars}); err != nil {
 				require.NoError(t, err)
 			} else {
 				handlers.mx.Lock()
@@ -88,7 +90,7 @@ type testConcurrentMessagingHandlerDef struct {
 }
 
 func (x *testConcurrentMessagingHandlerDef) step1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testConcurrentMessagingHandlerDef) step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
@@ -98,7 +100,7 @@ func (x *testConcurrentMessagingHandlerDef) step2(_ context.Context, _ task.JobC
 	require.NoError(x.test, err)
 	assert.Equal(x.test, "carried1value", carried)
 	assert.Equal(x.test, "carried2value", carried2)
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testConcurrentMessagingHandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {

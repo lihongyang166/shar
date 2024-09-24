@@ -71,7 +71,10 @@ type errorHandledHandlerDef struct {
 // A "Hello World" service task
 func (d *errorHandledHandlerDef) mayFail(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	// Throw handled error
-	return model.Vars{"success": false, "myVar": 69}, &workflow.Error{Code: "101", WrappedError: errors.New("things went badly")}
+	retVars := model.NewVars()
+	retVars.SetBool("success", false)
+	retVars.SetInt64("myVar", 69)
+	return retVars, &workflow.Error{Code: "101", WrappedError: errors.New("things went badly")}
 }
 
 // A "Hello World" service task
@@ -83,7 +86,7 @@ func (d *errorHandledHandlerDef) fixSituation(_ context.Context, _ task.JobClien
 	assert.Equal(d.test, int64(69), testVal1)
 	assert.Equal(d.test, int64(32768), carried)
 	d.fixed = true
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (d *errorHandledHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

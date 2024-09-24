@@ -64,7 +64,9 @@ func TestTaskVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GetCapitalData_test", Vars: model.Vars{"city": "Dublin"}})
+	launchVars := model.NewVars()
+	launchVars.SetString("city", "Dublin")
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GetCapitalData_test", Vars: launchVars})
 	require.NoError(t, err)
 
 	// Listen for service tasks

@@ -6,6 +6,7 @@ import (
 	"gitlab.com/shar-workflow/shar/cli/output"
 	"golang.org/x/exp/slices"
 	"testing"
+	"time"
 )
 
 func TestExample(t *testing.T) {
@@ -30,6 +31,7 @@ func TestExample(t *testing.T) {
 	r9 := cmd[output.ExecutionOutput](t, "shar execution status "+r7.ExecutionID)
 	pIDs := r9.Process
 	pid0 := pIDs[0]
+	time.Sleep(1 * time.Second)
 	assert.Len(t, pIDs, 1)
 	assert.Len(t, pid0.State, 2)
 	ix := slices.IndexFunc(pid0.State, func(listOutput output.ProcessStatusListOutput) bool {

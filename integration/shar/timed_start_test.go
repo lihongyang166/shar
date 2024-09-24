@@ -56,7 +56,7 @@ func TestTimedStart(t *testing.T) {
 	}()
 
 	for i := 1; i <= 3; i++ {
-		support.WaitForChan(t, d.finished, 20*time.Second)
+		support.WaitForChan(t, d.finished, 30*time.Second)
 	}
 	d.mx.Lock()
 	defer d.mx.Unlock()

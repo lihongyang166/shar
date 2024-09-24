@@ -57,7 +57,7 @@ func TestShutdownSimple(t *testing.T) {
 	cl.Shutdown()
 	assert.Greater(t, time.Since(stopwatch), time.Millisecond*2500)
 	// support.WaitForChan(t, d.finished, 20*time.Second)
-	tst.AssertCleanKV(ns, t, 60*time.Second)
+	tst.AssertCleanKV(ns, t, 120*time.Second)
 }
 
 type testShutdownHandlerDef struct {

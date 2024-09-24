@@ -1,5 +1,5 @@
 # Top level Dockerfile building both SHAR server and SHAR telemetry images
-FROM golang:1.19.3-alpine as build-stage
+FROM golang:1.23.1-alpine as build-stage
 # default values (can be overridden with --build-arg option)
 ARG BINARY_VERSION="0.1.0"
 ARG COMMIT_HASH="12345abcd"

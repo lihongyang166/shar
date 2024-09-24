@@ -13,7 +13,7 @@
 # There is an open issue for the display problem on Gitlab where the image pushed from the above commands will show as 0B in size;
 # https://gitlab.com/gitlab-org/gitlab/-/issues/431048
 
-FROM --platform=$BUILDPLATFORM golang:1.23.0-alpine as build-stage
+FROM --platform=$BUILDPLATFORM golang:1.23.1-alpine as build-stage
 ARG BINARY_VERSION="0.1.0"
 ARG COMMIT_HASH="12345abcd"
 ARG CI_JOB_STARTED_AT

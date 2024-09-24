@@ -41,8 +41,6 @@ import (
 )
 
 // Ops is the interface for the Operations struct
-//
-//go:generate mockery
 type Ops interface {
 	GetTaskSpecUID(ctx context.Context, name string) (string, error)
 	GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error)
@@ -126,7 +124,7 @@ type Ops interface {
 // retrieving workflow-related information, and managing workflow execution.
 type Operations struct {
 	natsService    *natz.NatsService
-	sCache         *cache.SharCache[string, any]
+	sCache         cache.Backend[string, any]
 	publishTimeout time.Duration
 	sendMiddleware []middleware.Send
 	tr             trace.Tracer
@@ -139,11 +137,10 @@ func NewOperations(natsService *natz.NatsService) (*Operations, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create ristretto cache: %w", err)
 	}
-	sharCache := cache.NewSharCache[string, any](ristrettoCache)
 
 	return &Operations{
 		natsService:    natsService,
-		sCache:         sharCache,
+		sCache:         ristrettoCache,
 		publishTimeout: time.Second * 30,
 		sendMiddleware: []middleware.Send{telemetry.CtxSpanToNatsMsgMiddleware()},
 		tr:             otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
@@ -939,7 +936,6 @@ func (s *Operations) GetWorkflow(ctx context.Context, workflowID string) (*model
 	}
 
 	workflow, err := cache.Cacheable[string, *model.Workflow](workflowID, getWorkflowFn, s.sCache)
-	//workflow, err := getWorkflowFn()
 	if err != nil {
 		return nil, fmt.Errorf("error caching GetWorkflow: %w", err)
 	}

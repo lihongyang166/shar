@@ -9,7 +9,6 @@ import (
 
 func TestCacheHit(t *testing.T) {
 	var backend = &MockBackend[string, any]{}
-	cche := NewSharCache[string, any](backend)
 
 	isCachableFnCalled := false
 	key := "key"
@@ -21,7 +20,7 @@ func TestCacheHit(t *testing.T) {
 		return "h", nil
 	}
 
-	v, err := Cacheable[string, string](key, cacheableFn, cche)
+	v, err := Cacheable[string, string](key, cacheableFn, backend)
 
 	backend.AssertExpectations(t)
 	assert.NoError(t, err)
@@ -31,7 +30,6 @@ func TestCacheHit(t *testing.T) {
 
 func TestCacheHitIntKeyStringValue(t *testing.T) {
 	var backend = &MockBackend[int, any]{}
-	cche := NewSharCache[int, any](backend)
 
 	isCachableFnCalled := false
 	key := 3
@@ -43,7 +41,7 @@ func TestCacheHitIntKeyStringValue(t *testing.T) {
 		return "3", nil
 	}
 
-	v, err := Cacheable[int, string](key, cacheableFn, cche)
+	v, err := Cacheable[int, string](key, cacheableFn, backend)
 
 	backend.AssertExpectations(t)
 	assert.NoError(t, err)
@@ -53,7 +51,6 @@ func TestCacheHitIntKeyStringValue(t *testing.T) {
 
 func TestCacheMiss(t *testing.T) {
 	var backend = &MockBackend[string, any]{}
-	cache := NewSharCache[string, any](backend)
 
 	isCachableFnCalled := false
 	key := "key"
@@ -66,7 +63,7 @@ func TestCacheMiss(t *testing.T) {
 		return val, nil
 	}
 
-	v, err := Cacheable(key, cacheableFn, cache)
+	v, err := Cacheable(key, cacheableFn, backend)
 
 	backend.AssertExpectations(t)
 	assert.NoError(t, err)
@@ -76,7 +73,6 @@ func TestCacheMiss(t *testing.T) {
 
 func TestCacheMissError(t *testing.T) {
 	var backend = &MockBackend[string, any]{}
-	cache := NewSharCache[string, any](backend)
 
 	isCachableFnCalled := false
 	key := "key"
@@ -87,7 +83,7 @@ func TestCacheMissError(t *testing.T) {
 		return "", fmt.Errorf("test chache missL %w", errors.New("cacheableFn err"))
 	}
 
-	v, err := Cacheable[string, string](key, cacheableFn, cache)
+	v, err := Cacheable[string, string](key, cacheableFn, backend)
 
 	backend.AssertExpectations(t)
 	backend.AssertNotCalled(t, "Set")

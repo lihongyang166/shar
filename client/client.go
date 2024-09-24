@@ -164,7 +164,7 @@ type Client struct {
 	telemetryConfig                 telemetry.Config
 	SendMiddleware                  []middleware2.Send    `json:"send_middleware,omitempty"`
 	ReceiveMiddleware               []middleware2.Receive `json:"receive_middleware,omitempty"`
-	cache                           *cache.SharCache[string, any]
+	cache                           cache.Backend[string, any]
 }
 
 // New creates a new SHAR client instance
@@ -181,8 +181,6 @@ func New(option ...ConfigurationOption) *Client {
 	if err != nil {
 		panic(fmt.Errorf("create ristretto cache: %w", err))
 	}
-	cache := cache.NewSharCache[string, any](ristrettoCache)
-
 	c := &Client{
 		id:                              ksuid.New().String(),
 		host:                            host,
@@ -201,7 +199,7 @@ func New(option ...ConfigurationOption) *Client {
 		telemetryConfig:                 telemetry.Config{Enabled: false},
 		SendMiddleware:                  make([]middleware2.Send, 0),
 		ReceiveMiddleware:               make([]middleware2.Receive, 0),
-		cache:                           cache,
+		cache:                           ristrettoCache,
 	}
 	for _, i := range option {
 		i.configure(c)

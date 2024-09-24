@@ -7,8 +7,6 @@ import (
 )
 
 // Backend defines interface for a Backend
-//
-//go:generate mockery
 type Backend[K ristretto.Key, V any] interface {
 	Get(key K) (V, bool)
 	Set(key K, value V) bool
@@ -43,30 +41,18 @@ func NewRistrettoCacheBackend[K ristretto.Key, V any]() (*ristrettoCacheBackend[
 	return &ristrettoCacheBackend[K, V]{c: cache}, nil
 }
 
-// SharCache provides caching capabilities
-type SharCache[K ristretto.Key, V any] struct {
-	cacheBackend Backend[K, V]
-}
-
-// NewSharCache constructs a new SharCache
-func NewSharCache[K ristretto.Key, V any](backend Backend[K, V]) *SharCache[K, V] {
-	return &SharCache[K, V]{
-		cacheBackend: backend,
-	}
-}
-
 // Cacheable makes a function cacheable by the given key
 //
 //nolint:ireturn
-func Cacheable[K ristretto.Key, V any](key K, fn func() (V, error), c *SharCache[K, any]) (V, error) {
+func Cacheable[K ristretto.Key, V any](key K, fn func() (V, error), c Backend[K, any]) (V, error) {
 	var val V
-	tmpVal, cacheHit := c.cacheBackend.Get(key)
+	tmpVal, cacheHit := c.Get(key)
 	if !cacheHit {
 		retrievedVal, err := fn()
 		if err != nil {
 			return val, fmt.Errorf("error retrieving cacheable value for key %v: %w", key, err)
 		}
-		c.cacheBackend.Set(key, retrievedVal)
+		c.Set(key, retrievedVal)
 		val = retrievedVal
 	} else {
 		val = tmpVal.(V)

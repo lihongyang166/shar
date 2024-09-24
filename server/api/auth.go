@@ -21,8 +21,6 @@ type SharAuth struct {
 }
 
 // Auth is a struct with various methods to provide authentication and authorisation capabilities for the api
-//
-//go:generate mockery
 type Auth interface {
 	authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error)
 	authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error)

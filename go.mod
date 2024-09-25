@@ -1,8 +1,6 @@
 module gitlab.com/shar-workflow/shar
 
-go 1.22
-
-toolchain go1.22.3
+go 1.23.1
 
 require (
 	github.com/agoda-com/opentelemetry-go/otelslog v0.1.1

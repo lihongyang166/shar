@@ -6,7 +6,7 @@ streams:
         - WORKFLOW.System.Task.Update
         - WORKFLOW.System.Process.Pause
         - WORKFLOW.System.Process.Error
-        - WORKFLOW.System.Process.FatalError
+        - WORKFLOW.*.System.Process.FatalError
         - WORKFLOW.*.State.Job.Abort.*
         - WORKFLOW.*.State.Job.Complete.*
         - WORKFLOW.*.State.Activity.Abort
@@ -23,6 +23,7 @@ streams:
         - WORKFLOW.*.State.Job.Execute.Gateway
         - WORKFLOW.*.State.Job.Execute.Timer
         - WORKFLOW.*.State.Job.Execute.UserTask
+        - WORKFLOW.*.State.Job.Retry
         - WORKFLOW.*.State.Log.*
         - WORKFLOW.*.Message
         - WORKFLOW.*.State.Process.Complete
@@ -105,6 +106,13 @@ streams:
           filter_subject: WORKFLOW.*.State.Job.Complete.*
           max_ack_pending: 65535
       - nats-config:
+          durable_name: JobRetryConsumer
+          description: Job retry processing queue
+          ack_policy: 0
+          ack_wait: 30s
+          filter_subject: WORKFLOW.*.State.Job.Retry
+          max_ack_pending: 65535
+      - nats-config:
           durable_name: ActivityConsumer
           description: Activity complete processing queue
           ack_policy: 0
@@ -185,7 +193,7 @@ streams:
           description: Tracking queue for process fatal errors
           ack_policy: 0
           ack_wait: 30s
-          filter_subject: WORKFLOW.System.Process.FatalError
+          filter_subject: WORKFLOW.*.System.Process.FatalError
           max_ack_pending: 65535
 buckets:
   - nats-config:
@@ -255,4 +263,7 @@ buckets:
       description: ""
   - nats-config:
       bucket: WORKFLOW_MSGTYPES
+      description: ""
+  - nats-config:
+      bucket: WORKFLOW_FATAL_ERROR
       description: ""

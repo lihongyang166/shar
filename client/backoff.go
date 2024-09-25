@@ -51,7 +51,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	retryBehaviour := elem.RetryBehaviour
 
 	// Is this the last time to fail?
-	if uint32(meta.NumDelivered) >= retryBehaviour.Number { // nolint
+	if meta.NumDelivered >= uint64(retryBehaviour.Number) {
 		//TODO: Retries exceeded
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
@@ -73,6 +73,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			}
 			goto notifyRetryExceeded
 		case model.RetryErrorAction_PauseWorkflow:
+			c.signalFatalErr(ctx, state, slog.Default())
 			goto notifyRetryExceeded
 		case model.RetryErrorAction_SetVariableValue:
 			trackingID := common.TrackingID(state.Id).ID()
@@ -124,7 +125,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	strategy := retryBehaviour.Strategy
 	interval := retryBehaviour.IntervalMilli
 	ceiling := retryBehaviour.MaxMilli
-	deliveryCount := int64(meta.NumDelivered) // nolint
+	deliveryCount := int64(meta.NumDelivered) //nolint:gosec
 
 	offset = getOffset(strategy, initial, interval, deliveryCount, ceiling, messageTime)
 
@@ -156,8 +157,8 @@ func getOffset(strategy model.RetryStrategy, initial int64, interval int64, deli
 			offset = ceiling
 		}
 	}
-	if time.Since(messageTime) > time.Duration(offset)*time.Millisecond {
+	if time.Since(messageTime) > time.Duration(offset)*time.Millisecond { //nolint:gosec
 		offset = 0
 	}
-	return time.Duration(offset)
+	return time.Duration(offset) //nolint:gosec
 }

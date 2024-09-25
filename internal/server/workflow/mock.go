@@ -187,7 +187,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 
 	subject := messages.WorkflowJobServiceTaskExecute + ".*.Mock"
 
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, false, s.operations, params), s.operations.SignalFatalError)
+	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, false, s.operations, params), s.operations.SignalFatalErrorTeardown)
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}

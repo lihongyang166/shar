@@ -2,6 +2,7 @@ package cache
 
 import (
 	"fmt"
+
 	"github.com/dgraph-io/ristretto"
 )
 
@@ -15,23 +16,23 @@ type Backend interface {
 
 // ristrettoCacheBackend is a RistrettoCache implemenentation of Backend
 type ristrettoCacheBackend struct {
-	c *ristretto.Cache
+	c *ristretto.Cache[string, any]
 }
 
 // Get a value from the cache
 func (rcb *ristrettoCacheBackend) Get(key interface{}) (interface{}, bool) {
-	return rcb.c.Get(key)
+	return rcb.c.Get(key.(string))
 }
 
 // Set a value in the cache
 func (rcb *ristrettoCacheBackend) Set(key interface{}, value interface{}) bool {
-	return rcb.c.Set(key, value, 1)
+	return rcb.c.Set(key.(string), value, 1)
 }
 
 // NewRistrettoCacheBackend construct an instance of a ristrettoCacheBackend
 func NewRistrettoCacheBackend() (*ristrettoCacheBackend, error) {
 	cache, err := ristretto.NewCache(
-		&ristretto.Config{
+		&ristretto.Config[string, any]{
 			NumCounters: 1e7,
 			MaxCost:     1 << 30,
 			BufferItems: 64,

@@ -8,7 +8,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"log/slog"
 	"os"
 	"testing"
@@ -83,9 +82,9 @@ func TestFatalErrorPersistedWithPauseHandlingStrategy(t *testing.T) {
 	require.NoError(t, err)
 
 	execParams := []executionParams{
-		{startVars: model.Vars{}, expectingFailure: true},
-		{startVars: model.Vars{}, expectingFailure: true},
-		{startVars: model.Vars{}, expectingFailure: true},
+		{startVars: model.NewVars(), expectingFailure: true},
+		{startVars: model.NewVars(), expectingFailure: true},
+		{startVars: model.NewVars(), expectingFailure: true},
 	}
 
 	wfName, workflowId, executionIds, _ := runExecutions(t, ctx, cl, ns, execParams, willPanicAndCauseWorkflowFatalError)
@@ -131,11 +130,20 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
-	pId1 := 1
-	pId2 := 2
+	pId1 := int64(1)
+	pId2 := int64(2)
+
+	newVars1 := model.NewVars()
+	newVars1.SetBool("blowUp", false)
+	newVars1.SetInt64("pId", int64(pId1))
+
+	newVars2 := model.NewVars()
+	newVars2.SetBool("blowUp", true)
+	newVars2.SetInt64("pId", int64(pId2))
+
 	execParams := []executionParams{
-		{startVars: model.Vars{"blowUp": false, "pId": pId1}, expectingFailure: false},
-		{startVars: model.Vars{"blowUp": true, "pId": pId2}, expectingFailure: true},
+		{startVars: newVars1, expectingFailure: false},
+		{startVars: newVars2, expectingFailure: true},
 	}
 
 	wfName, workflowId, executionIds, completionChan := runExecutions(t, ctx, cl, ns, execParams, willConditionallyPanicDependingOnVar)
@@ -158,11 +166,12 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 	//attempt the retry here!!!
 	wfState := fatalErrors[0].WorkflowState
 
-	decodedVars, err := vars.Decode(ctx, wfState.Vars)
+	decodedVars := model.NewVars()
+	err = decodedVars.Decode(ctx, wfState.Vars)
 	require.NoError(t, err)
 
-	decodedVars["blowUp"] = false
-	encodedVars, err := vars.Encode(ctx, decodedVars)
+	decodedVars.SetBool("blowUp", false)
+	encodedVars, err := decodedVars.Encode(ctx)
 	require.NoError(t, err)
 
 	wfState.Vars = encodedVars
@@ -172,12 +181,14 @@ func TestRetryFatalErroredProcess(t *testing.T) {
 
 	//assert receipt of completion msg for both original and retried executions
 	support.WaitForChan(t, completionChan, time.Second*20, func(ele processCompletion) {
-		pId := ele.vars["pId"]
+		pId, err := ele.vars.GetInt64("pId")
+		assert.NoError(t, err)
 		assert.Equal(t, pId1, pId)
 	})
 
 	support.WaitForChan(t, completionChan, time.Second*20, func(ele processCompletion) {
-		pId := ele.vars["pId"]
+		pId, err := ele.vars.GetInt64("pId")
+		assert.NoError(t, err)
 		assert.Equal(t, pId2, pId)
 	})
 
@@ -271,7 +282,7 @@ func TestFatalErrorPersistedWhenRetriesAreExhaustedAndErrorActionIsPause(t *test
 	}
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.Vars{}})
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.NewVars()})
 	require.NoError(t, err)
 
 	workflowId := getWorkflowIdFrom(t, ctx, cl, wfName)
@@ -313,7 +324,7 @@ func (d *fatalErrorHandledHandlerDef) willResultInRetryExhaustion(ctx context.Co
 
 func willConditionallyPanicDependingOnVar(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	slog.Info("in willConditionallyPanicDependingOnVar", "vars", vars)
-	blowUp, _ := vars["blowUp"].(bool)
+	blowUp, _ := vars.GetBool("blowUp")
 	if blowUp {
 		panic(fmt.Errorf("BLOW UP, cause an ErrWorkflowFatal to be thrown"))
 	}

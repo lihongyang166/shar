@@ -24,36 +24,3 @@ type Vars interface {
 
 // ErrVarNotFound is returned when a variable is not found in the provided Vars map.
 var ErrVarNotFound = errors.New("variable not found")
-
-/*
-// toMap struct to map[string]interface{}
-func toMap(in interface{}) (map[string]interface{}, error) {
-	out := make(map[string]interface{})
-	v := reflect.ValueOf(in)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if v.Kind() != reflect.Struct { // Non-structural return error
-		return nil, fmt.Errorf("ToMap only accepts struct or struct pointer; got %T", v)
-	}
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		fi := t.Field(i)
-		out[fi.Name] = v.Field(i).Interface()
-	}
-	return out, nil
-}
-
-// toMap map[string]interface{} to struct
-func fromMap(m map[string]interface{}, s interface{}) error {
-	stValue := reflect.ValueOf(s).Elem()
-	sType := stValue.Type()
-	for i := 0; i < sType.NumField(); i++ {
-		field := sType.Field(i)
-		if value, ok := m[field.Name]; ok {
-			stValue.Field(i).Set(reflect.ValueOf(value))
-		}
-	}
-	return nil
-}
-*/

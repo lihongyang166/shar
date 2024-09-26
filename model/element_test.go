@@ -30,7 +30,7 @@ func TestVarsGet(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 77777.77777, f)
 
-	//y, err := model.Get[testType](vars, "4")
+	//y, err := model.get[testType](vars, "4")
 	//assert.NoError(t, err)
 	//assert.Equal(t, testType{1, "2"}, y)
 }

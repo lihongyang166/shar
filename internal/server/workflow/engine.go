@@ -563,7 +563,7 @@ func apErrFields(executionID, workflowID, elementID, elementName, elementType, w
 func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowState) error {
 	ctx, log := logx.ContextWith(ctx, "engine.completeJobProcessor")
 	// Validate if it safe to end this job
-	// Get the saved job state
+	// get the saved job state
 	if _, err := c.operations.GetProcessHistoryItem(ctx, job.ProcessInstanceId, common.TrackingID(job.Id).ParentID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		// We can't find the job's old state
 		return nil

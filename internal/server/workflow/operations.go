@@ -1062,7 +1062,7 @@ func (s *Operations) XDestroyProcessInstance(ctx context.Context, state *model.W
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
 	}
-	// Get the workflow
+	// get the workflow
 	wf := &model.Workflow{}
 	if execution.WorkflowId != "" {
 		if err := common.LoadObj(ctx, nsKVs.Wf, execution.WorkflowId, wf); err != nil {
@@ -1976,19 +1976,19 @@ func (s *Operations) GetCompensationOutputVariables(ctx context.Context, process
 // It returns an error if there was an issue retrieving the workflow definition, if the workflow
 // doesn't support the specified error code.
 func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, inVars []byte, state *model.WorkflowState) error {
-	// Get the workflow, so we can look up the error definitions
+	// get the workflow, so we can look up the error definitions
 	wf, err := c.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("get workflow definition for handle workflow error: %w", err)
 	}
 
-	// Get the element corresponding to the state
+	// get the element corresponding to the state
 	els := common.ElementTable(wf)
 
-	// Get the current element
+	// get the current element
 	el := els[state.ElementId]
 
-	// Get the errors supported by this workflow
+	// get the errors supported by this workflow
 	var found bool
 	wfErrs := make(map[string]*model.Error)
 	for _, v := range wf.Errors {
@@ -2017,7 +2017,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		return fmt.Errorf("workflow halted: %w", werr)
 	}
 
-	// Get the errors associated with this element
+	// get the errors associated with this element
 	var errDef *model.Error
 	var caughtError *model.CatchError
 	for _, v := range el.Errors {
@@ -2033,7 +2033,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		return errors.ErrUnhandledWorkflowError
 	}
 
-	// Get the target workflow activity
+	// get the target workflow activity
 	target := els[caughtError.Target]
 
 	activityStart, err := c.GetProcessHistoryItem(ctx, state.ProcessInstanceId, common.TrackingID(state.Id).Pop().ID(), model.ProcessHistoryType_activityExecute)

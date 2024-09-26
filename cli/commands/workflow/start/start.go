@@ -58,7 +58,7 @@ func run(cmd *cobra.Command, args []string) error {
 		// Connect to a server
 		nc, _ := nats.Connect(nats.DefaultURL)
 
-		// Get Jetstream
+		// get Jetstream
 		js, err := jetstream.New(nc)
 		if err != nil {
 			panic(err)

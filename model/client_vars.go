@@ -24,9 +24,9 @@ func NewVars() *ClientVars {
 	}
 }
 
-// Get takes the desired return type as parameter and safely searches the map and returns the value
+// get takes the desired return type as parameter and safely searches the map and returns the value
 // if it is found and is of the desired type.
-func Get[V any](vars *ClientVars, key string) (V, error) { //nolint:ireturn
+func get[V any](vars *ClientVars, key string) (V, error) { //nolint:ireturn
 	// v is the return type value
 	var v V
 
@@ -45,7 +45,7 @@ func Get[V any](vars *ClientVars, key string) (V, error) { //nolint:ireturn
 // GetString validates that a key has an underlying value in the map[string]interface{} vars
 // and safely returns the result.
 func (vars *ClientVars) GetString(key string) (string, error) {
-	v, err := Get[string](vars, key)
+	v, err := get[string](vars, key)
 	if err != nil {
 		return "", fmt.Errorf("getString: %w", err)
 	}
@@ -82,7 +82,7 @@ func (vars *ClientVars) GetInt64(key string) (int64, error) {
 // GetBool validates that a key has an underlying value in the map[int]interface{} vars
 // and safely returns the result.
 func (vars *ClientVars) GetBool(key string) (bool, error) {
-	v, err := Get[bool](vars, key)
+	v, err := get[bool](vars, key)
 	if err != nil {
 		return false, fmt.Errorf("getBool: %w", err)
 	}
@@ -92,7 +92,7 @@ func (vars *ClientVars) GetBool(key string) (bool, error) {
 // GetFloat64 validates that a key has an underlying value in the map[int]interface{} vars
 // and safely returns the result.
 func (vars *ClientVars) GetFloat64(key string) (float64, error) {
-	return Get[float64](vars, key)
+	return get[float64](vars, key)
 }
 
 // SetString sets a string value for the specified key in the Vars map.
@@ -146,8 +146,8 @@ func (vars *ClientVars) Keys() iter.Seq[string] {
 	return maps.Keys(vars.vals)
 }
 
-// Unmarshal unmarshals a SHAR compatible map-portable (map[string]interface{}) var into a struct
-func Unmarshal[T any](vars *ClientVars, key string) (*T, error) {
+// GetStruct unmarshals a SHAR variable into a struct.
+func GetStruct[T any](vars *ClientVars, key string) (*T, error) {
 	t := new(T)
 	k, ok := vars.vals[key]
 	if !ok {
@@ -168,8 +168,11 @@ func Unmarshal[T any](vars *ClientVars, key string) (*T, error) {
 	return t, nil
 }
 
-// Marshal marshals a struct into a SHAR compatible map-portable (map[string]interface{}) var
-func Marshal[T any](v *ClientVars, key string, t *T) error {
+// SetStruct marshals a struct into a SHAR variable.
+func SetStruct[T any](v *ClientVars, key string, t *T) error {
+	if err := scanType(t); err != nil {
+		return fmt.Errorf("set struct: %w", err)
+	}
 	b, err := json.Marshal(t)
 	if err != nil {
 		return fmt.Errorf("marshal struct json %s: %w", key, err)
@@ -179,5 +182,36 @@ func Marshal[T any](v *ClientVars, key string, t *T) error {
 		return fmt.Errorf("unmarshal struct json %s: %w", key, err)
 	}
 	(*v).vals[key] = mp
+	return nil
+}
+
+func scanType[T any](t *T) error {
+	tp := reflect.TypeOf(t).Elem()
+	if err := scanReflect(tp); err != nil {
+		return fmt.Errorf("type contains fields incompatible with SHAR variables: %w", err)
+	}
+	return nil
+}
+
+func scanReflect(t reflect.Type) error {
+	fmt.Println(t.Name())
+	if t.Kind() != reflect.Struct {
+		return fmt.Errorf("type %s is not a struct", t.Name())
+	}
+	for i := 0; i < t.NumField(); i++ {
+		fld := t.Field(i)
+		switch fld.Type.Kind() {
+		case reflect.Int64:
+		case reflect.Float64:
+		case reflect.Bool:
+		case reflect.String:
+		case reflect.Struct:
+			if err := scanReflect(fld.Type); err != nil {
+				return fmt.Errorf("validate struct %s: %w", t.Name(), err) // nolint
+			}
+		default:
+			return fmt.Errorf("field %s (%s) is not of a permitted type", fld.Name, fld.Type.Name())
+		}
+	}
 	return nil
 }

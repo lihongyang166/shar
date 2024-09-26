@@ -1243,7 +1243,7 @@ func (c *Client) retryNotifier(ctx context.Context, msg jetstream.Msg) (context.
 		if err := proto.Unmarshal(msg.Data(), state); err != nil {
 			return nil, fmt.Errorf("retry notifier: %w", err)
 		}
-		// Get the workflow this task belongs to
+		// get the workflow this task belongs to
 		wf, err := c.GetWorkflow(ctx, state.WorkflowId)
 		if err != nil {
 			if errors.Is(err, errors2.ErrWorkflowNotFound) {

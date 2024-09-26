@@ -28,10 +28,26 @@ func TestExample(t *testing.T) {
 	assert.NotEmpty(t, r7.WorkflowID)
 	r8 := cmd[output.ListExecutionOutput](t, "shar execution list SimpleWorkflowTest")
 	assert.Len(t, r8.Execution, 1)
-	r9 := cmd[output.ExecutionOutput](t, "shar execution status "+r7.ExecutionID)
-	pIDs := r9.Process
-	pid0 := pIDs[0]
-	time.Sleep(1 * time.Second)
+	var r9 output.ExecutionOutput
+	var pIDs []output.ProcessInstanceOutput
+	var pid0 output.ProcessInstanceOutput
+
+	ts := time.Now()
+	for {
+		r9 = cmd[output.ExecutionOutput](t, "shar execution status "+r7.ExecutionID)
+		pIDs = r9.Process
+		pid0 = pIDs[0]
+		if len(pid0.State) < 2 {
+			if time.Since(ts) > 20*time.Second {
+				assert.Fail(t, "Timed out")
+				break
+			}
+			time.Sleep(1 * time.Second)
+		} else {
+			break
+		}
+	}
+
 	assert.Len(t, pIDs, 1)
 	assert.Len(t, pid0.State, 2)
 	ix := slices.IndexFunc(pid0.State, func(listOutput output.ProcessStatusListOutput) bool {

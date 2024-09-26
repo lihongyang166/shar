@@ -28,12 +28,12 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 		return fmt.Errorf("service task listener: %w", err)
 	}
 
-	// Get the metadata including delivery attempts
+	// get the metadata including delivery attempts
 	meta, err := msg.Metadata()
 	if err != nil {
 		return fmt.Errorf("fetching message metadata")
 	}
-	// Get the workflow this task belongs to
+	// get the workflow this task belongs to
 	wf, err := c.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		if errors.Is(err, errors2.ErrWorkflowNotFound) {

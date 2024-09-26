@@ -1,7 +1,5 @@
 package server
 
-//go:generate mockery
-
 import (
 	"context"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"

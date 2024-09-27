@@ -10,6 +10,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/segmentio/ksuid"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/cache"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/expression"
@@ -26,7 +27,6 @@ import (
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/services/cache"
 	"gitlab.com/shar-workflow/shar/server/services/natz"
 	"gitlab.com/shar-workflow/shar/server/vars"
 	"go.opentelemetry.io/otel"
@@ -42,8 +42,6 @@ import (
 )
 
 // Ops is the interface for the Operations struct
-//
-//go:generate mockery
 type Ops interface {
 	GetTaskSpecUID(ctx context.Context, name string) (string, error)
 	GetTaskSpecVersions(ctx context.Context, name string) (*model.TaskSpecVersions, error)
@@ -127,7 +125,7 @@ type Ops interface {
 // retrieving workflow-related information, and managing workflow execution.
 type Operations struct {
 	natsService    *natz.NatsService
-	sCache         *cache.SharCache
+	sCache         cache.Backend[string, any]
 	publishTimeout time.Duration
 	sendMiddleware []middleware.Send
 	tr             trace.Tracer
@@ -136,15 +134,14 @@ type Operations struct {
 
 // NewOperations constructs a new Operations instance
 func NewOperations(natsService *natz.NatsService) (*Operations, error) {
-	ristrettoCache, err := cache.NewRistrettoCacheBackend()
+	ristrettoCache, err := cache.NewRistrettoCacheBackend[string, any]()
 	if err != nil {
 		return nil, fmt.Errorf("create ristretto cache: %w", err)
 	}
-	sharCache := cache.NewSharCache(ristrettoCache)
 
 	return &Operations{
 		natsService:    natsService,
-		sCache:         sharCache,
+		sCache:         ristrettoCache,
 		publishTimeout: time.Second * 30,
 		sendMiddleware: []middleware.Send{telemetry.CtxSpanToNatsMsgMiddleware()},
 		tr:             otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
@@ -939,7 +936,7 @@ func (s *Operations) GetWorkflow(ctx context.Context, workflowID string) (*model
 		return wf, nil
 	}
 
-	workflow, err := cache.Cacheable(workflowID, getWorkflowFn, s.sCache)
+	workflow, err := cache.Cacheable[string, *model.Workflow](workflowID, getWorkflowFn, s.sCache)
 	if err != nil {
 		return nil, fmt.Errorf("error caching GetWorkflow: %w", err)
 	}

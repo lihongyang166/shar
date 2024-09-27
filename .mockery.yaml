@@ -9,7 +9,7 @@ packages:
   gitlab.com/shar-workflow/shar/telemetry/server:
     Exporter:
       recursive: True
-  gitlab.com/shar-workflow/shar/server/services/cache:
+  gitlab.com/shar-workflow/shar/common/cache:
     Backend:
       recursive: True
   gitlab.com/shar-workflow/shar/internal/server/workflow:

@@ -29,7 +29,7 @@ func TestSimpleProcessStatus(t *testing.T) {
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
-	d := &testSimpleProcessStatsHandlerDef{t: t, finished: make(chan struct{}), waiter: make(chan struct{})}
+	d := &testSimpleProcessStatsHandlerDef{t: t, finished: make(chan struct{}), waiter: make(chan struct{}), cl: cl, ctx: ctx, execId: make(chan string, 1)}
 
 	// Register a service task
 	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple_process_status_test.yaml", d.integrationSimple)
@@ -52,23 +52,8 @@ func TestSimpleProcessStatus(t *testing.T) {
 	// Launch the workflow
 	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
 	require.NoError(t, err)
-	select {
-	case <-d.waiter:
-	case <-time.After(time.Second * 10):
-		assert.FailNow(t, "timed out waiting for process")
-	}
 
-	piResponse, err := cl.ListExecutionProcesses(ctx, executionId)
-	require.NoError(t, err)
-
-	require.True(t, len(piResponse.ProcessInstanceId) == 1, "only expecting a single process instance")
-	processHistory, err := cl.GetProcessInstanceStatus(ctx, piResponse.ProcessInstanceId[0])
-	require.NoError(t, err)
-
-	slog.Info("###", "processHistory", processHistory)
-	assert.True(t, slices.IndexFunc(processHistory, func(entry *model.ProcessHistoryEntry) bool {
-		return *entry.Execute == "SimpleProcess"
-	}) >= 0, "expected process instance status to be svc task SimpleProcess")
+	d.execId <- executionId
 
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 120*time.Second)
@@ -78,10 +63,25 @@ type testSimpleProcessStatsHandlerDef struct {
 	t        *testing.T
 	finished chan struct{}
 	waiter   chan struct{}
+	cl       *client.Client
+	ctx      context.Context
+	execId   chan string
 }
 
-func (d *testSimpleProcessStatsHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	close(d.waiter)
+func (d *testSimpleProcessStatsHandlerDef) integrationSimple(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
+	executionId := <-d.execId
+	piResponse, err := d.cl.ListExecutionProcesses(d.ctx, executionId)
+	require.NoError(d.t, err)
+
+	require.True(d.t, len(piResponse.ProcessInstanceId) == 1, "only expecting a single process instance")
+	processHistory, err := d.cl.GetProcessInstanceStatus(ctx, piResponse.ProcessInstanceId[0])
+	require.NoError(d.t, err)
+
+	slog.Info("###", "processHistory", processHistory)
+	assert.True(d.t, slices.IndexFunc(processHistory, func(entry *model.ProcessHistoryEntry) bool {
+		return *entry.Execute == "SimpleProcess"
+	}) >= 0, "expected process instance status to be svc task SimpleProcess")
+
 	fmt.Println("Hi")
 	carried, err := vars.GetInt64("carried")
 	require.NoError(d.t, err)

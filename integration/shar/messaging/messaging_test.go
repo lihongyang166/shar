@@ -46,7 +46,9 @@ func TestMessaging(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the processes
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": 57}})
+	launchVars := model.NewVars()
+	launchVars.SetInt64("orderId", 57)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: launchVars})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -152,7 +154,9 @@ func TestMessageStartEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	// send message
-	err = cl.SendMessage(ctx, "startDemoMsg", "", model.Vars{"customerID": 333})
+	msgVars := model.NewVars()
+	msgVars.SetInt64("customerID", 333)
+	err = cl.SendMessage(ctx, "startDemoMsg", "", msgVars)
 	require.NoError(t, err)
 
 	// listen for events from shar svr
@@ -196,7 +200,9 @@ func TestAwaitMessageFatalErr(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the processes
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": 57}})
+	newVars := model.NewVars()
+	newVars.SetInt64("orderId", 57)
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: newVars})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -230,7 +236,7 @@ func (x *testMessagingHandlerDef) step1(ctx context.Context, client task.JobClie
 	logger := client.Logger()
 	logger.Info("step 1")
 	logger.Info("a sample client log")
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testMessagingHandlerDef) step2(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
@@ -239,21 +245,27 @@ func (x *testMessagingHandlerDef) step2(ctx context.Context, client task.JobClie
 	x.tst.Mx.Lock()
 	x.tst.FinalVars = vars
 	x.tst.Mx.Unlock()
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testMessagingHandlerDef) sendMessage(ctx context.Context, client task.MessageClient, vars model.Vars) error {
 	logger := client.Logger()
 	logger.Info("Sending Message...")
 	logger.Info("A sample messaging log")
-	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
+	newVars := model.NewVars()
+	carried, err := vars.GetString("carried")
+	require.NoError(x.t, err)
+	newVars.SetString("carried", carried)
+	if err := client.SendMessage(ctx, "continueMessage", 57, newVars); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil
 }
 
 func (x *testMessagingHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(x.t, 57, vars["orderId"])
+	orderId, err := vars.GetInt64("orderId")
+	require.NoError(x.t, err)
+	assert.Equal(x.t, int64(57), orderId)
 	close(x.finished)
 }
 
@@ -265,12 +277,15 @@ type messageStartEventWorkflowEventHandler struct {
 func (mse *messageStartEventWorkflowEventHandler) simpleServiceTaskHandler(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	logger := client.Logger()
 	logger.Info("simpleServiceTaskHandler")
-	actualCustomerId := vars["customerID"]
-	assert.Equal(mse.t, 333, actualCustomerId)
+	actualCustomerId, err := vars.GetInt64("customerID")
+	require.NoError(mse.t, err)
+	assert.Equal(mse.t, int64(333), actualCustomerId)
 	return vars, nil
 }
 
 func (mse *messageStartEventWorkflowEventHandler) processEnd(_ context.Context, vars model.Vars, _ *model.Error, _ model.CancellationState) {
-	assert.Equal(mse.t, 333, vars["customerID"])
+	customerId, err := vars.GetInt64("customerID")
+	require.NoError(mse.t, err)
+	assert.Equal(mse.t, int64(333), customerId)
 	close(mse.completed)
 }

@@ -179,9 +179,13 @@ type testSimpleDeprecateHandlerDef struct {
 func (d *testSimpleDeprecateHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
 	<-d.wait
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	assert.Equal(d.t, 42, vars["localVar"].(int))
-	vars["Success"] = true
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
+	localVar, err := vars.GetInt64("localVar")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(42), localVar)
+	vars.SetBool("Success", true)
 	return vars, nil
 }
 

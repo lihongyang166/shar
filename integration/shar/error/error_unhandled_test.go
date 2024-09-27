@@ -73,15 +73,21 @@ type testErrorUnhandledHandlerDef struct {
 // A "Hello World" service task
 func (d *testErrorUnhandledHandlerDef) mayFail(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Throw unhandled error")
-	return model.Vars{"success": false}, &workflow.Error{Code: "102"}
+	retVars := model.NewVars()
+	retVars.SetBool("success", false)
+	return retVars, &workflow.Error{Code: "102"}
 }
 
 // A "Hello World" service task
 func (d *testErrorUnhandledHandlerDef) fixSituation(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Fixing")
-	fmt.Println("carried", vars["carried"])
+	carried, err := vars.GetInt64("carried")
+	if err != nil {
+		return nil, fmt.Errorf("get carried: %w", err)
+	}
+	fmt.Println("carried", carried)
 	d.fixed = true
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (d *testErrorUnhandledHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

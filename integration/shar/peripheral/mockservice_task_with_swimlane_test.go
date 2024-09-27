@@ -55,7 +55,9 @@ func TestMockServiceTaskWithSwimlane(t *testing.T) {
 	}()
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testSwimlaneProcess-0-0-5-process-1", Vars: model.Vars{"orderId": "dummyOrder"}})
+	newVars := model.NewVars()
+	newVars.SetString("orderId", "dummyOrder")
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "testSwimlaneProcess-0-0-5-process-1", Vars: newVars})
 	require.NoError(t, err)
 
 	go func() {
@@ -79,7 +81,14 @@ func (d *testSimpleHandlerDef) processEnd(_ context.Context, _ model.Vars, _ *mo
 }
 
 func (x *testSimpleHandlerDef) sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
-	if err := cmd.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"carried": vars["carried"], "orderId": vars["orderId"]}); err != nil {
+	msgVars := model.NewVars()
+	carried, err := vars.GetString("carried")
+	require.NoError(x.t, err)
+	orderId, err := vars.GetString("orderId")
+	require.NoError(x.t, err)
+	msgVars.SetString("carried", carried)
+	msgVars.SetString("orderId", orderId)
+	if err := cmd.SendMessage(ctx, "continueMessage", orderId, msgVars); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil

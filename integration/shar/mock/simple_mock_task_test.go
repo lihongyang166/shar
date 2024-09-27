@@ -41,7 +41,10 @@ func TestSimpleMockTask(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.Vars{"carried": 32768, "errorCode": ""}})
+	newVars := model.NewVars()
+	newVars.SetInt64("carried", 32768)
+	newVars.SetString("errorCode", "")
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: newVars})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
@@ -59,6 +62,10 @@ type testSimpleMockTaskHandlerDef struct {
 
 func (d *testSimpleMockTaskHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	close(d.finished)
-	assert.Equal(d.t, vars["carried"], 32768)
-	assert.Equal(d.t, vars["processVar"], 142)
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	processVar, err := vars.GetInt64("processVar")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
+	assert.Equal(d.t, int64(142), processVar)
 }

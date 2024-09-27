@@ -22,6 +22,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -311,8 +312,8 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 	var reterr error
 	var hasStartEvents bool
 
-	testVars, err := vars.Decode(ctx, vrs)
-	if err != nil {
+	testVars := model2.NewServerVars()
+	if err := testVars.Decode(ctx, vrs); err != nil {
 		return fmt.Errorf("decode variables during launch: %w", err)
 	}
 
@@ -326,7 +327,7 @@ func (c *Operations) launchProcess(ctx context.Context, ID common.TrackingID, pr
 					return fmt.Errorf("extract variables from workflow during launch: %w", err)
 				}
 				for _, ev := range evs {
-					if _, ok := testVars[ev.Name]; !ok {
+					if _, ok := testVars.Vals[ev.Name]; !ok {
 						return fmt.Errorf("workflow expects variable '%s': %w", ev, errors.ErrExpectedVar)
 					}
 				}
@@ -1058,7 +1059,7 @@ func (s *Operations) XDestroyProcessInstance(ctx context.Context, state *model.W
 	if err != nil {
 		return fmt.Errorf("x destroy process instance, kill process instance: %w", err)
 	}
-	// Get the workflow
+	// get the workflow
 	wf := &model.Workflow{}
 	if execution.WorkflowId != "" {
 		if err := common.LoadObj(ctx, nsKVs.Wf, execution.WorkflowId, wf); err != nil {
@@ -1855,8 +1856,8 @@ func (s *Operations) StartJob(ctx context.Context, subject string, job *model.Wo
 	}
 	// if this is a user task, find out who can perform it
 	if el.Type == element.UserTask {
-		vx, err := vars.Decode(ctx, v)
-		if err != nil {
+		vx := model2.NewServerVars()
+		if err := vx.Decode(ctx, v); err != nil {
 			return &errors.ErrWorkflowFatal{Err: fmt.Errorf("start job failed to decode input variables: %w", err)}
 		}
 
@@ -1924,9 +1925,9 @@ func (s *Operations) StartJob(ctx context.Context, subject string, job *model.Wo
 }
 
 // evaluateOwners builds a list of groups
-func (s *Operations) evaluateOwners(ctx context.Context, owners string, vars model.Vars) ([]string, error) {
+func (s *Operations) evaluateOwners(ctx context.Context, owners string, vars *model2.ServerVars) ([]string, error) {
 	jobGroups := make([]string, 0)
-	groups, err := expression.Eval[interface{}](ctx, s.exprEngine, owners, vars)
+	groups, err := expression.Eval[interface{}](ctx, s.exprEngine, owners, vars.Vals)
 	if err != nil {
 		return nil, &errors.ErrWorkflowFatal{Err: err}
 	}
@@ -1972,19 +1973,19 @@ func (s *Operations) GetCompensationOutputVariables(ctx context.Context, process
 // It returns an error if there was an issue retrieving the workflow definition, if the workflow
 // doesn't support the specified error code.
 func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, inVars []byte, state *model.WorkflowState) error {
-	// Get the workflow, so we can look up the error definitions
+	// get the workflow, so we can look up the error definitions
 	wf, err := c.GetWorkflow(ctx, state.WorkflowId)
 	if err != nil {
 		return fmt.Errorf("get workflow definition for handle workflow error: %w", err)
 	}
 
-	// Get the element corresponding to the state
+	// get the element corresponding to the state
 	els := common.ElementTable(wf)
 
-	// Get the current element
+	// get the current element
 	el := els[state.ElementId]
 
-	// Get the errors supported by this workflow
+	// get the errors supported by this workflow
 	var found bool
 	wfErrs := make(map[string]*model.Error)
 	for _, v := range wf.Errors {
@@ -2013,7 +2014,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		return fmt.Errorf("workflow halted: %w", werr)
 	}
 
-	// Get the errors associated with this element
+	// get the errors associated with this element
 	var errDef *model.Error
 	var caughtError *model.CatchError
 	for _, v := range el.Errors {
@@ -2029,7 +2030,7 @@ func (c *Operations) HandleWorkflowError(ctx context.Context, errorCode string, 
 		return errors.ErrUnhandledWorkflowError
 	}
 
-	// Get the target workflow activity
+	// get the target workflow activity
 	target := els[caughtError.Target]
 
 	activityStart, err := c.GetProcessHistoryItem(ctx, state.ProcessInstanceId, common.TrackingID(state.Id).Pop().ID(), model.ProcessHistoryType_activityExecute)

@@ -66,13 +66,15 @@ func (d *testSimpleRetryThrowWorkflowErrorHandlerDef) integrationSimple(_ contex
 }
 
 func (d *testSimpleRetryThrowWorkflowErrorHandlerDef) integrationError(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	vars["processVar"] = 69
+	vars.SetInt64("processVar", 69)
 
 	return vars, nil
 }
 
 func (d *testSimpleRetryThrowWorkflowErrorHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
+	processVar, err := vars.GetInt64("processVar")
+	require.NoError(d.t, err)
 	assert.Equal(d.t, model.CancellationState_completed, state)
-	assert.Equal(d.t, vars["processVar"], 69)
+	assert.Equal(d.t, int64(69), processVar)
 	close(d.finished)
 }

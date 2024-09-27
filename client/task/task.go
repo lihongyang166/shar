@@ -9,7 +9,7 @@ import (
 // JobClient represents a client that is sent to all service tasks to facilitate logging.
 type JobClient interface {
 	LogClient
-	OriginalVars() (input map[string]interface{}, output map[string]interface{})
+	OriginalVars() (input model.Vars, output model.Vars)
 	Headers(ctx context.Context) (map[string]string, error)
 }
 

@@ -51,8 +51,11 @@ func TestMessagingMultipleReceivers(t *testing.T) {
 	err = cl.RegisterProcessComplete("Process_03llwnm", handlers.processEnd)
 	require.NoError(t, err)
 
+	newVars := model.NewVars()
+	newVars.SetInt64("orderId", 57)
+
 	// Launch the processes
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: model.Vars{"orderId": 57}})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: newVars})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -79,7 +82,7 @@ func (x *testMessagingMultiReceiverHandlerDef) step1(ctx context.Context, client
 	logger := client.Logger()
 	logger.Info("Step 1")
 
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
@@ -88,26 +91,32 @@ func (x *testMessagingMultiReceiverHandlerDef) step2(ctx context.Context, client
 	x.tst.Mx.Lock()
 	x.tst.FinalVars = vars
 	x.tst.Mx.Unlock()
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) step3(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
 	logger := client.Logger()
 	logger.Info("step 3")
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) sendMessage(ctx context.Context, client task.MessageClient, vars model.Vars) error {
 	logger := client.Logger()
 	logger.Info("Sending Message...")
-	if err := client.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]}); err != nil {
+	carried, err := vars.GetString("carried")
+	require.NoError(x.t, err)
+	newVars := model.NewVars()
+	newVars.SetString("carried", carried)
+	if err := client.SendMessage(ctx, "continueMessage", 57, newVars); err != nil {
 		return fmt.Errorf("send continue message: %w", err)
 	}
 	return nil
 }
 
 func (x *testMessagingMultiReceiverHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(x.t, 57, vars["orderId"])
-	assert.Equal(x.t, 1, len(vars))
+	orderId, err := vars.GetInt64("orderId")
+	require.NoError(x.t, err)
+	assert.Equal(x.t, int64(57), orderId)
+	assert.Equal(x.t, 1, vars.Len())
 	close(x.finished)
 }

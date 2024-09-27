@@ -15,10 +15,10 @@ import (
 	"gitlab.com/shar-workflow/shar/common/setup/upgrader"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/workflow"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
@@ -193,8 +193,8 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 			if err != nil {
 				return false, fmt.Errorf("service task locator: %w", errors.ErrWorkflowFatal{Err: err})
 			}
-			dv, err := vars.Decode(ctx, job.Vars)
-			if err != nil {
+			dv := model2.NewServerVars()
+			if err := dv.Decode(ctx, job.Vars); err != nil {
 				log.Error("decode vars", "error", err, slog.String("fn", *job.Execute))
 				return false, fmt.Errorf("decode service task job variables: %w", err)
 			}
@@ -203,7 +203,7 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 				if !noRecovery {
 					defer func() {
 						if r := recover(); r != nil {
-							v = model.Vars{}
+							v = model.NewVars()
 							e = &errors.ErrWorkflowFatal{Err: fmt.Errorf("call to service task \"%s\" terminated in panic: %w", *ut.Execute, r.(error)), State: ut}
 						}
 					}()
@@ -215,7 +215,7 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 				var handled bool
 				wfe := &workflow.Error{}
 				if errors2.As(err, &wfe) {
-					v, err := vars.Encode(ctx, newVars)
+					v, err := newVars.Encode(ctx)
 					if err != nil {
 						return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("encode service task variables: %w", err)}
 					}
@@ -270,8 +270,8 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 				return false, fmt.Errorf("msgFn locator: %w", errors.ErrWorkflowFatal{Err: err})
 			}
 
-			dv, err := vars.Decode(ctx, job.Vars)
-			if err != nil {
+			dv := model2.NewServerVars()
+			if err := dv.Decode(ctx, job.Vars); err != nil {
 				log.Error("decode vars", "error", err, slog.String("fn", *job.Execute))
 				return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("decode send message variables: %w", err)}
 			}
@@ -285,7 +285,8 @@ func ClientProcessFn(ackTimeout time.Duration, counter *atomic.Int64, noRecovery
 				log.Warn("nats listener", "error", err)
 				return false, err
 			}
-			if err := params.MsgSendCompleter(ctx, trackingID, make(map[string]any)); errors.IsWorkflowFatal(err) {
+			empty := model2.NewServerVars()
+			if err := params.MsgSendCompleter(ctx, trackingID, empty); errors.IsWorkflowFatal(err) {
 				log.Error("a fatal error occurred in message sender "+*job.Execute, "error", err)
 			} else if err != nil {
 				log.Error("API error", "error", err)

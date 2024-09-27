@@ -17,6 +17,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -163,13 +164,13 @@ func (c *Engine) traverse(ctx context.Context, _ *model.ProcessInstance, trackin
 		ok := true
 		for _, ex := range t.Conditions {
 			// TODO: Cache compilation.
-			exVars, err := vars.Decode(ctx, ws.Vars)
-			if err != nil {
+			exVars := model2.NewServerVars()
+			if err := exVars.Decode(ctx, ws.Vars); err != nil {
 				return fmt.Errorf("decode variables for condition evaluation: %w", err)
 			}
 
 			// evaluate the condition
-			res, err := expression.Eval[bool](ctx, c.exprEngine, ex, exVars)
+			res, err := expression.Eval[bool](ctx, c.exprEngine, ex, exVars.Vals)
 			if err != nil {
 				return &errors.ErrWorkflowFatal{Err: err}
 			}
@@ -333,11 +334,12 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			timerState.Execute = &ai.Target
 			timerState.UnixTimeNano = time.Now().UnixNano()
 			timerState.Timer = &model.WorkflowTimer{LastFired: 0, Count: 0}
-			v, err := vars.Decode(ctx, traversal.Vars)
+			v := model2.NewServerVars()
+			err := v.Decode(ctx, traversal.Vars)
 			if err != nil {
 				return fmt.Errorf("decode boundary timer variable: %w", err)
 			}
-			res, err := expression.EvalAny(ctx, c.exprEngine, i.Duration, v)
+			res, err := expression.EvalAny(ctx, c.exprEngine, i.Duration, v.Vals)
 			if err != nil {
 				return fmt.Errorf("evaluate boundary timer expression: %w", err)
 			}
@@ -442,11 +444,12 @@ func (c *Engine) activityStartProcessor(ctx context.Context, newActivityID strin
 			return engineErr(ctx, "start await message task job", err, apErrFields(pi.ProcessInstanceId, pi.WorkflowId, el.Id, el.Name, el.Type, workflow.Name)...)
 		}
 	case element.TimerIntermediateCatchEvent:
-		varmap, err := vars.Decode(ctx, traversal.Vars)
+		varmap := model2.NewServerVars()
+		err := varmap.Decode(ctx, traversal.Vars)
 		if err != nil {
 			return &errors.ErrWorkflowFatal{Err: err}
 		}
-		ret, err := expression.EvalAny(ctx, c.exprEngine, el.Execute, varmap)
+		ret, err := expression.EvalAny(ctx, c.exprEngine, el.Execute, varmap.Vals)
 		if err != nil {
 			return &errors.ErrWorkflowFatal{Err: err}
 		}
@@ -560,7 +563,7 @@ func apErrFields(executionID, workflowID, elementID, elementName, elementType, w
 func (c *Engine) completeJobProcessor(ctx context.Context, job *model.WorkflowState) error {
 	ctx, log := logx.ContextWith(ctx, "engine.completeJobProcessor")
 	// Validate if it safe to end this job
-	// Get the saved job state
+	// get the saved job state
 	if _, err := c.operations.GetProcessHistoryItem(ctx, job.ProcessInstanceId, common.TrackingID(job.Id).ParentID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		// We can't find the job's old state
 		return nil

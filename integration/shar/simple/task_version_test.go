@@ -42,8 +42,10 @@ func TestTaskVersion(t *testing.T) {
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "GetCapitalData", WorkflowBPMN: b})
 	require.NoError(t, err)
 
+	newVars := model.NewVars()
+	newVars.SetString("city", "Dublin")
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GetCapitalData_test", Vars: model.Vars{"city": "Dublin"}})
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GetCapitalData_test", Vars: newVars})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
@@ -62,7 +64,9 @@ func TestTaskVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GetCapitalData_test", Vars: model.Vars{"city": "Dublin"}})
+	launchVars := model.NewVars()
+	launchVars.SetString("city", "Dublin")
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GetCapitalData_test", Vars: launchVars})
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -82,11 +86,11 @@ type testSTVersionDef struct {
 
 func (d *testSTVersionDef) integrationSimple(ctx context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	vars["region"] = "ireland"
-	vars["population"] = 3
-	vars["language"] = "english"
-	vars["latitude"] = 50.342
-	vars["longitude"] = 1.345
+	vars.SetString("region", "ireland")
+	vars.SetInt64("population", 3)
+	vars.SetString("language", "english")
+	vars.SetFloat64("latitude", 50.342)
+	vars.SetFloat64("longitude", 1.345)
 	return vars, nil
 }
 

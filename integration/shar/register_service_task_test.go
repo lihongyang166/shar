@@ -72,6 +72,6 @@ type testRegisterServiceTaskHandlerDef struct{}
 
 func (d *testRegisterServiceTaskHandlerDef) regSvcTask(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	vars["Success"] = true
+	vars.SetBool("Success", true)
 	return vars, nil
 }

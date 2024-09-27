@@ -66,7 +66,9 @@ func (d *testSimpleRetrySetVariableHandlerDef) integrationSimple(_ context.Conte
 }
 
 func (d *testSimpleRetrySetVariableHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(d.t, int64(999), vars["carried"])
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(999), carried)
 	assert.Equal(d.t, model.CancellationState_completed, state)
 	close(d.finished)
 }

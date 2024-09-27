@@ -67,7 +67,9 @@ type workflowChangedHandlerDef struct {
 
 func (d *workflowChangedHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	vars["Success"] = true
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
+	vars.SetBool("Success", true)
 	return vars, nil
 }

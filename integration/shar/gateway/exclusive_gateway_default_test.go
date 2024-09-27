@@ -48,7 +48,10 @@ func TestExclusiveGatewayDefault(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GatewayTest", Vars: model.Vars{"val1": 2}})
+	launchVars := model.NewVars()
+	launchVars.SetInt64("val1", 2)
+
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "GatewayTest", Vars: launchVars})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

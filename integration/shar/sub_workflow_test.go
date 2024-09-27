@@ -69,21 +69,32 @@ type testSubWorkflowHandlerDef struct {
 }
 
 func (d *testSubWorkflowHandlerDef) afterCallingSubProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	fmt.Println(vars["x"])
-	fmt.Println("carried", vars["carried"])
-	return model.Vars{}, nil
+	x, err := vars.GetInt64("x")
+	require.NoError(d.t, err)
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	fmt.Println(x)
+	fmt.Println("carried", carried)
+	return model.NewVars(), nil
 }
 
 func (d *testSubWorkflowHandlerDef) duringSubProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	x := vars["z"].(int)
-	return model.Vars{"z": x + 41}, nil
+	x, err := vars.GetInt64("z")
+	require.NoError(d.t, err)
+	newVars := model.NewVars()
+	newVars.SetInt64("z", x+41)
+	return newVars, nil
 }
 
 func (d *testSubWorkflowHandlerDef) beforeCallingSubProcess(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
-	return model.Vars{"x": 1}, nil
+	newVars := model.NewVars()
+	newVars.SetInt64("x", 1)
+	return newVars, nil
 }
 
 func (d *testSubWorkflowHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(d.t, 42, vars["x"])
+	x, err := vars.GetInt64("x")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(42), x)
 	close(d.finished)
 }

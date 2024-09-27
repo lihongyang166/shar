@@ -11,8 +11,8 @@ import (
 )
 
 // Parse parses a set, and turns an array of typed parameters into a corresponding map of shar workflow variables.
-func Parse(arr []string) (*model.Vars, error) {
-	vars := model.Vars{}
+func Parse(arr []string) (*model.ClientVars, error) {
+	vars := model.NewVars()
 	for _, elem := range arr {
 		key, varType, value, err := extract(elem)
 		if err != nil {
@@ -24,29 +24,24 @@ func Parse(arr []string) (*model.Vars, error) {
 			if err != nil {
 				return nil, fmt.Errorf("parse int: %w", err)
 			}
-			vars[key] = intVal
-		case "float32":
-			float32Value, err := strconv.ParseFloat(value, 32)
-			if err != nil {
-				return nil, fmt.Errorf("parse float32: %w", err)
-			}
-			vars[key] = float32(float32Value)
+			vars.SetInt64(key, int64(intVal))
 		case "float64":
 			float64Value, err := strconv.ParseFloat(value, 64)
 			if err != nil {
 				return nil, fmt.Errorf("parse float64: %w", err)
 			}
-			vars[key] = float64Value
+			vars.SetFloat64(key, float64Value)
 		case "string":
-			vars[key] = value
+			vars.SetString(key, value)
 		case "bool":
-			vars[key], err = strconv.ParseBool(value)
+			bl, err := strconv.ParseBool(value)
 			if err != nil {
 				return nil, fmt.Errorf("parse bool: %w", err)
 			}
+			vars.SetBool(key, bl)
 		}
 	}
-	return &vars, nil
+	return vars, nil
 }
 
 func extract(text string) (string, string, string, error) {

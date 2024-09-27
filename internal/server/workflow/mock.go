@@ -10,11 +10,11 @@ import (
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	"gitlab.com/shar-workflow/shar/internal/common/client"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -25,8 +25,8 @@ type jobClient struct {
 	processInstanceID string
 	activityID        string
 	executionID       string
-	originalInputs    map[string]interface{}
-	originalOutputs   map[string]interface{}
+	originalInputs    *model2.ServerVars
+	originalOutputs   *model2.ServerVars
 }
 
 func (c *jobClient) Headers(ctx context.Context) (map[string]string, error) {
@@ -59,7 +59,7 @@ func slogWith(logger *slog.Logger, executionID, processInstanceID, activityID, j
 		slog.String(keys.JobID, jobID),
 	)
 }
-func (c *jobClient) OriginalVars() (inputVars map[string]interface{}, outputVars map[string]interface{}) {
+func (c *jobClient) OriginalVars() (inputVars model.Vars, outputVars model.Vars) { // nolint:ireturn
 	inputVars = c.originalInputs
 	outputVars = c.originalOutputs
 	return
@@ -89,17 +89,17 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 			if err != nil {
 				return nil, fmt.Errorf("get output variables: %w", err)
 			}
-			iVars, err := vars.Decode(ctx, ins)
-			if err != nil {
+			iVars := model2.NewServerVars()
+			if err := iVars.Decode(ctx, ins); err != nil {
 				return nil, fmt.Errorf("decode input variables: %w", err)
 			}
-			oVars, err := vars.Decode(ctx, outs)
-			if err != nil {
+			oVars := model2.NewServerVars()
+			if err := oVars.Decode(ctx, outs); err != nil {
 				return nil, fmt.Errorf("decode output variables: %w", err)
 			}
 			jc.originalInputs, jc.originalOutputs = iVars, oVars
 			if err != nil {
-				return make(model.Vars), fmt.Errorf("get compensation variables: %w", err)
+				return model.NewVars(), fmt.Errorf("get compensation variables: %w", err)
 			}
 		}
 		v, err := svcFn.Fn.(task.ServiceFn)(pidCtx, jc, inVars)
@@ -129,7 +129,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("get job: %w", err)
 		}
-		b, err := vars.Encode(ctx, newVars)
+		b, err := newVars.Encode(ctx)
 		if err != nil {
 			return fmt.Errorf("encode vars: %w", err)
 		}
@@ -194,8 +194,16 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 	return nil
 }
 
-func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient, vars model.Vars) (model.Vars, error) {
-	newVars := model.Vars{}
+func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient, vrs model.Vars) (model.Vars, error) { //nolint
+	newVars := model2.NewServerVars()
+	b, err := vrs.Encode(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("encode vars: %w", err)
+	}
+	vars := model2.NewServerVars()
+	if err := vars.Decode(ctx, b); err != nil {
+		return nil, fmt.Errorf("decode vars: %w", err)
+	}
 	ts, err := s.operations.GetTaskSpecByUID(ctx, ctx.Value(keys.ContextKey("taskDef")).(string))
 	if err != nil {
 		return newVars, fmt.Errorf("get task spec: %w", err)
@@ -205,12 +213,12 @@ func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient,
 	if ts.Behaviour != nil && ts.Behaviour.MockBehaviour != nil {
 		var err error
 		if b := ts.Behaviour.MockBehaviour.ErrorCodeExpr; b != "" {
-			if wfError, err = expression.Eval[string](ctx, s.exprEngine, b, vars); err != nil {
+			if wfError, err = expression.Eval[string](ctx, s.exprEngine, b, vars.Vals); err != nil {
 				return newVars, fmt.Errorf("evaluate mock workflow error expression: %w", err)
 			}
 		}
 		if b := ts.Behaviour.MockBehaviour.FatalErrorExpr; b != "" {
-			if fatalError, err = expression.Eval[bool](ctx, s.exprEngine, b, vars); err != nil {
+			if fatalError, err = expression.Eval[bool](ctx, s.exprEngine, b, vars.Vals); err != nil {
 				return newVars, fmt.Errorf("evaluate mock fatal error expression: %w", err)
 			}
 		}
@@ -222,11 +230,11 @@ func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient,
 	for _, outParam := range ts.Parameters.Output {
 		example := outParam.Example
 		if example != "" {
-			v, err := expression.EvalAny(ctx, s.exprEngine, example, vars)
+			v, err := expression.EvalAny(ctx, s.exprEngine, example, vars.Vals)
 			if err != nil {
 				return newVars, &errors.ErrWorkflowFatal{Err: fmt.Errorf("eval example expression: %w", err)}
 			}
-			newVars[outParam.Name] = v
+			newVars.Vals[outParam.Name] = v
 		} else {
 			var v any
 			switch outParam.Type {
@@ -239,7 +247,7 @@ func (s *Engine) mockServiceFunction(ctx context.Context, client task.JobClient,
 			case "int":
 				v = 0
 			}
-			newVars[outParam.Name] = v
+			newVars.Vals[outParam.Name] = v
 		}
 	}
 	if wfError != "" {

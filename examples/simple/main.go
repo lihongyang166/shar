@@ -66,7 +66,7 @@ func main() {
 // A "Hello World" service task
 func simpleProcess(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Hello World")
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

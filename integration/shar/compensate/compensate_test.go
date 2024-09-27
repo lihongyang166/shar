@@ -55,7 +55,9 @@ func TestCompensate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Compensator", Vars: model.Vars{"compensate": 1}})
+	launchVars := model.NewVars()
+	launchVars.SetInt64("compensate", 1)
+	executionId, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Compensator", Vars: launchVars})
 	require.NoError(t, err)
 
 	go func() {

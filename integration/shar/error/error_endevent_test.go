@@ -65,15 +65,21 @@ type testErrorEndEventHandlerDef struct {
 }
 
 // A "Hello World" service task
-func (d *testErrorEndEventHandlerDef) mayFail3(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) {
+func (d *testErrorEndEventHandlerDef) mayFail3(ctx context.Context, client task.JobClient, _ model.Vars) (model.Vars, error) { // nolint:ireturn
 	logger := client.Logger()
 	logger.Info("service task completed successfully")
-	return model.Vars{"success": true}, nil
+	retVars := model.NewVars()
+	retVars.SetBool("success", true)
+	return retVars, nil
 }
 
 // A "Hello World" service task
 func (d *testErrorEndEventHandlerDef) fixSituation(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	fmt.Println("carried", vars["carried"])
+	carried, err := vars.GetInt64("carried")
+	if err != nil {
+		return nil, fmt.Errorf("get carried: %w", err)
+	}
+	fmt.Println("carried", carried)
 	d.t.Fatal("this event should not fire")
 	return nil, nil
 }

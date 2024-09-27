@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"google.golang.org/protobuf/proto"
 	"os"
 	"regexp"
@@ -69,11 +69,12 @@ func debugOutput(msg *nats.Msg, of *os.File) {
 		if err := proto.Unmarshal(msg.Data, st); err != nil {
 			panic(err)
 		}
-		vm, err := vars.Decode(context.Background(), st.Vars)
+		vm := model2.NewServerVars()
+		err := vm.Decode(context.Background(), st.Vars)
 		if err != nil {
 			panic(err)
 		}
-		st.VarMap = vm
+		st.VarMap = vm.Vals
 		st.Vars = []byte{}
 		st.Subject = msg.Subject
 		b, err := json.Marshal(st)

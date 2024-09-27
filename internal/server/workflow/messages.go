@@ -9,10 +9,10 @@ import (
 	"gitlab.com/shar-workflow/shar/common/expression"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
@@ -199,11 +199,11 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 		return false, fmt.Errorf("get message element: %w", err)
 	}
 
-	vrs, err := vars.Decode(ctx, job.Vars)
-	if err != nil {
+	vrs := model2.NewServerVars()
+	if err := vrs.Decode(ctx, job.Vars); err != nil {
 		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("decoding vars for message correlation: %w", err), State: job}
 	}
-	resAny, err := expression.EvalAny(ctx, s.exprEngine, "= "+el.Execute, vrs)
+	resAny, err := expression.EvalAny(ctx, s.exprEngine, "= "+el.Execute, vrs.Vals)
 	if err != nil || resAny == nil {
 		return false, &errors.ErrWorkflowFatal{Err: fmt.Errorf("message correlation expression evaluation errored or was empty '=%s'=%v : %w", el.Execute, resAny, err), State: job}
 	}

@@ -87,7 +87,7 @@ func Save(ctx context.Context, wf jetstream.KeyValue, k string, v []byte) error 
 func Load(ctx context.Context, wf jetstream.KeyValue, k string) ([]byte, error) {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.VerboseLevel) {
-		log.Log(ctx, errors2.VerboseLevel, "Get KV", slog.Any("bucket", wf.Bucket()), slog.String("key", k))
+		log.Log(ctx, errors2.VerboseLevel, "get KV", slog.Any("bucket", wf.Bucket()), slog.String("key", k))
 	}
 	b, err := wf.Get(ctx, k)
 	if err == nil {

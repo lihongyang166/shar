@@ -55,7 +55,9 @@ func main() {
 	}
 
 	// Launch the workflow
-	if _, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "TestUserTasks", Vars: model.Vars{"OrderId": 68}}); err != nil {
+	launchVars := model.NewVars()
+	launchVars.SetInt64("OrderId", 68)
+	if _, _, err := cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "TestUserTasks", Vars: launchVars}); err != nil {
 		panic(err)
 	}
 
@@ -70,7 +72,10 @@ func main() {
 		for {
 			tsk, err := cl.ListUserTaskIDs(ctx, "andrei")
 			if err == nil && tsk.Id != nil {
-				if err2 := cl.CompleteUserTask(ctx, "andrei", tsk.Id[0], model.Vars{"Forename": "Brangelina", "Surname": "Miggins"}); err2 != nil {
+				retVars := model.NewVars()
+				retVars.SetString("Forename", "Brangelina")
+				retVars.SetString("Surname", "Miggins")
+				if err2 := cl.CompleteUserTask(ctx, "andrei", tsk.Id[0], retVars); err2 != nil {
 					panic(err)
 				}
 				return
@@ -86,16 +91,33 @@ func main() {
 // A "Hello World" service task
 func prepare(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Preparing")
-	oid := vars["OrderId"].(int)
-	return model.Vars{"OrderId": oid + 1}, nil
+	oid, err := vars.GetInt64("OrderId")
+	if err != nil {
+		return nil, err
+	}
+	retVars := model.NewVars()
+	retVars.SetInt64("OrderId", oid+1)
+	return retVars, nil
 }
 
 // A "Hello World" service task
 func complete(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	fmt.Println("OrderId", vars["OrderId"])
-	fmt.Println("Forename", vars["Forename"])
-	fmt.Println("Surname", vars["Surname"])
-	return model.Vars{}, nil
+	oid, err := vars.GetInt64("OrderId")
+	if err != nil {
+		return nil, err
+	}
+	forename, err := vars.GetString("Forename")
+	if err != nil {
+		return nil, err
+	}
+	surname, err := vars.GetString("Surname")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("OrderId", oid)
+	fmt.Println("Forename", forename)
+	fmt.Println("Surname", surname)
+	return model.NewVars(), nil
 }
 
 func processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

@@ -74,7 +74,7 @@ type testLinkHandlerDef struct {
 
 func (d *testLinkHandlerDef) spillage(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Spilled")
-	vars["substance"] = "beer"
+	vars.SetString("substance", "beer")
 	return vars, nil
 }
 
@@ -103,6 +103,8 @@ func (d *testLinkHandlerDef) wipeItUp(_ context.Context, _ task.JobClient, vars 
 }
 
 func (d *testLinkHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
-	assert.Equal(d.t, "beer", vars["substance"])
+	substance, err := vars.GetString("substance")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, "beer", substance)
 	close(d.finished)
 }

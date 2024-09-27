@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nats-io/nats.go/jetstream"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"log/slog"
 	"strings"
 	"time"
@@ -22,7 +23,6 @@ import (
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
 	"gitlab.com/shar-workflow/shar/server/messages"
-	"gitlab.com/shar-workflow/shar/server/vars"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -370,18 +370,18 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 		"parentTrId":     &pid,
 	}
 
-	kv, err := vars.Decode(ctx, newState.Vars)
-	if err != nil {
+	kv := model2.NewServerVars()
+	if err := kv.Decode(ctx, newState.Vars); err != nil {
 		return abandon(err)
 	}
 
-	for k, v := range kv {
+	for k, v := range kv.Vals {
 		val := fmt.Sprintf("%+v", v)
 		at["var."+k] = &val
 	}
 
 	attrs := buildAttrs(at)
-	err = s.exp.ExportSpans(
+	err := s.exp.ExportSpans(
 		ctx,
 		[]tracesdk.ReadOnlySpan{
 			&sharSpan{

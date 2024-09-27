@@ -69,7 +69,7 @@ func TestCLI(t *testing.T) {
 		Workflow []*model.ListWorkflowResponse
 	}{}
 	sharExecf(t, wfs, "workflow list --server %s --json", tst.NatsURL)
-	assert.Equal(t, 1, len(wfs.Workflow))
+	assert.Equal(t, int64(1), len(wfs.Workflow))
 	assert.Equal(t, "SimpleWorkflow", wfs.Workflow[0].Name)
 	assert.Equal(t, int32(1), wfs.Workflow[0].Version)
 
@@ -85,7 +85,7 @@ func TestCLI(t *testing.T) {
 		Execution []model.ListWorkflowInstanceResult
 	}{}
 	sharExecf(t, &instances, "instance list SimpleWorkflow --server %s --json", tst.NatsURL)
-	assert.Equal(t, 1, len(instances.Execution))
+	assert.Equal(t, int64(1), len(instances.Execution))
 	assert.Equal(t, wfi.ExecutionID, instances.Execution[0].Id)
 
 	//TODO:RE-implement
@@ -132,8 +132,10 @@ type testLaunchWorkflow struct {
 
 func (d *testLaunchWorkflow) integrationSimple(_ context.Context, _ client.JobClient, vars model.Vars) (model.Vars, error) {
 	<-d.allowContinue
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	vars["Success"] = true
+	carried, err := vars.GetInt64("carried")
+require.NoError(d.t,err)
+assert.Equal(d.t,32768,carried)
+	vars.SetBool("Success", true)
 	return vars, nil
 }
 

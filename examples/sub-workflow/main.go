@@ -79,17 +79,24 @@ func main() {
 }
 
 func afterCallingSubProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	fmt.Println(vars["x"])
+	fmt.Println(vars.GetInt64("x"))
 	return vars, nil
 }
 
 func duringSubProcess(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
-	z := vars["z"].(int)
-	return model.Vars{"z": z + 41}, nil
+	z, err := vars.GetInt64("z")
+	if err != nil {
+		return nil, err
+	}
+	retVars := model.NewVars()
+	retVars.SetInt64("z", z+41)
+	return retVars, nil
 }
 
 func beforeCallingSubProcess(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
-	return model.Vars{"x": 1}, nil
+	retVars := model.NewVars()
+	retVars.SetInt64("x", 1)
+	return retVars, nil
 }
 
 func processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

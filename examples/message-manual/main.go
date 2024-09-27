@@ -68,8 +68,11 @@ func main() {
 		panic(err)
 	}
 
+	launchVars := model.NewVars()
+	launchVars.SetInt64("orderId", 57)
+	launchVars.SetInt64("carried", 128)
 	// Launch the workflow
-	if _, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_03llwnm", Vars: model.Vars{"orderId": 57, "carried": 128}}); err != nil {
+	if _, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_03llwnm", Vars: launchVars}); err != nil {
 		panic(err)
 	}
 
@@ -92,17 +95,23 @@ func main() {
 func step1(ctx context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Step 1")
 	fmt.Println("Sending Message...")
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func step2(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Step 2")
-	fmt.Println(vars["success"])
-	return model.Vars{}, nil
+	fmt.Println(vars.GetInt64("success"))
+	return model.NewVars(), nil
 }
 
 func sendMessage(ctx context.Context, cl task.MessageClient, vars model.Vars) error {
-	if err := cl.SendMessage(ctx, "continueMessage", vars["orderId"], model.Vars{"success": 32768}); err != nil {
+	orderId, err := vars.GetString("orderId")
+	if err != nil {
+		return err
+	}
+	msgVars := model.NewVars()
+	msgVars.SetInt64("success", 32768)
+	if err := cl.SendMessage(ctx, "continueMessage", orderId, msgVars); err != nil {
 		return fmt.Errorf("send continue message failed: %w", err)
 	}
 	return nil

@@ -41,7 +41,10 @@ func TestWorkflowErrorMockTaskUnhandled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.Vars{"carried": 32768, "errorCode": "100"}})
+	newVars := model.NewVars()
+	newVars.SetInt64("carried", 32768)
+	newVars.SetString("errorCode", "100")
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: newVars})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {

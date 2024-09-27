@@ -41,7 +41,10 @@ func TestWorkflowErrorMockTask(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: model.Vars{"carried": 32768, "errorCode": "101"}})
+	newVars := model.NewVars()
+	newVars.SetInt64("carried", 32768)
+	newVars.SetString("errorCode", "101")
+	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess", Vars: newVars})
 	require.NoError(t, err)
 	// Listen for service tasks
 	go func() {
@@ -59,7 +62,11 @@ type testWorkflowErrorMockTaskHandlerDef struct {
 
 func (d *testWorkflowErrorMockTaskHandlerDef) processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	close(d.finished)
-	assert.Equal(d.t, 32768, vars["carried"])
-	assert.Equal(d.t, 42, vars["processVar"])
+	carried, err := vars.GetInt64("carried")
+	require.NoError(d.t, err)
+	processVar, err := vars.GetInt64("processVar")
+	require.NoError(d.t, err)
+	assert.Equal(d.t, int64(32768), carried)
+	assert.Equal(d.t, int64(42), processVar)
 	assert.Equal(d.t, "101", wfError.Code)
 }

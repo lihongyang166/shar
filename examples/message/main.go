@@ -61,7 +61,10 @@ func main() {
 	}
 
 	// Launch the workflow
-	if _, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_03llwnm", Vars: model.Vars{"orderId": 57, "carried": "payload"}}); err != nil {
+	launchVars := model.NewVars()
+	launchVars.SetInt64("orderId", 57)
+	launchVars.SetString("carried", "payload")
+	if _, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_03llwnm", Vars: launchVars}); err != nil {
 		panic(err)
 	}
 
@@ -78,17 +81,23 @@ func main() {
 
 func step1(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Step 1")
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func step2(_ context.Context, _ task.JobClient, _ model.Vars) (model.Vars, error) {
 	fmt.Println("Step 2")
-	return model.Vars{}, nil
+	return model.NewVars(), nil
 }
 
 func sendMessage(ctx context.Context, cmd task.MessageClient, vars model.Vars) error {
 	fmt.Println("Sending Message...")
-	return cmd.SendMessage(ctx, "continueMessage", 57, model.Vars{"carried": vars["carried"]})
+	msgVars := model.NewVars()
+	carried, err := vars.GetString("carried")
+	if err != nil {
+		return err
+	}
+	msgVars.SetString("carried", carried)
+	return cmd.SendMessage(ctx, "continueMessage", 57, msgVars)
 }
 
 func processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {

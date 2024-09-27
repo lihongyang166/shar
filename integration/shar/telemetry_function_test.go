@@ -56,7 +56,7 @@ func _TestTelemetryStream(t *testing.T) {
 	require.NoError(t, err)
 
 	// Launch the workflow
-	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.Vars{})
+	_, _, err = cl.LaunchProcess(ctx, "SimpleProcess", model.NewVars())
 	require.NoError(t, err)
 
 	// Listen for service tasks
@@ -78,9 +78,13 @@ func (d *testTelemetryStreamDef) integrationSimple(ctx context.Context, client c
 	if err := client.Log(ctx, slog.LevelInfo, "Info message logged from client: integration simple", map[string]string{"value1": "good"}); err != nil {
 		return nil, fmt.Errorf("log: %w", err)
 	}
-	assert.Equal(d.t, 32768, vars["carried"].(int))
-	assert.Equal(d.t, 42, vars["localVar"].(int))
-	vars["Success"] = true
+	carried, err := vars.GetInt64("carried")
+require.NoError(d.t,err)
+assert.Equal(d.t,32768,carried)
+	localVar, err := vars.GetInt64("localVar")
+require.NoError(d.t,err)
+assert.Equal(d.t,42,localVar)
+	vars.SetBool("Success", true)
 	return vars, nil
 }
 

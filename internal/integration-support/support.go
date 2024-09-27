@@ -12,6 +12,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
 	"os"
@@ -52,7 +53,7 @@ var errDirtyKV = errors.New("KV contains values when expected empty")
 type Integration struct {
 	testNatsServer                zensvr.Server
 	testSharServer                zensvr.Server
-	FinalVars                     map[string]interface{}
+	FinalVars                     model.Vars
 	Mx                            sync.Mutex
 	Cooldown                      time.Duration
 	WithTelemetry                 server2.Exporter
@@ -131,7 +132,7 @@ func (s *Integration) Setup() {
 	if IsNatsPersist() && !IsNatsContainerised() {
 		s.setupContainerServersFailedFn("NATS_PERSIST only usable with containerised nats")
 	}
-	s.FinalVars = make(map[string]interface{})
+	s.FinalVars = model2.NewServerVars()
 
 	zensvrOptions := []zensvr.ZenSharOptionApplyFn{
 		zensvr.WithSharServerImageUrl(os.Getenv(SHAR_SERVER_IMAGE_URL_ENV_VAR_NAME)),

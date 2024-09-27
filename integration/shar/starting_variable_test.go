@@ -53,6 +53,11 @@ type testStartingVariableHandlerDef struct {
 
 func (d *testStartingVariableHandlerDef) integrationSimple(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars, error) {
 	fmt.Println("Hi")
-	fmt.Println("carried", vars["carried"])
+
+	carried, err := vars.GetInt64("carried")
+	if err != nil {
+		return nil, fmt.Errorf("get carried: %w", err)
+	}
+	fmt.Println("carried", carried)
 	return vars, nil
 }

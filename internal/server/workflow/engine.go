@@ -1070,6 +1070,9 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 
 		switch {
 		case strings.Contains(msg.Subject(), messages.StateJobAbortServiceTask), strings.Contains(msg.Subject(), messages.StateJobAbortGateway):
+			//TODO if we find we don't need the job for gateways, we can probably take this StateJobAbortGateway handler? Or perhaps create a separate
+			//gateway abort handler that cleans out the WfGateway KV???
+
 			if err := s.deleteJob(ctx, &state); err != nil {
 				return false, fmt.Errorf("delete job during service task abort: %w", err)
 			}

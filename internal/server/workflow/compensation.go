@@ -43,7 +43,10 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 	hist := make(chan *model.ProcessHistoryEntry)
 	errs := make(chan error, 1)
 	//ids := make([]string, 0)
-	go s.operations.GetProcessHistory(ctx, state.ProcessInstanceId, hist, errs)
+	go func() {
+		s.operations.GetProcessHistory(ctx, state.ProcessInstanceId, hist, errs)
+		close(errs)
+	}()
 	stateID := common.TrackingID(state.Id)
 	planPrefix := subj.NS("WORKFLOW.%s.Compensate.", ns)
 	planSubject := planPrefix + stateID.ID()

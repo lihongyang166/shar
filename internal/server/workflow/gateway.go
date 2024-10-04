@@ -37,14 +37,10 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 			return false, err
 		}
 		gwIID, _, _ := s.GetGatewayInstanceID(&job)
-		job.Id = common.TrackingID(job.Id).Push(gwIID)
 		gw := &model.Gateway{}
 		if err := common.LoadObj(ctx, nsKVs.WfGateway, gwIID, gw); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			return false, fmt.Errorf("%s could not load gateway information: %w", errors.Fn(), err)
 		} else if len(gw.Vars) == 1 { // first arrived branch
-			if err := common.SaveObj(ctx, nsKVs.Job, gwIID, &job); err != nil {
-				return false, fmt.Errorf("%s failed to save job to KV: %w", errors.Fn(), err)
-			}
 			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskExecute, &job); err != nil {
 				return false, fmt.Errorf("%s failed to execute gateway to KV: %w", errors.Fn(), err)
 			}
@@ -128,18 +124,18 @@ func (s *Engine) gatewayExecProcessor(ctx context.Context, _ *slog.Logger, msg j
 			return false, err
 		}
 	case model.GatewayType_inclusive, model.GatewayType_parallel:
-		nv, err := s.mergeGatewayVars(ctx, gw)
-		if err != nil {
-			return false, fmt.Errorf("merge gateway variables: %w", &errors.ErrWorkflowFatal{Err: err})
-		}
 
 		if len(gw.MetExpectations) >= len(job.GatewayExpectations[gatewayIID].ExpectedPaths) {
+			nv, err := s.mergeGatewayVars(ctx, gw)
+			if err != nil {
+				return false, fmt.Errorf("merge gateway variables: %w", &errors.ErrWorkflowFatal{Err: err})
+			}
 			job.Vars = nv
 			if err := s.completeGateway(ctx, &job); err != nil {
 				return false, err
 			}
 		} else {
-			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskAbort, &job); err != nil {
+			if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskAwait, &job); err != nil {
 				return false, err
 			}
 		}
@@ -211,6 +207,7 @@ func (s *Engine) mergeGatewayVars(ctx context.Context, gw *model.Gateway) ([]byt
 
 // TODO: make resilient through message
 func (s *Engine) completeGateway(ctx context.Context, job *model.WorkflowState) error {
+	gwIID := *job.Execute
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -222,15 +219,17 @@ func (s *Engine) completeGateway(ctx context.Context, job *model.WorkflowState) 
 		if v.GatewayComplete == nil {
 			v.GatewayComplete = make(map[string]bool)
 		}
-		v.GatewayComplete[*job.Execute] = true
+		v.GatewayComplete[gwIID] = true
 		return v, nil
 	}); err != nil {
 		return fmt.Errorf("%s failed to update gateway: %w", errors.Fn(), err)
 	}
-	if err := s.operations.PublishWorkflowState(ctx, messages.WorkflowJobGatewayTaskComplete, job); err != nil {
-		return err
+
+	if err := s.completeActivity(ctx, job); err != nil {
+		return fmt.Errorf("complete gateway processor failed to complete activity: %w", err)
 	}
-	if err := common.Delete(ctx, nsKVs.WfGateway, *job.Execute); err != nil {
+
+	if err := common.Delete(ctx, nsKVs.WfGateway, gwIID); err != nil {
 		return fmt.Errorf("complete gateway failed with: %w", err)
 	}
 	return nil

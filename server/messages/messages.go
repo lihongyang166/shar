@@ -21,6 +21,7 @@ const (
 	StateJobAbortServiceTask    = ".State.Job.Abort.ServiceTask"    // StateJobAbortServiceTask is the abort service task state
 	StateJobCompleteServiceTask = ".State.Job.Complete.ServiceTask" // StateJobCompleteServiceTask is the complete service task state
 	StateJobAbortGateway        = ".State.Job.Abort.Gateway"        // StateJobAbortGateway is the abort gateway state
+	StateJobAwaitGateway        = ".State.Job.Await.Gateway"        // StateJobAwaitGateway is the await gateway state
 	StateJobComplete            = ".State.Job.Complete."            // StateJobComplete is the complete job state
 	StateJobExecuteUserTask     = ".State.Job.Execute.UserTask"     // StateJobExecuteUserTask is the execute user task state
 	StateJobCompleteUserTask    = ".State.Job.Complete.UserTask"    // StateJobCompleteUserTask is the complete user task state
@@ -70,6 +71,7 @@ const (
 	WorkflowJobGatewayTaskActivate    = "WORKFLOW.%s.State.Job.Activate.Gateway"          // WorkflowJobGatewayTaskActivate is the state message subject for activating a gateway task for creation or re-entry.
 	WorkflowJobGatewayTaskReEnter     = "WORKFLOW.%s.State.Job.ReEnter.Gateway"           // WorkflowJobGatewayTaskReEnter is the state message subject for re entering an existing gateway task.
 	WorkflowJobGatewayTaskAbort       = "WORKFLOW.%s" + StateJobAbortGateway              // WorkflowJobGatewayTaskAbort is the state message subject for aborting a gateway task.
+	WorkflowJobGatewayTaskAwait       = "WORKFLOW.%s" + StateJobAwaitGateway              // WorkflowJobGatewayTaskAwait is the state message subject for waiting for all branches of a convergent gateway task.
 	WorkflowJobRetry                  = "WORKFLOW.%s.State.Job.Retry"                     //WorkflowJobRetry is the state message to attempt retry of a prior failed job
 	WorkflowLog                       = "WORKFLOW.%s" + StateLog                          // WorkflowLog is the state message subject for logging messages to a workflow activity.
 	WorkflowLogAll                    = "WORKFLOW.%s" + StateLog + ".*"                   // WorkflowLogAll is the wildcard state message subject for all logging messages.

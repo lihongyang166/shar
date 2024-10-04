@@ -156,7 +156,6 @@ func (s *Operations) GetProcessHistory(ctx context.Context, processInstanceId st
 		}
 		wch <- entry
 	}
-	close(errs)
 }
 
 // GetProcessHistoryItem retrieves a process history entry based on the given process instance ID, tracking ID, and history type.

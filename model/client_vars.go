@@ -32,7 +32,7 @@ func New(vars map[string]any) (*ClientVars, error) {
 		case string, bool, int64, float64:
 			continue
 		default:
-			return nil, fmt.Errorf("%v is not a suppported type, please convert to string, bool, int64 or float64", k)
+			return nil, fmt.Errorf("%s is not a suppported type, please convert to string, bool, int64 or float64", k)
 		}
 	}
 

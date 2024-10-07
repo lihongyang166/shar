@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// IndexOptions holds configuration options for the indexing process.
 type IndexOptions struct {
 	IndexToDisk bool          // IndexToDisk creates an index on disk if true.
 	Path        string        // Path on disk for the index files.  This must be ephemeral, or externally deleted before calling Start().
@@ -28,7 +29,6 @@ type Index struct {
 	startOnce bool
 	buffer    chan jetstream.KeyValueEntry
 	delta     chan jetstream.KeyValueEntry
-	waitOnce  sync.Once
 	started   time.Time
 	wait      time.Duration
 	ready     func()
@@ -50,8 +50,10 @@ func New(ctx context.Context, kv jetstream.KeyValue, options *IndexOptions, inde
 	}
 
 	watcher, err := kv.WatchAll(ctx)
-
-	idx := &Index{
+	if err != nil {
+		return nil, fmt.Errorf("create watcher: %w", err)
+	}
+	return &Index{
 		db:      db,
 		closer:  make(<-chan struct{}),
 		watcher: watcher,
@@ -61,8 +63,7 @@ func New(ctx context.Context, kv jetstream.KeyValue, options *IndexOptions, inde
 		kv:      kv,
 		wait:    options.WarmupDelay,
 		ready:   options.Ready,
-	}
-	return idx, err
+	}, nil
 }
 
 // Start starts the indexer
@@ -76,63 +77,58 @@ func (idx *Index) Start() error {
 	idx.started = time.Now()
 	if idx.ready != nil {
 		go func() {
-			select {
-			case <-time.After(idx.wait):
-				idx.ready()
-			}
+			<-time.After(idx.wait)
+			idx.ready()
 		}()
 	}
 	go func() {
-		for {
-			select {
-			case u := <-idx.watcher.Updates():
-				if u == nil {
-					time.Sleep(time.Millisecond * 100)
-					continue
+		for u := range idx.watcher.Updates() {
+			if u == nil {
+				time.Sleep(time.Millisecond * 100)
+				continue
+			}
+			switch u.Operation() {
+			case jetstream.KeyValueDelete:
+				rv, err := idx.kv.History(context.Background(), u.Key())
+				if err != nil {
+					panic(err)
 				}
-				switch u.Operation() {
-				case jetstream.KeyValueDelete:
-					rv, err := idx.kv.History(context.Background(), u.Key())
-					if err != nil {
-						panic(err)
+				last := rv[len(rv)-2]
+				indexKeys := idx.indexFn(last)
+				if err := func() error {
+					txn := idx.db.NewTransaction(true)
+					defer txn.Discard()
+					for _, key := range indexKeys {
+						if err := txn.Delete(key); err != nil {
+							return fmt.Errorf("delete key: %w", err)
+						}
 					}
-					last := rv[len(rv)-2]
-					indexKeys := idx.indexFn(last)
-					if err := func() error {
-						txn := idx.db.NewTransaction(true)
-						defer txn.Discard()
-						for _, key := range indexKeys {
-							if err := txn.Delete(key); err != nil {
-								return fmt.Errorf("delete key: %w", err)
-							}
-						}
-						if err := txn.Commit(); err != nil {
-							return fmt.Errorf("commit deletes: %w", err)
-						}
-						return nil
-					}(); err != nil {
-						slog.Error("delete index keys", "error", err)
+					if err := txn.Commit(); err != nil {
+						return fmt.Errorf("commit deletes: %w", err)
 					}
-				case jetstream.KeyValuePut:
-					indexKeys := idx.indexFn(u)
-					if err := func() error {
-						txn := idx.db.NewTransaction(true)
-						defer txn.Discard()
-						for _, key := range indexKeys {
-							if err := txn.Set(key, []byte(u.Key())); err != nil {
-								return fmt.Errorf("delete key: %w", err)
-							}
-						}
-						if err := txn.Commit(); err != nil {
-							return fmt.Errorf("commit deletes: %w", err)
-						}
-						return nil
-					}(); err != nil {
-						slog.Error("delete index keys", "error", err)
-					}
-				default:
-					slog.Error("unhandled operation", "opcode", u.Operation())
+					return nil
+				}(); err != nil {
+					slog.Error("delete index keys", "error", err)
 				}
+			case jetstream.KeyValuePut:
+				indexKeys := idx.indexFn(u)
+				if err := func() error {
+					txn := idx.db.NewTransaction(true)
+					defer txn.Discard()
+					for _, key := range indexKeys {
+						if err := txn.Set(key, []byte(u.Key())); err != nil {
+							return fmt.Errorf("delete key: %w", err)
+						}
+					}
+					if err := txn.Commit(); err != nil {
+						return fmt.Errorf("commit deletes: %w", err)
+					}
+					return nil
+				}(); err != nil {
+					slog.Error("delete index keys", "error", err)
+				}
+			default:
+				slog.Error("unhandled operation", "opcode", u.Operation())
 			}
 		}
 	}()

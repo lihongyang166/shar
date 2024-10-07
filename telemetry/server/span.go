@@ -21,7 +21,7 @@ type sharSpan struct {
 	SpanLinks          []tracesdk.Link
 	SpanEvents         []tracesdk.Event
 	SpanStatus         tracesdk.Status
-	InstrumentationLib instrumentation.Library
+	InstrumentationLib instrumentation.Scope
 	SpanResource       *resource.Resource
 	ChildCount         int
 }
@@ -83,7 +83,7 @@ func (s *sharSpan) Status() tracesdk.Status {
 
 // InstrumentationLibrary returns information about the instrumentation
 // library that created the span.
-func (s *sharSpan) InstrumentationLibrary() instrumentation.Library {
+func (s *sharSpan) InstrumentationLibrary() instrumentation.Scope {
 	return s.InstrumentationLib
 }
 

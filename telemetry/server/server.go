@@ -404,7 +404,7 @@ func (s *Server) saveSpan(ctx context.Context, name string, oldState *model.Work
 				SpanStatus: tracesdk.Status{
 					Code: codes.Ok,
 				},
-				InstrumentationLib: instrumentation.Library{
+				InstrumentationLib: instrumentation.Scope{
 					Name:    "TEST",
 					Version: "0.1",
 				},

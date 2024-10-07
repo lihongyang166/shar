@@ -29,6 +29,12 @@
 | mock | bool | Mock this task as it has no concrete implementation. | boolean |
 | deprecated | bool | Deprecated task.  Workflows can not be executed that include this task. | boolean |
 | mockBehaviour | TaskMockBehaviours | MockBehaviour lists behaviours exhibited by the task when mocked. |  -  |
+### TaskMockBehaviours
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
+| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
 ### DefaultTaskRetry
 
 | name | type | description | validation |
@@ -62,12 +68,6 @@
 |------|------|-------------|
 | Linear | 0 | Retry at regular intervals. |
 | Exponential | 1 | Retry at increasingly large intervals. |
-### TaskMockBehaviours
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
-| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
 ### TaskParameters
 
 | name | type | description | validation |
@@ -103,14 +103,6 @@
 |------|------|-------------|------------|
 | error | TaskError | Error workflow events that can be returned from the task. |  -  |
 | message | Message | Message workflow events that can be returned from the task. |  -  |
-### TaskError
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| name | string | Name of the error. | arbitrary string |
-| code | string | Code a unique code for the error. | NATS-safe identifier |
-| short | string | Short description of the error. | arbitrary string |
-| description | string | Description - a long description of the error. | arbitrary string |
 ### Message
 
 | name | type | description | validation |
@@ -119,3 +111,11 @@
 | correlationKey | string | CorrelationKey - the workflow message correlation key. | NATS-safe identifier |
 | short | string | Short description of the parameter. | arbitrary string |
 | description | string | Description - a long description of the parameter. | arbitrary string |
+### TaskError
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| name | string | Name of the error. | arbitrary string |
+| code | string | Code a unique code for the error. | NATS-safe identifier |
+| short | string | Short description of the error. | arbitrary string |
+| description | string | Description - a long description of the error. | arbitrary string |

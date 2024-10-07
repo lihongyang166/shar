@@ -11,12 +11,13 @@ import (
 )
 
 type IndexOptions struct {
-	IndexToDisk bool
-	Path        string
-	WarmupDelay time.Duration
-	Ready       func()
+	IndexToDisk bool          // IndexToDisk creates an index on disk if true.
+	Path        string        // Path on disk for the index files.  This must be ephemeral, or externally deleted before calling Start().
+	WarmupDelay time.Duration // WarmupDelay is the time that the index waits before allowing queries.
+	Ready       func()        // Ready function is called once the warmup delay has passed.
 }
 
+// Index - A badger prefix based indexer for NATS KV
 type Index struct {
 	db        *badger.DB
 	closer    <-chan struct{}
@@ -33,8 +34,10 @@ type Index struct {
 	ready     func()
 }
 
+// IndexFn takes a KeyValueEntry, and returns a set of badger keys.
 type IndexFn func(entry jetstream.KeyValueEntry) [][]byte
 
+// New creates a new instance of the indexer.
 func New(ctx context.Context, kv jetstream.KeyValue, options *IndexOptions, indexFn IndexFn) (*Index, error) {
 	if options == nil {
 		options = &IndexOptions{}
@@ -62,6 +65,7 @@ func New(ctx context.Context, kv jetstream.KeyValue, options *IndexOptions, inde
 	return idx, err
 }
 
+// Start starts the indexer
 func (idx *Index) Start() error {
 	idx.startMx.Lock()
 	if idx.startOnce {
@@ -135,12 +139,13 @@ func (idx *Index) Start() error {
 	return nil
 }
 
-func (idx *Index) Fetch(prefix []byte) (chan []byte, error) {
+// Fetch - fetches all keys with a key prefix
+func (idx *Index) Fetch(ctx context.Context, prefix []byte) (chan jetstream.KeyValueEntry, error) {
 	since := time.Since(idx.started)
 	if since < idx.wait {
 		time.Sleep(idx.wait - time.Since(idx.started))
 	}
-	ret := make(chan []byte)
+	ret := make(chan jetstream.KeyValueEntry)
 	go func() {
 		defer close(ret)
 		opts := badger.DefaultIteratorOptions
@@ -150,7 +155,11 @@ func (idx *Index) Fetch(prefix []byte) (chan []byte, error) {
 		defer it.Close()
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			if err := it.Item().Value(func(val []byte) error {
-				ret <- val
+				e, err := idx.kv.Get(ctx, string(val))
+				if err != nil {
+					return fmt.Errorf("get nats entry: %w", err)
+				}
+				ret <- e
 				return nil
 			}); err != nil {
 				slog.Error("get index value", "error", err, "key", string(it.Item().Key()))

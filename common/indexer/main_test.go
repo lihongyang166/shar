@@ -1,4 +1,4 @@
-package error
+package indexer
 
 import (
 	"fmt"

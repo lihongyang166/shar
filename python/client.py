@@ -37,7 +37,7 @@ class client():
 
         print('setting headers')
 
-        # Define headers
+        # Define headers:
         headers = {
             "Shar-Compat": "1.1.503",
             "Shar-Namespace": "default",
@@ -55,10 +55,9 @@ class client():
        
         print('sending nats msg')
        
-        # Publish a message to 'foo'
+        # Publish the message:
         try:
             await nc.request(msg.subject,msg.data,30,headers=headers)
-            # await js.publish(msg.subject,msg.data,30,msg.subject,msg.headers)
         except ErrConnectionClosed as e:
             print(f"Could not send message: {e}")
         await nc.close()
@@ -70,7 +69,6 @@ if __name__ == "__main__":
     shar = client("nats://localhost:4222",version)
 
     vars = {"To":"matthew.brazel@vitrifi.net", "Subject": "PYTEST!", "Body": "PYTEST!"}
-    # vars = b'"To":"matthew.brazel@vitrifi,net", "Subject": "PYTEST!", "Body": "PYTEST!"'
     loop = asyncio.get_event_loop()
     loop.run_until_complete(shar.launch_workflow(id=wfpid,vars=vars))
     loop.close()

@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/vmihailenco/msgpack/v5"
-	"gitlab.com/shar-workflow/shar/common/logx"
 	"iter"
 	"log/slog"
 	"maps"
 	"reflect"
+
+	"github.com/vmihailenco/msgpack/v5"
+	"gitlab.com/shar-workflow/shar/common/logx"
 )
 
 // ClientVars holds a map of client-defined variables with string keys and values of workflow variables.
@@ -17,11 +18,27 @@ type ClientVars struct {
 	vals map[string]any
 }
 
-// NewVars creates and returns a new instance of Vars,
+// NewVars creates and returns a new instance of ClientVars.
 func NewVars() *ClientVars {
 	return &ClientVars{
 		vals: make(map[string]any),
 	}
+}
+
+// New creates and returns a new instance of ClientVars populated with the given map of vars.
+func New(vars map[string]any) (*ClientVars, error) {
+	for k, v := range vars {
+		switch v.(type) {
+		case string, bool, int64, float64:
+			continue
+		default:
+			return nil, fmt.Errorf("%v is not a suppported type, please convert to string, bool, int64 or float64", k)
+		}
+	}
+
+	return &ClientVars{
+		vals: vars,
+	}, nil
 }
 
 // get takes the desired return type as parameter and safely searches the map and returns the value

@@ -26,13 +26,14 @@ func NewVars() *ClientVars {
 }
 
 // New creates and returns a new instance of ClientVars populated with the given map of vars.
-func New(vars map[string]any) (*ClientVars, error) {
+func NewVarsFromMap(vars map[string]any) (*ClientVars, error) {
 	for k, v := range vars {
 		switch v.(type) {
 		case string, bool, int64, float64:
 			continue
 		default:
-			return nil, fmt.Errorf("%s is not a suppported type, please convert to string, bool, int64 or float64", k)
+			t := reflect.TypeOf(v)
+			return nil, fmt.Errorf("%s has value of type %s which is not a suppported, please convert to string, bool, int64 or float64", k, t)
 		}
 	}
 

@@ -31,7 +31,7 @@ func TestVarsGet(t *testing.T) {
 	assert.Equal(t, 77777.77777, f)
 
 	// Test again for New setting function
-	vars, err = model.New(map[string]any{"1": "value", "2": 77777.77777})
+	vars, err = model.NewVarsFromMap(map[string]any{"1": "value", "2": 77777.77777})
 	assert.NoError(t, err)
 
 	s, err = vars.GetString("1")
@@ -46,7 +46,7 @@ func TestVarsGet(t *testing.T) {
 
 	// Check for error if unsupported type injection is attempted:
 	f32 := float32(1.1)
-	vars, err = model.New(map[string]any{"1": "value", "2": 77777.77777, "3": f32})
+	vars, err = model.NewVarsFromMap(map[string]any{"1": "value", "2": 77777.77777, "3": f32})
 	assert.Error(t, err)
 
 	// y, err := model.get[testType](vars, "4")

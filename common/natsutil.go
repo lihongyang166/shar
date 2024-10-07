@@ -867,3 +867,22 @@ func StreamingReplyServer(nc streamNatsReplyconnection, subject string, fn func(
 	}
 	return sub, nil
 }
+
+// SafeDelete deletes a key from a JetStream KV ensuring the value is present, and the operation is idempotent.
+func SafeDelete(ctx context.Context, kv jetstream.KeyValue, key string) error {
+	history, err := kv.History(ctx, key)
+	if err != nil {
+		return fmt.Errorf("get history for delete: %w", err)
+	}
+	last := history[len(history)-1]
+
+	// Already deleted return idempotently
+	if last.Operation() == jetstream.KeyValueDelete {
+		return nil
+	}
+
+	if err := kv.Delete(ctx, key, jetstream.LastRevision(last.Revision())); err != nil {
+		return fmt.Errorf("delete last revision: %w", err)
+	}
+	return nil
+}

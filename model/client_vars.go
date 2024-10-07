@@ -25,7 +25,7 @@ func NewVars() *ClientVars {
 	}
 }
 
-// New creates and returns a new instance of ClientVars populated with the given map of vars.
+// NewVarsFromMap creates and returns a new instance of ClientVars populated with the given map of vars.
 func NewVarsFromMap(vars map[string]any) (*ClientVars, error) {
 	for k, v := range vars {
 		switch v.(type) {

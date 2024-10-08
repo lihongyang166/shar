@@ -1,0 +1,1 @@
+protoc --proto_path=../proto/shar-workflow --python_out=pypb --pyi_out=pypb ../proto/shar-workflow/models.proto

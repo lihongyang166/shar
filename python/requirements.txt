@@ -1,0 +1,6 @@
+msgpack==1.1.0
+nats-py==2.8.0
+protobuf==5.27.2
+protobuf-serialization==0.1.2
+python-dateutil==2.9.0.post0
+six==1.16.0

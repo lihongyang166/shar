@@ -81,7 +81,7 @@ type Ops interface {
 	CreateExecution(ctx context.Context, execution *model.Execution) (*model.Execution, error)
 	GetExecution(ctx context.Context, executionID string) (*model.Execution, error)
 	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
-	GetLatestVersion(ctx context.Context, workflowName string) (string, error)
+	GetLatestWorkflowVersion(ctx context.Context, workflowName string) (string, error)
 	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
 	GetJob(ctx context.Context, trackingID string) (*model.WorkflowState, error)
 	DeleteJob(ctx context.Context, trackingID string) error
@@ -179,8 +179,16 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID 
 		return "", "", reterr
 	}
 
+	//TODO refactor this to GetVersions and LatestVersionFrom()
+	//This way, we can check the Versions object to see whether this workflow is
+	//enabled or not
+	//use the streaming getWorkflowVersions and apply our own latestversion fn
+	//we can then delete GetLatestWorkflowVersion
+
+	//we'd also need a separate DisableWorkflow and EnableWorkflow endpoints to set the flag
+
 	// get the last ID of the workflow
-	wfID, err := c.GetLatestVersion(ctx, workflowName)
+	wfID, err := c.GetLatestWorkflowVersion(ctx, workflowName)
 	if err != nil {
 		reterr = engineErr(ctx, "get latest version of workflow", err,
 			slog.String(keys.ParentInstanceElementID, parentElID),
@@ -624,6 +632,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
+	//TODO what is the WfName kv even used for???
 	_, err = nsKVs.WfName.Get(ctx, wf.Name)
 	if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		wfNameID := ksuid.New().String()
@@ -634,6 +643,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 	} else if err != nil {
 		return "", fmt.Errorf("get an existing workflow id: %w", err)
 	}
+	////////////////////////
 
 	wfID := ksuid.New().String()
 
@@ -1104,14 +1114,17 @@ func (s *Operations) deleteExecution(ctx context.Context, state *model.WorkflowS
 	return nil
 }
 
-// GetLatestVersion queries the workflow versions table for the latest entry
-func (s *Operations) GetLatestVersion(ctx context.Context, workflowName string) (string, error) {
+// GetLatestWorkflowVersion queries the workflow versions table for the latest entry
+func (s *Operations) GetLatestWorkflowVersion(ctx context.Context, workflowName string) (string, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
+	//TODO maybe refactor this to a separate GetVersions function and a separate LatestVersion
+	//function. That way, we can check to see whether this particular workflow is actually enabled
+	//or not
 	v := &model.WorkflowVersions{}
 	if err := common.LoadObj(ctx, nsKVs.WfVersion, workflowName, v); errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return "", fmt.Errorf("get latest workflow version: %w", errors.ErrWorkflowNotFound)

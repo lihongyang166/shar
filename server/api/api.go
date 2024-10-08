@@ -51,8 +51,8 @@ func New(operations workflow.Ops, nc *natz.NatsConnConfiguration, auth Auth, opt
 
 	ss := &Endpoints{
 		auth:          auth,
-		nc:            nc,
 		operations:    operations,
+		nc:            nc,
 		panicRecovery: options.PanicRecovery,
 		subs:          &sync.Map{},
 		tr:            otel.GetTracerProvider().Tracer("shar", trace.WithInstrumentationVersion(version.Version)),
@@ -160,13 +160,10 @@ func (s *Endpoints) Listen() error {
 		return fmt.Errorf("APIResolveWorkflow: %w", err)
 	}
 
-	// TODO: Evaluate for list style
-
 	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListExecutionProcesses, s.receiveApiMiddleware, &model.ListExecutionProcessesRequest{}, s.listExecutionProcesses); err != nil {
 		return fmt.Errorf("APIListExecutionProcesses: %w", err)
 	}
 
-	// List style items
 	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListTaskSpecUIDs, s.receiveApiMiddleware, &model.ListTaskSpecUIDsRequest{}, s.listTaskSpecUIDs); err != nil {
 		return fmt.Errorf("APIListTaskSpecUIDs: %w", err)
 	}
@@ -189,6 +186,10 @@ func (s *Endpoints) Listen() error {
 
 	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIRetry, s.receiveApiMiddleware, &model.RetryActivityRequest{}, s.retryActivity); err != nil {
 		return fmt.Errorf("APIRetry: %w", err)
+	}
+
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetProcessInstanceHeaders, s.receiveApiMiddleware, &model.GetProcessHeadersRequest{}, s.getProcessHeaders); err != nil {
+		return fmt.Errorf("APIGetProcessInstanceHeaders: %w", err)
 	}
 
 	/* COMPLETED */
@@ -214,10 +215,6 @@ func (s *Endpoints) Listen() error {
 
 	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListExecutableProcess, s.receiveApiMiddleware, &model.ListExecutableProcessesRequest{}, s.listExecutableProcesses); err != nil {
 		return fmt.Errorf("APIListExecutableProcess: %w", err)
-	}
-
-	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetProcessInstanceHeaders, s.receiveApiMiddleware, &model.GetProcessHeadersRequest{}, s.getProcessHeaders); err != nil {
-		return fmt.Errorf("APIGetProcessInstanceHeaders: %w", err)
 	}
 
 	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetFatalErrors, s.receiveApiMiddleware, &model.GetFatalErrorRequest{}, s.getFatalErrors); err != nil {

@@ -1209,11 +1209,11 @@ func (_c *MockOps_GetJob_Call) RunAndReturn(run func(context.Context, string) (*
 }
 
 // GetLatestVersion provides a mock function with given fields: ctx, workflowName
-func (_m *MockOps) GetLatestVersion(ctx context.Context, workflowName string) (string, error) {
+func (_m *MockOps) GetLatestWorkflowVersion(ctx context.Context, workflowName string) (string, error) {
 	ret := _m.Called(ctx, workflowName)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetLatestVersion")
+		panic("no return value specified for GetLatestWorkflowVersion")
 	}
 
 	var r0 string
@@ -1236,7 +1236,7 @@ func (_m *MockOps) GetLatestVersion(ctx context.Context, workflowName string) (s
 	return r0, r1
 }
 
-// MockOps_GetLatestVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestVersion'
+// MockOps_GetLatestVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestWorkflowVersion'
 type MockOps_GetLatestVersion_Call struct {
 	*mock.Call
 }
@@ -1245,7 +1245,7 @@ type MockOps_GetLatestVersion_Call struct {
 //   - ctx context.Context
 //   - workflowName string
 func (_e *MockOps_Expecter) GetLatestVersion(ctx interface{}, workflowName interface{}) *MockOps_GetLatestVersion_Call {
-	return &MockOps_GetLatestVersion_Call{Call: _e.mock.On("GetLatestVersion", ctx, workflowName)}
+	return &MockOps_GetLatestVersion_Call{Call: _e.mock.On("GetLatestWorkflowVersion", ctx, workflowName)}
 }
 
 func (_c *MockOps_GetLatestVersion_Call) Run(run func(ctx context.Context, workflowName string)) *MockOps_GetLatestVersion_Call {

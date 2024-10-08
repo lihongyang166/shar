@@ -1770,7 +1770,8 @@ type WorkflowVersions struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Version []*WorkflowVersion `protobuf:"bytes,1,rep,name=version,proto3" json:"version,omitempty"` // WorkflowVersion - a single version of a workflow
+	Version    []*WorkflowVersion `protobuf:"bytes,1,rep,name=version,proto3" json:"version,omitempty"`        // WorkflowVersion - a single version of a workflow
+	IsDisabled bool               `protobuf:"varint,2,opt,name=isDisabled,proto3" json:"isDisabled,omitempty"` // IsDisabled - whether this workflow is allowed to be executed
 }
 
 func (x *WorkflowVersions) Reset() {
@@ -1810,6 +1811,13 @@ func (x *WorkflowVersions) GetVersion() []*WorkflowVersion {
 		return x.Version
 	}
 	return nil
+}
+
+func (x *WorkflowVersions) GetIsDisabled() bool {
+	if x != nil {
+		return x.IsDisabled
+	}
+	return false
 }
 
 // WorkflowVersion contains the metadata for a single workflow version
@@ -9054,6 +9062,176 @@ func (*RetryActivityResponse) Descriptor() ([]byte, []int) {
 	return file_shar_workflow_models_proto_rawDescGZIP(), []int{138}
 }
 
+type EnableWorkflowRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	WorkflowName string `protobuf:"bytes,1,opt,name=workflowName,proto3" json:"workflowName,omitempty"`
+}
+
+func (x *EnableWorkflowRequest) Reset() {
+	*x = EnableWorkflowRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_shar_workflow_models_proto_msgTypes[139]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *EnableWorkflowRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnableWorkflowRequest) ProtoMessage() {}
+
+func (x *EnableWorkflowRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shar_workflow_models_proto_msgTypes[139]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnableWorkflowRequest.ProtoReflect.Descriptor instead.
+func (*EnableWorkflowRequest) Descriptor() ([]byte, []int) {
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{139}
+}
+
+func (x *EnableWorkflowRequest) GetWorkflowName() string {
+	if x != nil {
+		return x.WorkflowName
+	}
+	return ""
+}
+
+type EnableWorkflowResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *EnableWorkflowResponse) Reset() {
+	*x = EnableWorkflowResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_shar_workflow_models_proto_msgTypes[140]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *EnableWorkflowResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnableWorkflowResponse) ProtoMessage() {}
+
+func (x *EnableWorkflowResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shar_workflow_models_proto_msgTypes[140]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnableWorkflowResponse.ProtoReflect.Descriptor instead.
+func (*EnableWorkflowResponse) Descriptor() ([]byte, []int) {
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{140}
+}
+
+type DisableWorkflowRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	WorkflowName string `protobuf:"bytes,1,opt,name=workflowName,proto3" json:"workflowName,omitempty"`
+}
+
+func (x *DisableWorkflowRequest) Reset() {
+	*x = DisableWorkflowRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_shar_workflow_models_proto_msgTypes[141]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DisableWorkflowRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisableWorkflowRequest) ProtoMessage() {}
+
+func (x *DisableWorkflowRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shar_workflow_models_proto_msgTypes[141]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisableWorkflowRequest.ProtoReflect.Descriptor instead.
+func (*DisableWorkflowRequest) Descriptor() ([]byte, []int) {
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{141}
+}
+
+func (x *DisableWorkflowRequest) GetWorkflowName() string {
+	if x != nil {
+		return x.WorkflowName
+	}
+	return ""
+}
+
+type DisableWorkflowResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *DisableWorkflowResponse) Reset() {
+	*x = DisableWorkflowResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_shar_workflow_models_proto_msgTypes[142]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DisableWorkflowResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisableWorkflowResponse) ProtoMessage() {}
+
+func (x *DisableWorkflowResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shar_workflow_models_proto_msgTypes[142]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisableWorkflowResponse.ProtoReflect.Descriptor instead.
+func (*DisableWorkflowResponse) Descriptor() ([]byte, []int) {
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{142}
+}
+
 type FatalError struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -9066,7 +9244,7 @@ type FatalError struct {
 func (x *FatalError) Reset() {
 	*x = FatalError{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_shar_workflow_models_proto_msgTypes[139]
+		mi := &file_shar_workflow_models_proto_msgTypes[143]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9079,7 +9257,7 @@ func (x *FatalError) String() string {
 func (*FatalError) ProtoMessage() {}
 
 func (x *FatalError) ProtoReflect() protoreflect.Message {
-	mi := &file_shar_workflow_models_proto_msgTypes[139]
+	mi := &file_shar_workflow_models_proto_msgTypes[143]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9092,7 +9270,7 @@ func (x *FatalError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FatalError.ProtoReflect.Descriptor instead.
 func (*FatalError) Descriptor() ([]byte, []int) {
-	return file_shar_workflow_models_proto_rawDescGZIP(), []int{139}
+	return file_shar_workflow_models_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *FatalError) GetHandlingStrategy() HandlingStrategy {
@@ -9231,11 +9409,13 @@ var file_shar_workflow_models_proto_rawDesc = []byte{
 	0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x09,
 	0x2e, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x48, 0x00, 0x52, 0x08, 0x6d, 0x65, 0x74,
 	0x61, 0x64, 0x61, 0x74, 0x61, 0x88, 0x01, 0x01, 0x42, 0x0b, 0x0a, 0x09, 0x5f, 0x6d, 0x65, 0x74,
-	0x61, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3e, 0x0a, 0x10, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f,
+	0x61, 0x64, 0x61, 0x74, 0x61, 0x22, 0x5e, 0x0a, 0x10, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f,
 	0x77, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x2a, 0x0a, 0x07, 0x76, 0x65, 0x72,
 	0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x57, 0x6f, 0x72,
 	0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x07, 0x76, 0x65,
-	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x22, 0x51, 0x0a, 0x0f, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f,
+	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x1e, 0x0a, 0x0a, 0x69, 0x73, 0x44, 0x69, 0x73, 0x61, 0x62,
+	0x6c, 0x65, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0a, 0x69, 0x73, 0x44, 0x69, 0x73,
+	0x61, 0x62, 0x6c, 0x65, 0x64, 0x22, 0x51, 0x0a, 0x0f, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f,
 	0x77, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01,
 	0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x68, 0x61, 0x32,
 	0x35, 0x36, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x73, 0x68, 0x61, 0x32, 0x35, 0x36,
@@ -10259,6 +10439,17 @@ var file_shar_workflow_models_proto_rawDesc = []byte{
 	0x32, 0x0e, 0x2e, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x53, 0x74, 0x61, 0x74, 0x65,
 	0x52, 0x0d, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x53, 0x74, 0x61, 0x74, 0x65, 0x22,
 	0x17, 0x0a, 0x15, 0x52, 0x65, 0x74, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x69, 0x74, 0x79,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x3b, 0x0a, 0x15, 0x45, 0x6e, 0x61, 0x62,
+	0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x12, 0x22, 0x0a, 0x0c, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x4e, 0x61, 0x6d,
+	0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f,
+	0x77, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x18, 0x0a, 0x16, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x57,
+	0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
+	0x3c, 0x0a, 0x16, 0x44, 0x69, 0x73, 0x61, 0x62, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c,
+	0x6f, 0x77, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x22, 0x0a, 0x0c, 0x77, 0x6f, 0x72,
+	0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x0c, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x19, 0x0a,
+	0x17, 0x44, 0x69, 0x73, 0x61, 0x62, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77,
 	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x81, 0x01, 0x0a, 0x0a, 0x46, 0x61, 0x74,
 	0x61, 0x6c, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x3d, 0x0a, 0x10, 0x68, 0x61, 0x6e, 0x64, 0x6c,
 	0x69, 0x6e, 0x67, 0x53, 0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
@@ -10323,7 +10514,7 @@ var file_shar_workflow_models_proto_rawDesc = []byte{
 	0x0c, 0x46, 0x61, 0x69, 0x6c, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x10, 0x03, 0x2a,
 	0x2b, 0x0a, 0x10, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x69, 0x6e, 0x67, 0x53, 0x74, 0x72, 0x61, 0x74,
 	0x65, 0x67, 0x79, 0x12, 0x09, 0x0a, 0x05, 0x50, 0x61, 0x75, 0x73, 0x65, 0x10, 0x00, 0x12, 0x0c,
-	0x0a, 0x08, 0x54, 0x65, 0x61, 0x72, 0x44, 0x6f, 0x77, 0x6e, 0x10, 0x01, 0x32, 0x97, 0x11, 0x0a,
+	0x0a, 0x08, 0x54, 0x65, 0x61, 0x72, 0x44, 0x6f, 0x77, 0x6e, 0x10, 0x01, 0x32, 0xa0, 0x12, 0x0a,
 	0x04, 0x53, 0x68, 0x61, 0x72, 0x12, 0x3e, 0x0a, 0x0d, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x57, 0x6f,
 	0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x12, 0x15, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x57, 0x6f,
 	0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e,
@@ -10461,10 +10652,18 @@ var file_shar_workflow_models_proto_rawDesc = []byte{
 	0x63, 0x74, 0x69, 0x76, 0x69, 0x74, 0x79, 0x12, 0x15, 0x2e, 0x52, 0x65, 0x74, 0x72, 0x79, 0x41,
 	0x63, 0x74, 0x69, 0x76, 0x69, 0x74, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16,
 	0x2e, 0x52, 0x65, 0x74, 0x72, 0x79, 0x41, 0x63, 0x74, 0x69, 0x76, 0x69, 0x74, 0x79, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0x25, 0x5a, 0x23, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62,
-	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x2d, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c,
-	0x6f, 0x77, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x2f, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x44, 0x0a, 0x0f, 0x44, 0x69, 0x73, 0x61, 0x62, 0x6c,
+	0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x12, 0x17, 0x2e, 0x44, 0x69, 0x73, 0x61,
+	0x62, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x18, 0x2e, 0x44, 0x69, 0x73, 0x61, 0x62, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b,
+	0x66, 0x6c, 0x6f, 0x77, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x41, 0x0a, 0x0e,
+	0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x12, 0x16,
+	0x2e, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x57, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x57,
+	0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42,
+	0x25, 0x5a, 0x23, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x68,
+	0x61, 0x72, 0x2d, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x2f, 0x73, 0x68, 0x61, 0x72,
+	0x2f, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -10480,7 +10679,7 @@ func file_shar_workflow_models_proto_rawDescGZIP() []byte {
 }
 
 var file_shar_workflow_models_proto_enumTypes = make([]protoimpl.EnumInfo, 11)
-var file_shar_workflow_models_proto_msgTypes = make([]protoimpl.MessageInfo, 161)
+var file_shar_workflow_models_proto_msgTypes = make([]protoimpl.MessageInfo, 165)
 var file_shar_workflow_models_proto_goTypes = []interface{}{
 	(ThreadingType)(0),                             // 0: ThreadingType
 	(GatewayType)(0),                               // 1: GatewayType
@@ -10632,37 +10831,41 @@ var file_shar_workflow_models_proto_goTypes = []interface{}{
 	(*GetProcessHeadersResponse)(nil),              // 147: GetProcessHeadersResponse
 	(*RetryActivityRequest)(nil),                   // 148: RetryActivityRequest
 	(*RetryActivityResponse)(nil),                  // 149: RetryActivityResponse
-	(*FatalError)(nil),                             // 150: FatalError
-	nil,                                            // 151: Workflow.ProcessEntry
-	nil,                                            // 152: Workflow.MessageReceiversEntry
-	nil,                                            // 153: Element.InputTransformEntry
-	nil,                                            // 154: Element.OutputTransformEntry
-	nil,                                            // 155: Timer.OutputTransformEntry
-	nil,                                            // 156: CatchError.OutputTransformEntry
-	nil,                                            // 157: WorkflowState.SatisfiesGatewayExpectationEntry
-	nil,                                            // 158: WorkflowState.GatewayExpectationsEntry
-	nil,                                            // 159: ProcessHistoryEntry.SatisfiesGatewayExpectationEntry
-	nil,                                            // 160: ProcessHistoryEntry.GatewayExpectationsEntry
-	nil,                                            // 161: Gateway.MetExpectationsEntry
-	nil,                                            // 162: ProcessInstance.GatewayCompleteEntry
-	nil,                                            // 163: ApiAuthorizationRequest.HeadersEntry
-	nil,                                            // 164: ApiAuthenticationRequest.HeadersEntry
-	nil,                                            // 165: TelemetryState.LogEntry
-	nil,                                            // 166: TelemetryLogEntry.AttributesEntry
-	nil,                                            // 167: TaskMetadata.ExtensionDataEntry
-	nil,                                            // 168: Parameter.ExtensionDataEntry
-	nil,                                            // 169: Exchange.ReceiversEntry
-	nil,                                            // 170: LogRequest.AttributesEntry
-	nil,                                            // 171: GetProcessHeadersResponse.HeadersEntry
+	(*EnableWorkflowRequest)(nil),                  // 150: EnableWorkflowRequest
+	(*EnableWorkflowResponse)(nil),                 // 151: EnableWorkflowResponse
+	(*DisableWorkflowRequest)(nil),                 // 152: DisableWorkflowRequest
+	(*DisableWorkflowResponse)(nil),                // 153: DisableWorkflowResponse
+	(*FatalError)(nil),                             // 154: FatalError
+	nil,                                            // 155: Workflow.ProcessEntry
+	nil,                                            // 156: Workflow.MessageReceiversEntry
+	nil,                                            // 157: Element.InputTransformEntry
+	nil,                                            // 158: Element.OutputTransformEntry
+	nil,                                            // 159: Timer.OutputTransformEntry
+	nil,                                            // 160: CatchError.OutputTransformEntry
+	nil,                                            // 161: WorkflowState.SatisfiesGatewayExpectationEntry
+	nil,                                            // 162: WorkflowState.GatewayExpectationsEntry
+	nil,                                            // 163: ProcessHistoryEntry.SatisfiesGatewayExpectationEntry
+	nil,                                            // 164: ProcessHistoryEntry.GatewayExpectationsEntry
+	nil,                                            // 165: Gateway.MetExpectationsEntry
+	nil,                                            // 166: ProcessInstance.GatewayCompleteEntry
+	nil,                                            // 167: ApiAuthorizationRequest.HeadersEntry
+	nil,                                            // 168: ApiAuthenticationRequest.HeadersEntry
+	nil,                                            // 169: TelemetryState.LogEntry
+	nil,                                            // 170: TelemetryLogEntry.AttributesEntry
+	nil,                                            // 171: TaskMetadata.ExtensionDataEntry
+	nil,                                            // 172: Parameter.ExtensionDataEntry
+	nil,                                            // 173: Exchange.ReceiversEntry
+	nil,                                            // 174: LogRequest.AttributesEntry
+	nil,                                            // 175: GetProcessHeadersResponse.HeadersEntry
 }
 var file_shar_workflow_models_proto_depIdxs = []int32{
 	27,  // 0: StoreWorkflowRequest.workflow:type_name -> Workflow
 	24,  // 1: ListExecutableProcessesItem.parameter:type_name -> ExecutableStartParameter
-	151, // 2: Workflow.process:type_name -> Workflow.ProcessEntry
+	155, // 2: Workflow.process:type_name -> Workflow.ProcessEntry
 	37,  // 3: Workflow.messages:type_name -> Element
 	43,  // 4: Workflow.errors:type_name -> Error
 	30,  // 5: Workflow.collaboration:type_name -> Collaboration
-	152, // 6: Workflow.messageReceivers:type_name -> Workflow.MessageReceiversEntry
+	156, // 6: Workflow.messageReceivers:type_name -> Workflow.MessageReceiversEntry
 	29,  // 7: MessageReceivers.messageReceiver:type_name -> MessageReceiver
 	31,  // 8: Collaboration.participant:type_name -> Participant
 	32,  // 9: Collaboration.messageFlow:type_name -> MessageFlow
@@ -10673,8 +10876,8 @@ var file_shar_workflow_models_proto_depIdxs = []int32{
 	34,  // 14: Element.process:type_name -> Process
 	44,  // 15: Element.errors:type_name -> CatchError
 	43,  // 16: Element.error:type_name -> Error
-	153, // 17: Element.inputTransform:type_name -> Element.InputTransformEntry
-	154, // 18: Element.outputTransform:type_name -> Element.OutputTransformEntry
+	157, // 17: Element.inputTransform:type_name -> Element.InputTransformEntry
+	158, // 18: Element.outputTransform:type_name -> Element.OutputTransformEntry
 	54,  // 19: Element.timer:type_name -> WorkflowTimerDefinition
 	41,  // 20: Element.boundaryTimer:type_name -> Timer
 	40,  // 21: Element.gateway:type_name -> GatewaySpec
@@ -10683,14 +10886,14 @@ var file_shar_workflow_models_proto_depIdxs = []int32{
 	0,   // 24: Iteration.execute:type_name -> ThreadingType
 	1,   // 25: GatewaySpec.type:type_name -> GatewayType
 	2,   // 26: GatewaySpec.direction:type_name -> GatewayDirection
-	155, // 27: Timer.outputTransform:type_name -> Timer.OutputTransformEntry
-	156, // 28: CatchError.outputTransform:type_name -> CatchError.OutputTransformEntry
+	159, // 27: Timer.outputTransform:type_name -> Timer.OutputTransformEntry
+	160, // 28: CatchError.outputTransform:type_name -> CatchError.OutputTransformEntry
 	42,  // 29: Targets.target:type_name -> Target
 	6,   // 30: WorkflowState.state:type_name -> CancellationState
 	43,  // 31: WorkflowState.error:type_name -> Error
 	55,  // 32: WorkflowState.timer:type_name -> WorkflowTimer
-	157, // 33: WorkflowState.satisfiesGatewayExpectation:type_name -> WorkflowState.SatisfiesGatewayExpectationEntry
-	158, // 34: WorkflowState.gatewayExpectations:type_name -> WorkflowState.GatewayExpectationsEntry
+	161, // 33: WorkflowState.satisfiesGatewayExpectation:type_name -> WorkflowState.SatisfiesGatewayExpectationEntry
+	162, // 34: WorkflowState.gatewayExpectations:type_name -> WorkflowState.GatewayExpectationsEntry
 	47,  // 35: WorkflowState.compensation:type_name -> Compensation
 	6,   // 36: WorkflowStateSummary.state:type_name -> CancellationState
 	43,  // 37: WorkflowStateSummary.error:type_name -> Error
@@ -10699,15 +10902,15 @@ var file_shar_workflow_models_proto_depIdxs = []int32{
 	6,   // 40: ProcessHistoryEntry.cancellationState:type_name -> CancellationState
 	55,  // 41: ProcessHistoryEntry.timer:type_name -> WorkflowTimer
 	43,  // 42: ProcessHistoryEntry.error:type_name -> Error
-	159, // 43: ProcessHistoryEntry.satisfiesGatewayExpectation:type_name -> ProcessHistoryEntry.SatisfiesGatewayExpectationEntry
-	160, // 44: ProcessHistoryEntry.gatewayExpectations:type_name -> ProcessHistoryEntry.GatewayExpectationsEntry
+	163, // 43: ProcessHistoryEntry.satisfiesGatewayExpectation:type_name -> ProcessHistoryEntry.SatisfiesGatewayExpectationEntry
+	164, // 44: ProcessHistoryEntry.gatewayExpectations:type_name -> ProcessHistoryEntry.GatewayExpectationsEntry
 	49,  // 45: ProcessHistory.item:type_name -> ProcessHistoryEntry
-	161, // 46: Gateway.metExpectations:type_name -> Gateway.MetExpectationsEntry
+	165, // 46: Gateway.metExpectations:type_name -> Gateway.MetExpectationsEntry
 	4,   // 47: WorkflowTimerDefinition.type:type_name -> WorkflowTimerType
-	162, // 48: ProcessInstance.gatewayComplete:type_name -> ProcessInstance.GatewayCompleteEntry
+	166, // 48: ProcessInstance.gatewayComplete:type_name -> ProcessInstance.GatewayCompleteEntry
 	5,   // 49: MessageRecipient.type:type_name -> RecipientType
-	163, // 50: ApiAuthorizationRequest.Headers:type_name -> ApiAuthorizationRequest.HeadersEntry
-	164, // 51: ApiAuthenticationRequest.headers:type_name -> ApiAuthenticationRequest.HeadersEntry
+	167, // 50: ApiAuthorizationRequest.Headers:type_name -> ApiAuthorizationRequest.HeadersEntry
+	168, // 51: ApiAuthenticationRequest.headers:type_name -> ApiAuthenticationRequest.HeadersEntry
 	6,   // 52: CancelProcessInstanceRequest.state:type_name -> CancellationState
 	43,  // 53: CancelProcessInstanceRequest.error:type_name -> Error
 	46,  // 54: GetProcessInstanceStatusResult.processState:type_name -> WorkflowState
@@ -10725,14 +10928,14 @@ var file_shar_workflow_models_proto_depIdxs = []int32{
 	27,  // 66: ResolveWorkflowRequest.workflow:type_name -> Workflow
 	27,  // 67: ResolveWorkflowResponse.workflow:type_name -> Workflow
 	46,  // 68: TelemetryState.state:type_name -> WorkflowState
-	165, // 69: TelemetryState.log:type_name -> TelemetryState.LogEntry
+	169, // 69: TelemetryState.log:type_name -> TelemetryState.LogEntry
 	7,   // 70: TelemetryLogEntry.source:type_name -> LogSource
-	166, // 71: TelemetryLogEntry.attributes:type_name -> TelemetryLogEntry.AttributesEntry
+	170, // 71: TelemetryLogEntry.attributes:type_name -> TelemetryLogEntry.AttributesEntry
 	113, // 72: TaskSpec.metadata:type_name -> TaskMetadata
 	116, // 73: TaskSpec.behaviour:type_name -> TaskBehaviour
 	114, // 74: TaskSpec.parameters:type_name -> TaskParameters
 	115, // 75: TaskSpec.events:type_name -> TaskEvents
-	167, // 76: TaskMetadata.extensionData:type_name -> TaskMetadata.ExtensionDataEntry
+	171, // 76: TaskMetadata.extensionData:type_name -> TaskMetadata.ExtensionDataEntry
 	120, // 77: TaskParameters.parameterGroup:type_name -> ParameterGroup
 	121, // 78: TaskParameters.input:type_name -> Parameter
 	121, // 79: TaskParameters.output:type_name -> Parameter
@@ -10743,16 +10946,16 @@ var file_shar_workflow_models_proto_depIdxs = []int32{
 	8,   // 84: DefaultTaskRetry.strategy:type_name -> RetryStrategy
 	119, // 85: DefaultTaskRetry.defaultExceeded:type_name -> DefaultRetryExceededBehaviour
 	9,   // 86: DefaultRetryExceededBehaviour.action:type_name -> RetryErrorAction
-	168, // 87: Parameter.extensionData:type_name -> Parameter.ExtensionDataEntry
+	172, // 87: Parameter.extensionData:type_name -> Parameter.ExtensionDataEntry
 	112, // 88: RegisterTaskRequest.spec:type_name -> TaskSpec
 	112, // 89: GetTaskSpecResponse.spec:type_name -> TaskSpec
 	133, // 90: DeprecateServiceTaskResponse.usage:type_name -> TaskSpecUsageReport
 	111, // 91: GetTaskSpecVersionsResponse.versions:type_name -> TaskSpecVersions
 	136, // 92: Exchange.sender:type_name -> Sender
-	169, // 93: Exchange.receivers:type_name -> Exchange.ReceiversEntry
+	173, // 93: Exchange.receivers:type_name -> Exchange.ReceiversEntry
 	7,   // 94: LogRequest.source:type_name -> LogSource
-	170, // 95: LogRequest.attributes:type_name -> LogRequest.AttributesEntry
-	171, // 96: GetProcessHeadersResponse.headers:type_name -> GetProcessHeadersResponse.HeadersEntry
+	174, // 95: LogRequest.attributes:type_name -> LogRequest.AttributesEntry
+	175, // 96: GetProcessHeadersResponse.headers:type_name -> GetProcessHeadersResponse.HeadersEntry
 	46,  // 97: RetryActivityRequest.workflowState:type_name -> WorkflowState
 	10,  // 98: FatalError.handlingStrategy:type_name -> HandlingStrategy
 	46,  // 99: FatalError.workflowState:type_name -> WorkflowState
@@ -10795,39 +10998,43 @@ var file_shar_workflow_models_proto_depIdxs = []int32{
 	104, // 136: Shar.GetJob:input_type -> GetJobRequest
 	106, // 137: Shar.ResolveWorkflow:input_type -> ResolveWorkflowRequest
 	148, // 138: Shar.RetryActivity:input_type -> RetryActivityRequest
-	12,  // 139: Shar.StoreWorkflow:output_type -> StoreWorkflowResponse
-	13,  // 140: Shar.CancelProcessInstance:output_type -> CancelProcessInstanceResponse
-	66,  // 141: Shar.LaunchProcess:output_type -> LaunchWorkflowResponse
-	77,  // 142: Shar.ListWorkflows:output_type -> ListWorkflowsResponse
-	69,  // 143: Shar.ListExecutionProcesses:output_type -> ListExecutionProcessesResponse
-	73,  // 144: Shar.ListExecution:output_type -> ListExecutionResponse
-	80,  // 145: Shar.SendMessage:output_type -> SendMessageResponse
-	15,  // 146: Shar.CompleteManualTask:output_type -> CompleteManualTaskResponse
-	16,  // 147: Shar.CompleteServiceTask:output_type -> CompleteServiceTaskResponse
-	17,  // 148: Shar.CompleteUserTask:output_type -> CompleteUserTaskResponse
-	18,  // 149: Shar.ListUserTaskIDs:output_type -> ListUserTasksResponse
-	88,  // 150: Shar.GetUserTask:output_type -> GetUserTaskResponse
-	90,  // 151: Shar.HandleWorkflowError:output_type -> HandleWorkflowErrorResponse
-	92,  // 152: Shar.HandleWorkflowFatalError:output_type -> HandleWorkflowFatalErrorResponse
-	19,  // 153: Shar.CompleteSendMessageTask:output_type -> CompleteSendMessageResponse
-	94,  // 154: Shar.GetWorkflowVersions:output_type -> GetWorkflowVersionsResponse
-	96,  // 155: Shar.GetWorkflow:output_type -> GetWorkflowResponse
-	20,  // 156: Shar.GetProcessInstanceStatus:output_type -> GetProcessInstanceStatusResponse
-	98,  // 157: Shar.GetProcessHistory:output_type -> GetProcessHistoryResponse
-	103, // 158: Shar.GetVersionInfo:output_type -> GetVersionInfoResponse
-	125, // 159: Shar.RegisterTask:output_type -> RegisterTaskResponse
-	127, // 160: Shar.GetTaskSpec:output_type -> GetTaskSpecResponse
-	129, // 161: Shar.DeprecateServiceTask:output_type -> DeprecateServiceTaskResponse
-	131, // 162: Shar.GetTaskSpecVersions:output_type -> GetTaskSpecVersionsResponse
-	21,  // 163: Shar.GetTaskSpecUsage:output_type -> GetTaskSpecUsageResponse
-	135, // 164: Shar.ListTaskSpecUIDs:output_type -> ListTaskSpecUIDsResponse
-	26,  // 165: Shar.Heartbeat:output_type -> HeartbeatResponse
-	141, // 166: Shar.Log:output_type -> LogResponse
-	105, // 167: Shar.GetJob:output_type -> GetJobResponse
-	107, // 168: Shar.ResolveWorkflow:output_type -> ResolveWorkflowResponse
-	149, // 169: Shar.RetryActivity:output_type -> RetryActivityResponse
-	139, // [139:170] is the sub-list for method output_type
-	108, // [108:139] is the sub-list for method input_type
+	152, // 139: Shar.DisableWorkflow:input_type -> DisableWorkflowRequest
+	150, // 140: Shar.EnableWorkflow:input_type -> EnableWorkflowRequest
+	12,  // 141: Shar.StoreWorkflow:output_type -> StoreWorkflowResponse
+	13,  // 142: Shar.CancelProcessInstance:output_type -> CancelProcessInstanceResponse
+	66,  // 143: Shar.LaunchProcess:output_type -> LaunchWorkflowResponse
+	77,  // 144: Shar.ListWorkflows:output_type -> ListWorkflowsResponse
+	69,  // 145: Shar.ListExecutionProcesses:output_type -> ListExecutionProcessesResponse
+	73,  // 146: Shar.ListExecution:output_type -> ListExecutionResponse
+	80,  // 147: Shar.SendMessage:output_type -> SendMessageResponse
+	15,  // 148: Shar.CompleteManualTask:output_type -> CompleteManualTaskResponse
+	16,  // 149: Shar.CompleteServiceTask:output_type -> CompleteServiceTaskResponse
+	17,  // 150: Shar.CompleteUserTask:output_type -> CompleteUserTaskResponse
+	18,  // 151: Shar.ListUserTaskIDs:output_type -> ListUserTasksResponse
+	88,  // 152: Shar.GetUserTask:output_type -> GetUserTaskResponse
+	90,  // 153: Shar.HandleWorkflowError:output_type -> HandleWorkflowErrorResponse
+	92,  // 154: Shar.HandleWorkflowFatalError:output_type -> HandleWorkflowFatalErrorResponse
+	19,  // 155: Shar.CompleteSendMessageTask:output_type -> CompleteSendMessageResponse
+	94,  // 156: Shar.GetWorkflowVersions:output_type -> GetWorkflowVersionsResponse
+	96,  // 157: Shar.GetWorkflow:output_type -> GetWorkflowResponse
+	20,  // 158: Shar.GetProcessInstanceStatus:output_type -> GetProcessInstanceStatusResponse
+	98,  // 159: Shar.GetProcessHistory:output_type -> GetProcessHistoryResponse
+	103, // 160: Shar.GetVersionInfo:output_type -> GetVersionInfoResponse
+	125, // 161: Shar.RegisterTask:output_type -> RegisterTaskResponse
+	127, // 162: Shar.GetTaskSpec:output_type -> GetTaskSpecResponse
+	129, // 163: Shar.DeprecateServiceTask:output_type -> DeprecateServiceTaskResponse
+	131, // 164: Shar.GetTaskSpecVersions:output_type -> GetTaskSpecVersionsResponse
+	21,  // 165: Shar.GetTaskSpecUsage:output_type -> GetTaskSpecUsageResponse
+	135, // 166: Shar.ListTaskSpecUIDs:output_type -> ListTaskSpecUIDsResponse
+	26,  // 167: Shar.Heartbeat:output_type -> HeartbeatResponse
+	141, // 168: Shar.Log:output_type -> LogResponse
+	105, // 169: Shar.GetJob:output_type -> GetJobResponse
+	107, // 170: Shar.ResolveWorkflow:output_type -> ResolveWorkflowResponse
+	149, // 171: Shar.RetryActivity:output_type -> RetryActivityResponse
+	153, // 172: Shar.DisableWorkflow:output_type -> DisableWorkflowResponse
+	151, // 173: Shar.EnableWorkflow:output_type -> EnableWorkflowResponse
+	141, // [141:174] is the sub-list for method output_type
+	108, // [108:141] is the sub-list for method input_type
 	108, // [108:108] is the sub-list for extension type_name
 	108, // [108:108] is the sub-list for extension extendee
 	0,   // [0:108] is the sub-list for field type_name
@@ -12508,6 +12715,54 @@ func file_shar_workflow_models_proto_init() {
 			}
 		}
 		file_shar_workflow_models_proto_msgTypes[139].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*EnableWorkflowRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_shar_workflow_models_proto_msgTypes[140].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*EnableWorkflowResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_shar_workflow_models_proto_msgTypes[141].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DisableWorkflowRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_shar_workflow_models_proto_msgTypes[142].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DisableWorkflowResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_shar_workflow_models_proto_msgTypes[143].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FatalError); i {
 			case 0:
 				return &v.state
@@ -12535,7 +12790,7 @@ func file_shar_workflow_models_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_shar_workflow_models_proto_rawDesc,
 			NumEnums:      11,
-			NumMessages:   161,
+			NumMessages:   165,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -38,6 +38,8 @@ service Shar {
   rpc GetJob (GetJobRequest) returns (GetJobResponse);
   rpc ResolveWorkflow (ResolveWorkflowRequest) returns (ResolveWorkflowResponse);
   rpc RetryActivity (RetryActivityRequest) returns (RetryActivityResponse);
+  rpc DisableWorkflow (DisableWorkflowRequest) returns (DisableWorkflowResponse);
+  rpc EnableWorkflow (EnableWorkflowRequest) returns (EnableWorkflowResponse);
 }
 
 message StoreWorkflowRequest {
@@ -158,6 +160,7 @@ message Process {
 // WorkflowVersions describes the version history.
 message WorkflowVersions {
   repeated WorkflowVersion version = 1; // WorkflowVersion - a single version of a workflow
+  bool isDisabled = 2; // IsDisabled - whether this workflow is allowed to be executed
 }
 
 // WorkflowVersion contains the metadata for a single workflow version
@@ -945,6 +948,22 @@ message RetryActivityRequest {
 }
 
 message RetryActivityResponse {
+
+}
+
+message EnableWorkflowRequest {
+  string workflowName = 1;
+}
+
+message EnableWorkflowResponse {
+
+}
+
+message DisableWorkflowRequest {
+  string workflowName = 1;
+}
+
+message DisableWorkflowResponse {
 
 }
 

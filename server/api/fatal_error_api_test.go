@@ -46,7 +46,7 @@ func TestFatalErrorKeyPrefixBuilderWithPartialSegments(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%s.%s.%s.%s", wfName, "*", "*", processInstanceId), keyPrefix)
 }
 
-func TestValidation(t *testing.T) {
+func TestGetFatalErrorValidation(t *testing.T) {
 	cases := map[string]struct {
 		getFatalErrorRequest *model.GetFatalErrorRequest
 		expectedError        string
@@ -274,3 +274,4 @@ func TestReturnsAuthErrorWhenAuthFails(t *testing.T) {
 		})
 	}
 }
+

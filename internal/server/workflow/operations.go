@@ -118,6 +118,8 @@ type Ops interface {
 	TearDownWorkflow(ctx context.Context, state *model.WorkflowState) (bool, error)
 	DeleteFatalError(ctx context.Context, state *model.WorkflowState) error
 	GetActiveEntries(ctx context.Context, processInstanceID string, result chan<- *model.ProcessHistoryEntry, errs chan<- error)
+	DisableWorkflow(ctx context.Context, workflowName string) error
+	EnableWorkflow(ctx context.Context, workflowName string) error
 }
 
 // Operations provides methods for executing and managing workflow processes.
@@ -2207,6 +2209,37 @@ func (s *Operations) DeleteFatalError(ctx context.Context, state *model.Workflow
 	err = common.Delete(ctx, kvsFor.WfFatalError, fatalErrorKey(state.WorkflowName, state.WorkflowId, state.ExecutionId, state.ProcessInstanceId, state.ElementId))
 	if err != nil {
 		return fmt.Errorf("delete fatal error: %w", err)
+	}
+
+	return nil
+}
+
+// DisableWorkflow stops a workflow from being launched
+func (s *Operations) DisableWorkflow(ctx context.Context, workflowName string) error {
+	isExecutable := false
+	return s.makeExecutable(ctx, workflowName, isExecutable)
+}
+
+// EnableWorkflow allows a workflow to be launched
+func (s *Operations) EnableWorkflow(ctx context.Context, workflowName string) error {
+	isExecutable := true
+	return s.makeExecutable(ctx, workflowName, isExecutable)
+}
+
+func (s *Operations) makeExecutable(ctx context.Context, workflowName string, isExecutable bool) error {
+	ns := subj.GetNS(ctx)
+	kvs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return fmt.Errorf("get kvs for makeExecutable %b: %w", isExecutable, err)
+	}
+
+	wfVersion := &model.WorkflowVersions{}
+	err = common.UpdateObj(ctx, kvs.WfVersion, workflowName, wfVersion, func(wfVersion *model.WorkflowVersions) (*model.WorkflowVersions, error) {
+		wfVersion.IsExecutable = isExecutable
+		return wfVersion, nil
+	})
+	if err != nil {
+		return fmt.Errorf("set makeExecutable %b: %w", isExecutable, err)
 	}
 
 	return nil

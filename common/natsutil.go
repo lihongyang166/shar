@@ -110,14 +110,14 @@ func SaveObj(ctx context.Context, wf jetstream.KeyValue, k string, v proto.Messa
 }
 
 // LoadObj loads a protobuf message from a key value store
-func LoadObj(ctx context.Context, wf jetstream.KeyValue, k string, v proto.Message) error {
+func LoadObj(ctx context.Context, kvStore jetstream.KeyValue, k string, v proto.Message) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
-		log.Log(ctx, errors2.TraceLevel, "load KV object", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.Any("val", v))
+		log.Log(ctx, errors2.TraceLevel, "load KV object", slog.String("bucket", kvStore.Bucket()), slog.String("key", k), slog.Any("val", v))
 	}
-	kv, err := Load(ctx, wf, k)
+	kv, err := Load(ctx, kvStore, k)
 	if err != nil {
-		return fmt.Errorf("load object from KV %s(%s): %w", wf.Bucket(), k, err)
+		return fmt.Errorf("load object from KV %s(%s): %w", kvStore.Bucket(), k, err)
 	}
 	if err := proto.Unmarshal(kv, v); err != nil {
 		return fmt.Errorf("unmarshal in LoadObj: %w", err)

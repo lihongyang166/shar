@@ -9,74 +9,44 @@ import (
 	"testing"
 )
 
-func TestDisableWorkflowAuth(t *testing.T) {
+func TestReturnsAuthErrorWhenDisableWorkflowAuthFails(t *testing.T) {
+	ops := &workflow.MockOps{}
+	auth := &MockAuth{}
+	e := newEndpoints(ops, auth)
+
+	ctx := context.Background()
+	workflowName := "wfName"
+	req := &model.DisableWorkflowRequest{WorkflowName: workflowName}
+
+	expectedErrMessage := "failed to auth"
+	auth.On("authForNamedWorkflow", ctx, workflowName).Return(nil, errors.New(expectedErrMessage))
+
+	_, err := e.disableWorkflow(ctx, req)
+
+	auth.AssertExpectations(t)
+	ops.AssertNotCalled(t, "DisableWorkflow", ctx, workflowName)
+
+	assert.ErrorContains(t, err, expectedErrMessage)
 
 }
 
-func TestReturnsAuthErrorWhenDisableWorkflowAuthFails(t *testing.T) {
-	cases := map[string]struct {
-		getFatalErrorRequest *model.GetFatalErrorRequest
+func TestDisableWorkflow(t *testing.T) {
+	ops := &workflow.MockOps{}
+	auth := &MockAuth{}
+	e := newEndpoints(ops, auth)
 
-		authMethodCallMockFn func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest, expectedErr error)
-	}{
-		"WorkflowNameAuth": {
-			getFatalErrorRequest: &model.GetFatalErrorRequest{
-				WfName:            "workFlowName",
-				ExecutionId:       "",
-				ProcessInstanceId: "",
-			},
-			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest, expectedErr error) {
-				mockAuth.On("authForNamedWorkflow", ctx, req.WfName).Return(nil, expectedErr)
-			},
-		},
-		"ExecutionIdAuth": {
-			getFatalErrorRequest: &model.GetFatalErrorRequest{
-				WfName:            "",
-				ExecutionId:       "ExecutionId",
-				ProcessInstanceId: "",
-			},
-			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest, expectedErr error) {
-				mockAuth.On("authFromExecutionID", ctx, req.ExecutionId).Return(nil, nil, expectedErr)
-			},
-		},
-		"ProcessInstanceIdAuth": {
-			getFatalErrorRequest: &model.GetFatalErrorRequest{
-				WfName:            "",
-				ExecutionId:       "",
-				ProcessInstanceId: "processInstanceId",
-			},
-			authMethodCallMockFn: func(mockAuth *MockAuth, ctx context.Context, req *model.GetFatalErrorRequest, expectedErr error) {
-				mockAuth.On("authFromProcessInstanceID", ctx, req.ProcessInstanceId).Return(nil, nil, expectedErr)
-			},
-		},
-	}
+	ctx := context.Background()
+	wfName := "wfName"
+	req := &model.DisableWorkflowRequest{WorkflowName: wfName}
 
-	for name, testParams := range cases {
-		t.Run(name, func(t *testing.T) {
-			mockOperations := &workflow.MockOps{}
-			mockAuth := &MockAuth{}
+	authCtx := context.Background()
+	auth.On("authForNamedWorkflow", ctx, wfName).Return(authCtx, nil)
+	ops.On("DisableWorkflow", authCtx, wfName).Return(nil)
 
-			endpoints := newEndpoints(mockOperations, mockAuth)
+	_, err := e.disableWorkflow(ctx, req)
 
-			ctx := context.Background()
-			respCh := make(chan *model.FatalError)
-			errsCh := make(chan error)
+	auth.AssertExpectations(t)
+	ops.AssertExpectations(t)
 
-			req := testParams.getFatalErrorRequest
-
-			expectedErr := errors.New("auth error")
-			testParams.authMethodCallMockFn(mockAuth, ctx, req, expectedErr)
-
-			go func() {
-				endpoints.getFatalErrors(ctx, req, respCh, errsCh)
-			}()
-
-			actualErrResponse := <-errsCh
-
-			mockAuth.AssertExpectations(t)
-			mockOperations.AssertNotCalled(t, "GetFatalErrors")
-
-			assert.True(t, errors.Is(actualErrResponse, expectedErr))
-		})
-	}
+	assert.NoError(t, err)
 }

@@ -191,6 +191,14 @@ func (s *Listener) StartListening() error {
 		return fmt.Errorf("APIGetProcessInstanceHeaders: %w", err)
 	}
 
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIDisableWorkflow, s.receiveApiMiddleware, &model.DisableWorkflowRequest{}, s.endpoints.disableWorkflow); err != nil {
+		return fmt.Errorf("APIDisableWorkflow: %w", err)
+	}
+
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIEnableWorkflow, s.receiveApiMiddleware, &model.EnableWorkflowRequest{}, s.endpoints.enableWorkflow); err != nil {
+		return fmt.Errorf("APIEnableWorkflow: %w", err)
+	}
+
 	/* COMPLETED */
 	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetWorkflowVersions, s.receiveApiMiddleware, &model.GetWorkflowVersionsRequest{}, s.endpoints.getWorkflowVersions); err != nil {
 		return fmt.Errorf("APIGetWorkflowVersions: %w", err)

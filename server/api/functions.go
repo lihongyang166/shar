@@ -580,3 +580,31 @@ func (s *endpoints) getProcessHeaders(ctx context.Context, req *model.GetProcess
 	}
 	return &model.GetProcessHeadersResponse{Headers: hdr}, nil
 }
+
+func (s *endpoints) disableWorkflow(ctx context.Context, req *model.DisableWorkflowRequest) (*model.DisableWorkflowResponse, error) {
+	authCtx, err := s.auth.authForNamedWorkflow(ctx, req.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	}
+
+	err = s.operations.DisableWorkflow(authCtx, req.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to disable workflow: %w", err)
+	}
+
+	return &model.DisableWorkflowResponse{}, nil
+}
+
+func (s *endpoints) enableWorkflow(ctx context.Context, req *model.EnableWorkflowRequest) (*model.EnableWorkflowResponse, error) {
+	authCtx, err := s.auth.authForNamedWorkflow(ctx, req.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	}
+
+	err = s.operations.EnableWorkflow(authCtx, req.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to enable workflow: %w", err)
+	}
+
+	return &model.EnableWorkflowResponse{}, nil
+}

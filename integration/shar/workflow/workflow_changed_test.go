@@ -1,4 +1,4 @@
-package intTest
+package workflow
 
 import (
 	"context"
@@ -38,7 +38,7 @@ func TestWorkflowChanged(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	changed, err := cl.HasWorkflowDefinitionChanged(ctx, "SimpleWorkflowTest", b)
@@ -53,7 +53,7 @@ func TestWorkflowChanged(t *testing.T) {
 	assert.False(t, changed)
 
 	// Load second BPMN workflow
-	b, err = os.ReadFile("../../testdata/simple-workflow-changed.bpmn")
+	b, err = os.ReadFile("../../../testdata/simple-workflow-changed.bpmn")
 	require.NoError(t, err)
 	changed, err = cl.HasWorkflowDefinitionChanged(ctx, "SimpleWorkflowTest", b)
 	require.NoError(t, err)

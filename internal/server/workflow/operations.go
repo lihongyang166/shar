@@ -2230,7 +2230,7 @@ func (s *Operations) makeExecutable(ctx context.Context, workflowName string, is
 	ns := subj.GetNS(ctx)
 	kvs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("get kvs for makeExecutable %b: %w", isExecutable, err)
+		return fmt.Errorf("get kvs for makeExecutable %t: %w", isExecutable, err)
 	}
 
 	wfVersion := &model.WorkflowVersions{}
@@ -2239,7 +2239,7 @@ func (s *Operations) makeExecutable(ctx context.Context, workflowName string, is
 		return wfVersion, nil
 	})
 	if err != nil {
-		return fmt.Errorf("set makeExecutable %b: %w", isExecutable, err)
+		return fmt.Errorf("set makeExecutable %t: %w", isExecutable, err)
 	}
 
 	return nil

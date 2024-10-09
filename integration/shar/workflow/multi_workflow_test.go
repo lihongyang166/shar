@@ -1,4 +1,4 @@
-package intTest
+package workflow
 
 import (
 	"context"
@@ -41,11 +41,11 @@ func TestMultiWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/message-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/message-workflow.bpmn")
 	require.NoError(t, err)
 
 	// Load BPMN workflow 2
-	b2, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b2, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestMultiWorkflow1", WorkflowBPMN: b})

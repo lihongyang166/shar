@@ -1,4 +1,4 @@
-package intTest
+package auth
 
 import (
 	"context"
@@ -50,11 +50,11 @@ func TestSimpleAuthZ(t *testing.T) {
 	d := &testSimpleAuthHandlerDef{t: t, finished: make(chan struct{})}
 
 	// Register a service task
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "simple/simple_test.yaml", d.integrationSimple)
+	_, err = support.RegisterTaskYamlFile(ctx, cl, "../simple/simple_test.yaml", d.integrationSimple)
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
@@ -114,7 +114,7 @@ func TestSimpleNoAuthZ(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})

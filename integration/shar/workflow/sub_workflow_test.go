@@ -1,4 +1,4 @@
-package intTest
+package workflow
 
 import (
 	"context"
@@ -42,9 +42,9 @@ func TestSubWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflows
-	w1, err := os.ReadFile("../../testdata/sub-workflow-parent.bpmn")
+	w1, err := os.ReadFile("../../../testdata/sub-workflow-parent.bpmn")
 	require.NoError(t, err)
-	w2, err := os.ReadFile("../../testdata/sub-workflow-child.bpmn")
+	w2, err := os.ReadFile("../../../testdata/sub-workflow-child.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "MasterWorkflowDemo", WorkflowBPMN: w1})
 	require.NoError(t, err)

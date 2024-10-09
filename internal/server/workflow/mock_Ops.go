@@ -1208,7 +1208,7 @@ func (_c *MockOps_GetJob_Call) RunAndReturn(run func(context.Context, string) (*
 	return _c
 }
 
-// GetLatestVersion provides a mock function with given fields: ctx, workflowName
+// GetLatestWorkflowVersion provides a mock function with given fields: ctx, workflowName
 func (_m *MockOps) GetLatestWorkflowVersion(ctx context.Context, workflowName string) (string, error) {
 	ret := _m.Called(ctx, workflowName)
 
@@ -1236,31 +1236,31 @@ func (_m *MockOps) GetLatestWorkflowVersion(ctx context.Context, workflowName st
 	return r0, r1
 }
 
-// MockOps_GetLatestVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestWorkflowVersion'
-type MockOps_GetLatestVersion_Call struct {
+// MockOps_GetLatestWorkflowVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestWorkflowVersion'
+type MockOps_GetLatestWorkflowVersion_Call struct {
 	*mock.Call
 }
 
-// GetLatestVersion is a helper method to define mock.On call
+// GetLatestWorkflowVersion is a helper method to define mock.On call
 //   - ctx context.Context
 //   - workflowName string
-func (_e *MockOps_Expecter) GetLatestVersion(ctx interface{}, workflowName interface{}) *MockOps_GetLatestVersion_Call {
-	return &MockOps_GetLatestVersion_Call{Call: _e.mock.On("GetLatestWorkflowVersion", ctx, workflowName)}
+func (_e *MockOps_Expecter) GetLatestWorkflowVersion(ctx interface{}, workflowName interface{}) *MockOps_GetLatestWorkflowVersion_Call {
+	return &MockOps_GetLatestWorkflowVersion_Call{Call: _e.mock.On("GetLatestWorkflowVersion", ctx, workflowName)}
 }
 
-func (_c *MockOps_GetLatestVersion_Call) Run(run func(ctx context.Context, workflowName string)) *MockOps_GetLatestVersion_Call {
+func (_c *MockOps_GetLatestWorkflowVersion_Call) Run(run func(ctx context.Context, workflowName string)) *MockOps_GetLatestWorkflowVersion_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
 
-func (_c *MockOps_GetLatestVersion_Call) Return(_a0 string, _a1 error) *MockOps_GetLatestVersion_Call {
+func (_c *MockOps_GetLatestWorkflowVersion_Call) Return(_a0 string, _a1 error) *MockOps_GetLatestWorkflowVersion_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockOps_GetLatestVersion_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockOps_GetLatestVersion_Call {
+func (_c *MockOps_GetLatestWorkflowVersion_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockOps_GetLatestWorkflowVersion_Call {
 	_c.Call.Return(run)
 	return _c
 }

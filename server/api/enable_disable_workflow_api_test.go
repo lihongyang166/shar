@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"gitlab.com/shar-workflow/shar/model"
-	options2 "gitlab.com/shar-workflow/shar/server/server/option"
 	"testing"
 )
 
@@ -57,7 +56,7 @@ func TestReturnsAuthErrorWhenDisableWorkflowAuthFails(t *testing.T) {
 			mockOperations := &workflow.MockOps{}
 			mockAuth := &MockAuth{}
 
-			endpoints, _ := New(mockOperations, nil, mockAuth, &options2.ServerOptions{})
+			endpoints := newEndpoints(mockOperations, mockAuth)
 
 			ctx := context.Background()
 			respCh := make(chan *model.FatalError)

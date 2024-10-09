@@ -35,7 +35,7 @@ type Server struct {
 	sig           chan os.Signal
 	healthService *health.Checker
 	grpcServer    *gogrpc.Server
-	api           *api.Endpoints
+	listener      *api.Listener
 	engine        *workflow.Engine
 	serverOptions *option.ServerOptions
 	tr            trace.Tracer
@@ -80,8 +80,7 @@ func New(natsConnConfig *natz.NatsConnConfiguration, options ...option.Option) (
 		return nil, fmt.Errorf("create workflow engine: %w", err)
 	}
 
-	auth := api.NewSharAuth(defaultServerOptions.ApiAuthorizer, defaultServerOptions.ApiAuthenticator, workflowOperations)
-	a, err := api.New(workflowOperations, natsConnConfig, auth, defaultServerOptions)
+	listener := api.NewListener(natsConnConfig, defaultServerOptions, workflowOperations)
 
 	if err != nil {
 		return nil, fmt.Errorf("create api: %w", err)
@@ -91,7 +90,7 @@ func New(natsConnConfig *natz.NatsConnConfiguration, options ...option.Option) (
 		sig:           make(chan os.Signal, 10),
 		healthService: health.New(),
 		serverOptions: defaultServerOptions,
-		api:           a,
+		listener:      listener,
 		engine:        engine,
 	}
 
@@ -151,7 +150,7 @@ func (s *Server) Listen() error {
 		panic(fmt.Errorf("start SHAR engine: %w", err))
 	}
 
-	if err := s.api.Listen(); err != nil {
+	if err := s.listener.StartListening(); err != nil {
 		panic(fmt.Errorf("start SHAR api: %w", err))
 	}
 
@@ -202,7 +201,7 @@ func (s *Server) Shutdown() {
 	s.healthService.SetStatus(grpcHealth.HealthCheckResponse_NOT_SERVING)
 
 	s.engine.Shutdown()
-	s.api.Shutdown()
+	s.listener.Shutdown()
 	if s.serverOptions.HealthServiceEnabled {
 		s.grpcServer.GracefulStop()
 		slog.Info("shar grpc health stopped")

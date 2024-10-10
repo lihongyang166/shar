@@ -1302,63 +1302,6 @@ func (_c *MockOps_GetJob_Call) RunAndReturn(run func(context.Context, string) (*
 	return _c
 }
 
-// GetLatestWorkflowVersion provides a mock function with given fields: ctx, workflowName
-func (_m *MockOps) GetLatestWorkflowVersion(ctx context.Context, workflowName string) (string, error) {
-	ret := _m.Called(ctx, workflowName)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetLatestWorkflowVersion")
-	}
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
-		return rf(ctx, workflowName)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
-		r0 = rf(ctx, workflowName)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, workflowName)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_GetLatestWorkflowVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestWorkflowVersion'
-type MockOps_GetLatestWorkflowVersion_Call struct {
-	*mock.Call
-}
-
-// GetLatestWorkflowVersion is a helper method to define mock.On call
-//   - ctx context.Context
-//   - workflowName string
-func (_e *MockOps_Expecter) GetLatestWorkflowVersion(ctx interface{}, workflowName interface{}) *MockOps_GetLatestWorkflowVersion_Call {
-	return &MockOps_GetLatestWorkflowVersion_Call{Call: _e.mock.On("GetLatestWorkflowVersion", ctx, workflowName)}
-}
-
-func (_c *MockOps_GetLatestWorkflowVersion_Call) Run(run func(ctx context.Context, workflowName string)) *MockOps_GetLatestWorkflowVersion_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockOps_GetLatestWorkflowVersion_Call) Return(_a0 string, _a1 error) *MockOps_GetLatestWorkflowVersion_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_GetLatestWorkflowVersion_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockOps_GetLatestWorkflowVersion_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // GetProcessHistory provides a mock function with given fields: ctx, processInstanceId, wch, errs
 func (_m *MockOps) GetProcessHistory(ctx context.Context, processInstanceId string, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
 	_m.Called(ctx, processInstanceId, wch, errs)
@@ -2036,42 +1979,6 @@ func (_c *MockOps_GetWorkflowNameFor_Call) Return(_a0 string, _a1 error) *MockOp
 }
 
 func (_c *MockOps_GetWorkflowNameFor_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockOps_GetWorkflowNameFor_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetWorkflowVersions provides a mock function with given fields: ctx, workflowName, wch, errs
-func (_m *MockOps) GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
-	_m.Called(ctx, workflowName, wch, errs)
-}
-
-// MockOps_GetWorkflowVersions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowVersions'
-type MockOps_GetWorkflowVersions_Call struct {
-	*mock.Call
-}
-
-// GetWorkflowVersions is a helper method to define mock.On call
-//   - ctx context.Context
-//   - workflowName string
-//   - wch chan<- *model.WorkflowVersion
-//   - errs chan<- error
-func (_e *MockOps_Expecter) GetWorkflowVersions(ctx interface{}, workflowName interface{}, wch interface{}, errs interface{}) *MockOps_GetWorkflowVersions_Call {
-	return &MockOps_GetWorkflowVersions_Call{Call: _e.mock.On("GetWorkflowVersions", ctx, workflowName, wch, errs)}
-}
-
-func (_c *MockOps_GetWorkflowVersions_Call) Run(run func(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)) *MockOps_GetWorkflowVersions_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(chan<- *model.WorkflowVersion), args[3].(chan<- error))
-	})
-	return _c
-}
-
-func (_c *MockOps_GetWorkflowVersions_Call) Return() *MockOps_GetWorkflowVersions_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockOps_GetWorkflowVersions_Call) RunAndReturn(run func(context.Context, string, chan<- *model.WorkflowVersion, chan<- error)) *MockOps_GetWorkflowVersions_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3905,6 +3812,42 @@ func (_c *MockOps_StoreWorkflow_Call) Return(_a0 string, _a1 error) *MockOps_Sto
 }
 
 func (_c *MockOps_StoreWorkflow_Call) RunAndReturn(run func(context.Context, *model.Workflow) (string, error)) *MockOps_StoreWorkflow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StreamWorkflowVersions provides a mock function with given fields: ctx, workflowName, wch, errs
+func (_m *MockOps) StreamWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
+	_m.Called(ctx, workflowName, wch, errs)
+}
+
+// MockOps_StreamWorkflowVersions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StreamWorkflowVersions'
+type MockOps_StreamWorkflowVersions_Call struct {
+	*mock.Call
+}
+
+// StreamWorkflowVersions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - workflowName string
+//   - wch chan<- *model.WorkflowVersion
+//   - errs chan<- error
+func (_e *MockOps_Expecter) StreamWorkflowVersions(ctx interface{}, workflowName interface{}, wch interface{}, errs interface{}) *MockOps_StreamWorkflowVersions_Call {
+	return &MockOps_StreamWorkflowVersions_Call{Call: _e.mock.On("StreamWorkflowVersions", ctx, workflowName, wch, errs)}
+}
+
+func (_c *MockOps_StreamWorkflowVersions_Call) Run(run func(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)) *MockOps_StreamWorkflowVersions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(chan<- *model.WorkflowVersion), args[3].(chan<- error))
+	})
+	return _c
+}
+
+func (_c *MockOps_StreamWorkflowVersions_Call) Return() *MockOps_StreamWorkflowVersions_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockOps_StreamWorkflowVersions_Call) RunAndReturn(run func(context.Context, string, chan<- *model.WorkflowVersion, chan<- error)) *MockOps_StreamWorkflowVersions_Call {
 	_c.Call.Return(run)
 	return _c
 }

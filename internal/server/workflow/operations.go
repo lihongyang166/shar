@@ -77,11 +77,10 @@ type Ops interface {
 	EnsureServiceTaskConsumer(ctx context.Context, uid string) error
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
 	GetWorkflowNameFor(ctx context.Context, processId string) (string, error)
-	GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)
+	StreamWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)
 	CreateExecution(ctx context.Context, execution *model.Execution) (*model.Execution, error)
 	GetExecution(ctx context.Context, executionID string) (*model.Execution, error)
 	XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error
-	GetLatestWorkflowVersion(ctx context.Context, workflowName string) (string, error)
 	CreateJob(ctx context.Context, job *model.WorkflowState) (string, error)
 	GetJob(ctx context.Context, trackingID string) (*model.WorkflowState, error)
 	DeleteJob(ctx context.Context, trackingID string) error
@@ -181,16 +180,25 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID 
 		return "", "", reterr
 	}
 
-	//TODO refactor this to GetVersions and LatestVersionFrom()
-	//This way, we can check the Versions object to see whether this workflow is
-	//enabled or not
-	//use the streaming getWorkflowVersions and apply our own latestversion fn
-	//we can then delete GetLatestWorkflowVersion
-
-	//we'd also need a separate DisableWorkflow and EnableWorkflow endpoints to set the flag
+	wfv, err := c.getWorkflowVersions(ctx, workflowName)
+	if !wfv.IsExecutable {
+		reterr = engineErr(ctx, "the workflow is not executable", errors2.New("the workflow is not executable"),
+			slog.String(keys.ParentInstanceElementID, parentElID),
+			slog.String(keys.ParentProcessInstanceID, parentpiID),
+			slog.String(keys.WorkflowName, workflowName),
+		)
+		return "", "", reterr
+	} else if err != nil {
+		reterr = engineErr(ctx, "failed to get workflow versions", err,
+			slog.String(keys.ParentInstanceElementID, parentElID),
+			slog.String(keys.ParentProcessInstanceID, parentpiID),
+			slog.String(keys.WorkflowName, workflowName),
+		)
+		return "", "", reterr
+	}
 
 	// get the last ID of the workflow
-	wfID, err := c.GetLatestWorkflowVersion(ctx, workflowName)
+	wfID := wfv.Version[len(wfv.Version)-1].Id
 	if err != nil {
 		reterr = engineErr(ctx, "get latest version of workflow", err,
 			slog.String(keys.ParentInstanceElementID, parentElID),
@@ -972,8 +980,8 @@ func (s *Operations) GetWorkflowNameFor(ctx context.Context, processId string) (
 	}
 }
 
-// GetWorkflowVersions - returns a list of versions for a given workflow.
-func (s *Operations) GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
+// StreamWorkflowVersions - send the versions of the workflow down the supplied channel
+func (s *Operations) StreamWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
@@ -1116,24 +1124,21 @@ func (s *Operations) deleteExecution(ctx context.Context, state *model.WorkflowS
 	return nil
 }
 
-// GetLatestWorkflowVersion queries the workflow versions table for the latest entry
-func (s *Operations) GetLatestWorkflowVersion(ctx context.Context, workflowName string) (string, error) {
+// getWorkflowVersions queries the workflow versions table for the latest entry
+func (s *Operations) getWorkflowVersions(ctx context.Context, workflowName string) (*model.WorkflowVersions, error) {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
-		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	//TODO maybe refactor this to a separate GetVersions function and a separate LatestVersion
-	//function. That way, we can check to see whether this particular workflow is actually enabled
-	//or not
 	v := &model.WorkflowVersions{}
 	if err := common.LoadObj(ctx, nsKVs.WfVersion, workflowName, v); errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return "", fmt.Errorf("get latest workflow version: %w", errors.ErrWorkflowNotFound)
+		return nil, fmt.Errorf("get latest workflow version: %w", errors.ErrWorkflowNotFound)
 	} else if err != nil {
-		return "", fmt.Errorf("load object whist getting latest versiony: %w", err)
+		return nil, fmt.Errorf("load object whist getting latest versiony: %w", err)
 	} else {
-		return v.Version[len(v.Version)-1].Id, nil
+		return v, nil
 	}
 }
 

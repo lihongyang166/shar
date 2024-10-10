@@ -189,7 +189,7 @@ const (
 	APIRegisterTask                   = "Workflow.Api.RegisterTask"                   // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
 	APIGetProcessInstanceStatus       = "WORKFLOW.Api.GetProcessInstanceStatus"       // APIGetProcessInstanceStatus is the get process instance status API subject.
 	APIGetTaskSpec                    = "WORKFLOW.Api.GetTaskSpec"                    // APIGetTaskSpec is the get task spec API message subject.
-	APIGetWorkflowVersions            = "WORKFLOW.Api.GetWorkflowVersions"            // APIGetWorkflowVersions is the get workflow versions API message subject.
+	APIGetWorkflowVersions            = "WORKFLOW.Api.StreamWorkflowVersions"         // APIGetWorkflowVersions is the get workflow versions API message subject.
 	APIGetWorkflow                    = "WORKFLOW.Api.GetWorkflow"                    // APIGetWorkflow is the get workflow API message subject.
 	APIGetProcessHistory              = "WORKFLOW.Api.GetProcessHistory"              // APIGetProcessHistory is the get process history API message subject.
 	APIGetProcessInstanceHeaders      = "WORKFLOW.Api.GetProcessInstanceHeaders"      // APIGetProcessInstanceHeaders is the get process instance headers API message subject.

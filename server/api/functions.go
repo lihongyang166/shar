@@ -322,7 +322,7 @@ func (s *endpoints) getWorkflowVersions(ctx context.Context, req *model.GetWorkf
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 		return
 	}
-	s.operations.GetWorkflowVersions(ctx, req.Name, wch, errs)
+	s.operations.StreamWorkflowVersions(ctx, req.Name, wch, errs)
 }
 
 func (s *endpoints) getWorkflow(ctx context.Context, req *model.GetWorkflowRequest) (*model.GetWorkflowResponse, error) {

@@ -204,9 +204,6 @@ buckets:
       description: ""
       ttl: 1.5s
   - nats-config:
-      bucket: WORKFLOW_NAME
-      description: ""
-  - nats-config:
       bucket: WORKFLOW_DEF
       description: ""
   - nats-config:
@@ -228,9 +225,6 @@ buckets:
   - nats-config:
       bucket: WORKFLOW_TRACKING
       description: ""
-#  - nats-config:
-#      bucket: WORKFLOW_MSGNAME
-#      description: ""
   - nats-config:
       bucket: WORKFLOW_OWNERID
       description: ""
@@ -246,9 +240,6 @@ buckets:
   - nats-config:
       bucket: WORKFLOW_PROCESS_MAPPING
       description: ""
-#  - nats-config:
-#      bucket: WORKFLOW_INSTANCE
-#      description: ""
   - nats-config:
       bucket: WORKFLOW_JOB
       description: ""

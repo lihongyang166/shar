@@ -318,7 +318,6 @@ func (s *Integration) checkCleanKVFor(ctx context.Context, namespace string, t *
 		require.NoError(t, err)
 		switch name {
 		case ns.PrefixWith(namespace, messages.KvDefinition),
-			ns.PrefixWith(namespace, messages.KvWfName),
 			ns.PrefixWith(namespace, messages.KvJob),
 			ns.PrefixWith(namespace, messages.KvInstance),
 			ns.PrefixWith(namespace, messages.KvProcessInstance),

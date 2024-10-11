@@ -641,19 +641,6 @@ func (s *Operations) storeWorkflow(ctx context.Context, wf *model.Workflow) (str
 		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	//TODO what is the WfName kv even used for???
-	_, err = nsKVs.WfName.Get(ctx, wf.Name)
-	if errors2.Is(err, jetstream.ErrKeyNotFound) {
-		wfNameID := ksuid.New().String()
-		_, err = nsKVs.WfName.Put(ctx, wf.Name, []byte(wfNameID))
-		if err != nil {
-			return "", fmt.Errorf("store the workflow id during store workflow: %w", err)
-		}
-	} else if err != nil {
-		return "", fmt.Errorf("get an existing workflow id: %w", err)
-	}
-	////////////////////////
-
 	wfID := ksuid.New().String()
 
 	createWorkflowProcessMappingFn := func(ctx context.Context, wf *model.Workflow, i *model.Process) (uint64, error) {

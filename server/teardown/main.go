@@ -39,7 +39,6 @@ func main() {
 		"KV_default_" + messages.KvOwnerName,
 		"KV_default_" + messages.KvOwnerID,
 		"KV_default_" + messages.KvClientTaskID,
-		"KV_default_" + messages.KvWfName,
 		"KV_default_" + messages.KvProcessInstance,
 		"KV_default_" + messages.KvGateway,
 		"KV_default_" + messages.KvHistory,

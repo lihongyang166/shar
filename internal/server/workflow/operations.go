@@ -73,7 +73,6 @@ type Ops interface {
 	CompleteUserTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
 	ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error)
 	ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error
-	EnsureServiceTaskConsumer(ctx context.Context, uid string) error
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
 	GetWorkflowNameFor(ctx context.Context, processId string) (string, error)
 	StreamWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)
@@ -651,7 +650,7 @@ func (s *Operations) storeWorkflow(ctx context.Context, wf *model.Workflow) (str
 		return ret, nil
 	}
 
-	err3 := s.ProcessServiceTasks(ctx, wf, s.EnsureServiceTaskConsumer, createWorkflowProcessMappingFn)
+	err3 := s.ProcessServiceTasks(ctx, wf, s.ensureServiceTaskConsumer, createWorkflowProcessMappingFn)
 	if err3 != nil {
 		return "", err3
 	}
@@ -892,8 +891,8 @@ func NoOpServiceTaskConsumerFn(_ context.Context, _ string) error {
 	return nil
 }
 
-// EnsureServiceTaskConsumer creates or updates a service task consumer.
-func (s *Operations) EnsureServiceTaskConsumer(ctx context.Context, uid string) error {
+// ensureServiceTaskConsumer creates or updates a service task consumer.
+func (s *Operations) ensureServiceTaskConsumer(ctx context.Context, uid string) error {
 	//TODO should this be in natsService???
 	ns := subj.GetNS(ctx)
 	jxCfg := jetstream.ConsumerConfig{

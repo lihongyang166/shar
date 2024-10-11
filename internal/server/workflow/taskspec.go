@@ -56,7 +56,7 @@ func (s *Operations) PutTaskSpec(ctx context.Context, spec *model.TaskSpec) (str
 		return "", fmt.Errorf("put task spec: hash task: %w", err)
 	}
 	spec.Metadata.Uid = uid
-	if err := s.EnsureServiceTaskConsumer(ctx, uid); err != nil {
+	if err := s.ensureServiceTaskConsumer(ctx, uid); err != nil {
 		return "", fmt.Errorf("ensure consumer for service task %s:%w", uid, err)
 	}
 

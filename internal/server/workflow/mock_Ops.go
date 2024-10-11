@@ -828,53 +828,6 @@ func (_c *MockOps_EnableWorkflow_Call) RunAndReturn(run func(context.Context, st
 	return _c
 }
 
-// EnsureServiceTaskConsumer provides a mock function with given fields: ctx, uid
-func (_m *MockOps) EnsureServiceTaskConsumer(ctx context.Context, uid string) error {
-	ret := _m.Called(ctx, uid)
-
-	if len(ret) == 0 {
-		panic("no return value specified for EnsureServiceTaskConsumer")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, uid)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockOps_EnsureServiceTaskConsumer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnsureServiceTaskConsumer'
-type MockOps_EnsureServiceTaskConsumer_Call struct {
-	*mock.Call
-}
-
-// EnsureServiceTaskConsumer is a helper method to define mock.On call
-//   - ctx context.Context
-//   - uid string
-func (_e *MockOps_Expecter) EnsureServiceTaskConsumer(ctx interface{}, uid interface{}) *MockOps_EnsureServiceTaskConsumer_Call {
-	return &MockOps_EnsureServiceTaskConsumer_Call{Call: _e.mock.On("EnsureServiceTaskConsumer", ctx, uid)}
-}
-
-func (_c *MockOps_EnsureServiceTaskConsumer_Call) Run(run func(ctx context.Context, uid string)) *MockOps_EnsureServiceTaskConsumer_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockOps_EnsureServiceTaskConsumer_Call) Return(_a0 error) *MockOps_EnsureServiceTaskConsumer_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockOps_EnsureServiceTaskConsumer_Call) RunAndReturn(run func(context.Context, string) error) *MockOps_EnsureServiceTaskConsumer_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // GetActiveEntries provides a mock function with given fields: ctx, processInstanceID, result, errs
 func (_m *MockOps) GetActiveEntries(ctx context.Context, processInstanceID string, result chan<- *model.ProcessHistoryEntry, errs chan<- error) {
 	_m.Called(ctx, processInstanceID, result, errs)

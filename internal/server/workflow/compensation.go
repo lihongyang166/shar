@@ -217,11 +217,11 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 		switch compensationJob.ElementType {
 		case element.ServiceTask:
 			jobSubject := subj.NS(messages.WorkflowJobServiceTaskExecute, ns) + "." + compensationJob.ExecuteVersion
-			if err := s.operations.StartJob(ctx, jobSubject, compensationJob, el, state.Vars); err != nil {
+			if err := s.operations.startJob(ctx, jobSubject, compensationJob, el, state.Vars); err != nil {
 				return false, fmt.Errorf("start job: %w", err)
 			}
 		}
-		//err := s.StartJob(ctx,subj.NS(messages.job))
+		//err := s.startJob(ctx,subj.NS(messages.job))
 		return true, nil
 	}, nil)
 	if err != nil {

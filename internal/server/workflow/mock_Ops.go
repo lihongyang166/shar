@@ -3759,63 +3759,6 @@ func (_c *MockOps_StartJob_Call) RunAndReturn(run func(context.Context, string, 
 	return _c
 }
 
-// StoreWorkflow provides a mock function with given fields: ctx, wf
-func (_m *MockOps) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
-	ret := _m.Called(ctx, wf)
-
-	if len(ret) == 0 {
-		panic("no return value specified for StoreWorkflow")
-	}
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Workflow) (string, error)); ok {
-		return rf(ctx, wf)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Workflow) string); ok {
-		r0 = rf(ctx, wf)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *model.Workflow) error); ok {
-		r1 = rf(ctx, wf)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_StoreWorkflow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StoreWorkflow'
-type MockOps_StoreWorkflow_Call struct {
-	*mock.Call
-}
-
-// StoreWorkflow is a helper method to define mock.On call
-//   - ctx context.Context
-//   - wf *model.Workflow
-func (_e *MockOps_Expecter) StoreWorkflow(ctx interface{}, wf interface{}) *MockOps_StoreWorkflow_Call {
-	return &MockOps_StoreWorkflow_Call{Call: _e.mock.On("StoreWorkflow", ctx, wf)}
-}
-
-func (_c *MockOps_StoreWorkflow_Call) Run(run func(ctx context.Context, wf *model.Workflow)) *MockOps_StoreWorkflow_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.Workflow))
-	})
-	return _c
-}
-
-func (_c *MockOps_StoreWorkflow_Call) Return(_a0 string, _a1 error) *MockOps_StoreWorkflow_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_StoreWorkflow_Call) RunAndReturn(run func(context.Context, *model.Workflow) (string, error)) *MockOps_StoreWorkflow_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // StreamWorkflowVersions provides a mock function with given fields: ctx, workflowName, wch, errs
 func (_m *MockOps) StreamWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
 	_m.Called(ctx, workflowName, wch, errs)

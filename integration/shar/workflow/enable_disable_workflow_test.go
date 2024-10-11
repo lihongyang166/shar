@@ -58,6 +58,7 @@ func TestDisableEnableLaunchWorkflow(t *testing.T) {
 
 	//enable wf
 	err = cl.EnableWorkflowExecution(ctx, wfName)
+	require.NoError(t, err)
 	//launch wf
 	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: processId})
 	require.NoError(t, err)

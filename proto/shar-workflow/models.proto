@@ -160,7 +160,7 @@ message Process {
 // WorkflowVersions describes the version history.
 message WorkflowVersions {
   repeated WorkflowVersion version = 1; // WorkflowVersion - a single version of a workflow
-  bool isExecutable = 2; // IsExecutable - whether this workflow is allowed to be executed
+  bool isExecutionDisabled = 2; // isExecutionDisabled - whether this workflow is allowed to be executed
 }
 
 // WorkflowVersion contains the metadata for a single workflow version

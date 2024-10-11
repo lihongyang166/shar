@@ -72,7 +72,6 @@ type Ops interface {
 	CompleteSendMessageTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
 	CompleteUserTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
 	ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error)
-	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
 	ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error
 	EnsureServiceTaskConsumer(ctx context.Context, uid string) error
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
@@ -153,7 +152,7 @@ func NewOperations(natsService *natz.NatsService) (*Operations, error) {
 // LoadWorkflow loads a model.Process describing a workflow into the engine ready for execution.
 func (c *Operations) LoadWorkflow(ctx context.Context, model *model.Workflow) (string, error) {
 	// Store the workflow model and return an ID
-	wfID, err := c.StoreWorkflow(ctx, model)
+	wfID, err := c.storeWorkflow(ctx, model)
 	if err != nil {
 		return "", fmt.Errorf("store workflow: %w", err)
 	}
@@ -181,7 +180,7 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID 
 	}
 
 	wfv, err := c.getWorkflowVersions(ctx, workflowName)
-	if !wfv.IsExecutable {
+	if wfv.IsExecutionDisabled {
 		reterr = engineErr(ctx, "the workflow is not executable", errors2.New("the workflow is not executable"),
 			slog.String(keys.ParentInstanceElementID, parentElID),
 			slog.String(keys.ParentProcessInstanceID, parentpiID),
@@ -620,7 +619,7 @@ func (s *Operations) validateUniqueProcessIdFor(ctx context.Context, wf *model.W
 }
 
 // StoreWorkflow stores a workflow definition and returns a unique ID
-func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
+func (s *Operations) storeWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
 	err := s.validateUniqueProcessIdFor(ctx, wf)
 	if err != nil {
 		return "", fmt.Errorf("process names are not unique: %w", err)
@@ -2221,30 +2220,30 @@ func (s *Operations) DeleteFatalError(ctx context.Context, state *model.Workflow
 
 // DisableWorkflow stops a workflow from being launched
 func (s *Operations) DisableWorkflow(ctx context.Context, workflowName string) error {
-	isExecutable := false
-	return s.makeExecutable(ctx, workflowName, isExecutable)
+	isExecutionDisabled := true
+	return s.makeExecutable(ctx, workflowName, isExecutionDisabled)
 }
 
 // EnableWorkflow allows a workflow to be launched
 func (s *Operations) EnableWorkflow(ctx context.Context, workflowName string) error {
-	isExecutable := true
-	return s.makeExecutable(ctx, workflowName, isExecutable)
+	isExecutionDisabled := false
+	return s.makeExecutable(ctx, workflowName, isExecutionDisabled)
 }
 
-func (s *Operations) makeExecutable(ctx context.Context, workflowName string, isExecutable bool) error {
+func (s *Operations) makeExecutable(ctx context.Context, workflowName string, isExecutionDisabled bool) error {
 	ns := subj.GetNS(ctx)
 	kvs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
-		return fmt.Errorf("get kvs for makeExecutable %t: %w", isExecutable, err)
+		return fmt.Errorf("get kvs for makeExecutable %t: %w", isExecutionDisabled, err)
 	}
 
 	wfVersion := &model.WorkflowVersions{}
 	err = common.UpdateObj(ctx, kvs.WfVersion, workflowName, wfVersion, func(wfVersion *model.WorkflowVersions) (*model.WorkflowVersions, error) {
-		wfVersion.IsExecutable = isExecutable
+		wfVersion.IsExecutionDisabled = isExecutionDisabled
 		return wfVersion, nil
 	})
 	if err != nil {
-		return fmt.Errorf("set makeExecutable %t: %w", isExecutable, err)
+		return fmt.Errorf("set makeExecutable %t: %w", isExecutionDisabled, err)
 	}
 
 	return nil

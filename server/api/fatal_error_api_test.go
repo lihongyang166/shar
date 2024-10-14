@@ -77,7 +77,7 @@ func TestGetFatalErrorValidation(t *testing.T) {
 			mockOperations := &workflow.MockOps{}
 			mockAuth := &MockAuth{}
 
-			endpoints := newEndpoints(mockOperations, mockAuth)
+			endpoints := NewEndpoints(mockOperations, mockAuth, nil)
 
 			req := tc.getFatalErrorRequest
 
@@ -175,7 +175,7 @@ func TestFatalErrorAuth(t *testing.T) {
 			mockOperations := &workflow.MockOps{}
 			mockAuth := &MockAuth{}
 
-			endpoints := newEndpoints(mockOperations, mockAuth)
+			endpoints := NewEndpoints(mockOperations, mockAuth, nil)
 
 			ctx := context.Background()
 			respCh := make(chan *model.FatalError)
@@ -249,7 +249,7 @@ func TestReturnsAuthErrorWhenAuthFails(t *testing.T) {
 			mockOperations := &workflow.MockOps{}
 			mockAuth := &MockAuth{}
 
-			endpoints := newEndpoints(mockOperations, mockAuth)
+			endpoints := NewEndpoints(mockOperations, mockAuth, nil)
 
 			ctx := context.Background()
 			respCh := make(chan *model.FatalError)

@@ -32,8 +32,8 @@ type sharAuth struct {
 	operations workflow.Ops
 }
 
-// newSharAuth constructs a new Shar Auth instance
-func newSharAuth(apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, operations workflow.Ops) *sharAuth {
+// NewSharAuth constructs a new Shar Auth instance
+func NewSharAuth(apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, operations workflow.Ops) *sharAuth {
 	return &sharAuth{
 		apiAuthZFn: apiAuthZFn,
 		apiAuthNFn: apiAuthNFn,

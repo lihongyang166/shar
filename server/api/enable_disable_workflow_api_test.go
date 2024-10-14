@@ -12,7 +12,7 @@ import (
 func TestReturnsAuthErrorWhenDisableWorkflowAuthFails(t *testing.T) {
 	ops := &workflow.MockOps{}
 	auth := &MockAuth{}
-	e := newEndpoints(ops, auth)
+	e := NewEndpoints(ops, auth, nil)
 
 	ctx := context.Background()
 	workflowName := "wfName"
@@ -33,7 +33,7 @@ func TestReturnsAuthErrorWhenDisableWorkflowAuthFails(t *testing.T) {
 func TestDisableWorkflow(t *testing.T) {
 	ops := &workflow.MockOps{}
 	auth := &MockAuth{}
-	e := newEndpoints(ops, auth)
+	e := NewEndpoints(ops, auth, nil)
 
 	ctx := context.Background()
 	wfName := "wfName"

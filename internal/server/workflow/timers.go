@@ -102,7 +102,7 @@ func (s *Engine) listenForTimer(sCtx context.Context, js jetstream.JetStream, cl
 						continue
 					}
 					if strings.HasSuffix(m.Subject(), ".Timers.ElementExecute") {
-						_, err := s.operations.HasValidExecution(sCtx, state.ExecutionId)
+						_, err := s.operations.hasValidExecution(sCtx, state.ExecutionId)
 						if errors2.Is(err, errors.ErrExecutionNotFound) {
 							log := logx.FromContext(sCtx)
 							log.Log(sCtx, slog.LevelInfo, "listenForTimer aborted due to a missing instance")

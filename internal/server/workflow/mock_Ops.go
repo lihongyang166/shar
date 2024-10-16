@@ -76,54 +76,6 @@ func (_c *MockOps_CancelProcessInstance_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
-// CheckProcessTaskDeprecation provides a mock function with given fields: ctx, workflow, processId
-func (_m *MockOps) CheckProcessTaskDeprecation(ctx context.Context, workflow *model.Workflow, processId string) error {
-	ret := _m.Called(ctx, workflow, processId)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CheckProcessTaskDeprecation")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Workflow, string) error); ok {
-		r0 = rf(ctx, workflow, processId)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockOps_CheckProcessTaskDeprecation_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckProcessTaskDeprecation'
-type MockOps_CheckProcessTaskDeprecation_Call struct {
-	*mock.Call
-}
-
-// CheckProcessTaskDeprecation is a helper method to define mock.On call
-//   - ctx context.Context
-//   - workflow *model.Workflow
-//   - processId string
-func (_e *MockOps_Expecter) CheckProcessTaskDeprecation(ctx interface{}, workflow interface{}, processId interface{}) *MockOps_CheckProcessTaskDeprecation_Call {
-	return &MockOps_CheckProcessTaskDeprecation_Call{Call: _e.mock.On("CheckProcessTaskDeprecation", ctx, workflow, processId)}
-}
-
-func (_c *MockOps_CheckProcessTaskDeprecation_Call) Run(run func(ctx context.Context, workflow *model.Workflow, processId string)) *MockOps_CheckProcessTaskDeprecation_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.Workflow), args[2].(string))
-	})
-	return _c
-}
-
-func (_c *MockOps_CheckProcessTaskDeprecation_Call) Return(_a0 error) *MockOps_CheckProcessTaskDeprecation_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockOps_CheckProcessTaskDeprecation_Call) RunAndReturn(run func(context.Context, *model.Workflow, string) error) *MockOps_CheckProcessTaskDeprecation_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // CompleteManualTask provides a mock function with given fields: ctx, job, newvars
 func (_m *MockOps) CompleteManualTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
 	ret := _m.Called(ctx, job, newvars)
@@ -316,187 +268,6 @@ func (_c *MockOps_CompleteUserTask_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
-// CreateExecution provides a mock function with given fields: ctx, execution
-func (_m *MockOps) CreateExecution(ctx context.Context, execution *model.Execution) (*model.Execution, error) {
-	ret := _m.Called(ctx, execution)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateExecution")
-	}
-
-	var r0 *model.Execution
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Execution) (*model.Execution, error)); ok {
-		return rf(ctx, execution)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Execution) *model.Execution); ok {
-		r0 = rf(ctx, execution)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.Execution)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *model.Execution) error); ok {
-		r1 = rf(ctx, execution)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_CreateExecution_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateExecution'
-type MockOps_CreateExecution_Call struct {
-	*mock.Call
-}
-
-// CreateExecution is a helper method to define mock.On call
-//   - ctx context.Context
-//   - execution *model.Execution
-func (_e *MockOps_Expecter) CreateExecution(ctx interface{}, execution interface{}) *MockOps_CreateExecution_Call {
-	return &MockOps_CreateExecution_Call{Call: _e.mock.On("CreateExecution", ctx, execution)}
-}
-
-func (_c *MockOps_CreateExecution_Call) Run(run func(ctx context.Context, execution *model.Execution)) *MockOps_CreateExecution_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.Execution))
-	})
-	return _c
-}
-
-func (_c *MockOps_CreateExecution_Call) Return(_a0 *model.Execution, _a1 error) *MockOps_CreateExecution_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_CreateExecution_Call) RunAndReturn(run func(context.Context, *model.Execution) (*model.Execution, error)) *MockOps_CreateExecution_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CreateJob provides a mock function with given fields: ctx, job
-func (_m *MockOps) CreateJob(ctx context.Context, job *model.WorkflowState) (string, error) {
-	ret := _m.Called(ctx, job)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateJob")
-	}
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) (string, error)); ok {
-		return rf(ctx, job)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) string); ok {
-		r0 = rf(ctx, job)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *model.WorkflowState) error); ok {
-		r1 = rf(ctx, job)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_CreateJob_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateJob'
-type MockOps_CreateJob_Call struct {
-	*mock.Call
-}
-
-// CreateJob is a helper method to define mock.On call
-//   - ctx context.Context
-//   - job *model.WorkflowState
-func (_e *MockOps_Expecter) CreateJob(ctx interface{}, job interface{}) *MockOps_CreateJob_Call {
-	return &MockOps_CreateJob_Call{Call: _e.mock.On("CreateJob", ctx, job)}
-}
-
-func (_c *MockOps_CreateJob_Call) Run(run func(ctx context.Context, job *model.WorkflowState)) *MockOps_CreateJob_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.WorkflowState))
-	})
-	return _c
-}
-
-func (_c *MockOps_CreateJob_Call) Return(_a0 string, _a1 error) *MockOps_CreateJob_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_CreateJob_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) (string, error)) *MockOps_CreateJob_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CreateProcessInstance provides a mock function with given fields: ctx, executionId, parentProcessID, parentElementID, processId, workflowName, workflowId, headers
-func (_m *MockOps) CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string, headers []byte) (*model.ProcessInstance, error) {
-	ret := _m.Called(ctx, executionId, parentProcessID, parentElementID, processId, workflowName, workflowId, headers)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateProcessInstance")
-	}
-
-	var r0 *model.ProcessInstance
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, string, []byte) (*model.ProcessInstance, error)); ok {
-		return rf(ctx, executionId, parentProcessID, parentElementID, processId, workflowName, workflowId, headers)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, string, []byte) *model.ProcessInstance); ok {
-		r0 = rf(ctx, executionId, parentProcessID, parentElementID, processId, workflowName, workflowId, headers)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.ProcessInstance)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, string, string, []byte) error); ok {
-		r1 = rf(ctx, executionId, parentProcessID, parentElementID, processId, workflowName, workflowId, headers)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_CreateProcessInstance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateProcessInstance'
-type MockOps_CreateProcessInstance_Call struct {
-	*mock.Call
-}
-
-// CreateProcessInstance is a helper method to define mock.On call
-//   - ctx context.Context
-//   - executionId string
-//   - parentProcessID string
-//   - parentElementID string
-//   - processId string
-//   - workflowName string
-//   - workflowId string
-//   - headers []byte
-func (_e *MockOps_Expecter) CreateProcessInstance(ctx interface{}, executionId interface{}, parentProcessID interface{}, parentElementID interface{}, processId interface{}, workflowName interface{}, workflowId interface{}, headers interface{}) *MockOps_CreateProcessInstance_Call {
-	return &MockOps_CreateProcessInstance_Call{Call: _e.mock.On("CreateProcessInstance", ctx, executionId, parentProcessID, parentElementID, processId, workflowName, workflowId, headers)}
-}
-
-func (_c *MockOps_CreateProcessInstance_Call) Run(run func(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string, headers []byte)) *MockOps_CreateProcessInstance_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(string), args[5].(string), args[6].(string), args[7].([]byte))
-	})
-	return _c
-}
-
-func (_c *MockOps_CreateProcessInstance_Call) Return(_a0 *model.ProcessInstance, _a1 error) *MockOps_CreateProcessInstance_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_CreateProcessInstance_Call) RunAndReturn(run func(context.Context, string, string, string, string, string, string, []byte) (*model.ProcessInstance, error)) *MockOps_CreateProcessInstance_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // DeleteFatalError provides a mock function with given fields: ctx, state
 func (_m *MockOps) DeleteFatalError(ctx context.Context, state *model.WorkflowState) error {
 	ret := _m.Called(ctx, state)
@@ -685,66 +456,17 @@ func (_c *MockOps_DeprecateTaskSpec_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
-// DestroyProcessInstance provides a mock function with given fields: ctx, state, processInstanceId, executionId
-func (_m *MockOps) DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string) error {
-	ret := _m.Called(ctx, state, processInstanceId, executionId)
+// DisableWorkflow provides a mock function with given fields: ctx, workflowName
+func (_m *MockOps) DisableWorkflow(ctx context.Context, workflowName string) error {
+	ret := _m.Called(ctx, workflowName)
 
 	if len(ret) == 0 {
-		panic("no return value specified for DestroyProcessInstance")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState, string, string) error); ok {
-		r0 = rf(ctx, state, processInstanceId, executionId)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockOps_DestroyProcessInstance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DestroyProcessInstance'
-type MockOps_DestroyProcessInstance_Call struct {
-	*mock.Call
-}
-
-// DestroyProcessInstance is a helper method to define mock.On call
-//   - ctx context.Context
-//   - state *model.WorkflowState
-//   - processInstanceId string
-//   - executionId string
-func (_e *MockOps_Expecter) DestroyProcessInstance(ctx interface{}, state interface{}, processInstanceId interface{}, executionId interface{}) *MockOps_DestroyProcessInstance_Call {
-	return &MockOps_DestroyProcessInstance_Call{Call: _e.mock.On("DestroyProcessInstance", ctx, state, processInstanceId, executionId)}
-}
-
-func (_c *MockOps_DestroyProcessInstance_Call) Run(run func(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string)) *MockOps_DestroyProcessInstance_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.WorkflowState), args[2].(string), args[3].(string))
-	})
-	return _c
-}
-
-func (_c *MockOps_DestroyProcessInstance_Call) Return(_a0 error) *MockOps_DestroyProcessInstance_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockOps_DestroyProcessInstance_Call) RunAndReturn(run func(context.Context, *model.WorkflowState, string, string) error) *MockOps_DestroyProcessInstance_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// EnsureServiceTaskConsumer provides a mock function with given fields: ctx, uid
-func (_m *MockOps) EnsureServiceTaskConsumer(ctx context.Context, uid string) error {
-	ret := _m.Called(ctx, uid)
-
-	if len(ret) == 0 {
-		panic("no return value specified for EnsureServiceTaskConsumer")
+		panic("no return value specified for DisableWorkflow")
 	}
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, uid)
+		r0 = rf(ctx, workflowName)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -752,31 +474,78 @@ func (_m *MockOps) EnsureServiceTaskConsumer(ctx context.Context, uid string) er
 	return r0
 }
 
-// MockOps_EnsureServiceTaskConsumer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnsureServiceTaskConsumer'
-type MockOps_EnsureServiceTaskConsumer_Call struct {
+// MockOps_DisableWorkflow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DisableWorkflow'
+type MockOps_DisableWorkflow_Call struct {
 	*mock.Call
 }
 
-// EnsureServiceTaskConsumer is a helper method to define mock.On call
+// DisableWorkflow is a helper method to define mock.On call
 //   - ctx context.Context
-//   - uid string
-func (_e *MockOps_Expecter) EnsureServiceTaskConsumer(ctx interface{}, uid interface{}) *MockOps_EnsureServiceTaskConsumer_Call {
-	return &MockOps_EnsureServiceTaskConsumer_Call{Call: _e.mock.On("EnsureServiceTaskConsumer", ctx, uid)}
+//   - workflowName string
+func (_e *MockOps_Expecter) DisableWorkflow(ctx interface{}, workflowName interface{}) *MockOps_DisableWorkflow_Call {
+	return &MockOps_DisableWorkflow_Call{Call: _e.mock.On("DisableWorkflow", ctx, workflowName)}
 }
 
-func (_c *MockOps_EnsureServiceTaskConsumer_Call) Run(run func(ctx context.Context, uid string)) *MockOps_EnsureServiceTaskConsumer_Call {
+func (_c *MockOps_DisableWorkflow_Call) Run(run func(ctx context.Context, workflowName string)) *MockOps_DisableWorkflow_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
 
-func (_c *MockOps_EnsureServiceTaskConsumer_Call) Return(_a0 error) *MockOps_EnsureServiceTaskConsumer_Call {
+func (_c *MockOps_DisableWorkflow_Call) Return(_a0 error) *MockOps_DisableWorkflow_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *MockOps_EnsureServiceTaskConsumer_Call) RunAndReturn(run func(context.Context, string) error) *MockOps_EnsureServiceTaskConsumer_Call {
+func (_c *MockOps_DisableWorkflow_Call) RunAndReturn(run func(context.Context, string) error) *MockOps_DisableWorkflow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// EnableWorkflow provides a mock function with given fields: ctx, workflowName
+func (_m *MockOps) EnableWorkflow(ctx context.Context, workflowName string) error {
+	ret := _m.Called(ctx, workflowName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnableWorkflow")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, workflowName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockOps_EnableWorkflow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnableWorkflow'
+type MockOps_EnableWorkflow_Call struct {
+	*mock.Call
+}
+
+// EnableWorkflow is a helper method to define mock.On call
+//   - ctx context.Context
+//   - workflowName string
+func (_e *MockOps_Expecter) EnableWorkflow(ctx interface{}, workflowName interface{}) *MockOps_EnableWorkflow_Call {
+	return &MockOps_EnableWorkflow_Call{Call: _e.mock.On("EnableWorkflow", ctx, workflowName)}
+}
+
+func (_c *MockOps_EnableWorkflow_Call) Run(run func(ctx context.Context, workflowName string)) *MockOps_EnableWorkflow_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockOps_EnableWorkflow_Call) Return(_a0 error) *MockOps_EnableWorkflow_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockOps_EnableWorkflow_Call) RunAndReturn(run func(context.Context, string) error) *MockOps_EnableWorkflow_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -933,65 +702,6 @@ func (_c *MockOps_GetCompensationOutputVariables_Call) Return(_a0 []byte, _a1 er
 }
 
 func (_c *MockOps_GetCompensationOutputVariables_Call) RunAndReturn(run func(context.Context, string, string) ([]byte, error)) *MockOps_GetCompensationOutputVariables_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetElement provides a mock function with given fields: ctx, state
-func (_m *MockOps) GetElement(ctx context.Context, state *model.WorkflowState) (*model.Element, error) {
-	ret := _m.Called(ctx, state)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetElement")
-	}
-
-	var r0 *model.Element
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) (*model.Element, error)); ok {
-		return rf(ctx, state)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) *model.Element); ok {
-		r0 = rf(ctx, state)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.Element)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *model.WorkflowState) error); ok {
-		r1 = rf(ctx, state)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_GetElement_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetElement'
-type MockOps_GetElement_Call struct {
-	*mock.Call
-}
-
-// GetElement is a helper method to define mock.On call
-//   - ctx context.Context
-//   - state *model.WorkflowState
-func (_e *MockOps_Expecter) GetElement(ctx interface{}, state interface{}) *MockOps_GetElement_Call {
-	return &MockOps_GetElement_Call{Call: _e.mock.On("GetElement", ctx, state)}
-}
-
-func (_c *MockOps_GetElement_Call) Run(run func(ctx context.Context, state *model.WorkflowState)) *MockOps_GetElement_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.WorkflowState))
-	})
-	return _c
-}
-
-func (_c *MockOps_GetElement_Call) Return(_a0 *model.Element, _a1 error) *MockOps_GetElement_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_GetElement_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) (*model.Element, error)) *MockOps_GetElement_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1204,63 +914,6 @@ func (_c *MockOps_GetJob_Call) Return(_a0 *model.WorkflowState, _a1 error) *Mock
 }
 
 func (_c *MockOps_GetJob_Call) RunAndReturn(run func(context.Context, string) (*model.WorkflowState, error)) *MockOps_GetJob_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetLatestVersion provides a mock function with given fields: ctx, workflowName
-func (_m *MockOps) GetLatestVersion(ctx context.Context, workflowName string) (string, error) {
-	ret := _m.Called(ctx, workflowName)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetLatestVersion")
-	}
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
-		return rf(ctx, workflowName)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
-		r0 = rf(ctx, workflowName)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, workflowName)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_GetLatestVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestVersion'
-type MockOps_GetLatestVersion_Call struct {
-	*mock.Call
-}
-
-// GetLatestVersion is a helper method to define mock.On call
-//   - ctx context.Context
-//   - workflowName string
-func (_e *MockOps_Expecter) GetLatestVersion(ctx interface{}, workflowName interface{}) *MockOps_GetLatestVersion_Call {
-	return &MockOps_GetLatestVersion_Call{Call: _e.mock.On("GetLatestVersion", ctx, workflowName)}
-}
-
-func (_c *MockOps_GetLatestVersion_Call) Run(run func(ctx context.Context, workflowName string)) *MockOps_GetLatestVersion_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockOps_GetLatestVersion_Call) Return(_a0 string, _a1 error) *MockOps_GetLatestVersion_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_GetLatestVersion_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockOps_GetLatestVersion_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1889,99 +1542,6 @@ func (_c *MockOps_GetWorkflow_Call) RunAndReturn(run func(context.Context, strin
 	return _c
 }
 
-// GetWorkflowNameFor provides a mock function with given fields: ctx, processId
-func (_m *MockOps) GetWorkflowNameFor(ctx context.Context, processId string) (string, error) {
-	ret := _m.Called(ctx, processId)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetWorkflowNameFor")
-	}
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
-		return rf(ctx, processId)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
-		r0 = rf(ctx, processId)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, processId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_GetWorkflowNameFor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowNameFor'
-type MockOps_GetWorkflowNameFor_Call struct {
-	*mock.Call
-}
-
-// GetWorkflowNameFor is a helper method to define mock.On call
-//   - ctx context.Context
-//   - processId string
-func (_e *MockOps_Expecter) GetWorkflowNameFor(ctx interface{}, processId interface{}) *MockOps_GetWorkflowNameFor_Call {
-	return &MockOps_GetWorkflowNameFor_Call{Call: _e.mock.On("GetWorkflowNameFor", ctx, processId)}
-}
-
-func (_c *MockOps_GetWorkflowNameFor_Call) Run(run func(ctx context.Context, processId string)) *MockOps_GetWorkflowNameFor_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockOps_GetWorkflowNameFor_Call) Return(_a0 string, _a1 error) *MockOps_GetWorkflowNameFor_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_GetWorkflowNameFor_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockOps_GetWorkflowNameFor_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetWorkflowVersions provides a mock function with given fields: ctx, workflowName, wch, errs
-func (_m *MockOps) GetWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
-	_m.Called(ctx, workflowName, wch, errs)
-}
-
-// MockOps_GetWorkflowVersions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowVersions'
-type MockOps_GetWorkflowVersions_Call struct {
-	*mock.Call
-}
-
-// GetWorkflowVersions is a helper method to define mock.On call
-//   - ctx context.Context
-//   - workflowName string
-//   - wch chan<- *model.WorkflowVersion
-//   - errs chan<- error
-func (_e *MockOps_Expecter) GetWorkflowVersions(ctx interface{}, workflowName interface{}, wch interface{}, errs interface{}) *MockOps_GetWorkflowVersions_Call {
-	return &MockOps_GetWorkflowVersions_Call{Call: _e.mock.On("GetWorkflowVersions", ctx, workflowName, wch, errs)}
-}
-
-func (_c *MockOps_GetWorkflowVersions_Call) Run(run func(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)) *MockOps_GetWorkflowVersions_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(chan<- *model.WorkflowVersion), args[3].(chan<- error))
-	})
-	return _c
-}
-
-func (_c *MockOps_GetWorkflowVersions_Call) Return() *MockOps_GetWorkflowVersions_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockOps_GetWorkflowVersions_Call) RunAndReturn(run func(context.Context, string, chan<- *model.WorkflowVersion, chan<- error)) *MockOps_GetWorkflowVersions_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // HandleWorkflowError provides a mock function with given fields: ctx, errorCode, inVars, state
 func (_m *MockOps) HandleWorkflowError(ctx context.Context, errorCode string, inVars []byte, state *model.WorkflowState) error {
 	ret := _m.Called(ctx, errorCode, inVars, state)
@@ -2027,134 +1587,6 @@ func (_c *MockOps_HandleWorkflowError_Call) Return(_a0 error) *MockOps_HandleWor
 }
 
 func (_c *MockOps_HandleWorkflowError_Call) RunAndReturn(run func(context.Context, string, []byte, *model.WorkflowState) error) *MockOps_HandleWorkflowError_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// HasValidExecution provides a mock function with given fields: ctx, executionId
-func (_m *MockOps) HasValidExecution(ctx context.Context, executionId string) (*model.Execution, error) {
-	ret := _m.Called(ctx, executionId)
-
-	if len(ret) == 0 {
-		panic("no return value specified for HasValidExecution")
-	}
-
-	var r0 *model.Execution
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.Execution, error)); ok {
-		return rf(ctx, executionId)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *model.Execution); ok {
-		r0 = rf(ctx, executionId)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.Execution)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, executionId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_HasValidExecution_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasValidExecution'
-type MockOps_HasValidExecution_Call struct {
-	*mock.Call
-}
-
-// HasValidExecution is a helper method to define mock.On call
-//   - ctx context.Context
-//   - executionId string
-func (_e *MockOps_Expecter) HasValidExecution(ctx interface{}, executionId interface{}) *MockOps_HasValidExecution_Call {
-	return &MockOps_HasValidExecution_Call{Call: _e.mock.On("HasValidExecution", ctx, executionId)}
-}
-
-func (_c *MockOps_HasValidExecution_Call) Run(run func(ctx context.Context, executionId string)) *MockOps_HasValidExecution_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockOps_HasValidExecution_Call) Return(_a0 *model.Execution, _a1 error) *MockOps_HasValidExecution_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_HasValidExecution_Call) RunAndReturn(run func(context.Context, string) (*model.Execution, error)) *MockOps_HasValidExecution_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// HasValidProcess provides a mock function with given fields: ctx, processInstanceId, executionId
-func (_m *MockOps) HasValidProcess(ctx context.Context, processInstanceId string, executionId string) (*model.ProcessInstance, *model.Execution, error) {
-	ret := _m.Called(ctx, processInstanceId, executionId)
-
-	if len(ret) == 0 {
-		panic("no return value specified for HasValidProcess")
-	}
-
-	var r0 *model.ProcessInstance
-	var r1 *model.Execution
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*model.ProcessInstance, *model.Execution, error)); ok {
-		return rf(ctx, processInstanceId, executionId)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *model.ProcessInstance); ok {
-		r0 = rf(ctx, processInstanceId, executionId)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.ProcessInstance)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) *model.Execution); ok {
-		r1 = rf(ctx, processInstanceId, executionId)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(*model.Execution)
-		}
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, string, string) error); ok {
-		r2 = rf(ctx, processInstanceId, executionId)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// MockOps_HasValidProcess_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasValidProcess'
-type MockOps_HasValidProcess_Call struct {
-	*mock.Call
-}
-
-// HasValidProcess is a helper method to define mock.On call
-//   - ctx context.Context
-//   - processInstanceId string
-//   - executionId string
-func (_e *MockOps_Expecter) HasValidProcess(ctx interface{}, processInstanceId interface{}, executionId interface{}) *MockOps_HasValidProcess_Call {
-	return &MockOps_HasValidProcess_Call{Call: _e.mock.On("HasValidProcess", ctx, processInstanceId, executionId)}
-}
-
-func (_c *MockOps_HasValidProcess_Call) Run(run func(ctx context.Context, processInstanceId string, executionId string)) *MockOps_HasValidProcess_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
-	})
-	return _c
-}
-
-func (_c *MockOps_HasValidProcess_Call) Return(_a0 *model.ProcessInstance, _a1 *model.Execution, _a2 error) *MockOps_HasValidProcess_Call {
-	_c.Call.Return(_a0, _a1, _a2)
-	return _c
-}
-
-func (_c *MockOps_HasValidProcess_Call) RunAndReturn(run func(context.Context, string, string) (*model.ProcessInstance, *model.Execution, error)) *MockOps_HasValidProcess_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3693,228 +3125,38 @@ func (_c *MockOps_SignalFatalErrorTeardown_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
-// StartJob provides a mock function with given fields: ctx, subject, job, el, v, opts
-func (_m *MockOps) StartJob(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...PublishOpt) error {
-	_va := make([]interface{}, len(opts))
-	for _i := range opts {
-		_va[_i] = opts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, subject, job, el, v)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	if len(ret) == 0 {
-		panic("no return value specified for StartJob")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *model.WorkflowState, *model.Element, []byte, ...PublishOpt) error); ok {
-		r0 = rf(ctx, subject, job, el, v, opts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+// StreamWorkflowVersions provides a mock function with given fields: ctx, workflowName, wch, errs
+func (_m *MockOps) StreamWorkflowVersions(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error) {
+	_m.Called(ctx, workflowName, wch, errs)
 }
 
-// MockOps_StartJob_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartJob'
-type MockOps_StartJob_Call struct {
+// MockOps_StreamWorkflowVersions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StreamWorkflowVersions'
+type MockOps_StreamWorkflowVersions_Call struct {
 	*mock.Call
 }
 
-// StartJob is a helper method to define mock.On call
+// StreamWorkflowVersions is a helper method to define mock.On call
 //   - ctx context.Context
-//   - subject string
-//   - job *model.WorkflowState
-//   - el *model.Element
-//   - v []byte
-//   - opts ...PublishOpt
-func (_e *MockOps_Expecter) StartJob(ctx interface{}, subject interface{}, job interface{}, el interface{}, v interface{}, opts ...interface{}) *MockOps_StartJob_Call {
-	return &MockOps_StartJob_Call{Call: _e.mock.On("StartJob",
-		append([]interface{}{ctx, subject, job, el, v}, opts...)...)}
+//   - workflowName string
+//   - wch chan<- *model.WorkflowVersion
+//   - errs chan<- error
+func (_e *MockOps_Expecter) StreamWorkflowVersions(ctx interface{}, workflowName interface{}, wch interface{}, errs interface{}) *MockOps_StreamWorkflowVersions_Call {
+	return &MockOps_StreamWorkflowVersions_Call{Call: _e.mock.On("StreamWorkflowVersions", ctx, workflowName, wch, errs)}
 }
 
-func (_c *MockOps_StartJob_Call) Run(run func(ctx context.Context, subject string, job *model.WorkflowState, el *model.Element, v []byte, opts ...PublishOpt)) *MockOps_StartJob_Call {
+func (_c *MockOps_StreamWorkflowVersions_Call) Run(run func(ctx context.Context, workflowName string, wch chan<- *model.WorkflowVersion, errs chan<- error)) *MockOps_StreamWorkflowVersions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := make([]PublishOpt, len(args)-5)
-		for i, a := range args[5:] {
-			if a != nil {
-				variadicArgs[i] = a.(PublishOpt)
-			}
-		}
-		run(args[0].(context.Context), args[1].(string), args[2].(*model.WorkflowState), args[3].(*model.Element), args[4].([]byte), variadicArgs...)
+		run(args[0].(context.Context), args[1].(string), args[2].(chan<- *model.WorkflowVersion), args[3].(chan<- error))
 	})
 	return _c
 }
 
-func (_c *MockOps_StartJob_Call) Return(_a0 error) *MockOps_StartJob_Call {
-	_c.Call.Return(_a0)
+func (_c *MockOps_StreamWorkflowVersions_Call) Return() *MockOps_StreamWorkflowVersions_Call {
+	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockOps_StartJob_Call) RunAndReturn(run func(context.Context, string, *model.WorkflowState, *model.Element, []byte, ...PublishOpt) error) *MockOps_StartJob_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// StoreWorkflow provides a mock function with given fields: ctx, wf
-func (_m *MockOps) StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error) {
-	ret := _m.Called(ctx, wf)
-
-	if len(ret) == 0 {
-		panic("no return value specified for StoreWorkflow")
-	}
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Workflow) (string, error)); ok {
-		return rf(ctx, wf)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Workflow) string); ok {
-		r0 = rf(ctx, wf)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *model.Workflow) error); ok {
-		r1 = rf(ctx, wf)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_StoreWorkflow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StoreWorkflow'
-type MockOps_StoreWorkflow_Call struct {
-	*mock.Call
-}
-
-// StoreWorkflow is a helper method to define mock.On call
-//   - ctx context.Context
-//   - wf *model.Workflow
-func (_e *MockOps_Expecter) StoreWorkflow(ctx interface{}, wf interface{}) *MockOps_StoreWorkflow_Call {
-	return &MockOps_StoreWorkflow_Call{Call: _e.mock.On("StoreWorkflow", ctx, wf)}
-}
-
-func (_c *MockOps_StoreWorkflow_Call) Run(run func(ctx context.Context, wf *model.Workflow)) *MockOps_StoreWorkflow_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.Workflow))
-	})
-	return _c
-}
-
-func (_c *MockOps_StoreWorkflow_Call) Return(_a0 string, _a1 error) *MockOps_StoreWorkflow_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_StoreWorkflow_Call) RunAndReturn(run func(context.Context, *model.Workflow) (string, error)) *MockOps_StoreWorkflow_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// TearDownWorkflow provides a mock function with given fields: ctx, state
-func (_m *MockOps) TearDownWorkflow(ctx context.Context, state *model.WorkflowState) (bool, error) {
-	ret := _m.Called(ctx, state)
-
-	if len(ret) == 0 {
-		panic("no return value specified for TearDownWorkflow")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) (bool, error)); ok {
-		return rf(ctx, state)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) bool); ok {
-		r0 = rf(ctx, state)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *model.WorkflowState) error); ok {
-		r1 = rf(ctx, state)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockOps_TearDownWorkflow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TearDownWorkflow'
-type MockOps_TearDownWorkflow_Call struct {
-	*mock.Call
-}
-
-// TearDownWorkflow is a helper method to define mock.On call
-//   - ctx context.Context
-//   - state *model.WorkflowState
-func (_e *MockOps_Expecter) TearDownWorkflow(ctx interface{}, state interface{}) *MockOps_TearDownWorkflow_Call {
-	return &MockOps_TearDownWorkflow_Call{Call: _e.mock.On("TearDownWorkflow", ctx, state)}
-}
-
-func (_c *MockOps_TearDownWorkflow_Call) Run(run func(ctx context.Context, state *model.WorkflowState)) *MockOps_TearDownWorkflow_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.WorkflowState))
-	})
-	return _c
-}
-
-func (_c *MockOps_TearDownWorkflow_Call) Return(_a0 bool, _a1 error) *MockOps_TearDownWorkflow_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockOps_TearDownWorkflow_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) (bool, error)) *MockOps_TearDownWorkflow_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// XDestroyProcessInstance provides a mock function with given fields: ctx, state
-func (_m *MockOps) XDestroyProcessInstance(ctx context.Context, state *model.WorkflowState) error {
-	ret := _m.Called(ctx, state)
-
-	if len(ret) == 0 {
-		panic("no return value specified for XDestroyProcessInstance")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.WorkflowState) error); ok {
-		r0 = rf(ctx, state)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockOps_XDestroyProcessInstance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'XDestroyProcessInstance'
-type MockOps_XDestroyProcessInstance_Call struct {
-	*mock.Call
-}
-
-// XDestroyProcessInstance is a helper method to define mock.On call
-//   - ctx context.Context
-//   - state *model.WorkflowState
-func (_e *MockOps_Expecter) XDestroyProcessInstance(ctx interface{}, state interface{}) *MockOps_XDestroyProcessInstance_Call {
-	return &MockOps_XDestroyProcessInstance_Call{Call: _e.mock.On("XDestroyProcessInstance", ctx, state)}
-}
-
-func (_c *MockOps_XDestroyProcessInstance_Call) Run(run func(ctx context.Context, state *model.WorkflowState)) *MockOps_XDestroyProcessInstance_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.WorkflowState))
-	})
-	return _c
-}
-
-func (_c *MockOps_XDestroyProcessInstance_Call) Return(_a0 error) *MockOps_XDestroyProcessInstance_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockOps_XDestroyProcessInstance_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) error) *MockOps_XDestroyProcessInstance_Call {
+func (_c *MockOps_StreamWorkflowVersions_Call) RunAndReturn(run func(context.Context, string, chan<- *model.WorkflowVersion, chan<- error)) *MockOps_StreamWorkflowVersions_Call {
 	_c.Call.Return(run)
 	return _c
 }

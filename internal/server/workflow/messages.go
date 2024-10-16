@@ -183,7 +183,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 		return false, fmt.Errorf("unmarshal during process launch: %w", err)
 	}
 
-	_, _, err := s.operations.HasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
+	_, _, err := s.operations.hasValidProcess(ctx, job.ProcessInstanceId, job.ExecutionId)
 	if errors2.Is(err, errors.ErrExecutionNotFound) || errors2.Is(err, errors.ErrProcessInstanceNotFound) {
 		log := logx.FromContext(ctx)
 		log.Log(ctx, slog.LevelDebug, "processLaunch aborted due to a missing process")
@@ -192,7 +192,7 @@ func (s *Engine) awaitMessageProcessor(ctx context.Context, log *slog.Logger, ms
 		return false, err
 	}
 
-	el, err := s.operations.GetElement(ctx, job)
+	el, err := s.operations.getElement(ctx, job)
 	if errors2.Is(err, jetstream.ErrKeyNotFound) {
 		return true, &errors.ErrWorkflowFatal{Err: fmt.Errorf("finding associated element: %w", err), State: job}
 	} else if err != nil {

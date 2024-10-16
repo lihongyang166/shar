@@ -1293,3 +1293,27 @@ func (c *Client) Retry(ctx context.Context, state *model.WorkflowState) error {
 	}
 	return nil
 }
+
+// EnableWorkflowExecution will enable the workflow with the name to be executed
+func (c *Client) EnableWorkflowExecution(ctx context.Context, workflowName string) error {
+	req := &model.EnableWorkflowRequest{WorkflowName: workflowName}
+	res := &model.EnableWorkflowResponse{}
+
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIEnableWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		return c.clientErr(ctx, err)
+	}
+	return nil
+}
+
+// DisableWorkflowExecution will stop the workflow with the name from being executed
+func (c *Client) DisableWorkflowExecution(ctx context.Context, workflowName string) error {
+	req := &model.DisableWorkflowRequest{WorkflowName: workflowName}
+	res := &model.DisableWorkflowResponse{}
+
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIDisableWorkflow, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		return c.clientErr(ctx, err)
+	}
+	return nil
+}

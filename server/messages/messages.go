@@ -189,10 +189,12 @@ const (
 	APIRegisterTask                   = "Workflow.Api.RegisterTask"                   // APIRegisterTask registers a task with SHAR and returns the id.  If the task already exists then the ID is returned of the existing task.
 	APIGetProcessInstanceStatus       = "WORKFLOW.Api.GetProcessInstanceStatus"       // APIGetProcessInstanceStatus is the get process instance status API subject.
 	APIGetTaskSpec                    = "WORKFLOW.Api.GetTaskSpec"                    // APIGetTaskSpec is the get task spec API message subject.
-	APIGetWorkflowVersions            = "WORKFLOW.Api.GetWorkflowVersions"            // APIGetWorkflowVersions is the get workflow versions API message subject.
+	APIGetWorkflowVersions            = "WORKFLOW.Api.StreamWorkflowVersions"         // APIGetWorkflowVersions is the get workflow versions API message subject.
 	APIGetWorkflow                    = "WORKFLOW.Api.GetWorkflow"                    // APIGetWorkflow is the get workflow API message subject.
 	APIGetProcessHistory              = "WORKFLOW.Api.GetProcessHistory"              // APIGetProcessHistory is the get process history API message subject.
 	APIGetProcessInstanceHeaders      = "WORKFLOW.Api.GetProcessInstanceHeaders"      // APIGetProcessInstanceHeaders is the get process instance headers API message subject.
+	APIDisableWorkflow                = "WORKFLOW.Api.APIDisableWorkflow"             // APIDisableWorkflow is the disable workflow API message subject.
+	APIEnableWorkflow                 = "WORKFLOW.Api.APIEnableWorkflow"              // APIEnableWorkflow is the enable workflow API message subject.
 	APIGetVersionInfo                 = "WORKFLOW.API.GetVersionInfo"                 // APIGetVersionInfo is the get server version information API message subject.
 	APIGetTaskSpecUsage               = "WORKFLOW.Api.GetTaskSpecUsage"               // APIGetTaskSpecUsage is the get task spec usage API message subject.
 	APIListTaskSpecUIDs               = "WORKFLOW.Api.ListTaskSpecUIDs"               // APIListTaskSpecUIDs is the list task spec UIDs API message subject.
@@ -217,7 +219,6 @@ var (
 	KvOwnerName        = "WORKFLOW_OWNERNAME"       // KvOwnerName is the name of the key value store that holds owner names for owner IDs
 	KvOwnerID          = "WORKFLOW_OWNERID"         // KvOwnerID is the name of the key value store that holds owner IDs for owner names.
 	KvClientTaskID     = "WORKFLOW_CLIENTTASK"      // KvClientTaskID is the name of the key value store that holds the unique ID used by clients to subscribe to service task messages.
-	KvWfName           = "WORKFLOW_NAME"            // KvWfName is the name of the key value store that holds workflow IDs for workflow names.
 	KvProcessInstance  = "WORKFLOW_PROCESS"         // KvProcessInstance is the name of the key value store holding process instances.
 	KvGateway          = "WORKFLOW_GATEWAY"         // KvGateway is the name of the key value store holding gateway instances.
 	KvHistory          = "WORKFLOW_HISTORY"         // KvHistory is the name of the key value store holding process histories.

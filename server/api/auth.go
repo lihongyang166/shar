@@ -13,13 +13,6 @@ import (
 	"log/slog"
 )
 
-// SharAuth is a struct implementing the Auth interface
-type SharAuth struct {
-	apiAuthZFn authz.APIFunc
-	apiAuthNFn authn.Check
-	operations workflow.Ops
-}
-
 // Auth is a struct with various methods to provide authentication and authorisation capabilities for the api
 type Auth interface {
 	authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error)
@@ -32,16 +25,23 @@ type Auth interface {
 	authForNonWorkflow(ctx context.Context) (context.Context, error)
 }
 
+// sharAuth is a struct implementing the Auth interface
+type sharAuth struct {
+	apiAuthZFn authz.APIFunc
+	apiAuthNFn authn.Check
+	operations workflow.Ops
+}
+
 // NewSharAuth constructs a new Shar Auth instance
-func NewSharAuth(apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, operations workflow.Ops) *SharAuth {
-	return &SharAuth{
+func NewSharAuth(apiAuthZFn authz.APIFunc, apiAuthNFn authn.Check, operations workflow.Ops) *sharAuth {
+	return &sharAuth{
 		apiAuthZFn: apiAuthZFn,
 		apiAuthNFn: apiAuthNFn,
 		operations: operations,
 	}
 }
 
-func (a *SharAuth) authenticate(ctx context.Context) (context.Context, header.Values, error) {
+func (a *sharAuth) authenticate(ctx context.Context) (context.Context, header.Values, error) {
 	val := ctx.Value(header.ContextKey).(header.Values)
 	res, authErr := a.apiAuthNFn(ctx, &model.ApiAuthenticationRequest{Headers: val})
 	if authErr != nil || !res.Authenticated {
@@ -52,7 +52,7 @@ func (a *SharAuth) authenticate(ctx context.Context) (context.Context, header.Va
 	return ctx, val, nil
 }
 
-func (a *SharAuth) authorize(ctx context.Context, workflowName string) (context.Context, error) {
+func (a *sharAuth) authorize(ctx context.Context, workflowName string) (context.Context, error) {
 	ctx, val, err := a.authenticate(ctx)
 	if err != nil {
 		return ctx, fmt.Errorf("authenticate: %w", errors2.ErrApiAuthNFail)
@@ -71,7 +71,7 @@ func (a *SharAuth) authorize(ctx context.Context, workflowName string) (context.
 	return ctx, nil
 }
 
-func (a *SharAuth) authFromJobID(ctx context.Context, trackingID string) (context.Context, *model.WorkflowState, error) {
+func (a *sharAuth) authFromJobID(ctx context.Context, trackingID string) (context.Context, *model.WorkflowState, error) {
 	job, err := a.operations.GetJob(ctx, trackingID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get job for authorization: %w", err)
@@ -87,7 +87,7 @@ func (a *SharAuth) authFromJobID(ctx context.Context, trackingID string) (contex
 	return ctx, job, nil
 }
 
-func (a *SharAuth) authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error) {
+func (a *sharAuth) authFromExecutionID(ctx context.Context, executionID string) (context.Context, *model.Execution, error) {
 	execution, err := a.operations.GetExecution(ctx, executionID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get execution for authorization: %w", err)
@@ -99,7 +99,7 @@ func (a *SharAuth) authFromExecutionID(ctx context.Context, executionID string) 
 	return ctx, execution, nil
 }
 
-func (a *SharAuth) authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error) {
+func (a *sharAuth) authFromProcessInstanceID(ctx context.Context, instanceID string) (context.Context, *model.ProcessInstance, error) {
 	pi, err := a.operations.GetProcessInstance(ctx, instanceID)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("get workflow instance for authorization: %w", err)
@@ -111,7 +111,7 @@ func (a *SharAuth) authFromProcessInstanceID(ctx context.Context, instanceID str
 	return ctx, pi, nil
 }
 
-func (a *SharAuth) authForNonWorkflow(ctx context.Context) (context.Context, error) {
+func (a *sharAuth) authForNonWorkflow(ctx context.Context) (context.Context, error) {
 	ctx, auth := a.authorize(ctx, "")
 	if auth != nil {
 		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
@@ -119,7 +119,7 @@ func (a *SharAuth) authForNonWorkflow(ctx context.Context) (context.Context, err
 	return ctx, nil
 }
 
-func (a *SharAuth) authForNamedWorkflow(ctx context.Context, name string) (context.Context, error) {
+func (a *sharAuth) authForNamedWorkflow(ctx context.Context, name string) (context.Context, error) {
 	ctx, auth := a.authorize(ctx, name)
 	if auth != nil {
 		return ctx, fmt.Errorf("authorize: %w", &errors2.ErrWorkflowFatal{Err: auth})
@@ -127,7 +127,7 @@ func (a *SharAuth) authForNamedWorkflow(ctx context.Context, name string) (conte
 	return ctx, nil
 }
 
-func (a *SharAuth) authForWorkflowId(ctx context.Context, workflowId string) (context.Context, error) {
+func (a *sharAuth) authForWorkflowId(ctx context.Context, workflowId string) (context.Context, error) {
 	workflow, err := a.operations.GetWorkflow(ctx, workflowId)
 	if err != nil {
 		return ctx, fmt.Errorf("get workflow for authorization: %w", err)

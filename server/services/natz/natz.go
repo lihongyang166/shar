@@ -58,7 +58,6 @@ type NamespaceKvs struct {
 	OwnerID           jetstream.KeyValue
 	WfClientTask      jetstream.KeyValue
 	WfGateway         jetstream.KeyValue
-	WfName            jetstream.KeyValue
 	WfHistory         jetstream.KeyValue
 	WfLock            jetstream.KeyValue
 	WfMsgTypes        jetstream.KeyValue
@@ -158,7 +157,6 @@ func initNamespacedKvs(ctx context.Context, ns string, js jetstream.JetStream, s
 	nKvs := NamespaceKvs{}
 	kvs := make(map[string]*jetstream.KeyValue)
 
-	kvs[namespace.PrefixWith(ns, messages.KvWfName)] = &nKvs.WfName
 	kvs[namespace.PrefixWith(ns, messages.KvExecution)] = &nKvs.WfExecution
 	kvs[namespace.PrefixWith(ns, messages.KvTracking)] = &nKvs.WfTracking
 	kvs[namespace.PrefixWith(ns, messages.KvDefinition)] = &nKvs.Wf

@@ -22,7 +22,7 @@ import (
 )
 
 func (s *Endpoints) getProcessInstanceStatus(ctx context.Context, req *model.GetProcessInstanceStatusRequest, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
-	// TODO: SharAuth for process
+	// TODO: sharAuth for process
 	ctx, _, err2 := s.auth.authFromProcessInstanceID(ctx, req.Id)
 	if err2 != nil {
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
@@ -307,7 +307,7 @@ func (s *Endpoints) getWorkflowVersions(ctx context.Context, req *model.GetWorkf
 		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
 		return
 	}
-	s.operations.GetWorkflowVersions(ctx, req.Name, wch, errs)
+	s.operations.StreamWorkflowVersions(ctx, req.Name, wch, errs)
 }
 
 func (s *Endpoints) getWorkflow(ctx context.Context, req *model.GetWorkflowRequest) (*model.GetWorkflowResponse, error) {
@@ -564,4 +564,32 @@ func (s *Endpoints) getProcessHeaders(ctx context.Context, req *model.GetProcess
 		return nil, fmt.Errorf("decode headers: %w", err)
 	}
 	return &model.GetProcessHeadersResponse{Headers: hdr}, nil
+}
+
+func (s *Endpoints) disableWorkflow(ctx context.Context, req *model.DisableWorkflowRequest) (*model.DisableWorkflowResponse, error) {
+	authCtx, err := s.auth.authForNamedWorkflow(ctx, req.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	}
+
+	err = s.operations.DisableWorkflow(authCtx, req.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to disable workflow: %w", err)
+	}
+
+	return &model.DisableWorkflowResponse{}, nil
+}
+
+func (s *Endpoints) enableWorkflow(ctx context.Context, req *model.EnableWorkflowRequest) (*model.EnableWorkflowResponse, error) {
+	authCtx, err := s.auth.authForNamedWorkflow(ctx, req.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	}
+
+	err = s.operations.EnableWorkflow(authCtx, req.WorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to enable workflow: %w", err)
+	}
+
+	return &model.EnableWorkflowResponse{}, nil
 }

@@ -1,4 +1,4 @@
-package intTest
+package workflow
 
 import (
 	"context"
@@ -35,7 +35,7 @@ func TestWfVersioning(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load BPMN workflow
-	b, err := os.ReadFile("../../testdata/simple-workflow.bpmn")
+	b, err := os.ReadFile("../../../testdata/simple-workflow.bpmn")
 	require.NoError(t, err)
 	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestWfVersioning(t *testing.T) {
 	assert.Equal(t, 1, len(keys))
 
 	// Load changed BPMN workflow
-	b, err = os.ReadFile("../../testdata/simple-workflow-changed.bpmn")
+	b, err = os.ReadFile("../../../testdata/simple-workflow-changed.bpmn")
 	require.NoError(t, err)
 	newWfId, err := cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "SimpleWorkflowTest", WorkflowBPMN: b})
 	require.NoError(t, err)

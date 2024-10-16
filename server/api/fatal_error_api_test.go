@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
 	"gitlab.com/shar-workflow/shar/model"
-	options2 "gitlab.com/shar-workflow/shar/server/server/option"
 	"testing"
 )
 
@@ -46,7 +45,7 @@ func TestFatalErrorKeyPrefixBuilderWithPartialSegments(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%s.%s.%s.%s", wfName, "*", "*", processInstanceId), keyPrefix)
 }
 
-func TestValidation(t *testing.T) {
+func TestGetFatalErrorValidation(t *testing.T) {
 	cases := map[string]struct {
 		getFatalErrorRequest *model.GetFatalErrorRequest
 		expectedError        string
@@ -78,7 +77,7 @@ func TestValidation(t *testing.T) {
 			mockOperations := &workflow.MockOps{}
 			mockAuth := &MockAuth{}
 
-			endpoints, _ := New(mockOperations, nil, mockAuth, &options2.ServerOptions{})
+			endpoints := NewEndpoints(mockOperations, mockAuth, nil)
 
 			req := tc.getFatalErrorRequest
 
@@ -176,7 +175,7 @@ func TestFatalErrorAuth(t *testing.T) {
 			mockOperations := &workflow.MockOps{}
 			mockAuth := &MockAuth{}
 
-			endpoints, _ := New(mockOperations, nil, mockAuth, &options2.ServerOptions{})
+			endpoints := NewEndpoints(mockOperations, mockAuth, nil)
 
 			ctx := context.Background()
 			respCh := make(chan *model.FatalError)
@@ -250,7 +249,7 @@ func TestReturnsAuthErrorWhenAuthFails(t *testing.T) {
 			mockOperations := &workflow.MockOps{}
 			mockAuth := &MockAuth{}
 
-			endpoints, _ := New(mockOperations, nil, mockAuth, &options2.ServerOptions{})
+			endpoints := NewEndpoints(mockOperations, mockAuth, nil)
 
 			ctx := context.Background()
 			respCh := make(chan *model.FatalError)

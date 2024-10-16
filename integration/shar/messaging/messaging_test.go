@@ -172,63 +172,10 @@ func TestMessageStartEvent(t *testing.T) {
 	tst.AssertCleanKV(ns, t, 60*time.Second)
 }
 
-func TestAwaitMessageFatalErr(t *testing.T) {
-	t.Skip("skip this test until we have a way to properly clean down execution/process/activity" +
-		"state on abortion/termination of an execution/process. " +
-		"This test currently intermittently fails as a fatal error in one process will not result in the" +
-		"clean teardown of a sibling processes varstate + jobs in the collaboration")
-
-	t.Parallel()
-	ns := ksuid.New().String()
-	ctx := context.Background()
-	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
-	err := cl.Dial(ctx, tst.NatsURL)
-	require.NoError(t, err)
-
-	handlers := &testMessagingHandlerDef{t: t, wg: sync.WaitGroup{}, tst: tst, finished: make(chan struct{}), fatalErr: make(chan struct{})}
-
-	// Register service tasks
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step1.yaml", handlers.step1)
-	require.NoError(t, err)
-	_, err = support.RegisterTaskYamlFile(ctx, cl, "messaging_test_step2.yaml", handlers.step2)
-	require.NoError(t, err)
-
-	// Load BPMN workflow
-	b, err := os.ReadFile("../../../testdata/message-workflow-no-correlation-key.bpmn")
-	require.NoError(t, err)
-	_, err = cl.LoadBPMNWorkflowFromBytes(ctx, client.LoadWorkflowParams{Name: "TestAwaitMessageFatalErr", WorkflowBPMN: b})
-	require.NoError(t, err)
-
-	// Launch the processes
-	newVars := model.NewVars()
-	newVars.SetInt64("orderId", 57)
-	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "Process_0hgpt6k", Vars: newVars})
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-
-	// Listen for service tasks
-	go func() {
-		err := cl.Listen(ctx)
-		require.NoError(t, err)
-	}()
-
-	subscription := tst.ListenForFatalErr(t, handlers.fatalErr, ns)
-	defer func() {
-		_ = subscription.Drain()
-	}()
-
-	support.WaitForChan(t, handlers.fatalErr, 20*time.Second)
-
-	tst.AssertCleanKV(ns, t, 60*time.Second)
-}
-
 type testMessagingHandlerDef struct {
 	wg       sync.WaitGroup
 	tst      *support.Integration
 	finished chan struct{}
-	fatalErr chan struct{}
 	t        *testing.T
 }
 

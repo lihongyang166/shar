@@ -2,6 +2,8 @@ module gitlab.com/shar-workflow/shar
 
 go 1.23.1
 
+replace github.com/nats-io/nats.go => ../nats.go
+
 require (
 	github.com/agoda-com/opentelemetry-go/otelslog v0.2.0
 	github.com/agoda-com/opentelemetry-logs-go v0.5.1
@@ -18,8 +20,8 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/hashicorp/go-version v1.7.0
 	github.com/jedib0t/go-pretty/v6 v6.6.0
-	github.com/nats-io/nats-server/v2 v2.10.21
-	github.com/nats-io/nats.go v1.37.0
+	github.com/nats-io/nats-server/v2 v2.11.0-preview.1
+	github.com/nats-io/nats.go v1.34.1
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/pterm/pterm v0.12.79
 	github.com/relvacode/iso8601 v1.4.0

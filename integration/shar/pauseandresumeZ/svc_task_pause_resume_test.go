@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
+	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ func TestPauseAndResumeServiceTask(t *testing.T) {
 	// Dial shar
 	ns := ksuid.New().String()
 	cl := client.New(client.WithEphemeralStorage(), client.WithConcurrency(10), client.WithNamespace(ns))
+	slog.Info("###", "tst.NatsURL", tst.NatsURL)
 	err := cl.Dial(ctx, tst.NatsURL)
 	require.NoError(t, err)
 
@@ -49,7 +52,8 @@ func TestPauseAndResumeServiceTask(t *testing.T) {
 	// continue launching
 
 	//try pausing svc task here in other test
-	<-time.After(time.Second * 60)
+	pauseConsumer(t, ctx)
+	<-time.After(time.Second * 120)
 
 	// Launch the workflow
 	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: "SimpleProcess"})
@@ -103,4 +107,45 @@ func (d *testSimpleHandlerDef) processEnd(_ context.Context, vars model.Vars, _ 
 	require.NoError(d.t, err)
 	assert.Equal(d.t, int64(42), processVar)
 	close(d.finished)
+}
+
+func pauseConsumer(t *testing.T, ctx context.Context) {
+	js, err := tst.GetJetstream()
+	require.NoError(t, err)
+
+	stream := "WORKFLOW"
+	s, err := js.Stream(ctx, stream)
+	require.NoError(t, err)
+	consumerInfoListener := s.ListConsumers(ctx)
+	consInfoCh := consumerInfoListener.Info()
+
+	var consumerName string
+	for consInf := range consInfoCh {
+		if strings.HasPrefix(consInf.Name, "ServiceTask_") {
+			consumerName = consInf.Name
+			slog.Info("%%%", "consumerName", consumerName)
+		}
+	}
+
+	pauseExpiry := time.Now().Add(time.Second * 240)
+
+	//consumerName := "ServiceTask_2nTgfChtw9IkGnBqhKHWRaIl1cW_YKk60mHqUWfPevXHOlL3338B7sGrxxefJAx7ak3Wny1"
+	//config := jetstream.ConsumerConfig{
+	//	Name:       consumerName,
+	//	PauseUntil: &pauseExpiry,
+	//}
+	//_, err = js.CreateOrUpdateConsumer(ctx, stream, config)
+	//require.NoError(t, err)
+
+	timeout, _ := context.WithTimeout(ctx, time.Second*10)
+	_, err = s.PauseConsumer(timeout, consumerName, pauseExpiry)
+	require.NoError(t, err)
+
+	consumer, err := js.Consumer(ctx, stream, consumerName)
+	require.NoError(t, err)
+
+	info, err := consumer.Info(ctx)
+	require.NoError(t, err)
+
+	slog.Info("$$$", "consumerInfo", info)
 }

@@ -136,7 +136,7 @@ func notifyRetryExceeded(ctx context.Context, c *Client, msg jetstream.Msg) {
 	newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
 	newMsg.Data = msg.Data()
 	if err := c.con.PublishMsg(newMsg); err != nil {
-		slog.ErrorContext(ctx, "publish retry exceeded notification", "error", err.Error())
+		slog.ErrorContext(ctx, "publish retry exceeded notification", "error", err)
 	}
 }
 

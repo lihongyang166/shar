@@ -59,7 +59,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 		defer func() {
 			// Kill the message
 			if err := msg.Term(); err != nil {
-				slog.ErrorContext(ctx, "message termination error", err)
+				slog.ErrorContext(ctx, "message termination error", "error", err)
 			}
 		}()
 		switch retryBehaviour.DefaultExceeded.Action {
@@ -127,7 +127,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	offset = getOffset(strategy, initial, interval, deliveryCount, ceiling, messageTime)
 
 	if err := msg.NakWithDelay(offset); err != nil {
-		return fmt.Errorf("linear backoff: %w", err)
+		return fmt.Errorf("linear backoff error", "error", err)
 	}
 	return nil
 }
@@ -136,7 +136,7 @@ func notifyRetryExceeded(ctx context.Context, c *Client, msg jetstream.Msg) {
 	newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
 	newMsg.Data = msg.Data()
 	if err := c.con.PublishMsg(newMsg); err != nil {
-		slog.ErrorContext(ctx, "publish retry exceeded notification: %w", err)
+		slog.ErrorContext(ctx, "publish retry exceeded notification", "error", err.Error())
 	}
 }
 

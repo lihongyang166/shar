@@ -40,7 +40,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 		if errors.Is(err, errors2.ErrWorkflowNotFound) {
 			slog.ErrorContext(ctx, "terminated a task without a workflow", "error", err)
 			if err2 := msg.Term(); err2 != nil {
-				slog.ErrorContext(ctx, "failed to terminate task without a workflow", "error", err)
+				slog.ErrorContext(ctx, "failed to terminate task without a workflow", "error", err2)
 			}
 		}
 		return fmt.Errorf("getting workflow: %w", err)

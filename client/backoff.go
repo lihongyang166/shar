@@ -43,7 +43,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 				slog.ErrorContext(ctx, "failed to terminate task without a workflow", "error", err2)
 			}
 		}
-		return fmt.Errorf("getting workflow: %w", err)
+		return fmt.Errorf("error getting workflow: %w", err)
 	}
 	// And the service task element
 	elem := common.ElementTable(wf)[state.ElementId]

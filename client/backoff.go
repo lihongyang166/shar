@@ -55,19 +55,12 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	if meta.NumDelivered >= uint64(retryBehaviour.Number) {
 		// Retries exceeded, defer to ensure first termination and then notification of retries
 		//  being exceeded ALWAYS happens, no matter the case.
-		defer func() error {
-			// Notify retries exceeded
-			if err = notifyRetryExceeded(c, msg); err != nil {
-				return logx.Err(ctx, "notify retry exceedded err", err)
-			}
-			return nil
-		}()
-		defer func() error {
+		defer notifyRetryExceeded(c, msg)
+		defer func() {
 			// Kill the message
 			if err := msg.Term(); err != nil {
-				return logx.Err(ctx, "message termination error", err)
+				slog.ErrorContext(ctx, "message termination error", err)
 			}
-			return nil
 		}()
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
@@ -149,6 +142,14 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 		return fmt.Errorf("linear backoff: %w", err)
 	}
 	return nil
+}
+
+func notifyRetryExceeded(c *Client, msg jetstream.Msg) {
+	newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
+	newMsg.Data = msg.Data()
+	if err := c.con.PublishMsg(newMsg); err != nil {
+		slog.ErrorContext("publish retry exceeded notification: %w", err)
+	}
 }
 
 func getOffset(strategy model.RetryStrategy, initial int64, interval int64, deliveryCount int64, ceiling int64, messageTime time.Time) time.Duration {

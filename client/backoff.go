@@ -55,7 +55,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	if meta.NumDelivered >= uint64(retryBehaviour.Number) {
 		// Retries exceeded, defer to ensure first termination and then notification of retries
 		//  being exceeded ALWAYS happens, no matter the case.
-		defer notifyRetryExceeded(c, msg)
+		defer notifyRetryExceeded(ctx, c, msg)
 		defer func() {
 			// Kill the message
 			if err := msg.Term(); err != nil {
@@ -132,11 +132,11 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	return nil
 }
 
-func notifyRetryExceeded(c *Client, msg jetstream.Msg) {
+func notifyRetryExceeded(ctx context.Context, c *Client, msg jetstream.Msg) {
 	newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
 	newMsg.Data = msg.Data()
 	if err := c.con.PublishMsg(newMsg); err != nil {
-		slog.ErrorContext("publish retry exceeded notification: %w", err)
+		slog.ErrorContext(ctx, "publish retry exceeded notification: %w", err)
 	}
 }
 

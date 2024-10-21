@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
@@ -14,11 +20,6 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
-	"math"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
@@ -31,7 +32,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	// get the metadata including delivery attempts
 	meta, err := msg.Metadata()
 	if err != nil {
-		return fmt.Errorf("fetching message metadata")
+		return fmt.Errorf("error fetching message metadata: %w", err)
 	}
 	// get the workflow this task belongs to
 	wf, err := c.GetWorkflow(ctx, state.WorkflowId)
@@ -39,10 +40,10 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 		if errors.Is(err, errors2.ErrWorkflowNotFound) {
 			slog.ErrorContext(ctx, "terminated a task without a workflow", "error", err)
 			if err2 := msg.Term(); err2 != nil {
-				slog.ErrorContext(ctx, "failed to terminate task without a workflow", "error", err)
+				slog.ErrorContext(ctx, "failed to terminate task without a workflow", "error", err2)
 			}
 		}
-		return fmt.Errorf("getting workflow: %w", err)
+		return fmt.Errorf("error getting workflow: %w", err)
 	}
 	// And the service task element
 	elem := common.ElementTable(wf)[state.ElementId]
@@ -52,13 +53,20 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 
 	// Is this the last time to fail?
 	if meta.NumDelivered >= uint64(retryBehaviour.Number) {
-		//TODO: Retries exceeded
+		// Retries exceeded, defer to ensure first termination and then notification of retries
+		//  being exceeded ALWAYS happens, no matter the case.
+		defer notifyRetryExceeded(ctx, c, msg)
+		defer func() {
+			// Kill the message
+			if err := msg.Term(); err != nil {
+				slog.ErrorContext(ctx, "message termination error", "error", err)
+			}
+		}()
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
 			if err := c.CancelProcessInstance(ctx, state.ProcessInstanceId); err != nil {
 				return fmt.Errorf("cancelling process instance: %w", err)
 			}
-			goto notifyRetryExceeded
 		case model.RetryErrorAction_ThrowWorkflowError:
 			trackingID := common.TrackingID(state.Id).ID()
 			res := &model.HandleWorkflowErrorResponse{}
@@ -71,10 +79,8 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			if !res.Handled {
 				return fmt.Errorf("handle workflow error with code %s", retryBehaviour.DefaultExceeded.ErrorCode)
 			}
-			goto notifyRetryExceeded
 		case model.RetryErrorAction_PauseWorkflow:
 			c.signalFatalErr(ctx, state, slog.Default())
-			goto notifyRetryExceeded
 		case model.RetryErrorAction_SetVariableValue:
 			trackingID := common.TrackingID(state.Id).ID()
 			retVars := model.NewVars()
@@ -106,16 +112,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 				return fmt.Errorf("complete service task with error variable: %w", err)
 			}
 		}
-		// Kill the message
-		if err := msg.Term(); err != nil {
-			return fmt.Errorf("terminate message delivery: %w", err)
-		}
-	notifyRetryExceeded:
-		newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
-		newMsg.Data = msg.Data()
-		if err := c.con.PublishMsg(newMsg); err != nil {
-			return fmt.Errorf("publish retry exceeded notification: %w", err)
-		}
+
 		return nil
 	}
 
@@ -130,9 +127,17 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	offset = getOffset(strategy, initial, interval, deliveryCount, ceiling, messageTime)
 
 	if err := msg.NakWithDelay(offset); err != nil {
-		return fmt.Errorf("linear backoff: %w", err)
+		return fmt.Errorf("linear backoff error: %w", err)
 	}
 	return nil
+}
+
+func notifyRetryExceeded(ctx context.Context, c *Client, msg jetstream.Msg) {
+	newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
+	newMsg.Data = msg.Data()
+	if err := c.con.PublishMsg(newMsg); err != nil {
+		slog.ErrorContext(ctx, "publish retry exceeded notification", "error", err)
+	}
 }
 
 func getOffset(strategy model.RetryStrategy, initial int64, interval int64, deliveryCount int64, ceiling int64, messageTime time.Time) time.Duration {

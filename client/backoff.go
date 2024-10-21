@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
@@ -14,11 +20,6 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
-	"math"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
@@ -52,7 +53,22 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 
 	// Is this the last time to fail?
 	if meta.NumDelivered >= uint64(retryBehaviour.Number) {
-		//TODO: Retries exceeded
+		// Retries exceeded, defer to ensure first termination and then notification of retries
+		//  being exceeded ALWAYS happens, no matter the case.
+		defer func() error {
+			// Notify retries exceeded
+			if err = notifyRetryExceeded(c, msg); err != nil {
+				return logx.Err(ctx, "notify retry exceedded err", err)
+			}
+			return nil
+		}()
+		defer func() error {
+			// Kill the message
+			if err := msg.Term(); err != nil {
+				return logx.Err(ctx, "message termination error", err)
+			}
+			return nil
+		}()
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
 			if err := c.CancelProcessInstance(ctx, state.ProcessInstanceId); err != nil {

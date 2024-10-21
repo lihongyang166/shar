@@ -127,7 +127,7 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 	offset = getOffset(strategy, initial, interval, deliveryCount, ceiling, messageTime)
 
 	if err := msg.NakWithDelay(offset); err != nil {
-		return fmt.Errorf("linear backoff error", "error", err)
+		return fmt.Errorf("linear backoff error: %w", err)
 	}
 	return nil
 }

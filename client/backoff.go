@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"gitlab.com/shar-workflow/shar/common"
@@ -14,11 +20,6 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
-	"math"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
@@ -52,13 +53,25 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 
 	// Is this the last time to fail?
 	if meta.NumDelivered >= uint64(retryBehaviour.Number) {
-		//TODO: Retries exceeded
+		// Retries exceeded, defer to ensure first termination and then notification of retries
+		//  being exceeded ALWAYS happens, no matter the case.
+		defer func() {
+			// Notify retries exceeded
+			if err = notifyRetryExceeded(c, msg); err != nil {
+				logx.Err(ctx, "notify retry exceedded err", err)
+			}
+		}()
+		defer func() {
+			// Kill the message
+			if err := msg.Term(); err != nil {
+				logx.Err(ctx, "message termination error", err)
+			}
+		}()
 		switch retryBehaviour.DefaultExceeded.Action {
 		case model.RetryErrorAction_FailWorkflow:
 			if err := c.CancelProcessInstance(ctx, state.ProcessInstanceId); err != nil {
 				return fmt.Errorf("cancelling process instance: %w", err)
 			}
-			goto notifyRetryExceeded
 		case model.RetryErrorAction_ThrowWorkflowError:
 			trackingID := common.TrackingID(state.Id).ID()
 			res := &model.HandleWorkflowErrorResponse{}
@@ -71,10 +84,8 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 			if !res.Handled {
 				return fmt.Errorf("handle workflow error with code %s", retryBehaviour.DefaultExceeded.ErrorCode)
 			}
-			goto notifyRetryExceeded
 		case model.RetryErrorAction_PauseWorkflow:
 			c.signalFatalErr(ctx, state, slog.Default())
-			goto notifyRetryExceeded
 		case model.RetryErrorAction_SetVariableValue:
 			trackingID := common.TrackingID(state.Id).ID()
 			retVars := model.NewVars()
@@ -106,16 +117,6 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 				return fmt.Errorf("complete service task with error variable: %w", err)
 			}
 		}
-		// Kill the message
-		if err := msg.Term(); err != nil {
-			return fmt.Errorf("terminate message delivery: %w", err)
-		}
-	notifyRetryExceeded:
-		newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
-		newMsg.Data = msg.Data()
-		if err := c.con.PublishMsg(newMsg); err != nil {
-			return fmt.Errorf("publish retry exceeded notification: %w", err)
-		}
 		return nil
 	}
 
@@ -131,6 +132,15 @@ func (c *Client) backoff(ctx context.Context, msg jetstream.Msg) error {
 
 	if err := msg.NakWithDelay(offset); err != nil {
 		return fmt.Errorf("linear backoff: %w", err)
+	}
+	return nil
+}
+
+func notifyRetryExceeded(c *Client, msg jetstream.Msg) error {
+	newMsg := nats.NewMsg(strings.Replace(msg.Subject(), messages.StateJobExecute, ".State.Job.RetryExceeded.", 1))
+	newMsg.Data = msg.Data()
+	if err := c.con.PublishMsg(newMsg); err != nil {
+		return fmt.Errorf("publish retry exceeded notification: %w", err)
 	}
 	return nil
 }

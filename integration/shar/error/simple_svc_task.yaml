@@ -1,0 +1,28 @@
+version: "1.0"
+kind: ServiceTask
+metadata:
+  type: SimpleProcess
+  version: "0.1"
+  short: Sample simple process
+  description: An example process for integration tests
+  labels:
+  - test
+  - simple
+behaviour:
+  estimatedMaxDuration: 2343255
+  defaultRetry:
+    number: 3
+    strategy: 0
+    initMilli: 800
+    intervalMilli: 900
+    maxMilli: 15000
+    defaultExceeded:
+      action: 3
+parameters:
+  input:
+  - name: instanceName
+    short: the instanceName
+    description: a unique identifier for a process instance
+    type: string
+    mandatory: true
+    example: = "instanceOne"

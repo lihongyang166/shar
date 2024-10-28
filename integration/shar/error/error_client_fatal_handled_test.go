@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/client/task"
+	"gitlab.com/shar-workflow/shar/common/subj"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/server/messages"
+	"google.golang.org/protobuf/proto"
 	"log/slog"
 	"os"
 	"testing"
@@ -199,7 +201,13 @@ func runExecutions(t *testing.T, ctx context.Context, cl *client.Client, ns stri
 		}()
 
 		if executionParam.expectingFailure {
-			tst.ListenForFatalErr(t, d.fatalErr, ns)
+			support.ListenForMsg(support.ExpectedMessage{
+				T:           t,
+				NatsUrl:     tst.NatsURL,
+				Subject:     subj.NS(messages.WorkflowSystemProcessFatalError, ns),
+				ContainerFn: func() proto.Message { return &model.FatalError{} },
+				MsgReceived: d.fatalErr,
+			})
 			// wait for the fatal err to appear
 			support.WaitForChan(t, d.fatalErr, 20*time.Second)
 
@@ -248,7 +256,13 @@ func TestFatalErrorPersistedWhenRetriesAreExhaustedAndErrorActionIsPause(t *test
 		require.NoError(t, err)
 	}()
 
-	tst.ListenForFatalErr(t, d.fatalErr, ns)
+	support.ListenForMsg(support.ExpectedMessage{
+		T:           t,
+		NatsUrl:     tst.NatsURL,
+		Subject:     subj.NS(messages.WorkflowSystemProcessFatalError, ns),
+		ContainerFn: func() proto.Message { return &model.FatalError{} },
+		MsgReceived: d.fatalErr,
+	})
 
 	// wait for the fatal err to appear
 	support.WaitForChan(t, d.fatalErr, 20*time.Second)

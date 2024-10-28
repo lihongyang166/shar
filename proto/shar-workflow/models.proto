@@ -902,6 +902,16 @@ message TelemetryClients {
   int32 count = 1;
 }
 
+message DisableWorkflowLaunch {
+  int64 timestamp = 1;
+  string workflowName = 2;
+}
+
+message EnableWorkflowLaunch {
+  int64 timestamp = 1;
+  string workflowName = 2;
+}
+
 message LogRequest {
   string hostname = 1;
   string clientId = 2;

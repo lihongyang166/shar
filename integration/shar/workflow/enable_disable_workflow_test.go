@@ -8,6 +8,8 @@ import (
 	"gitlab.com/shar-workflow/shar/client/task"
 	integration_support "gitlab.com/shar-workflow/shar/internal/integration-support"
 	"gitlab.com/shar-workflow/shar/model"
+	"gitlab.com/shar-workflow/shar/server/messages"
+	"google.golang.org/protobuf/proto"
 	"os"
 	"testing"
 	"time"
@@ -52,9 +54,19 @@ func TestDisableEnableLaunchWorkflow(t *testing.T) {
 	err = cl.DisableWorkflowExecution(ctx, wfName)
 	require.NoError(t, err)
 
+	disableWfLaunchAttempted := make(chan struct{})
+	integration_support.ListenForMsg(integration_support.ExpectedMessage{
+		T:           t,
+		NatsUrl:     tst.NatsURL,
+		Subject:     messages.WorkflowSystemWorkflowDisableLaunchAttempted,
+		ContainerFn: func() proto.Message { return &model.DisableWorkflowLaunch{} },
+		MsgReceived: disableWfLaunchAttempted,
+	})
+
 	// launch workflow
 	_, _, err = cl.LaunchProcess(ctx, client.LaunchParams{ProcessID: processId})
 	require.ErrorContains(t, err, "the workflow is not executable")
+	integration_support.WaitForChan(t, disableWfLaunchAttempted, time.Second*5)
 
 	//enable wf
 	err = cl.EnableWorkflowExecution(ctx, wfName)

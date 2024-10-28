@@ -168,6 +168,10 @@ func (c *Operations) LaunchWithParent(ctx context.Context, processId string, ID 
 
 	wfv, err := c.getWorkflowVersions(ctx, workflowName)
 	if wfv.IsExecutionDisabled {
+		if err = c.PublishMsg(ctx, messages.WorkflowSystemWorkflowDisableLaunchAttempted, &model.DisableWorkflowLaunch{Timestamp: time.Now().UnixMilli(), WorkflowName: workflowName}); err != nil {
+			return "", "", fmt.Errorf("failed to publish disable workflow launch notification: %w", err)
+		}
+
 		reterr = engineErr(ctx, "the workflow is not executable", errors2.New("the workflow is not executable"),
 			slog.String(keys.ParentInstanceElementID, parentElID),
 			slog.String(keys.ParentProcessInstanceID, parentpiID),

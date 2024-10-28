@@ -579,20 +579,22 @@ func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename strin
 	return ret, nil
 }
 
+// ExpectedMessage describes what a Model we proto we expect to receive on a subject
 type ExpectedMessage struct {
-	T           *testing.T
-	NatsUrl     string
-	Subject     string
-	ContainerFn func() proto.Message
-	MsgReceived chan struct{}
+	T             *testing.T
+	NatsUrl       string
+	Subject       string
+	CreateModelFn func() proto.Message
+	MsgReceived   chan struct{}
 }
 
+// ListenForMsg subscribes to the subject and proto message described by expectedMessage
 func ListenForMsg(expectedMessage ExpectedMessage) {
 	natsConnection, err := nats.Connect(expectedMessage.NatsUrl)
 	require.NoError(expectedMessage.T, err)
 
 	_, err = natsConnection.Subscribe(expectedMessage.Subject, func(msg *nats.Msg) {
-		t := expectedMessage.ContainerFn()
+		t := expectedMessage.CreateModelFn()
 		err2 := proto.Unmarshal(msg.Data, t)
 		require.NoError(expectedMessage.T, err2)
 		expectedMessage.MsgReceived <- struct{}{}

@@ -56,11 +56,11 @@ func TestDisableEnableLaunchWorkflow(t *testing.T) {
 
 	disableWfLaunchAttempted := make(chan struct{})
 	integration_support.ListenForMsg(integration_support.ExpectedMessage{
-		T:           t,
-		NatsUrl:     tst.NatsURL,
-		Subject:     messages.WorkflowSystemWorkflowDisableLaunchAttempted,
-		ContainerFn: func() proto.Message { return &model.DisableWorkflowLaunch{} },
-		MsgReceived: disableWfLaunchAttempted,
+		T:             t,
+		NatsUrl:       tst.NatsURL,
+		Subject:       messages.WorkflowSystemWorkflowDisableLaunchAttempted,
+		CreateModelFn: func() proto.Message { return &model.DisableWorkflowLaunch{} },
+		MsgReceived:   disableWfLaunchAttempted,
 	})
 
 	// launch workflow

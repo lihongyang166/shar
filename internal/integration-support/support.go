@@ -11,7 +11,6 @@ import (
 	"gitlab.com/shar-workflow/shar/client/taskutil"
 	"gitlab.com/shar-workflow/shar/common"
 	ns "gitlab.com/shar-workflow/shar/common/namespace"
-	"gitlab.com/shar-workflow/shar/common/subj"
 	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/telemetry/config"
@@ -580,18 +579,23 @@ func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename strin
 	return svcTaskUid, nil
 }
 
-// ListenForFatalErr will subscribe to the ProcessFatalError subject and will send a message to the fatalErrChan
-// on receipt of any messages on the subject
-func (s *Integration) ListenForFatalErr(t *testing.T, fatalErrChan chan struct{}, ns string) *nats.Subscription {
-	natsConnection, err := nats.Connect(s.NatsURL)
-	require.NoError(t, err)
+type ExpectedMessage struct {
+	T           *testing.T
+	NatsUrl     string
+	Subject     string
+	ContainerFn func() proto.Message
+	MsgReceived chan struct{}
+}
 
-	subscription, err := natsConnection.Subscribe(subj.NS(messages.WorkflowSystemProcessFatalError, ns), func(msg *nats.Msg) {
-		fatalError := &model.FatalError{}
-		err2 := proto.Unmarshal(msg.Data, fatalError)
-		require.NoError(t, err2)
-		fatalErrChan <- struct{}{}
+func ListenForMsg(expectedMessage ExpectedMessage) {
+	natsConnection, err := nats.Connect(expectedMessage.NatsUrl)
+	require.NoError(expectedMessage.T, err)
+
+	_, err = natsConnection.Subscribe(expectedMessage.Subject, func(msg *nats.Msg) {
+		t := expectedMessage.ContainerFn()
+		err2 := proto.Unmarshal(msg.Data, t)
+		require.NoError(expectedMessage.T, err2)
+		expectedMessage.MsgReceived <- struct{}{}
 	})
-	require.NoError(t, err)
-	return subscription
+	require.NoError(expectedMessage.T, err)
 }

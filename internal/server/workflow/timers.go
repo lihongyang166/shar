@@ -9,6 +9,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -29,7 +30,7 @@ func (s *Engine) listenForTimer(sCtx context.Context, js jetstream.JetStream, cl
 		FilterSubject: subject,
 	}
 
-	consumer, err := js.CreateOrUpdateConsumer(sCtx, "WORKFLOW", consumerCfg)
+	consumer, err := js.CreateOrUpdateConsumer(sCtx, natsobject.WORKFLOW_STREAM, consumerCfg)
 	if err != nil {
 		return fmt.Errorf("get consumer for %s: %w", durable, err)
 	}

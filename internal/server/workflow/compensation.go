@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/element"
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"gitlab.com/shar-workflow/shar/server/vars"
@@ -50,7 +51,7 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 	stateID := common.TrackingID(state.Id)
 	planPrefix := subj.NS("WORKFLOW.%s.Compensate.", ns)
 	planSubject := planPrefix + stateID.ID()
-	if _, err := s.natsService.Js.CreateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
+	if _, err := s.natsService.Js.CreateConsumer(ctx, natsobject.WORKFLOW_STREAM, jetstream.ConsumerConfig{
 		Name:              "",
 		Durable:           consumerPrefix + stateID.ID(),
 		Description:       "compensation plan for " + stateID.ID(),
@@ -134,7 +135,7 @@ func (s *Engine) Compensate(ctx context.Context, state *model.WorkflowState) err
 }
 
 func (s *Engine) processProcessCompensate(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "processCompensate", s.closing, subj.NS(messages.WorkflowProcessCompensate, "*"), "ProcessCompensateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "processCompensate", s.closing, subj.NS(messages.WorkflowProcessCompensate, "*"), "ProcessCompensateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		state := &model.WorkflowState{}
 		err := proto.Unmarshal(msg.Data(), state)
 		if err != nil {
@@ -147,7 +148,7 @@ func (s *Engine) processProcessCompensate(ctx context.Context) error {
 		els := make(map[string]*model.Element)
 		common.IndexProcessElements(wf.Process[state.ProcessId].Elements, els)
 		id := common.TrackingID(state.Id)
-		consumer, err := s.natsService.Js.Consumer(ctx, "WORKFLOW", consumerPrefix+id.ID())
+		consumer, err := s.natsService.Js.Consumer(ctx, natsobject.WORKFLOW_STREAM, consumerPrefix+id.ID())
 		if err != nil {
 			return false, fmt.Errorf("get compensation consumer: %w", err)
 		}

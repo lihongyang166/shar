@@ -573,11 +573,11 @@ func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename strin
 	if _, err := taskutil.LoadTaskFromYamlFile(ctx, cl, filename); err != nil {
 		return "", fmt.Errorf("load task from yaml file: %w", err)
 	}
-	ret, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, filename, fn)
+	svcTaskUid, err := taskutil.RegisterTaskFunctionFromYamlFile(ctx, cl, filename, fn)
 	if err != nil {
 		return "", fmt.Errorf("register task function from yaml file: %w", err)
 	}
-	return ret, nil
+	return svcTaskUid, nil
 }
 
 // ListenForFatalErr will subscribe to the ProcessFatalError subject and will send a message to the fatalErrChan

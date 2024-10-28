@@ -22,6 +22,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/telemetry"
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
@@ -35,6 +36,7 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"log/slog"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -105,6 +107,8 @@ type Ops interface {
 	GetActiveEntries(ctx context.Context, processInstanceID string, result chan<- *model.ProcessHistoryEntry, errs chan<- error)
 	DisableWorkflow(ctx context.Context, workflowName string) error
 	EnableWorkflow(ctx context.Context, workflowName string) error
+	PauseServiceTask(ctx context.Context, uid string) error
+	ResumeServiceTask(ctx context.Context, uid string) error
 }
 
 // Operations provides methods for executing and managing workflow processes.
@@ -756,7 +760,7 @@ func (s *Operations) ensureMessageBuckets(ctx context.Context, wf *model.Workflo
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			MaxAckPending: 65536,
 		}
-		if _, err := s.natsService.Js.CreateOrUpdateConsumer(ctx, "WORKFLOW", jxCfg); err != nil {
+		if _, err := s.natsService.Js.CreateOrUpdateConsumer(ctx, natsobject.WORKFLOW_STREAM, jxCfg); err != nil {
 			return fmt.Errorf("add service task consumer: %w", err)
 		}
 	}
@@ -884,17 +888,21 @@ func (s *Operations) ensureServiceTaskConsumer(ctx context.Context, uid string) 
 	//TODO should this be in natsService???
 	ns := subj.GetNS(ctx)
 	jxCfg := jetstream.ConsumerConfig{
-		Durable:       "ServiceTask_" + ns + "_" + uid,
+		Durable:       serviceTaskConsumerNameFrom(ns, uid),
 		Description:   "",
 		FilterSubject: subj.NS(messages.WorkflowJobServiceTaskExecute, subj.GetNS(ctx)) + "." + uid,
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MemoryStorage: s.natsService.StorageType == jetstream.MemoryStorage,
 	}
 
-	if _, err := s.natsService.Js.CreateOrUpdateConsumer(ctx, "WORKFLOW", jxCfg); err != nil {
+	if _, err := s.natsService.Js.CreateOrUpdateConsumer(ctx, natsobject.WORKFLOW_STREAM, jxCfg); err != nil {
 		return fmt.Errorf("add service task consumer: %w", err)
 	}
 	return nil
+}
+
+func serviceTaskConsumerNameFrom(ns string, uid string) string {
+	return "ServiceTask_" + ns + "_" + uid
 }
 
 // forEachStartElement finds all start elements for a given process and executes a function on the element.
@@ -2218,6 +2226,40 @@ func (s *Operations) makeExecutable(ctx context.Context, workflowName string, is
 	})
 	if err != nil {
 		return fmt.Errorf("set makeExecutable %t: %w", isExecutionDisabled, err)
+	}
+
+	return nil
+}
+
+func (s *Operations) PauseServiceTask(ctx context.Context, uid string) error {
+	st, err := s.natsService.Js.Stream(ctx, natsobject.WORKFLOW_STREAM)
+	if err != nil {
+		return fmt.Errorf("failed to get stream for pause svc task: %w", err)
+	}
+
+	//~300 years, effectively indefinite pause
+	pauseExpiry := time.Now().Add(time.Nanosecond * math.MaxInt64)
+	ns := subj.GetNS(ctx)
+	_, err = st.PauseConsumer(ctx, serviceTaskConsumerNameFrom(ns, uid), pauseExpiry)
+	if err != nil {
+		return fmt.Errorf("failed to pause consumer: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Operations) ResumeServiceTask(ctx context.Context, uid string) error {
+	st, err := s.natsService.Js.Stream(ctx, natsobject.WORKFLOW_STREAM)
+	if err != nil {
+		return fmt.Errorf("failed to get stream for resume svc task: %w", err)
+	}
+
+	ns := subj.GetNS(ctx)
+	consumerName := serviceTaskConsumerNameFrom(ns, uid)
+	_, err = st.ResumeConsumer(ctx, consumerName)
+
+	if err != nil {
+		return fmt.Errorf("failed resume consumer: %w", err)
 	}
 
 	return nil

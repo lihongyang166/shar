@@ -8,6 +8,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
@@ -18,7 +19,7 @@ import (
 )
 
 func (s *Engine) processGatewayActivation(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "gatewayActivate", s.closing, subj.NS(messages.WorkflowJobGatewayTaskActivate, "*"), "GatewayActivateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		ns := subj.GetNS(ctx)
 		nsKVs, err := s.natsService.KvsFor(ctx, ns)
 		if err != nil {
@@ -56,10 +57,10 @@ func (s *Engine) processGatewayActivation(ctx context.Context) error {
 }
 
 func (s *Engine) processGatewayExecute(ctx context.Context) error {
-	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, s.operations.SignalFatalErrorTeardown); err != nil {
+	if err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "gatewayExecute", s.closing, subj.NS(messages.WorkflowJobGatewayTaskExecute, "*"), "GatewayExecuteConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, s.operations.SignalFatalErrorTeardown); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
-	if err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, s.operations.SignalFatalErrorTeardown); err != nil {
+	if err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "gatewayReEnter", s.closing, subj.NS(messages.WorkflowJobGatewayTaskReEnter, "*"), "GatewayReEnterConsumer", s.concurrency, s.receiveMiddleware, s.gatewayExecProcessor, s.operations.SignalFatalErrorTeardown); err != nil {
 		return fmt.Errorf("start process launch processor: %w", err)
 	}
 	return nil

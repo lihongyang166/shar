@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	"gitlab.com/shar-workflow/shar/internal/common/client"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
@@ -187,7 +188,7 @@ func (s *Engine) processMockServices(ctx context.Context) error {
 
 	subject := messages.WorkflowJobServiceTaskExecute + ".*.Mock"
 
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, false, s.operations, params), s.operations.SignalFatalErrorTeardown)
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "mockTask", s.closing, subj.NS(subject, "*"), "MockTaskConsumer", s.concurrency, s.receiveMiddleware, client.ClientProcessFn(ackTimeout, &counter, false, s.operations, params), s.operations.SignalFatalErrorTeardown)
 	if err != nil {
 		return fmt.Errorf("traversal processor: %w", err)
 	}

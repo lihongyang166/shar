@@ -9,6 +9,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	"log/slog"
 
 	"github.com/nats-io/nats.go"
@@ -64,7 +65,7 @@ func run(cmd *cobra.Command, args []string) error {
 			panic(err)
 		}
 
-		if _, err := js.CreateOrUpdateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
+		if _, err := js.CreateOrUpdateConsumer(ctx, natsobject.WORKFLOW_STREAM, jetstream.ConsumerConfig{
 			Durable:       "Tracing",
 			Description:   "Sequential Trace Consumer",
 			DeliverPolicy: jetstream.DeliverAllPolicy,

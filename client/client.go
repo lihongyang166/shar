@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	"io"
 	"log/slog"
 	"os"
@@ -281,7 +282,7 @@ func (c *Client) Dial(ctx context.Context, natsURL string, opts ...ConnectOption
 		FilterSubject: subj.NS(messages.WorkflowProcessTerminated, c.ns),
 		MaxAckPending: 65535,
 	}
-	if err := setup.EnsureConsumer(ctx, js, "WORKFLOW", *cdef, false, c.storageType); err != nil {
+	if err := setup.EnsureConsumer(ctx, js, natsobject.WORKFLOW_STREAM, *cdef, false, c.storageType); err != nil {
 		return fmt.Errorf("setting up end event queue")
 	}
 
@@ -540,7 +541,7 @@ func (c *Client) listen(ctx context.Context) error {
 	for k, v := range tasks {
 		cName := "ServiceTask_" + c.ns + "_" + k
 		slog.Info("listening for tasks", "subject", cName)
-		consumer, err := c.js.Consumer(ctx, "WORKFLOW", cName)
+		consumer, err := c.js.Consumer(ctx, natsobject.WORKFLOW_STREAM, cName)
 		if err != nil {
 			return fmt.Errorf("get consumer '%s': %w", cName, err)
 		}
@@ -549,7 +550,7 @@ func (c *Client) listen(ctx context.Context) error {
 			return fmt.Errorf("listen obtaining consumer info for %s: %w", cName, err)
 		}
 		ackTimeout := cInf.Config.AckWait
-		err = common.Process(ctx, c.js, "WORKFLOW", "jobExecute", c.closer, v, cName, c.concurrency, c.ReceiveMiddleware, client.ClientProcessFn(ackTimeout, &c.processing, c.noRecovery, c, params), c.signalFatalErr, common.WithBackoffFn(c.backoff))
+		err = common.Process(ctx, c.js, natsobject.WORKFLOW_STREAM, "jobExecute", c.closer, v, cName, c.concurrency, c.ReceiveMiddleware, client.ClientProcessFn(ackTimeout, &c.processing, c.noRecovery, c, params), c.signalFatalErr, common.WithBackoffFn(c.backoff))
 		if err != nil {
 			return fmt.Errorf("connect to service task consumer: %w", err)
 		}
@@ -570,7 +571,7 @@ func (c *Client) signalFatalErr(ctx context.Context, state *model.WorkflowState,
 
 func (c *Client) listenProcessTerminate(ctx context.Context) error {
 	closer := make(chan struct{}, 1)
-	err := common.Process(ctx, c.js, "WORKFLOW", "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, c.js, natsobject.WORKFLOW_STREAM, "ProcessTerminateConsumer_"+c.ns, closer, subj.NS(messages.WorkflowProcessTerminated, c.ns), "ProcessTerminateConsumer_"+c.ns, 4, c.ReceiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		st := &model.WorkflowState{}
 		if err := proto.Unmarshal(msg.Data(), st); err != nil {
 			log.Error("proto unmarshal error", "error", err)
@@ -1316,4 +1317,27 @@ func (c *Client) DisableWorkflowExecution(ctx context.Context, workflowName stri
 		return c.clientErr(ctx, err)
 	}
 	return nil
+}
+
+func (c *Client) PauseServiceTask(ctx context.Context, uid string) error {
+	req := &model.PauseServiceTaskRequest{Uid: uid}
+	res := &model.PauseServiceTaskResponse{}
+
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIPauseServiceTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		return c.clientErr(ctx, err)
+	}
+	return nil
+}
+
+func (c *Client) ResumeServiceTask(ctx context.Context, uid string) error {
+	req := &model.ResumeServiceTaskRequest{Uid: uid}
+	res := &model.ResumeServiceTaskResponse{}
+
+	ctx = subj.SetNS(ctx, c.ns)
+	if err := api2.Call(ctx, c.txCon, messages.APIResumeServiceTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
+		return c.clientErr(ctx, err)
+	}
+	return nil
+
 }

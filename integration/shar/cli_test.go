@@ -60,7 +60,7 @@ func TestCLI(t *testing.T) {
 
 	js, err := tst.GetJetstream()
 	require.NoError(t, err)
-	l := js.Consumers("WORKFLOW")
+	l := js.Consumers(natsobject.WORKFLOW_STREAM)
 	for i := range l {
 		fmt.Println(i.Name)
 	}

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/namespace"
 	"gitlab.com/shar-workflow/shar/common/subj"
 	"gitlab.com/shar-workflow/shar/common/telemetry"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	model2 "gitlab.com/shar-workflow/shar/internal/model"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
@@ -868,7 +869,7 @@ func (s *Engine) Shutdown() {
 }
 
 func (s *Engine) processTraversals(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "traversal", s.closing, subj.NS(messages.WorkflowTraversalExecute, "*"), "Traversal", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "traversal", s.closing, subj.NS(messages.WorkflowTraversalExecute, "*"), "Traversal", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var traversal model.WorkflowState
 		if err := proto.Unmarshal(msg.Data(), &traversal); err != nil {
 			return false, fmt.Errorf("unmarshal traversal proto: %w", err)
@@ -899,7 +900,7 @@ func (s *Engine) processTraversals(ctx context.Context) error {
 }
 
 func (s *Engine) processTracking(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, s.operations.SignalFatalErrorTeardown)
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "tracking", s.closing, "WORKFLOW.>", "Tracking", 1, s.receiveMiddleware, s.track, s.operations.SignalFatalErrorTeardown)
 	if err != nil {
 		return fmt.Errorf("tracking processor: %w", err)
 	}
@@ -949,7 +950,7 @@ func (s *Engine) track(ctx context.Context, log *slog.Logger, msg jetstream.Msg)
 }
 
 func (s *Engine) processCompletedJobs(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "completedJob", s.closing, subj.NS(messages.WorkFlowJobCompleteAll, "*"), "JobCompleteConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "completedJob", s.closing, subj.NS(messages.WorkFlowJobCompleteAll, "*"), "JobCompleteConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("unmarshal completed job state: %w", err)
@@ -981,7 +982,7 @@ func (s *Engine) processCompletedJobs(ctx context.Context) error {
 }
 
 func (s *Engine) processWorkflowEvents(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "workflowEvent", s.closing, subj.NS(messages.WorkflowExecutionAll, "*"), "WorkflowConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "workflowEvent", s.closing, subj.NS(messages.WorkflowExecutionAll, "*"), "WorkflowConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("load workflow state processing workflow event: %w", err)
@@ -1007,7 +1008,7 @@ func (s *Engine) processWorkflowEvents(ctx context.Context) error {
 }
 
 func (s *Engine) processActivities(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "activity", s.closing, subj.NS(messages.WorkflowActivityAll, "*"), "ActivityConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "activity", s.closing, subj.NS(messages.WorkflowActivityAll, "*"), "ActivityConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var activity model.WorkflowState
 		switch {
 		case strings.HasSuffix(msg.Subject(), messages.StateActivityExecute):
@@ -1030,7 +1031,7 @@ func (s *Engine) processActivities(ctx context.Context) error {
 }
 
 func (s *Engine) processLaunch(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "launch", s.closing, subj.NS(messages.WorkflowJobLaunchExecute, "*"), "LaunchConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "launch", s.closing, subj.NS(messages.WorkflowJobLaunchExecute, "*"), "LaunchConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var job model.WorkflowState
 		if err := proto.Unmarshal(msg.Data(), &job); err != nil {
 			return false, fmt.Errorf("unmarshal during process launch: %w", err)
@@ -1054,7 +1055,7 @@ func (s *Engine) processLaunch(ctx context.Context) error {
 }
 
 func (s *Engine) processJobAbort(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkFlowJobAbortAll, "*"), "JobAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "abort", s.closing, subj.NS(messages.WorkFlowJobAbortAll, "*"), "JobAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
 		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("job abort consumer failed to unmarshal state: %w", err)
@@ -1088,7 +1089,7 @@ func (s *Engine) processJobAbort(ctx context.Context) error {
 }
 
 func (s *Engine) processProcessComplete(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "processComplete", s.closing, subj.NS(messages.WorkflowProcessComplete, "*"), "ProcessCompleteConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "processComplete", s.closing, subj.NS(messages.WorkflowProcessComplete, "*"), "ProcessCompleteConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
 		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
@@ -1115,7 +1116,7 @@ func (s *Engine) processProcessComplete(ctx context.Context) error {
 }
 
 func (s *Engine) processProcessTerminate(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "processTerminate", s.closing, subj.NS(messages.WorkflowProcessTerminated, "*"), "ProcessTerminateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "processTerminate", s.closing, subj.NS(messages.WorkflowProcessTerminated, "*"), "ProcessTerminateConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
 		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
@@ -1135,7 +1136,7 @@ func (s *Engine) processProcessTerminate(ctx context.Context) error {
 }
 
 func (s *Engine) processGeneralAbort(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "abort", s.closing, subj.NS(messages.WorkflowGeneralAbortAll, "*"), "GeneralAbortConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var state model.WorkflowState
 		if err := proto.Unmarshal(msg.Data(), &state); err != nil {
 			return false, fmt.Errorf("unmarshal during general abort processor: %w", err)
@@ -1160,7 +1161,7 @@ func (s *Engine) processGeneralAbort(ctx context.Context) error {
 }
 
 func (s *Engine) processFatalError(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "fatalError", s.closing, subj.NS(messages.WorkflowSystemProcessFatalError, "*"), "FatalErrorConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "fatalError", s.closing, subj.NS(messages.WorkflowSystemProcessFatalError, "*"), "FatalErrorConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		var fatalErr model.FatalError
 		if err := proto.Unmarshal(msg.Data(), &fatalErr); err != nil {
 			return false, fmt.Errorf("unmarshal during fatal error processor: %w", err)
@@ -1192,7 +1193,7 @@ func (s *Engine) processFatalError(ctx context.Context) error {
 }
 
 func (s *Engine) processJobRetry(ctx context.Context) error {
-	err := common.Process(ctx, s.natsService.Js, "WORKFLOW", "jobRetry", s.closing, subj.NS(messages.WorkflowJobRetry, "*"), "JobRetryConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
+	err := common.Process(ctx, s.natsService.Js, natsobject.WORKFLOW_STREAM, "jobRetry", s.closing, subj.NS(messages.WorkflowJobRetry, "*"), "JobRetryConsumer", s.concurrency, s.receiveMiddleware, func(ctx context.Context, log *slog.Logger, msg jetstream.Msg) (bool, error) {
 		state := &model.WorkflowState{}
 		if err := proto.Unmarshal(msg.Data(), state); err != nil {
 			return false, fmt.Errorf("unmarshal during fatal error processor: %w", err)

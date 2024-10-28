@@ -40,6 +40,8 @@ service Shar {
   rpc RetryActivity (RetryActivityRequest) returns (RetryActivityResponse);
   rpc DisableWorkflow (DisableWorkflowRequest) returns (DisableWorkflowResponse);
   rpc EnableWorkflow (EnableWorkflowRequest) returns (EnableWorkflowResponse);
+  rpc PauseServiceTask (PauseServiceTaskRequest) returns (PauseServiceTaskResponse);
+  rpc ResumeServiceTask (ResumeServiceTaskRequest) returns (ResumeServiceTaskResponse);
 }
 
 message StoreWorkflowRequest {
@@ -964,6 +966,22 @@ message DisableWorkflowRequest {
 }
 
 message DisableWorkflowResponse {
+
+}
+
+message PauseServiceTaskRequest {
+  string uid = 1;
+}
+
+message PauseServiceTaskResponse {
+
+}
+
+message ResumeServiceTaskRequest {
+  string uid = 1;
+}
+
+message ResumeServiceTaskResponse {
 
 }
 

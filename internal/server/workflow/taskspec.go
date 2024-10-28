@@ -241,3 +241,8 @@ func (s *Operations) GetTaskSpecUsage(ctx context.Context, uid []string) (*model
 		ExecutingProcessInstance: maps.Keys(rptPrExec),
 	}, nil
 }
+
+// PauseServiceTask pauses the service task of the given uid
+func PauseServiceTask(ctx context.Context, uid string) error {
+	return nil
+}

@@ -593,3 +593,41 @@ func (s *Endpoints) enableWorkflow(ctx context.Context, req *model.EnableWorkflo
 
 	return &model.EnableWorkflowResponse{}, nil
 }
+
+func (s *Endpoints) pauseServiceTask(ctx context.Context, req *model.PauseServiceTaskRequest) (*model.PauseServiceTaskResponse, error) {
+	//TODO figure out if we can auth based on the svc task uid...
+	//we can get reports/references by process/wf to a particular svc task uid
+	//is it right to
+	//1) somehow use these reports to auth the pause svc task req???
+
+	//authCtx, err := s.auth.authForNamedWorkflow(ctx, req.WorkflowName)
+	//if err != nil {
+	//	return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	//}
+
+	err := s.operations.PauseServiceTask(ctx, req.Uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to pause svc task: %w", err)
+	}
+
+	return &model.PauseServiceTaskResponse{}, nil
+}
+
+func (s *Endpoints) resumeServiceTask(ctx context.Context, req *model.ResumeServiceTaskRequest) (*model.ResumeServiceTaskResponse, error) {
+	//TODO figure out if we can auth based on the svc task uid...
+	//we can get reports/references by process/wf to a particular svc task uid
+	//is it right to
+	//1) somehow use these reports to auth the pause svc task req???
+
+	//authCtx, err := s.auth.authForNamedWorkflow(ctx, req.WorkflowName)
+	//if err != nil {
+	//	return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	//}
+
+	err := s.operations.ResumeServiceTask(ctx, req.Uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resume svc task: %w", err)
+	}
+
+	return &model.ResumeServiceTaskResponse{}, nil
+}

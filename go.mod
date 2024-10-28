@@ -2,6 +2,8 @@ module gitlab.com/shar-workflow/shar
 
 go 1.23.1
 
+//ensure nats.go is using the 2.11-dev branch with pause consumer functionality
+//remove this when 2.11 is formally released
 replace github.com/nats-io/nats.go => ../nats.go
 
 require (
@@ -20,7 +22,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/hashicorp/go-version v1.7.0
 	github.com/jedib0t/go-pretty/v6 v6.6.0
-	github.com/nats-io/nats-server/v2 v2.11.0-preview.1
+	github.com/nats-io/nats-server/v2 v2.11.0-preview.2
 	github.com/nats-io/nats.go v1.34.1
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/pterm/pterm v0.12.79
@@ -71,11 +73,12 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/flatbuffers v24.3.25+incompatible // indirect
+	github.com/google/go-tpm v0.9.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/klauspost/compress v1.17.10 // indirect
+	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect

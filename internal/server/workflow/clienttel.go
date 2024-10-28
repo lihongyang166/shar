@@ -10,6 +10,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/header"
 	"gitlab.com/shar-workflow/shar/common/logx"
 	"gitlab.com/shar-workflow/shar/common/subj"
+	"gitlab.com/shar-workflow/shar/internal/common/natsobject"
 	"gitlab.com/shar-workflow/shar/model"
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
@@ -24,7 +25,7 @@ func (s *Engine) processTelemetryTimer(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
-	consumer, err := s.natsService.Js.CreateConsumer(ctx, "WORKFLOW", jetstream.ConsumerConfig{
+	consumer, err := s.natsService.Js.CreateConsumer(ctx, natsobject.WORKFLOW_STREAM, jetstream.ConsumerConfig{
 		Name:          "server_telemetry_trigger",
 		Durable:       "server_telemetry_trigger",
 		FilterSubject: messages.WorkflowTelemetryTimer,
@@ -96,7 +97,7 @@ func (s *Engine) startTelemetry(ctx context.Context, ns string) error {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	if err := common.PublishOnce(ctx, s.natsService.Js, nsKVs.WfLock, "WORKFLOW", "TelemetryTimerConsumer", msg); err != nil {
+	if err := common.PublishOnce(ctx, s.natsService.Js, nsKVs.WfLock, natsobject.WORKFLOW_STREAM, "TelemetryTimerConsumer", msg); err != nil {
 		return fmt.Errorf("ensure telemetry timer message: %w", err)
 	}
 	if err := s.processTelemetryTimer(ctx); err != nil {

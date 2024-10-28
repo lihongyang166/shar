@@ -62,6 +62,8 @@ func (s *Endpoints) StartListening() error {
 	RegisterEndpointFn(s.Listener, "APIGetProcessInstanceHeaders", messages.APIGetProcessInstanceHeaders, func() *model.GetProcessHeadersRequest { return &model.GetProcessHeadersRequest{} }, s.getProcessHeaders)
 	RegisterEndpointFn(s.Listener, "APIDisableWorkflow", messages.APIDisableWorkflow, func() *model.DisableWorkflowRequest { return &model.DisableWorkflowRequest{} }, s.disableWorkflow)
 	RegisterEndpointFn(s.Listener, "APIEnableWorkflow", messages.APIEnableWorkflow, func() *model.EnableWorkflowRequest { return &model.EnableWorkflowRequest{} }, s.enableWorkflow)
+	RegisterEndpointFn(s.Listener, "APIPauseServiceTask", messages.APIPauseServiceTask, func() *model.PauseServiceTaskRequest { return &model.PauseServiceTaskRequest{} }, s.pauseServiceTask)
+	RegisterEndpointFn(s.Listener, "APIResumeServiceTask", messages.APIResumeServiceTask, func() *model.ResumeServiceTaskRequest { return &model.ResumeServiceTaskRequest{} }, s.resumeServiceTask)
 
 	RegisterEndpointStreamingFn(s.Listener, "APIGetWorkflowVersions", messages.APIGetWorkflowVersions, func() *model.GetWorkflowVersionsRequest { return &model.GetWorkflowVersionsRequest{} }, s.getWorkflowVersions)
 	RegisterEndpointStreamingFn(s.Listener, "APIGetProcessInstanceStatus", messages.APIGetProcessInstanceStatus, func() *model.GetProcessInstanceStatusRequest { return &model.GetProcessInstanceStatusRequest{} }, s.getProcessInstanceStatus)

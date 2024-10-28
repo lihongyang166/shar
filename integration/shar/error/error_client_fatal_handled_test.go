@@ -202,11 +202,11 @@ func runExecutions(t *testing.T, ctx context.Context, cl *client.Client, ns stri
 
 		if executionParam.expectingFailure {
 			support.ListenForMsg(support.ExpectedMessage{
-				T:           t,
-				NatsUrl:     tst.NatsURL,
-				Subject:     subj.NS(messages.WorkflowSystemProcessFatalError, ns),
-				ContainerFn: func() proto.Message { return &model.FatalError{} },
-				MsgReceived: d.fatalErr,
+				T:             t,
+				NatsUrl:       tst.NatsURL,
+				Subject:       subj.NS(messages.WorkflowSystemProcessFatalError, ns),
+				CreateModelFn: func() proto.Message { return &model.FatalError{} },
+				MsgReceived:   d.fatalErr,
 			})
 			// wait for the fatal err to appear
 			support.WaitForChan(t, d.fatalErr, 20*time.Second)
@@ -257,11 +257,11 @@ func TestFatalErrorPersistedWhenRetriesAreExhaustedAndErrorActionIsPause(t *test
 	}()
 
 	support.ListenForMsg(support.ExpectedMessage{
-		T:           t,
-		NatsUrl:     tst.NatsURL,
-		Subject:     subj.NS(messages.WorkflowSystemProcessFatalError, ns),
-		ContainerFn: func() proto.Message { return &model.FatalError{} },
-		MsgReceived: d.fatalErr,
+		T:             t,
+		NatsUrl:       tst.NatsURL,
+		Subject:       subj.NS(messages.WorkflowSystemProcessFatalError, ns),
+		CreateModelFn: func() proto.Message { return &model.FatalError{} },
+		MsgReceived:   d.fatalErr,
 	})
 
 	// wait for the fatal err to appear

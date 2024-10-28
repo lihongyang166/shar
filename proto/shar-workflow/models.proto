@@ -904,6 +904,16 @@ message TelemetryClients {
   int32 count = 1;
 }
 
+message TaskPaused {
+  int64 timestamp = 1;
+  string taskUid = 2;
+}
+
+message TaskResumed {
+  int64 timestamp = 1;
+  string taskUid = 2;
+}
+
 message LogRequest {
   string hostname = 1;
   string clientId = 2;

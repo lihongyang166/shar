@@ -4,6 +4,8 @@ streams:
       subjects:
         - WORKFLOW.System.Task.Create
         - WORKFLOW.System.Task.Update
+        - WORKFLOW.System.Task.Pause
+        - WORKFLOW.System.Task.Resume
         - WORKFLOW.System.Process.Pause
         - WORKFLOW.System.Process.Error
         - WORKFLOW.*.System.Process.FatalError

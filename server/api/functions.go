@@ -19,6 +19,7 @@ import (
 	errors2 "gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/messages"
 	"strings"
+	"time"
 )
 
 func (s *Endpoints) getProcessInstanceStatus(ctx context.Context, req *model.GetProcessInstanceStatusRequest, wch chan<- *model.ProcessHistoryEntry, errs chan<- error) {
@@ -610,6 +611,14 @@ func (s *Endpoints) pauseServiceTask(ctx context.Context, req *model.PauseServic
 		return nil, fmt.Errorf("failed to pause svc task: %w", err)
 	}
 
+	err = s.operations.PublishMsg(ctx, messages.WorkflowSystemTaskPause, &model.TaskPaused{
+		Timestamp: time.Now().UnixMilli(),
+		TaskUid:   req.Uid,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to publish task paused notification: %w", err)
+	}
+
 	return &model.PauseServiceTaskResponse{}, nil
 }
 
@@ -627,6 +636,14 @@ func (s *Endpoints) resumeServiceTask(ctx context.Context, req *model.ResumeServ
 	err := s.operations.ResumeServiceTask(ctx, req.Uid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resume svc task: %w", err)
+	}
+
+	err = s.operations.PublishMsg(ctx, messages.WorkflowSystemTaskResume, &model.TaskResumed{
+		Timestamp: time.Now().UnixMilli(),
+		TaskUid:   req.Uid,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to publish task resumed notification: %w", err)
 	}
 
 	return &model.ResumeServiceTaskResponse{}, nil

@@ -5,6 +5,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/shar-workflow/shar/client/task"
 	support "gitlab.com/shar-workflow/shar/internal/integration-support"
+	"gitlab.com/shar-workflow/shar/server/messages"
+	"google.golang.org/protobuf/proto"
 	"os"
 	"sync"
 	"testing"
@@ -62,9 +64,19 @@ func TestPauseAndResumeServiceTask(t *testing.T) {
 		return d.svcTaskInvokations > 5
 	}, time.Second*5, time.Second)
 
+	pauseMessageCh := make(chan struct{})
+	support.ListenForMsg(support.ExpectedMessage{
+		T:           t,
+		NatsUrl:     tst.NatsURL,
+		Subject:     messages.WorkflowSystemTaskPause,
+		ContainerFn: func() proto.Message { return &model.TaskPaused{} },
+		MsgReceived: pauseMessageCh,
+	})
 	//pause svc task here
 	err = cl.PauseServiceTask(ctx, uid)
 	require.NoError(t, err)
+
+	support.WaitForChan(t, pauseMessageCh, time.Second*5)
 
 	launchWorkflows(5, t, cl, ctx)
 
@@ -75,8 +87,19 @@ func TestPauseAndResumeServiceTask(t *testing.T) {
 		return d.svcTaskInvokations > 5
 	}, time.Second*5, time.Second)
 
+	resumeMessageCh := make(chan struct{})
+	support.ListenForMsg(support.ExpectedMessage{
+		T:           t,
+		NatsUrl:     tst.NatsURL,
+		Subject:     messages.WorkflowSystemTaskResume,
+		ContainerFn: func() proto.Message { return &model.TaskResumed{} },
+		MsgReceived: resumeMessageCh,
+	})
+
 	err = cl.ResumeServiceTask(ctx, uid)
 	require.NoError(t, err)
+
+	support.WaitForChan(t, resumeMessageCh, time.Second*5)
 
 	//assert we are now at 10
 	assert.Eventually(t, func() bool {

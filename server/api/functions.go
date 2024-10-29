@@ -596,22 +596,17 @@ func (s *Endpoints) enableWorkflow(ctx context.Context, req *model.EnableWorkflo
 }
 
 func (s *Endpoints) pauseServiceTask(ctx context.Context, req *model.PauseServiceTaskRequest) (*model.PauseServiceTaskResponse, error) {
-	//TODO figure out if we can auth based on the svc task uid...
-	//we can get reports/references by process/wf to a particular svc task uid
-	//is it right to
-	//1) somehow use these reports to auth the pause svc task req???
+	authCtx, err := s.auth.authForNonWorkflow(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed auth: %w", err)
+	}
 
-	//authCtx, err := s.auth.authForNamedWorkflow(ctx, req.WorkflowName)
-	//if err != nil {
-	//	return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
-	//}
-
-	err := s.operations.PauseServiceTask(ctx, req.Uid)
+	err = s.operations.PauseServiceTask(authCtx, req.Uid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pause svc task: %w", err)
 	}
 
-	err = s.operations.PublishMsg(ctx, messages.WorkflowSystemTaskPause, &model.TaskPaused{
+	err = s.operations.PublishMsg(authCtx, messages.WorkflowSystemTaskPause, &model.TaskPaused{
 		Timestamp: time.Now().UnixMilli(),
 		TaskUid:   req.Uid,
 	})
@@ -623,22 +618,17 @@ func (s *Endpoints) pauseServiceTask(ctx context.Context, req *model.PauseServic
 }
 
 func (s *Endpoints) resumeServiceTask(ctx context.Context, req *model.ResumeServiceTaskRequest) (*model.ResumeServiceTaskResponse, error) {
-	//TODO figure out if we can auth based on the svc task uid...
-	//we can get reports/references by process/wf to a particular svc task uid
-	//is it right to
-	//1) somehow use these reports to auth the pause svc task req???
+	authCtx, err := s.auth.authForNonWorkflow(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed auth: %w", err)
+	}
 
-	//authCtx, err := s.auth.authForNamedWorkflow(ctx, req.WorkflowName)
-	//if err != nil {
-	//	return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
-	//}
-
-	err := s.operations.ResumeServiceTask(ctx, req.Uid)
+	err = s.operations.ResumeServiceTask(authCtx, req.Uid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resume svc task: %w", err)
 	}
 
-	err = s.operations.PublishMsg(ctx, messages.WorkflowSystemTaskResume, &model.TaskResumed{
+	err = s.operations.PublishMsg(authCtx, messages.WorkflowSystemTaskResume, &model.TaskResumed{
 		Timestamp: time.Now().UnixMilli(),
 		TaskUid:   req.Uid,
 	})

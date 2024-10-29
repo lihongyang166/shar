@@ -2215,6 +2215,53 @@ func (_c *MockOps_OwnerName_Call) RunAndReturn(run func(context.Context, string)
 	return _c
 }
 
+// PauseServiceTask provides a mock function with given fields: ctx, uid
+func (_m *MockOps) PauseServiceTask(ctx context.Context, uid string) error {
+	ret := _m.Called(ctx, uid)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PauseServiceTask")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, uid)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockOps_PauseServiceTask_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PauseServiceTask'
+type MockOps_PauseServiceTask_Call struct {
+	*mock.Call
+}
+
+// PauseServiceTask is a helper method to define mock.On call
+//   - ctx context.Context
+//   - uid string
+func (_e *MockOps_Expecter) PauseServiceTask(ctx interface{}, uid interface{}) *MockOps_PauseServiceTask_Call {
+	return &MockOps_PauseServiceTask_Call{Call: _e.mock.On("PauseServiceTask", ctx, uid)}
+}
+
+func (_c *MockOps_PauseServiceTask_Call) Run(run func(ctx context.Context, uid string)) *MockOps_PauseServiceTask_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockOps_PauseServiceTask_Call) Return(_a0 error) *MockOps_PauseServiceTask_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockOps_PauseServiceTask_Call) RunAndReturn(run func(context.Context, string) error) *MockOps_PauseServiceTask_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PersistFatalError provides a mock function with given fields: ctx, fatalError
 func (_m *MockOps) PersistFatalError(ctx context.Context, fatalError *model.FatalError) (bool, error) {
 	ret := _m.Called(ctx, fatalError)
@@ -3004,6 +3051,53 @@ func (_c *MockOps_RecordHistoryProcessStart_Call) Return(_a0 error) *MockOps_Rec
 }
 
 func (_c *MockOps_RecordHistoryProcessStart_Call) RunAndReturn(run func(context.Context, *model.WorkflowState) error) *MockOps_RecordHistoryProcessStart_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ResumeServiceTask provides a mock function with given fields: ctx, uid
+func (_m *MockOps) ResumeServiceTask(ctx context.Context, uid string) error {
+	ret := _m.Called(ctx, uid)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResumeServiceTask")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, uid)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockOps_ResumeServiceTask_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResumeServiceTask'
+type MockOps_ResumeServiceTask_Call struct {
+	*mock.Call
+}
+
+// ResumeServiceTask is a helper method to define mock.On call
+//   - ctx context.Context
+//   - uid string
+func (_e *MockOps_Expecter) ResumeServiceTask(ctx interface{}, uid interface{}) *MockOps_ResumeServiceTask_Call {
+	return &MockOps_ResumeServiceTask_Call{Call: _e.mock.On("ResumeServiceTask", ctx, uid)}
+}
+
+func (_c *MockOps_ResumeServiceTask_Call) Run(run func(ctx context.Context, uid string)) *MockOps_ResumeServiceTask_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockOps_ResumeServiceTask_Call) Return(_a0 error) *MockOps_ResumeServiceTask_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockOps_ResumeServiceTask_Call) RunAndReturn(run func(context.Context, string) error) *MockOps_ResumeServiceTask_Call {
 	_c.Call.Return(run)
 	return _c
 }

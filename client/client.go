@@ -1319,6 +1319,7 @@ func (c *Client) DisableWorkflowExecution(ctx context.Context, workflowName stri
 	return nil
 }
 
+// PauseServiceTask pauses a service task ided by uid
 func (c *Client) PauseServiceTask(ctx context.Context, uid string) error {
 	req := &model.PauseServiceTaskRequest{Uid: uid}
 	res := &model.PauseServiceTaskResponse{}
@@ -1330,6 +1331,7 @@ func (c *Client) PauseServiceTask(ctx context.Context, uid string) error {
 	return nil
 }
 
+// ResumeServiceTask resumes a service task ided by uid
 func (c *Client) ResumeServiceTask(ctx context.Context, uid string) error {
 	req := &model.ResumeServiceTaskRequest{Uid: uid}
 	res := &model.ResumeServiceTaskResponse{}

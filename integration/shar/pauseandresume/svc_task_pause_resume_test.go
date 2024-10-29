@@ -62,7 +62,7 @@ func TestPauseAndResumeServiceTask(t *testing.T) {
 	}, time.Second*10, time.Second)
 	assert.Never(t, func() bool {
 		return d.svcTaskInvokations > 5
-	}, time.Second*5, time.Second)
+	}, time.Second*2, time.Second)
 
 	pauseMessageCh := make(chan struct{})
 	support.ListenForMsg(support.ExpectedMessage{
@@ -75,7 +75,6 @@ func TestPauseAndResumeServiceTask(t *testing.T) {
 	//pause svc task here
 	err = cl.PauseServiceTask(ctx, uid)
 	require.NoError(t, err)
-
 	support.WaitForChan(t, pauseMessageCh, time.Second*5)
 
 	launchWorkflows(5, t, cl, ctx)
@@ -85,7 +84,7 @@ func TestPauseAndResumeServiceTask(t *testing.T) {
 	}, time.Second*10, time.Second)
 	assert.Never(t, func() bool {
 		return d.svcTaskInvokations > 5
-	}, time.Second*5, time.Second)
+	}, time.Second*2, time.Second)
 
 	resumeMessageCh := make(chan struct{})
 	support.ListenForMsg(support.ExpectedMessage{
@@ -104,10 +103,10 @@ func TestPauseAndResumeServiceTask(t *testing.T) {
 	//assert we are now at 10
 	assert.Eventually(t, func() bool {
 		return d.svcTaskInvokations == 10
-	}, time.Second*30, time.Second)
+	}, time.Second*10, time.Second)
 	assert.Never(t, func() bool {
 		return d.svcTaskInvokations > 10
-	}, time.Second*5, time.Second)
+	}, time.Second*2, time.Second)
 
 	support.WaitForChan(t, d.finished, 20*time.Second)
 	tst.AssertCleanKV(ns, t, 60*time.Second)

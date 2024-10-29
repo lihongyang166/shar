@@ -579,6 +579,7 @@ func RegisterTaskYamlFile(ctx context.Context, cl *client.Client, filename strin
 	return svcTaskUid, nil
 }
 
+// ExpectedMessage desribes a subject to listen to, the proto message type to deser into and a ch signalling a message has arrived
 type ExpectedMessage struct {
 	T           *testing.T
 	NatsUrl     string
@@ -587,6 +588,7 @@ type ExpectedMessage struct {
 	MsgReceived chan struct{}
 }
 
+// ListenForMsg listens for an expected message
 func ListenForMsg(expectedMessage ExpectedMessage) {
 	natsConnection, err := nats.Connect(expectedMessage.NatsUrl)
 	require.NoError(expectedMessage.T, err)

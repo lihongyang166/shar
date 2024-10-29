@@ -168,7 +168,9 @@ func testAuthZFn(ctx context.Context, request *model.ApiAuthorizationRequest) (*
 		}
 		wf[spl[0]] = sub
 	}
-
+	fmt.Println("claims", claims)
+	fmt.Println("claims[\"grant\"].(string)", claims["grant"].(string))
+	fmt.Println("wf", wf)
 	return &model.ApiAuthorizationResponse{Authorized: APIauth(request.Function, wf[request.WorkflowName])}, nil
 }
 

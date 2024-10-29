@@ -2231,6 +2231,7 @@ func (s *Operations) makeExecutable(ctx context.Context, workflowName string, is
 	return nil
 }
 
+// PauseServiceTask pause the svc task identified by uid
 func (s *Operations) PauseServiceTask(ctx context.Context, uid string) error {
 	st, err := s.natsService.Js.Stream(ctx, natsobject.WORKFLOW_STREAM)
 	if err != nil {
@@ -2248,6 +2249,7 @@ func (s *Operations) PauseServiceTask(ctx context.Context, uid string) error {
 	return nil
 }
 
+// ResumeServiceTask pause the svc task identified by uid
 func (s *Operations) ResumeServiceTask(ctx context.Context, uid string) error {
 	st, err := s.natsService.Js.Stream(ctx, natsobject.WORKFLOW_STREAM)
 	if err != nil {

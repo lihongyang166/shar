@@ -1,15 +1,6 @@
 package list
 
-import (
-	"context"
-	"fmt"
-	"github.com/spf13/cobra"
-	"gitlab.com/shar-workflow/shar/cli/flag"
-	"gitlab.com/shar-workflow/shar/cli/output"
-	"gitlab.com/shar-workflow/shar/cli/util"
-	"gitlab.com/shar-workflow/shar/model"
-)
-
+/*
 // Cmd is the cobra command object
 var Cmd = &cobra.Command{
 	Use:   "list",
@@ -47,3 +38,4 @@ func run(cmd *cobra.Command, args []string) error {
 func init() {
 	Cmd.Flags().StringVarP(&flag.Value.CorrelationKey, flag.CorrelationKey, flag.CorrelationKeyShort, "", "a correlation key for the message")
 }
+*/

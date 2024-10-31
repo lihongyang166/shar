@@ -40,8 +40,7 @@ func parseZeebeExtensions(doc *xmlquery.Node, modelElement interface{}, i *xmlqu
 			if fk := x.SelectElement("zeebe:formDefinition/@formKey"); fk != nil {
 				fullName := strings.Split(fk.InnerText(), ":")
 				name := fullName[len(fullName)-1]
-				f := doc.SelectElement("//zeebe:userTaskForm[@id=\"" + name + "\"]").InnerText()
-				el.Execute = f
+				el.Execute = name
 			}
 
 			//Assignment Definition

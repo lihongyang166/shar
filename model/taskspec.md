@@ -8,66 +8,6 @@
 | behaviour | TaskBehaviour | Behaviour documents instance behaviour. |  -  |
 | parameters | TaskParameters | Parameters document input and output parameters for the task. |  -  |
 | events | TaskEvents | Events document errors and messages that can be emitted from the task. |  -  |
-### TaskMetadata
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| uid | string | Uid of the task. | a ksuid |
-| type | string | Type - the name for the task when referred to by process. | arbitrary string |
-| version | string | Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters. | semantic version number |
-| short | string | Short description of the task. | arbitrary string |
-| description | string | Description - a long description of the task. | arbitrary string |
-| labels | string | Labels - a list of searchable tags for the task. | arbitrary string |
-| extensionData | map[string]string | ExtensionData - a map of values that can be used by third party tools. | arbitrary string |
-### TaskBehaviour
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| defaultRetry | DefaultTaskRetry | Retry - the recommended retry behavior for the task, this could be overriden by a workflow. |  -  |
-| estimatedMaxDuration | uint64 | EstimatedMaxDuration documents how long the task is expected to run for. | a unix millisecond duration |
-| unsafe | bool | Unsafe labels the task as non-idempotent.  Non-idempotent tasks are highly unrecommended. | boolean |
-| mock | bool | Mock this task as it has no concrete implementation. | boolean |
-| deprecated | bool | Deprecated task.  Workflows can not be executed that include this task. | boolean |
-| mockBehaviour | TaskMockBehaviours | MockBehaviour lists behaviours exhibited by the task when mocked. |  -  |
-### TaskMockBehaviours
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
-| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |
-### DefaultTaskRetry
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| number | uint32 | Retry - the recommended number of retries for the task. | arbitrary positive integer |
-| strategy | RetryStrategy | Strategy for retrying the task. |  enum  |
-| initMilli | int64 | InitMilli - initial backoff delay for Static, Linear, Incremental. | positive int |
-| intervalMilli | int64 | IntervalMilli - delay interval (Linear) amount to add each attempt (Incremental). | positive int |
-| maxMilli | int64 | MaxMilli - delay ceiling (Static, Linear, Incremental). | positive int |
-| defaultExceeded | DefaultRetryExceededBehaviour | DefaultExceeded - specifies what to do by default when the attempts have been exhausted.  This only specifies the strategy, and doesn't contain runtime parameters. |  -  |
-### DefaultRetryExceededBehaviour
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| action | RetryErrorAction | Action to take when retries are exceeded. |  enum  |
-| variable | string | Variable - name of variable to set for the SetVariableValue action. | shar-variable |
-| variableType | string | VariableType - type of the variable for the SetVariableValue action. | "string", "int", "float", "bool" |
-| variableValue | string | Variable value to set for the SetVariableValue action. | arbitrary string representation of a valid value for variableType |
-| errorCode | string | ErrorCode for the ThrowWorkflowError action. | a valid workflow error code for the task. |
-### RetryErrorAction (Enum)
-
-| name | value | description |
-|------|------|-------------|
-| PauseWorkflow | 0 | PauseWorkflow - exhausting retries will pause the workflow and send a shar operational message. |
-| ThrowWorkflowError | 1 | ThrowWorkflowError - throw a workflow error. |
-| SetVariableValue | 2 | SetVariableValue - set a workflow variable value. |
-| FailWorkflow | 3 | FailWorkflow - exhausting retries will fail the workflow. |
-### RetryStrategy (Enum)
-
-| name | value | description |
-|------|------|-------------|
-| Linear | 0 | Retry at regular intervals. |
-| Exponential | 1 | Retry at increasingly large intervals. |
 ### TaskParameters
 
 | name | type | description | validation |
@@ -103,14 +43,6 @@
 |------|------|-------------|------------|
 | error | TaskError | Error workflow events that can be returned from the task. |  -  |
 | message | Message | Message workflow events that can be returned from the task. |  -  |
-### Message
-
-| name | type | description | validation |
-|------|------|-------------|------------|
-| name | string | Name - Message name for a workflow message. | arbitrary string |
-| correlationKey | string | CorrelationKey - the workflow message correlation key. | NATS-safe identifier |
-| short | string | Short description of the parameter. | arbitrary string |
-| description | string | Description - a long description of the parameter. | arbitrary string |
 ### TaskError
 
 | name | type | description | validation |
@@ -119,3 +51,71 @@
 | code | string | Code a unique code for the error. | NATS-safe identifier |
 | short | string | Short description of the error. | arbitrary string |
 | description | string | Description - a long description of the error. | arbitrary string |
+### Message
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| name | string | Name - Message name for a workflow message. | arbitrary string |
+| correlationKey | string | CorrelationKey - the workflow message correlation key. | NATS-safe identifier |
+| short | string | Short description of the parameter. | arbitrary string |
+| description | string | Description - a long description of the parameter. | arbitrary string |
+### TaskMetadata
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| uid | string | Uid of the task. | a ksuid |
+| type | string | Type - the name for the task when referred to by process. | arbitrary string |
+| version | string | Version - the task version number.  This is useful to describe that the task has internally changed without modifying the input/outout parameters. | semantic version number |
+| short | string | Short description of the task. | arbitrary string |
+| description | string | Description - a long description of the task. | arbitrary string |
+| labels | string | Labels - a list of searchable tags for the task. | arbitrary string |
+| extensionData | map[string]string | ExtensionData - a map of values that can be used by third party tools. | arbitrary string |
+### TaskBehaviour
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| defaultRetry | DefaultTaskRetry | Retry - the recommended retry behavior for the task, this could be overriden by a workflow. |  -  |
+| estimatedMaxDuration | uint64 | EstimatedMaxDuration documents how long the task is expected to run for. | a unix millisecond duration |
+| unsafe | bool | Unsafe labels the task as non-idempotent.  Non-idempotent tasks are highly unrecommended. | boolean |
+| mock | bool | Mock this task as it has no concrete implementation. | boolean |
+| deprecated | bool | Deprecated task.  Workflows can not be executed that include this task. | boolean |
+| mockBehaviour | TaskMockBehaviours | MockBehaviour lists behaviours exhibited by the task when mocked. |  -  |
+### DefaultTaskRetry
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| number | uint32 | Retry - the recommended number of retries for the task. | arbitrary positive integer |
+| strategy | RetryStrategy | Strategy for retrying the task. |  enum  |
+| initMilli | int64 | InitMilli - initial backoff delay for Static, Linear, Incremental. | positive int |
+| intervalMilli | int64 | IntervalMilli - delay interval (Linear) amount to add each attempt (Incremental). | positive int |
+| maxMilli | int64 | MaxMilli - delay ceiling (Static, Linear, Incremental). | positive int |
+| defaultExceeded | DefaultRetryExceededBehaviour | DefaultExceeded - specifies what to do by default when the attempts have been exhausted.  This only specifies the strategy, and doesn't contain runtime parameters. |  -  |
+### DefaultRetryExceededBehaviour
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| action | RetryErrorAction | Action to take when retries are exceeded. |  enum  |
+| variable | string | Variable - name of variable to set for the SetVariableValue action. | shar-variable |
+| variableType | string | VariableType - type of the variable for the SetVariableValue action. | "string", "int", "float", "bool" |
+| variableValue | string | Variable value to set for the SetVariableValue action. | arbitrary string representation of a valid value for variableType |
+| errorCode | string | ErrorCode for the ThrowWorkflowError action. | a valid workflow error code for the task. |
+### RetryErrorAction (Enum)
+
+| name | value | description |
+|------|------|-------------|
+| PauseWorkflow | 0 | PauseWorkflow - exhausting retries will pause the workflow and send a shar operational message. |
+| ThrowWorkflowError | 1 | ThrowWorkflowError - throw a workflow error. |
+| SetVariableValue | 2 | SetVariableValue - set a workflow variable value. |
+| FailWorkflow | 3 | FailWorkflow - exhausting retries will fail the workflow. |
+### RetryStrategy (Enum)
+
+| name | value | description |
+|------|------|-------------|
+| Linear | 0 | Retry at regular intervals. |
+| Exponential | 1 | Retry at increasingly large intervals. |
+### TaskMockBehaviours
+
+| name | type | description | validation |
+|------|------|-------------|------------|
+| errorCodeExpr | string | errorCodeExpr generates a workflow error with the code specified by this expression.  If this is, or returns an empty string, no error is returned. |   |
+| fatalErrorExpr | string | fatalErrorExpr is a boolean expression that if true, will throw a workflow fatal error. |   |

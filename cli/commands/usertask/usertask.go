@@ -1,5 +1,6 @@
 package usertask
 
+/*
 import (
 	"github.com/spf13/cobra"
 	"gitlab.com/shar-workflow/shar/cli/commands/usertask/list"
@@ -15,3 +16,4 @@ var Cmd = &cobra.Command{
 func init() {
 	Cmd.AddCommand(list.Cmd)
 }
+*/

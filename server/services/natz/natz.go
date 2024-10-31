@@ -66,6 +66,7 @@ type NamespaceKvs struct {
 	WfMessages        jetstream.KeyValue
 	WfClients         jetstream.KeyValue
 	WfFatalError      jetstream.KeyValue
+	WfUserTaskState   jetstream.KeyValue
 }
 
 // NewNatsService constructs a new NatsService
@@ -179,7 +180,7 @@ func initNamespacedKvs(ctx context.Context, ns string, js jetstream.JetStream, s
 	kvs[namespace.PrefixWith(ns, messages.KvMessages)] = &nKvs.WfMessages
 	kvs[namespace.PrefixWith(ns, messages.KvClients)] = &nKvs.WfClients
 	kvs[namespace.PrefixWith(ns, messages.KvFatalError)] = &nKvs.WfFatalError
-
+	kvs[namespace.PrefixWith(ns, messages.KvUserTaskState)] = &nKvs.WfUserTaskState
 	for k, v := range kvs {
 		kv, err := js.KeyValue(ctx, k)
 		if err != nil {

@@ -1,4 +1,4 @@
-package indexer
+package tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/shar-workflow/shar/common"
+	"gitlab.com/shar-workflow/shar/common/indexer"
 	"strconv"
 	"testing"
 	"time"
@@ -29,14 +30,14 @@ func Test_Index(t *testing.T) {
 		_, err := kv.Put(ctx, strconv.Itoa(i), []byte("val"+strconv.Itoa(i)))
 		require.NoError(t, err)
 	}
-	idxOptions := &IndexOptions{
+	idxOptions := &indexer.IndexOptions{
 		IndexToDisk: false,
 		WarmupDelay: 2 * time.Second,
 		Ready: func() {
 			fmt.Println("cache ready")
 		},
 	}
-	idx, err := New(ctx, kv, idxOptions, func(entry jetstream.KeyValueEntry) [][]byte {
+	idx, err := indexer.New(ctx, kv, idxOptions, func(kvName string, entry jetstream.KeyValueEntry) [][]byte {
 		keys := make([][]byte, 0, 1)
 		keys = append(keys, append([]byte(entry.Key()), []byte("KV")...))
 		return keys
@@ -53,11 +54,17 @@ func Test_Index(t *testing.T) {
 	err = common.SafeDelete(ctx, kv, "key")
 	require.NoError(t, err)
 	target := strconv.Itoa(4)
-	results, err := idx.Fetch(ctx, []byte(target))
-	require.NoError(t, err)
+	results, errs := idx.Fetch(ctx, []byte(target))
+
 	res := make([]jetstream.KeyValueEntry, 0, 1000)
-	for i := range results {
-		res = append(res, i)
+	for done := false; !done; {
+		select {
+		case err := <-errs:
+			require.NoError(t, err)
+			done = true
+		case r := <-results:
+			res = append(res, r)
+		}
 	}
 	assert.Len(t, res, 111)
 }

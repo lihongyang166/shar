@@ -267,3 +267,6 @@ buckets:
   - nats-config:
       bucket: WORKFLOW_FATAL_ERROR
       description: ""
+  - nats-config:
+      bucket: WORKFLOW_TASK_STATE
+      description: ""

@@ -41,6 +41,8 @@ var (
 	ErrGatewayInstanceNotFound        = errors.New("find gateway instance")                                                                      // ErrGatewayInstanceNotFound - failed to find gateway instance.
 	ErrProcessNotFound                = errors.New("process not found")                                                                          // ErrProcessNotFound - failed to find process.
 	ErrDeprecateServiceTaskInUse      = errors.New("attempt to deprecate service task in use")                                                   // ErrDeprecateServiceTaskInUse - the service task is in use.
+	ErrTaskLocked                     = errors.New("task is locked")                                                                             // ErrTaskLocked signifies that the task is already locked and cannot be accessed or modified.
+	ErrTaskNotOpen                    = errors.New("task is not open")                                                                           // ErrTaskNotOpen is returned when an operation is attempted on a task that is not in an open state.
 )
 
 // ErrUnhandledWorkflowError indicates a workflow error code that cannot be handled by the workflow.

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-version"
-	"github.com/nats-io/nats.go/jetstream"
 	"github.com/vmihailenco/msgpack/v5"
 	"gitlab.com/shar-workflow/shar/common"
 	"gitlab.com/shar-workflow/shar/common/ctxkey"
@@ -51,6 +50,40 @@ func (s *Endpoints) listWorkflows(ctx context.Context, _ *model.ListWorkflowsReq
 		return
 	}
 	s.operations.ListWorkflows(ctx, res, errs)
+}
+
+func (s *Endpoints) listUserTasks(ctx context.Context, req *model.ListUserTasksRequest, res chan<- *model.ListUserTasksResponse, errs chan<- error) {
+	ctx, err := s.auth.authForNonWorkflow(ctx)
+	if err != nil {
+		errs <- fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+		return
+	}
+	s.operations.ListUserTasks(ctx, s.indexer, req.Owner, req.Group, res, errs)
+}
+
+func (s *Endpoints) saveUsertask(ctx context.Context, req *model.SaveUserTaskRequest) (*model.SaveUserTaskResponse, error) {
+	ctx, _, err := s.auth.authFromJobID(ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	}
+	fmt.Println("SAVE!!!!", req.Id)
+	if err := s.operations.SaveUserTask(ctx, req.Id, req.Vars, req.Overwrite); err != nil {
+		return nil, fmt.Errorf("save user task: %w", err)
+	}
+	return &model.SaveUserTaskResponse{}, nil
+}
+
+func (s *Endpoints) openUsertask(ctx context.Context, req *model.OpenUserTaskRequest) (*model.OpenUserTaskResponse, error) {
+	ctx, _, err := s.auth.authFromJobID(ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err)
+	}
+	fmt.Println("OPEN!!!!", req.Id)
+	state, err := s.operations.OpenUserTask(ctx, req.Id, ctx.Value(ctxkey.SharUser).(string))
+	if err != nil {
+		return nil, fmt.Errorf("open user task: %w", err)
+	}
+	return &model.OpenUserTaskResponse{State: state}, nil
 }
 
 func (s *Endpoints) listExecutableProcesses(ctx context.Context, req *model.ListExecutableProcessesRequest, res chan<- *model.ListExecutableProcessesItem, errs chan<- error) {
@@ -130,11 +163,11 @@ func (s *Endpoints) completeSendMessageTask(ctx context.Context, req *model.Comp
 }
 
 func (s *Endpoints) completeUserTask(ctx context.Context, req *model.CompleteUserTaskRequest) (*model.CompleteUserTaskResponse, error) {
-	ctx, job, err2 := s.auth.authFromJobID(ctx, req.TrackingId)
+	ctx, job, err2 := s.auth.authFromJobID(ctx, req.Id)
 	if err2 != nil {
 		return nil, fmt.Errorf("authorize complete user task: %w", err2)
 	}
-	if err := s.operations.CompleteUserTask(ctx, job, req.Vars); err != nil {
+	if err := s.operations.CompleteUserTask(ctx, common.TrackingID(job.Id).ID()); err != nil {
 		return nil, fmt.Errorf("complete user task: %w", err)
 	}
 	return nil, nil
@@ -248,25 +281,6 @@ func (s *Endpoints) handleWorkflowError(ctx context.Context, req *model.HandleWo
 		return nil, fmt.Errorf("handle workflow error: %w", err)
 	}
 	return &model.HandleWorkflowErrorResponse{Handled: true}, nil
-}
-
-func (s *Endpoints) listUserTaskIDs(ctx context.Context, req *model.ListUserTasksRequest) (*model.UserTasks, error) {
-	ctx, err2 := s.auth.authForNonWorkflow(ctx)
-	if err2 != nil {
-		return nil, fmt.Errorf("authorize %v: %w", ctx.Value(ctxkey.APIFunc), err2)
-	}
-	oid, err := s.operations.OwnerID(ctx, req.Owner)
-	if err != nil {
-		return nil, fmt.Errorf("get owner ID: %w", err)
-	}
-	ut, err := s.operations.GetUserTaskIDs(ctx, oid)
-	if errors.Is(err, jetstream.ErrKeyNotFound) {
-		return &model.UserTasks{Id: []string{}}, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("get user task IDs: %w", err)
-	}
-	return ut, nil
 }
 
 func (s *Endpoints) getUserTask(ctx context.Context, req *model.GetUserTaskRequest) (*model.GetUserTaskResponse, error) {
@@ -544,7 +558,7 @@ func (s *Endpoints) log(ctx context.Context, req *model.LogRequest) (*model.LogR
 
 func (s *Endpoints) resolveWorkflow(ctx context.Context, req *model.ResolveWorkflowRequest) (*model.ResolveWorkflowResponse, error) {
 	wf := req.Workflow
-	if err := s.operations.ProcessServiceTasks(ctx, wf, workflow.NoOpServiceTaskConsumerFn, workflow.NoOpWorkFlowProcessMappingFn); err != nil {
+	if err := s.operations.ProcessTasks(ctx, wf, workflow.NoOpServiceTaskConsumerFn, workflow.NoOpWorkFlowProcessMappingFn); err != nil {
 		return nil, fmt.Errorf("resolveWorkflow: %w", err)
 	}
 

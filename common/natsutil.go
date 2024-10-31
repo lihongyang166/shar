@@ -83,6 +83,18 @@ func Save(ctx context.Context, wf jetstream.KeyValue, k string, v []byte) error 
 	return nil
 }
 
+// Create saves a value to a key value store erroring if the key is present
+func Create(ctx context.Context, wf jetstream.KeyValue, k string, v []byte) error {
+	log := logx.FromContext(ctx)
+	if log.Enabled(ctx, errors2.VerboseLevel) {
+		log.Log(ctx, errors2.VerboseLevel, "Create KV", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.String("val", string(v)))
+	}
+	if _, err := wf.Create(ctx, k, v); err != nil {
+		return fmt.Errorf("create kv: %w", err)
+	}
+	return nil
+}
+
 // Load loads a value from a key value store
 func Load(ctx context.Context, wf jetstream.KeyValue, k string) ([]byte, error) {
 	log := logx.FromContext(ctx)
@@ -96,7 +108,7 @@ func Load(ctx context.Context, wf jetstream.KeyValue, k string) ([]byte, error) 
 	return nil, fmt.Errorf("load value from KV: %w", err)
 }
 
-// SaveObj save an protobuf message to a key value store
+// SaveObj save a protobuf message to a key value store
 func SaveObj(ctx context.Context, wf jetstream.KeyValue, k string, v proto.Message) error {
 	log := logx.FromContext(ctx)
 	if log.Enabled(ctx, errors2.TraceLevel) {
@@ -107,6 +119,19 @@ func SaveObj(ctx context.Context, wf jetstream.KeyValue, k string, v proto.Messa
 		return Save(ctx, wf, k, b)
 	}
 	return fmt.Errorf("save object into KV: %w", err)
+}
+
+// CreateObj save a protobuf message to a key value store erroring if the key existz
+func CreateObj(ctx context.Context, wf jetstream.KeyValue, k string, v proto.Message) error {
+	log := logx.FromContext(ctx)
+	if log.Enabled(ctx, errors2.TraceLevel) {
+		log.Log(ctx, errors2.TraceLevel, "create KV object", slog.String("bucket", wf.Bucket()), slog.String("key", k), slog.Any("val", v))
+	}
+	b, err := proto.Marshal(v)
+	if err == nil {
+		return Create(ctx, wf, k, b)
+	}
+	return fmt.Errorf("create object into KV: %w", err)
 }
 
 // LoadObj loads a protobuf message from a key value store

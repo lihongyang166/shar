@@ -162,6 +162,7 @@ type Client struct {
 	SendMiddleware                  []middleware2.Send    `json:"send_middleware,omitempty"`
 	ReceiveMiddleware               []middleware2.Receive `json:"receive_middleware,omitempty"`
 	cache                           cache.Backend[string, any]
+	userTaskSpec                    map[string]*model.TaskSpec
 }
 
 // New creates a new SHAR client instance
@@ -187,6 +188,7 @@ func New(option ...ConfigurationOption) *Client {
 		listenTasks:                     make(map[string]struct{}),
 		msgListenTasks:                  make(map[string]struct{}),
 		proCompleteTasks:                make(map[string]*task2.FnDef),
+		userTaskSpec:                    make(map[string]*model.TaskSpec),
 		ns:                              ns.Default,
 		concurrency:                     10,
 		version:                         ver,
@@ -311,7 +313,7 @@ func (c *Client) StoreTask(ctx context.Context, spec *model.TaskSpec) error {
 		return fmt.Errorf("store task: %w", err)
 	}
 	spec.Metadata.Uid = id
-	slog.Info("stored task", "type", spec.Metadata.Type, "id", spec.Metadata.Uid)
+	slog.Info("stored "+spec.Kind, "type", spec.Metadata.Type, "id", spec.Metadata.Uid)
 	return nil
 }
 
@@ -343,7 +345,7 @@ func (c *Client) registerTaskFunction(ctx context.Context, spec *model.TaskSpec,
 	}
 	if def.Fn != nil {
 		if _, ok := c.SvcTasks[spec.Metadata.Uid]; ok {
-			return fmt.Errorf("service task '%s' already registered: %w", spec.Metadata.Type, errors2.ErrServiceTaskAlreadyRegistered)
+			return fmt.Errorf("task '%s' already registered: %w", spec.Metadata.Type, errors2.ErrServiceTaskAlreadyRegistered)
 		}
 		c.SvcTasks[spec.Metadata.Uid] = def
 		c.listenTasks[spec.Metadata.Uid] = struct{}{}
@@ -611,17 +613,6 @@ func (c *Client) listenProcessTerminate(ctx context.Context) error {
 	return nil
 }
 
-// ListUserTaskIDs returns a list of user tasks for a particular owner
-func (c *Client) ListUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error) {
-	res := &model.UserTasks{}
-	req := &model.ListUserTasksRequest{Owner: owner}
-	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIListUserTaskIDs, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
-		return nil, c.clientErr(ctx, err)
-	}
-	return res, nil
-}
-
 // GetTaskSpecVersions returns the version IDs associated with the named task spec.
 func (c *Client) GetTaskSpecVersions(ctx context.Context, name string) ([]string, error) {
 	res := &model.GetTaskSpecVersionsResponse{}
@@ -631,21 +622,6 @@ func (c *Client) GetTaskSpecVersions(ctx context.Context, name string) ([]string
 		return nil, c.clientErr(ctx, err)
 	}
 	return res.Versions.Id, nil
-}
-
-// CompleteUserTask completes a task and sends the variables back to the workflow
-func (c *Client) CompleteUserTask(ctx context.Context, owner string, trackingID string, newVars model.Vars) error {
-	ev, err := newVars.Encode(ctx)
-	if err != nil {
-		return fmt.Errorf("decode variables for complete user task: %w", err)
-	}
-	res := &model.CompleteUserTaskResponse{}
-	req := &model.CompleteUserTaskRequest{Owner: owner, TrackingId: trackingID, Vars: ev}
-	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APICompleteUserTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
-		return c.clientErr(ctx, err)
-	}
-	return nil
 }
 
 func (c *Client) completeServiceTask(ctx context.Context, trackingID string, newVars model.Vars, compensating bool) error {
@@ -924,21 +900,6 @@ func (c *Client) GetProcessInstanceStatus(ctx context.Context, id string) ([]*mo
 		return nil, c.clientErr(ctx, err)
 	}
 	return result, nil
-}
-
-// GetUserTask fetches details for a user task based upon an ID obtained from, ListUserTasks
-func (c *Client) GetUserTask(ctx context.Context, owner string, trackingID string) (*model.GetUserTaskResponse, model.Vars, error) { // nolint:ireturn
-	req := &model.GetUserTaskRequest{Owner: owner, TrackingId: trackingID}
-	res := &model.GetUserTaskResponse{}
-	ctx = subj.SetNS(ctx, c.ns)
-	if err := api2.Call(ctx, c.txCon, messages.APIGetUserTask, c.ExpectedCompatibleServerVersion, c.SendMiddleware, req, res); err != nil {
-		return nil, nil, c.clientErr(ctx, err)
-	}
-	v := model.NewVars()
-	if err := v.Decode(ctx, res.Vars); err != nil {
-		return nil, nil, c.clientErr(ctx, err)
-	}
-	return res, v, nil
 }
 
 // SendMessage sends a Workflow Message to a specific workflow instance

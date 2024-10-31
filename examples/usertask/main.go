@@ -1,5 +1,8 @@
 package main
 
+func main() {}
+
+/*
 import (
 	"context"
 	"fmt"
@@ -123,3 +126,4 @@ func complete(_ context.Context, _ task.JobClient, vars model.Vars) (model.Vars,
 func processEnd(ctx context.Context, vars model.Vars, wfError *model.Error, state model.CancellationState) {
 	finished <- struct{}{}
 }
+*/

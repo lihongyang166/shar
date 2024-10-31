@@ -16,6 +16,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/internal"
 	"gitlab.com/shar-workflow/shar/internal/server/workflow"
+	"gitlab.com/shar-workflow/shar/internal/usertaskindexer"
 	"gitlab.com/shar-workflow/shar/server/server/option"
 	"gitlab.com/shar-workflow/shar/server/services/natz"
 	"go.opentelemetry.io/otel"
@@ -24,6 +25,7 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"gitlab.com/shar-workflow/shar/common"
@@ -44,6 +46,7 @@ type Endpoints struct {
 	sendMiddleware       []middleware.Send
 	tr                   trace.Tracer
 	nc                   *natz.NatsConnConfiguration
+	indexer              *usertaskindexer.UserTaskIndexer
 }
 
 // New creates a new instance of the SHAR API server
@@ -183,12 +186,20 @@ func (s *Endpoints) Listen() error {
 		return fmt.Errorf("APIListExecutableProcess: %w", err)
 	}
 
-	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListUserTaskIDs, s.receiveApiMiddleware, &model.ListUserTasksRequest{}, s.listUserTaskIDs); err != nil {
-		return fmt.Errorf("APIListUserTaskIDs: %w", err)
-	}
-
 	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIRetry, s.receiveApiMiddleware, &model.RetryActivityRequest{}, s.retryActivity); err != nil {
 		return fmt.Errorf("APIRetry: %w", err)
+	}
+
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.ApiSaveUserTask, s.receiveApiMiddleware, &model.SaveUserTaskRequest{}, s.saveUsertask); err != nil {
+		return fmt.Errorf("ApiSaveUserTask: %w", err)
+	}
+
+	if err := listen(s.nc.Conn, s.panicRecovery, s.subs, messages.APIOpenUserTask, s.receiveApiMiddleware, &model.OpenUserTaskRequest{}, s.openUsertask); err != nil {
+		return fmt.Errorf("ApiSaveUserTask: %w", err)
+	}
+
+	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIListUserTasks, s.receiveApiMiddleware, &model.ListUserTasksRequest{}, s.listUserTasks); err != nil {
+		return fmt.Errorf("APIListUserTasks: %w", err)
 	}
 
 	/* COMPLETED */
@@ -223,6 +234,18 @@ func (s *Endpoints) Listen() error {
 	if err := ListenReturnStream(s.nc.Conn, s.panicRecovery, s.subs, messages.APIGetFatalErrors, s.receiveApiMiddleware, &model.GetFatalErrorRequest{}, s.getFatalErrors); err != nil {
 		return fmt.Errorf("APIGetFatalErrors: %w", err)
 	}
+
+	indexer, err := usertaskindexer.New(s.nc.Conn, usertaskindexer.IndexOptions{
+		IndexToDisk: false,
+		WarmupDelay: 20 * time.Second,
+	})
+	if err != nil {
+		return fmt.Errorf("usertaskindexer: %w", err)
+	}
+	if err := indexer.Start(context.Background()); err != nil {
+		return fmt.Errorf("start indexer: %w", err)
+	}
+	s.indexer = indexer
 
 	slog.Info("shar api listener started")
 	return nil

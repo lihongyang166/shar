@@ -16,8 +16,13 @@ service Shar {
   rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
   rpc CompleteManualTask (CompleteManualTaskRequest) returns (CompleteManualTaskResponse);
   rpc CompleteServiceTask (CompleteServiceTaskRequest) returns (CompleteServiceTaskResponse);
+
+  rpc ListUserTasks (ListUserTasksRequest) returns (ListUserTasksResponse);
+  rpc OpenUserTask (OpenUserTaskRequest) returns (OpenUserTaskResponse);
+  rpc SaveUserTask (SaveUserTaskRequest) returns (SaveUserTaskResponse);
+  rpc AbandonUserTask (AbandonUserTaskRequest) returns (AbandonUserTaskResponse);
   rpc CompleteUserTask (CompleteUserTaskRequest) returns (CompleteUserTaskResponse);
-  rpc ListUserTaskIDs (ListUserTasksRequest) returns (ListUserTasksResponse);
+
   rpc GetUserTask (GetUserTaskRequest) returns (GetUserTaskResponse);
   rpc HandleWorkflowError (HandleWorkflowErrorRequest) returns (HandleWorkflowErrorResponse);
   rpc HandleWorkflowFatalError (HandleWorkflowFatalErrorRequest) returns (HandleWorkflowFatalErrorResponse);
@@ -69,6 +74,35 @@ message CompleteUserTaskResponse {
 }
 
 message ListUserTasksResponse {
+  string id = 1;
+  string specUid = 2;
+  bytes state = 3;
+  string lockedBy = 4;
+}
+
+message OpenUserTaskRequest {
+  string id = 1;
+}
+
+message OpenUserTaskResponse {
+  bytes state = 1;
+}
+
+message SaveUserTaskRequest {
+  string id = 1;
+  bytes vars = 2;
+  bool overwrite = 3;
+}
+
+message SaveUserTaskResponse {
+
+}
+
+message AbandonUserTaskRequest {
+
+}
+
+message AbandonUserTaskResponse {
 
 }
 
@@ -566,13 +600,12 @@ message CompleteSendMessageRequest {
 }
 
 message CompleteUserTaskRequest {
-  string trackingId = 1;
-  string owner = 2;
-  bytes vars = 3;
+  string Id = 1;
 }
 
 message ListUserTasksRequest {
   string owner = 1;
+  string group = 2;
 }
 
 message GetUserTaskRequest {
@@ -956,4 +989,10 @@ enum HandlingStrategy {
 message FatalError {
   HandlingStrategy handlingStrategy = 1;
   WorkflowState workflowState = 2;
+}
+
+message TaskState {
+  string id = 1;
+  bytes vars = 2;
+  string owner = 3;
 }

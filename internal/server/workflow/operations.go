@@ -23,6 +23,7 @@ import (
 	"gitlab.com/shar-workflow/shar/common/version"
 	"gitlab.com/shar-workflow/shar/common/workflow"
 	model2 "gitlab.com/shar-workflow/shar/internal/model"
+	"gitlab.com/shar-workflow/shar/internal/usertaskindexer"
 	"gitlab.com/shar-workflow/shar/model"
 	"gitlab.com/shar-workflow/shar/server/errors"
 	"gitlab.com/shar-workflow/shar/server/errors/keys"
@@ -70,10 +71,10 @@ type Ops interface {
 	CompleteManualTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
 	CompleteServiceTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
 	CompleteSendMessageTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
-	CompleteUserTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error
+	CompleteUserTask(ctx context.Context, jobId string) error
 	ListWorkflows(ctx context.Context, res chan<- *model.ListWorkflowResponse, errs chan<- error)
 	StoreWorkflow(ctx context.Context, wf *model.Workflow) (string, error)
-	ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error
+	ProcessTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error
 	EnsureServiceTaskConsumer(ctx context.Context, uid string) error
 	GetWorkflow(ctx context.Context, workflowID string) (*model.Workflow, error)
 	GetWorkflowNameFor(ctx context.Context, processId string) (string, error)
@@ -95,8 +96,6 @@ type Ops interface {
 	HasValidProcess(ctx context.Context, processInstanceId, executionId string) (*model.ProcessInstance, *model.Execution, error)
 	HasValidExecution(ctx context.Context, executionId string) (*model.Execution, error)
 	GetUserTaskIDs(ctx context.Context, owner string) (*model.UserTasks, error)
-	OwnerID(ctx context.Context, name string) (string, error)
-	OwnerName(ctx context.Context, id string) (string, error)
 	CreateProcessInstance(ctx context.Context, executionId string, parentProcessID string, parentElementID string, processId string, workflowName string, workflowId string, headers []byte) (*model.ProcessInstance, error)
 	GetProcessInstance(ctx context.Context, processInstanceID string) (*model.ProcessInstance, error)
 	DestroyProcessInstance(ctx context.Context, state *model.WorkflowState, processInstanceId string, executionId string) error
@@ -118,6 +117,9 @@ type Ops interface {
 	TearDownWorkflow(ctx context.Context, state *model.WorkflowState) (bool, error)
 	DeleteFatalError(ctx context.Context, state *model.WorkflowState) error
 	GetActiveEntries(ctx context.Context, processInstanceID string, result chan<- *model.ProcessHistoryEntry, errs chan<- error)
+	ListUserTasks(ctx context.Context, ix *usertaskindexer.UserTaskIndexer, owner string, group string, res chan<- *model.ListUserTasksResponse, errs chan<- error)
+	SaveUserTask(ctx context.Context, id string, v []byte, overwrite bool) error
+	OpenUserTask(ctx context.Context, id string, owner string) ([]byte, error)
 }
 
 // Operations provides methods for executing and managing workflow processes.
@@ -448,7 +450,7 @@ func (c *Operations) CancelProcessInstance(ctx context.Context, state *model.Wor
 		return fmt.Errorf("executing is an invalid cancellation state: %w", errors.ErrInvalidState)
 	}
 	if err := c.XDestroyProcessInstance(ctx, state); err != nil {
-		return fmt.Errorf("cancel workflow instance failed: %w", errors.ErrCancelFailed)
+		return fmt.Errorf("cancel workflow instance: %w", errors.ErrCancelFailed)
 	}
 	return nil
 }
@@ -465,7 +467,7 @@ func (c *Operations) CompleteManualTask(ctx context.Context, job *model.Workflow
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowJobManualTaskComplete, job); err != nil {
-		return fmt.Errorf("complete manual task failed to publish manual task complete message: %w", err)
+		return fmt.Errorf("complete manual task: publish manual task complete message: %w", err)
 	}
 	return nil
 }
@@ -475,11 +477,11 @@ func (c *Operations) CompleteServiceTask(ctx context.Context, job *model.Workflo
 	if job.State != model.CancellationState_compensating {
 		if _, err := c.GetProcessHistoryItem(ctx, job.ProcessInstanceId, common.TrackingID(job.Id).ParentID(), model.ProcessHistoryType_activityExecute); errors2.Is(err, jetstream.ErrKeyNotFound) {
 			if err := c.PublishWorkflowState(ctx, subj.NS(messages.WorkflowJobServiceTaskAbort, subj.GetNS(ctx)), job); err != nil {
-				return fmt.Errorf("complete service task failed to publish workflow state: %w", err)
+				return fmt.Errorf("complete service task: publish workflow state: %w", err)
 			}
 			return nil
 		} else if err != nil {
-			return fmt.Errorf("complete service task failed to get old state: %w", err)
+			return fmt.Errorf("complete service task: get old state: %w", err)
 		}
 	}
 	el, err := c.GetElement(ctx, job)
@@ -492,7 +494,7 @@ func (c *Operations) CompleteServiceTask(ctx context.Context, job *model.Workflo
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowJobServiceTaskComplete, job); err != nil {
-		return fmt.Errorf("complete service task failed to publish service task complete message: %w", err)
+		return fmt.Errorf("complete service task: publish service task complete message: %w", err)
 	}
 	return nil
 }
@@ -504,27 +506,80 @@ func (c *Operations) CompleteSendMessageTask(ctx context.Context, job *model.Wor
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowJobSendMessageComplete, job); err != nil {
-		return fmt.Errorf("complete send message task failed to publish send message complete nats message: %w", err)
+		return fmt.Errorf("complete send message task: publish send message complete nats message: %w", err)
 	}
 	return nil
 }
 
 // CompleteUserTask completes and closes a user task with variables
-func (c *Operations) CompleteUserTask(ctx context.Context, job *model.WorkflowState, newvars []byte) error {
+func (c *Operations) CompleteUserTask(ctx context.Context, jobId string) error {
+	job, err := c.GetJob(ctx, jobId)
+	if err != nil {
+		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("get job: %w", err)}
+	}
 	el, err := c.GetElement(ctx, job)
 	if err != nil {
-		return &errors.ErrWorkflowFatal{Err: err}
+		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("get job definition: %w", err)}
 	}
-	job.Vars = newvars
+	ns := subj.GetNS(ctx)
+	nsKVs, err := c.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return &errors.ErrWorkflowFatal{Err: fmt.Errorf("get KVs: %w", err)}
+	}
+	taskState := &model.TaskState{Id: jobId, Owner: ctx.Value(ctxkey.SharUser).(string)}
+	if err := common.LoadObj(ctx, nsKVs.WfUserTaskState, jobId, taskState); errors2.Is(err, jetstream.ErrKeyNotFound) {
+		return fmt.Errorf("task not in progress: %w", err)
+	} else if err != nil {
+		return fmt.Errorf("load task state: %w", err)
+	}
+	if taskState.Owner != ctx.Value(ctxkey.SharUser).(string) {
+		return fmt.Errorf("task unavailable: %w", errors.ErrTaskLocked)
+	}
+	job.Vars = taskState.Vars
 	err = vars.CheckVars(ctx, c.exprEngine, job, el)
 	if err != nil {
 		return &errors.ErrWorkflowFatal{Err: err}
 	}
 	if err := c.PublishWorkflowState(ctx, messages.WorkflowJobUserTaskComplete, job); err != nil {
-		return fmt.Errorf("complete user task failed to publish user task complete message: %w", err)
+		return fmt.Errorf("complete user task: publish user task complete message: %w", err)
 	}
 	if err := c.closeUserTask(ctx, common.TrackingID(job.Id).ID()); err != nil {
-		return fmt.Errorf("complete user task failed to close user task: %w", err)
+		return fmt.Errorf("complete user task: close user task: %w", err)
+	}
+	return nil
+}
+
+// SaveUserTask saves the user task's state, either by overwriting or merging with existing state based on the `overwrite` flag.
+func (s *Operations) SaveUserTask(ctx context.Context, id string, b []byte, overwrite bool) error {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return fmt.Errorf("get kvs: %w", err)
+	}
+	oldVars := model2.NewServerVars()
+	taskState := &model.TaskState{}
+	if err := common.LoadObj(ctx, nsKVs.WfUserTaskState, id, taskState); errors2.Is(err, jetstream.ErrKeyNotFound) {
+		return fmt.Errorf("load task state: %w", errors.ErrTaskNotOpen)
+	} else if err != nil {
+		return fmt.Errorf("load task state: %w", err)
+	}
+	newVars := model2.NewServerVars()
+	if err := newVars.Decode(ctx, b); err != nil {
+		return fmt.Errorf("decode new vars: %w", err)
+	}
+	if overwrite {
+		oldVars = newVars
+	} else {
+		for k, v := range newVars.Vals {
+			oldVars.Vals[k] = v
+		}
+	}
+	b, err = oldVars.Encode(ctx)
+	if err != nil {
+		return fmt.Errorf("encode vars: %w", err)
+	}
+	if err := common.SaveObj(ctx, nsKVs.WfUserTaskState, id, &model.TaskState{Vars: b, Id: id, Owner: taskState.Owner}); err != nil {
+		return fmt.Errorf("save overwritten task state: %w", err)
 	}
 	return nil
 }
@@ -645,7 +700,7 @@ func (s *Operations) StoreWorkflow(ctx context.Context, wf *model.Workflow) (str
 		return ret, nil
 	}
 
-	err3 := s.ProcessServiceTasks(ctx, wf, s.EnsureServiceTaskConsumer, createWorkflowProcessMappingFn)
+	err3 := s.ProcessTasks(ctx, wf, s.EnsureServiceTaskConsumer, createWorkflowProcessMappingFn)
 	if err3 != nil {
 		return "", err3
 	}
@@ -770,11 +825,11 @@ func (s *Operations) ensureMessageBuckets(ctx context.Context, wf *model.Workflo
 	return nil
 }
 
-// ProcessServiceTasks iterates over service tasks in the processes of a given workflow setting, validating them and setting their uid into their element definitions
-func (s *Operations) ProcessServiceTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error {
+// ProcessTasks iterates over service tasks in the processes of a given workflow setting, validating them and setting their uid into their element definitions
+func (s *Operations) ProcessTasks(ctx context.Context, wf *model.Workflow, svcTaskConsFn ServiceTaskConsumerFn, wfProcessMappingFn WorkflowProcessMappingFn) error {
 	for _, i := range wf.Process {
 		for _, j := range i.Elements {
-			if j.Type == element.ServiceTask {
+			if j.Type == element.ServiceTask || j.Type == element.UserTask {
 				id, err := s.GetTaskSpecUID(ctx, j.Execute)
 				if err != nil && errors2.Is(err, jetstream.ErrKeyNotFound) {
 					return fmt.Errorf("task %s is not registered: %w", j.Execute, err)
@@ -1173,6 +1228,94 @@ func (s *Operations) DeleteJob(ctx context.Context, trackingID string) error {
 	return nil
 }
 
+var emptyVars = model.NewVars()
+
+// OpenUserTask opens a user task by its ID and owner, ensuring the task is not locked by another owner.
+func (s *Operations) OpenUserTask(ctx context.Context, id string, owner string) ([]byte, error) {
+	ns := subj.GetNS(ctx)
+	nsKVs, err := s.natsService.KvsFor(ctx, ns)
+	if err != nil {
+		return nil, fmt.Errorf("get KVs for ns %s: %w", ns, err)
+	}
+	_, err = s.GetJob(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get job: %w", err)
+	}
+	empty, err := emptyVars.Encode(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("encode empty vars: %w", err)
+	}
+	state := &model.TaskState{Id: id, Owner: owner, Vars: empty}
+	if err := common.LoadObj(ctx, nsKVs.WfUserTaskState, id, state); err == nil {
+		if state.Owner == owner {
+			return state.Vars, nil
+		}
+		return nil, fmt.Errorf("load task: %w", errors.ErrTaskLocked)
+	} else if errors2.Is(err, jetstream.ErrKeyNotFound) {
+		if err := common.CreateObj(ctx, nsKVs.WfUserTaskState, id, state); err != nil {
+			return nil, fmt.Errorf("create workflow task state: %w", err)
+		}
+		return state.Vars, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("get workflow task state: %w", err)
+	}
+	return nil, fmt.Errorf("open task: %w", errors.ErrTaskLocked)
+}
+
+// ListUserTasks lists user tasks based on the specified owner or group and returns results to the provided channel.
+func (s *Operations) ListUserTasks(ctx context.Context, ix *usertaskindexer.UserTaskIndexer, owner string, group string, res chan<- *model.ListUserTasksResponse, errs chan<- error) {
+	ns := subj.GetNS(ctx)
+	var states chan *model.WorkflowState
+	var callErrs chan error
+	if len(owner) != 0 {
+		states, callErrs = ix.QueryByUser(ctx, ns, owner)
+	} else {
+		states, callErrs = ix.QueryByGroup(ctx, ns, group)
+	}
+	select {
+	case err := <-callErrs:
+		if err != nil {
+			errs <- fmt.Errorf("query index: %w", err)
+			return
+		}
+	default:
+	}
+	specMap := make(map[string]string)
+	for done := false; !done; {
+		select {
+		case state := <-states:
+			if state == nil {
+				done = true
+				break
+			}
+			specId, ok := specMap[state.WorkflowId+"\u001C"+state.ElementId]
+			if !ok {
+				elem, err := s.GetElement(ctx, state)
+				if err != nil {
+					errs <- fmt.Errorf("get workflow for indexItem: %w", err)
+					done = true
+				}
+				specId = *elem.Version
+				specMap[state.WorkflowId+"\u001C"+state.ElementId] = specId
+			}
+
+			res <- &model.ListUserTasksResponse{
+				Id:       common.TrackingID(state.Id).ID(),
+				SpecUid:  specId,
+				State:    state.Vars,
+				LockedBy: "",
+			}
+		case err := <-callErrs:
+			if err == nil {
+				done = true
+				break
+			}
+			errs <- fmt.Errorf("list user tasks: %w", err)
+			done = true
+		}
+	}
+}
+
 // ListExecutions returns a list of running workflows and versions given a workflow Name
 func (s *Operations) ListExecutions(ctx context.Context, workflowName string, wch chan<- *model.ListExecutionItem, errs chan<- error) {
 	log := logx.FromContext(ctx)
@@ -1289,10 +1432,8 @@ func (s *Operations) PublishWorkflowState(ctx context.Context, stateName string,
 		return fmt.Errorf("publish workflow state message: %w", err)
 	}
 	if stateName == subj.NS(messages.WorkflowJobUserTaskExecute, subj.GetNS(ctx)) {
-		for _, i := range append(state.Owners, state.Groups...) {
-			if err := s.openUserTask(ctx, i, common.TrackingID(state.Id).ID()); err != nil {
-				return fmt.Errorf("open user task during publish workflow state: %w", err)
-			}
+		if err := s.createUserTask(ctx, state); err != nil {
+			return fmt.Errorf("open user task during publish workflow state: %w", err)
 		}
 	}
 	return nil
@@ -1427,18 +1568,15 @@ func (s *Operations) closeUserTask(ctx context.Context, trackingID string) error
 	return retErr
 }
 
-func (s *Operations) openUserTask(ctx context.Context, owner string, id string) error {
+func (s *Operations) createUserTask(ctx context.Context, state *model.WorkflowState) error {
 	ns := subj.GetNS(ctx)
 	nsKVs, err := s.natsService.KvsFor(ctx, ns)
 	if err != nil {
 		return fmt.Errorf("get KVs for ns %s: %w", ns, err)
 	}
 
-	if err := common.UpdateObj(ctx, nsKVs.WfUserTasks, owner, &model.UserTasks{}, func(msg *model.UserTasks) (*model.UserTasks, error) {
-		msg.Id = append(msg.Id, id)
-		return msg, nil
-	}); err != nil {
-		return fmt.Errorf("update user task object: %w", err)
+	if err := common.SaveObj(ctx, nsKVs.WfUserTasks, common.TrackingID(state.Id).ID(), state); err != nil {
+		return fmt.Errorf("create user task object: %w", err)
 	}
 	return nil
 }
@@ -1456,49 +1594,6 @@ func (s *Operations) GetUserTaskIDs(ctx context.Context, owner string) (*model.U
 		return nil, fmt.Errorf("load user task IDs: %w", err)
 	}
 	return ut, nil
-}
-
-// OwnerID gets a unique identifier for a task owner.
-func (s *Operations) OwnerID(ctx context.Context, name string) (string, error) {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	if name == "" {
-		name = "AnyUser"
-	}
-	nm, err := nsKVs.OwnerID.Get(ctx, name)
-	if err != nil && !errors2.Is(err, jetstream.ErrKeyNotFound) {
-		return "", fmt.Errorf("get owner id: %w", err)
-	}
-	if nm == nil {
-		id := ksuid.New().String()
-		if _, err := nsKVs.OwnerID.Put(ctx, name, []byte(id)); err != nil {
-			return "", fmt.Errorf("write owner ID: %w", err)
-		}
-		if _, err = nsKVs.OwnerName.Put(ctx, id, []byte(name)); err != nil {
-			return "", fmt.Errorf("store owner name in kv: %w", err)
-		}
-		return id, nil
-	}
-	return string(nm.Value()), nil
-}
-
-// OwnerName retrieves an owner name given an ID.
-func (s *Operations) OwnerName(ctx context.Context, id string) (string, error) {
-	ns := subj.GetNS(ctx)
-	nsKVs, err := s.natsService.KvsFor(ctx, ns)
-	if err != nil {
-		return "", fmt.Errorf("get KVs for ns %s: %w", ns, err)
-	}
-
-	nm, err := nsKVs.OwnerName.Get(ctx, id)
-	if err != nil {
-		return "", fmt.Errorf("get owner name for id: %w", err)
-	}
-	return string(nm.Value()), nil
 }
 
 // CreateProcessInstance creates a new instance of a process and attaches it to the workflow instance.
@@ -1936,13 +2031,6 @@ func (s *Operations) evaluateOwners(ctx context.Context, owners string, vars *mo
 		jobGroups = append(jobGroups, groups)
 	case []string:
 		jobGroups = append(jobGroups, groups...)
-	}
-	for i, v := range jobGroups {
-		id, err := s.OwnerID(ctx, v)
-		if err != nil {
-			return nil, fmt.Errorf("evaluate owners failed to get owner ID: %w", err)
-		}
-		jobGroups[i] = id
 	}
 	return jobGroups, nil
 }

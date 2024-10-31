@@ -50,6 +50,7 @@ func main() {
 		"KV_default_" + messages.KvProcess,
 		"KV_default_" + messages.KvMessages,
 		"KV_default_" + messages.KvClients,
+		"KV_default_" + messages.KvUserTaskState,
 		"KV_MsgTx_default_continueMessage",
 		"KV_default_WORKFLOW_VARSTATE",
 	}

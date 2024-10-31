@@ -181,7 +181,8 @@ const (
 	APICompleteSendMessageTask        = "WORKFLOW.Api.CompleteSendMessageTask"        // APICompleteSendMessageTask is the complete send message task API subject.
 	APIDeprecateServiceTask           = "WORKFLOW.Api.DeprecateServiceTask"           // APIDeprecateServiceTask is the deprecate service task API subject.
 	APIListExecutableProcess          = "WORKFLOW.Api.APIListExecutableProcess"       // APIListExecutableProcess is the list executable process API subject.
-	APIListUserTaskIDs                = "WORKFLOW.Api.ListUserTaskIDs"                // APIListUserTaskIDs is the list user task IDs API subject.
+	APIListUserTasks                  = "WORKFLOW.Api.ListUserTasks"                  // APIListUserTasks is the list user tasks API subject.
+	APIOpenUserTask                   = "WORKFLOW.Api.OpenUserTask"                   // APIOpenUserTask is the endpoint for locking a user task and retrieving its specification and state.
 	APIGetUserTask                    = "WORKFLOW.Api.GetUserTask"                    // APIGetUserTask is the get user task API subject.
 	APIGetTaskSpecVersions            = "WORKFLOW.Api.GetTaskSpecVersions"            // APIGetTaskSpecVersions is the get task versions API subject.
 	APIHandleWorkflowError            = "WORKFLOW.Api.HandleWorkflowError"            // APIHandleWorkflowError is the handle workflow error API subject.
@@ -204,6 +205,7 @@ const (
 	APIGetCompensationInputVariables  = "WORKFLOW.Api.GetCompensationInputVariables"  // APIGetCompensationInputVariables is the get compensation input variables message subject.
 	APIGetCompensationOutputVariables = "WORKFLOW.Api.GetCompensationOutputVariables" // APIGetCompensationOutputVariables is the get compensation output variables message subject.
 	APIRetry                          = "WORKFLOW.Api.Retry"                          // APIRetry attempts to execute a previously failed activity again
+	ApiSaveUserTask                   = "WORKFLOW.Api.SaveUserTask"                   // ApiSaveUserTask represents the constant for saving user task state.
 )
 
 var (
@@ -229,4 +231,5 @@ var (
 	KvMessages         = "WORKFLOW_MESSAGES"        // KvMessages is the name of the key value store containing messages.
 	KvClients          = "WORKFLOW_CLIENTS"         // KvClients is the name of the key value store containing connected clients.
 	KvFatalError       = "WORKFLOW_FATAL_ERROR"     // KvFatalError is the name of the key value store containing fatal errs.
+	KvUserTaskState    = "WORKFLOW_TASK_STATE"      // KvUserTaskState represents the state of a user task within a workflow.
 )

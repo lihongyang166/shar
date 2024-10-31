@@ -13,6 +13,7 @@ require (
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/expr-lang/expr v1.16.9
+	github.com/galsondor/go-ascii v0.0.0-20151210013816-e2eb5175fb10
 	github.com/go-logr/logr v1.4.2
 	github.com/goccy/go-yaml v1.12.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -99,6 +100,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/smartystreets/goconvey v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect

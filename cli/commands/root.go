@@ -7,7 +7,6 @@ import (
 	"gitlab.com/shar-workflow/shar/cli/commands/message"
 	processinstance "gitlab.com/shar-workflow/shar/cli/commands/process-instance"
 	"gitlab.com/shar-workflow/shar/cli/commands/servicetask"
-	"gitlab.com/shar-workflow/shar/cli/commands/usertask"
 	"gitlab.com/shar-workflow/shar/cli/commands/workflow"
 	"gitlab.com/shar-workflow/shar/cli/flag"
 	"gitlab.com/shar-workflow/shar/cli/output"
@@ -46,7 +45,7 @@ func init() {
 	RootCmd.AddCommand(execution.Cmd)
 	RootCmd.AddCommand(workflow.Cmd)
 	RootCmd.AddCommand(message.Cmd)
-	RootCmd.AddCommand(usertask.Cmd)
+	/*RootCmd.AddCommand(usertask.Cmd)*/
 	RootCmd.AddCommand(servicetask.Cmd)
 	RootCmd.AddCommand(processinstance.Cmd)
 	RootCmd.PersistentFlags().StringVarP(&flag.Value.Server, flag.Server, flag.ServerShort, nats.DefaultURL, "sets the address of a NATS server")
